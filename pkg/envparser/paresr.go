@@ -1,14 +1,13 @@
-package main
+package envparser
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 )
 
-func parsingEnv(filePath string) error {
+func ParsingEnv(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -31,21 +30,7 @@ func parsingEnv(filePath string) error {
 	return nil
 }
 
-func printJson() {
-	chunk := map[string]interface{}{
-		"code":  "5000",
-		"error": "Error",
-		"a":     5,
-		"b":     7,
-	}
-	val, _ := json.Marshal(chunk)
-	fmt.Println(string(val))
-}
-
-func main() {
-	printJson()
-	err := parsingEnv("./.env.global")
-	if err != nil {
-		panic(err)
-	}
-}
+// handle ""
+// make sure no two items have the same key
+// be able to set a .env file as main so that,  {{}} is read as a variable declaration
+// from either global or collection or env variable
