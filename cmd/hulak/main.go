@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 )
@@ -20,7 +22,12 @@ func printJson() {
 
 func main() {
 	printJson()
-	err := envparser.ParsingEnv("../../.env.global")
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	filePath := filepath.Join(cwd, ".env.global")
+	err = envparser.ParsingEnv(filePath)
 	if err != nil {
 		panic(err)
 	}

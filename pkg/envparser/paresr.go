@@ -17,20 +17,34 @@ func ParsingEnv(filePath string) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// skip new line and comments
+		// skip empty line and comments
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// remove the empty lines
-		splitStr := strings.Split(line, "\n")
-		fmt.Println(splitStr)
-		// read each value on = strings.splitAfter =
+		splitStr := strings.Split(line, "\n") // remove the empty lines
+		secret := strings.Split(splitStr[0], "=")
+		key := secret[0]
+		val := secret[1]
+		if strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"") {
+			val = strings.Trim(val, "\"")
+		}
+		if strings.HasPrefix(val, "'") && strings.HasSuffix(val, "'") {
+			val = strings.Trim(val, "'")
+		}
+
+		fmt.Println(key, val)
 	}
-	// create a map so that when user calls it with {{key}} the value is returned
 	return nil
 }
 
+// create a map so that when user calls it with {{key}} the value is returned
+// add make file
 // handle ""
 // make sure no two items have the same key
-// be able to set a .env file as main so that,  {{}} is read as a variable declaration
-// from either global or collection or env variable
+// be able to set a .env file as main so that,  {{}} is read as a variable
+/*
+- If the string includes {{}}, then get the name inside the curly brackets
+- Find the name in the default current environment.
+- Default is global only if user does not have a defined environment.
+- Global > defined > Collection
+*/
