@@ -31,4 +31,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(envparser.GetEnvVar("NAME"))
 }

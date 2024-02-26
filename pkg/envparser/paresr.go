@@ -23,6 +23,7 @@ func trimQuotes(str string) string {
 
 // LoadEnv loads environment variables from the given file path into envVars
 func ParsingEnv(filePath string) error {
+	envVars = make(map[string]string)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -39,10 +40,13 @@ func ParsingEnv(filePath string) error {
 		// remove the empty lines
 		splitStr := strings.Split(line, "\n")
 		secret := strings.Split(splitStr[0], "=")
+		if len(secret) < 2 {
+			// if there is no =
+			continue
+		}
 		key := secret[0]
 		val := secret[1]
 		val = trimQuotes(val)
-		fmt.Println(key, val)
 		envVars[key] = val
 	}
 	// also load global file path by default
@@ -52,7 +56,7 @@ func ParsingEnv(filePath string) error {
 }
 
 // Get secret value from envVars
-func getEnvVar(key string) (string, bool) {
+func GetEnvVar(key string) (string, bool) {
 	value, ok := envVars[key]
 	return value, ok
 }
@@ -68,7 +72,7 @@ func SubstitueVariables(input string) (string, error) {
 		// match[0] is the full match, match[1] is the first group
 		// thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
 		envKey := match[1]
-		if envVal, ok := getEnvVar(envKey); ok {
+		if envVal, ok := GetEnvVar(envKey); ok {
 			input = strings.Replace(input, match[0], envVal, 1)
 		} else {
 			return "", fmt.Errorf("unresolved variable: %s", envKey)
@@ -78,8 +82,16 @@ func SubstitueVariables(input string) (string, error) {
 	return input, nil
 }
 
-// fix nil map error
-// make sure no two items have the same key or is replaced.
+/*
+Handle boolean
+Handle upperCase and lowerCase
+Tests
+Check SubstitueVariables and make sure the substitution is working as expected
+Make sure no two items have the same key or is replaced by the later key/value pair
+
+
+*/
+
 // be able to set a .env file as main so that,  {{}} is read as a variable
 /*
 - Find the name in the default current environment.
