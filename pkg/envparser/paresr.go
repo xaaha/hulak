@@ -2,7 +2,6 @@ package envparser
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -11,7 +10,7 @@ import (
 
 var envVars map[string]string
 
-// if the .env secrets have " " or ” around them, remove it
+// Removes doube quotes " " or single quotes ' from env secrets
 func trimQuotes(str string) string {
 	if len(str) >= 2 {
 		if str[0] == str[len(str)-1] && (str[0] == '"' || str[0] == '\'') {
@@ -21,7 +20,7 @@ func trimQuotes(str string) string {
 	return str
 }
 
-// LoadEnv loads environment variables from the given file path into envVars
+// LoadEnv loads environment variables from the given file path into envVars map
 func ParsingEnv(filePath string) error {
 	envVars = make(map[string]string)
 	file, err := os.Open(filePath)
@@ -50,7 +49,7 @@ func ParsingEnv(filePath string) error {
 		envVars[key] = val
 	}
 	// also load global file path by default
-	// if the global does not exist, no need to panic. Just exit.
+	// if the global does not exist, no need to panic. Just create one and exit.
 	// Same with the collection level .env files
 	return nil
 }
@@ -61,10 +60,10 @@ func GetEnvVar(key string) (string, bool) {
 	return value, ok
 }
 
-// look for the string in the env map && substitue the actual value in place of {{...}}
+// looks for the secret in the envMap && substitue the actual value in place of {{...}}
 func SubstitueVariables(input string) (string, error) {
 	if len(input) == 0 {
-		return "", errors.New("input string can't be empty")
+		return "", fmt.Errorf("input string can't be empty")
 	}
 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 	matches := regex.FindAllStringSubmatch(input, -1)
@@ -83,8 +82,7 @@ func SubstitueVariables(input string) (string, error) {
 }
 
 /*
-Handle boolean
-Handle upperCase and lowerCase
+Print unresolved variables error. It's not printing now
 Tests
 Check SubstitueVariables and make sure the substitution is working as expected
 Make sure no two items have the same key or is replaced by the later key/value pair

@@ -31,5 +31,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(envparser.GetEnvVar("NAME"))
+	// fmt.Println(envparser.GetEnvVar("NAME"))
+	resolved, err := envparser.SubstitueVariables("myNameIs={{NAME}}")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resolved)
+	resolved1, err := envparser.SubstitueVariables("myNameIs={{ixiai}}")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resolved1)
 }
