@@ -1,27 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func printJson() {
-	chunk := map[string]interface{}{
-		"code":  "5000",
-		"error": "Error",
-		"a":     5,
-		"b":     7,
-	}
-	val, _ := json.Marshal(chunk)
-	fmt.Println(string(val))
-}
-
 func main() {
-	printJson()
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -39,7 +27,7 @@ func main() {
 	fmt.Println(resolved)
 	resolved1, err := envparser.SubstitueVariables("myNameIs={{ixiai}}")
 	if err != nil {
-		panic(err)
+		utils.PrintError(err)
 	}
-	fmt.Println(resolved1)
+	fmt.Println("Hello", resolved1)
 }

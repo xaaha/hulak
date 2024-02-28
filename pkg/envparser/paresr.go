@@ -5,10 +5,42 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
+// At this point. Secrets only support strings
 var envVars map[string]string
+
+/*
+TODO: parse the secrets dynamically to it's respective types
+GetEnvVarGeneric attempts to retrieve an environment variable and guess its type.
+But it's not being used
+*/
+func GetEnvVarGeneric(key string) (interface{}, error) {
+	valueStr, ok := envVars[key]
+	if !ok {
+		return nil, fmt.Errorf("environment variable not found: %s", key)
+	}
+
+	// Attempt to parse as bool
+	if valueBool, err := strconv.ParseBool(valueStr); err == nil {
+		return valueBool, nil
+	}
+
+	// Attempt to parse as int
+	if valueInt, err := strconv.Atoi(valueStr); err == nil {
+		return valueInt, nil
+	}
+
+	// Attempt to parse as float
+	if valueFloat, err := strconv.ParseFloat(valueStr, 64); err == nil {
+		return valueFloat, nil
+	}
+
+	// Default to string if no other types match
+	return valueStr, nil
+}
 
 // Removes doube quotes " " or single quotes ' from env secrets
 func trimQuotes(str string) string {
@@ -68,8 +100,10 @@ func SubstitueVariables(input string) (string, error) {
 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 	matches := regex.FindAllStringSubmatch(input, -1)
 	for _, match := range matches {
-		// match[0] is the full match, match[1] is the first group
-		// thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
+		/*
+			match[0] is the full match, match[1] is the first group
+			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
+		*/
 		envKey := match[1]
 		if envVal, ok := GetEnvVar(envKey); ok {
 			input = strings.Replace(input, match[0], envVal, 1)
@@ -82,12 +116,9 @@ func SubstitueVariables(input string) (string, error) {
 }
 
 /*
-Print unresolved variables error. It's not printing now
 Tests
 Check SubstitueVariables and make sure the substitution is working as expected
 Make sure no two items have the same key or is replaced by the later key/value pair
-
-
 */
 
 // be able to set a .env file as main so that,  {{}} is read as a variable
