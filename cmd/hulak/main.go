@@ -1,33 +1,23 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
-	"path/filepath"
-
-	"github.com/xaaha/hulak/pkg/envparser"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func main() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	filePath := filepath.Join(cwd, ".env.global")
-	err = envparser.ParsingEnv(filePath)
-	if err != nil {
-		panic(err)
-	}
-	// fmt.Println(envparser.GetEnvVar("NAME"))
-	resolved, err := envparser.SubstitueVariables("myNameIs={{NAME}}")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(resolved)
-	resolved1, err := envparser.SubstitueVariables("myNameIs={{ixiai}}")
-	if err != nil {
-		utils.PrintError(err)
-	}
-	fmt.Println("Hello", resolved1)
+	wordPtr := flag.String("word", "foo", "a string")
+	numbPtr := flag.Int("numb", 42, "an int")
+	forkPtr := flag.Bool("fork", false, "a bool")
+
+	var svar string
+	flag.StringVar(&svar, "svar", "bar", "a string var")
+
+	flag.Parse()
+
+	fmt.Println("word:", *wordPtr)
+	fmt.Println("numb:", *numbPtr)
+	fmt.Println("fork:", *forkPtr)
+	fmt.Println("svar:", svar)
+	fmt.Println("tail:", flag.Args())
 }

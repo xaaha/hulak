@@ -124,23 +124,32 @@ func SubstitueVariables(input string) (string, error) {
 }
 
 /*
-- navigate to each folder in the root  to look for the .env folder.
-- if the folder does not exist, create a folder and a file. and exit
-- if the folder exists, but the file does not exsts, then create the file
-and exit.
-- Otherwise, look for the global.env by default. Otherwise, look for the the
-environment specified by the user
-- Something like what lazy git does with *
-- Always look for active environment, collection, and then global
-- if the variable is not found then return the error in red
+// using the function above
+func howToUse() {
+	// get cwd
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	filePath := filepath.Join(cwd, ".env.global")
+	err = ParsingEnv(filePath)
+	if err != nil {
+		panic(err)
+	}
+	resolved, err := SubstitueVariables("myNameIs={{NAME}}")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resolved)
+}
 */
+
 /*
 Tests
 Check SubstitueVariables and make sure the substitution is working as expected
 Make sure no two items have the same key or is replaced by the later key/value pair
 */
 
-// be able to set a .env file as main so that,  {{}} is read as a variable
 /*
 - Find the name in the default current environment.
 - Default is global only if user does not have a defined environment.
