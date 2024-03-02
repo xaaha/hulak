@@ -6,6 +6,9 @@ import (
 )
 
 func main() {
+	/* Copied from https://gobyexample.com/command-line-flags
+	go build -o hulak  cmd/hulak/main.go
+	*/
 	wordPtr := flag.String("word", "foo", "a string")
 	numbPtr := flag.Int("numb", 42, "an int")
 	forkPtr := flag.Bool("fork", false, "a bool")
@@ -20,4 +23,5 @@ func main() {
 	fmt.Println("fork:", *forkPtr)
 	fmt.Println("svar:", svar)
 	fmt.Println("tail:", flag.Args())
+	// these flags should be in the help docs
 }
