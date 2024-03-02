@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	colorRed   = "\033[31m"
+	colorRed   = "\033[31;1;4m"
 	colorReset = "\033[0m"
 )
 
