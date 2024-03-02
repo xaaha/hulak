@@ -70,7 +70,15 @@ func ParsingEnv(filePath string) error {
 		}
 		// remove the empty lines
 		splitStr := strings.Split(line, "\n")
-		secret := strings.Split(splitStr[0], "=")
+
+		// trim all empty spaces around the secret line and around =
+		var trimedStr string
+		for _, eachLine := range splitStr {
+			trimedStr = strings.ReplaceAll(eachLine, " ", "")
+		}
+		// trim quotes around the =, and before and after the string
+		fmt.Println("String that is trimed of spaces", trimedStr)
+		secret := strings.Split(trimedStr, "=")
 		if len(secret) < 2 {
 			// if there is no =
 			continue
