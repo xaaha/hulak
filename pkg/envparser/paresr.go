@@ -2,6 +2,7 @@ package envparser
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"regexp"
@@ -94,8 +95,8 @@ func ParsingEnv(filePath string) error {
 	return nil
 }
 
-// Get secret value from envVars
-func GetEnvVar(key string) (string, bool) {
+// Get secret value from envVars map
+func getEnvVar(key string) (string, bool) {
 	value, ok := envVars[key]
 	return value, ok
 }
@@ -113,7 +114,7 @@ func SubstitueVariables(input string) (string, error) {
 			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
 		*/
 		envKey := match[1]
-		if envVal, ok := GetEnvVar(envKey); ok {
+		if envVal, ok := getEnvVar(envKey); ok {
 			input = strings.Replace(input, match[0], envVal, 1)
 		} else {
 			return "", fmt.Errorf("unresolved variable: %s", envKey)
@@ -121,6 +122,51 @@ func SubstitueVariables(input string) (string, error) {
 	}
 
 	return input, nil
+}
+
+// Get a list of environment file names from the env folder
+func GetEnvFiles() ([]string, error) {
+	var environmentFiles []string
+	dir, err := os.Getwd()
+	if err != nil {
+		return environmentFiles, err
+	}
+	// get a list of envFileName
+	contents, err := os.ReadDir(dir + "/env")
+	if err != nil {
+		panic(err)
+	}
+
+	// discard any folder in the env directory
+	for _, fileOrDir := range contents {
+		if !fileOrDir.IsDir() {
+			environmentFiles = append(environmentFiles, fileOrDir.Name())
+		}
+	}
+	fmt.Println("Env Files", environmentFiles)
+	return environmentFiles, nil
+}
+
+// Set SetDefault environment as global.
+func SetDefaultEnv() {
+	environmentFiles, err := GetEnvFiles()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, file := range environmentFiles {
+		file = strings.ToLower(file)
+		file = strings.ReplaceAll(file, ".env", "")
+		env := flag.String("env", "global", "environment files")
+		flag.Parse()
+		userDefinedEnv := *env
+		userDefinedEnv = strings.ToLower(userDefinedEnv)
+	}
+	// if the user has a flag that tell us their default environment, then use that.
+	// otherwise use global as default.
+	// if the flag user provides does not exist in the env folder
+
+	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }
 
 /*
@@ -142,12 +188,6 @@ func howToUse() {
 	}
 	fmt.Println(resolved)
 }
-*/
-
-/*
-Tests
-Check SubstitueVariables and make sure the substitution is working as expected
-Make sure no two items have the same key or is replaced by the later key/value pair
 */
 
 /*
