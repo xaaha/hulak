@@ -35,6 +35,8 @@ func main() {
 
 /*
 - Complete the SetDefaultEnv in the parser pkg
+ - Handle Error conditions of SetDefaultEnv and test (what if's)
+- Keep track of all the flags
 - Use the same function if the user gives in -env flag and argument
 - Then put it in the initiallizer so that when I build the binary, it first
     - creates the env folders

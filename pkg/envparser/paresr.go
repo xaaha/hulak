@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -148,25 +149,40 @@ func GetEnvFiles() ([]string, error) {
 }
 
 // Set SetDefault environment as global.
-func SetDefaultEnv() {
+func SetDefaultEnv() error {
+	err := os.Setenv("hulakEnv", "global")
+	if err != nil {
+		return fmt.Errorf("error setting environment variable: %v", err)
+	}
 	environmentFiles, err := GetEnvFiles()
 	if err != nil {
-		panic(err)
+		return err
 	}
-
+	var environments []string
 	for _, file := range environmentFiles {
 		file = strings.ToLower(file)
-		file = strings.ReplaceAll(file, ".env", "")
-		env := flag.String("env", "global", "environment files")
-		flag.Parse()
-		userDefinedEnv := *env
-		userDefinedEnv = strings.ToLower(userDefinedEnv)
+		fileName := strings.ReplaceAll(file, ".env", "")
+		environments = append(environments, fileName)
 	}
-	// if the user has a flag that tell us their default environment, then use that.
-	// otherwise use global as default.
-	// if the flag user provides does not exist in the env folder
+	envFromFlag := flag.String("env", "global", "environment files")
+	flag.Parse()
+	userDefinedEnv := *envFromFlag
+	userDefinedEnv = strings.ToLower(userDefinedEnv)
 
-	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
+	if !slices.Contains(environments, userDefinedEnv) {
+		fmt.Println(
+			"Environment file does not exist in the env folder. Default Environment value",
+			os.Getenv("hulakEnv"),
+		)
+		return fmt.Errorf("create %v.env file", userDefinedEnv)
+	}
+	err = os.Setenv("hulakEnv", userDefinedEnv)
+	if err != nil {
+		return err
+	}
+	// if the flag user provides does not exist in the env folder
+	// ask if the user want's to create the file in the folder
+	return nil
 }
 
 /*
