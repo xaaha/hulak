@@ -17,7 +17,7 @@ var envVars map[string]string
 /*
 TODO: parse the secrets dynamically to it's respective types
 GetEnvVarGeneric attempts to retrieve an environment variable and guess its type.
-But it's not being used
+Currently it's not being used
 */
 func GetEnvVarGeneric(key string) (interface{}, error) {
 	valueStr, ok := envVars[key]
@@ -90,9 +90,6 @@ func ParsingEnv(filePath string) error {
 		val = trimQuotes(val)
 		envVars[key] = val
 	}
-	// also load global file path by default
-	// if the global does not exist, no need to panic. Just create one and exit.
-	// Same with the collection level .env files
 	return nil
 }
 
@@ -107,6 +104,7 @@ func SubstitueVariables(input string) (string, error) {
 	if len(input) == 0 {
 		return "", fmt.Errorf("input string can't be empty")
 	}
+	// matches string with: {{key}}
 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 	matches := regex.FindAllStringSubmatch(input, -1)
 	for _, match := range matches {
@@ -149,11 +147,16 @@ func GetEnvFiles() ([]string, error) {
 }
 
 // Set SetDefault environment as global.
+// how do you trigger the function from the flag?
+// grab the vlaue from the flag and then try to set it up.
+// if it exists, then set that, otherwise ask to create or set global as default
 func SetDefaultEnv() error {
+	// set default hulakEnv
 	err := os.Setenv("hulakEnv", "global")
 	if err != nil {
 		return fmt.Errorf("error setting environment variable: %v", err)
 	}
+	// get a list of env files and get their file name
 	environmentFiles, err := GetEnvFiles()
 	if err != nil {
 		return err
@@ -170,18 +173,23 @@ func SetDefaultEnv() error {
 	userDefinedEnv = strings.ToLower(userDefinedEnv)
 
 	if !slices.Contains(environments, userDefinedEnv) {
-		fmt.Println(
-			"Environment file does not exist in the env folder. Default Environment value",
-			os.Getenv("hulakEnv"),
+		fmt.Printf(
+			"%v does not exist in the env folder. Current Environment: %v.",
+			userDefinedEnv, os.Getenv("hulakEnv"),
 		)
-		return fmt.Errorf("create %v.env file", userDefinedEnv)
+		return fmt.Errorf("create %v.env file in the env folder", userDefinedEnv)
 	}
 	err = os.Setenv("hulakEnv", userDefinedEnv)
 	if err != nil {
 		return err
 	}
-	// if the flag user provides does not exist in the env folder
-	// ask if the user want's to create the file in the folder
+	/*
+			This function should accept user flag. Or when user provides -env staging, then
+		  set that as a default env otherwise global
+		  That means, -env fileName should trigger this function
+		  if the flag user provided does not exist in the env folder
+		  ask if the user would like to create the file in the folder
+	*/
 	return nil
 }
 
@@ -207,6 +215,10 @@ func howToUse() {
 */
 
 /*
+- When do we set up the env?
+  - When user passes -env staging or something similar in the shell
+  - There should be a terminal ui to change the envrionment for now
+  - hulak -env staging should do it whether itself or with other command
 - Find the name in the default current environment.
 - Default is global only if user does not have a defined environment.
 - Global > defined > Collection
