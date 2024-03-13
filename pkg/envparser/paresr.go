@@ -150,34 +150,44 @@ func GetEnvFiles() ([]string, error) {
 Sets global as default env if -env flag is not provided
 */
 func SetDefaultEnv() error {
-	// set default hulakEnv
-	err := os.Setenv("hulakEnv", "global")
-	if err != nil {
-		return fmt.Errorf("error setting environment variable: %v", err)
+	envName := "hulakEnv"
+	// set default value if the env is empty
+	if os.Getenv(envName) == "" {
+		err := os.Setenv(envName, "global")
+		if err != nil {
+			return fmt.Errorf("error setting environment variable: %v", err)
+		}
 	}
 	// get a list of env files and get their file name
 	environmentFiles, err := GetEnvFiles()
 	if err != nil {
 		return err
 	}
-	var environments []string
+	var envFromFiles []string
 	for _, file := range environmentFiles {
 		file = strings.ToLower(file)
 		fileName := strings.ReplaceAll(file, ".env", "")
-		environments = append(environments, fileName)
+		envFromFiles = append(envFromFiles, fileName)
 	}
+
+	// get user's provided value
 	envFromFlag := flag.String("env", "global", "environment files")
 	flag.Parse()
 	*envFromFlag = strings.ToLower(*envFromFlag)
 
-	if !slices.Contains(environments, *envFromFlag) {
+	// compare both values
+	if !slices.Contains(envFromFiles, *envFromFlag) {
 		fmt.Printf(
-			"%v does not exist in the env folder. Current Environment: %v.",
-			*envFromFlag, os.Getenv("hulakEnv"),
+			"%v does not exist in the env folder. Current Active Environment: %v.",
+			*envFromFlag, os.Getenv(envName),
 		)
-		return fmt.Errorf("create %v.env file in the env folder", *envFromFlag)
+		return fmt.Errorf(
+			"create '%v.env' file in the env folder or provide a valid existing environment",
+			*envFromFlag,
+		)
 	}
-	err = os.Setenv("hulakEnv", *envFromFlag)
+
+	err = os.Setenv(envName, *envFromFlag)
 	if err != nil {
 		return err
 	}
@@ -191,8 +201,6 @@ func SetDefaultEnv() error {
 					- If No ~ let the user know that the default value is
 						- Get env from global.
 				- If the flag's value
-		- If the user has does not have the  flag
-			- Then set global as default.
 		- User should be able to set the variable from terminal.
 	*/
 	return nil
