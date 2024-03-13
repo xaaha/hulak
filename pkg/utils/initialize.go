@@ -46,5 +46,8 @@ func InitializeProject() {
 	if err != nil {
 		panic(err)
 	}
-	envparser.SetDefaultEnv()
+	err = envparser.SetDefaultEnv()
+	if err != nil {
+		panic(err)
+	}
 }

@@ -146,10 +146,9 @@ func GetEnvFiles() ([]string, error) {
 	return environmentFiles, nil
 }
 
-// Set SetDefault environment as global.
-// how do you trigger the function from the flag?
-// grab the vlaue from the flag and then try to set it up.
-// if it exists, then set that, otherwise ask to create or set global as default
+/*
+Sets global as default env if -env flag is not provided
+*/
 func SetDefaultEnv() error {
 	// set default hulakEnv
 	err := os.Setenv("hulakEnv", "global")
@@ -169,29 +168,39 @@ func SetDefaultEnv() error {
 	}
 	envFromFlag := flag.String("env", "global", "environment files")
 	flag.Parse()
-	userDefinedEnv := *envFromFlag
-	userDefinedEnv = strings.ToLower(userDefinedEnv)
+	*envFromFlag = strings.ToLower(*envFromFlag)
 
-	if !slices.Contains(environments, userDefinedEnv) {
+	if !slices.Contains(environments, *envFromFlag) {
 		fmt.Printf(
 			"%v does not exist in the env folder. Current Environment: %v.",
-			userDefinedEnv, os.Getenv("hulakEnv"),
+			*envFromFlag, os.Getenv("hulakEnv"),
 		)
-		return fmt.Errorf("create %v.env file in the env folder", userDefinedEnv)
+		return fmt.Errorf("create %v.env file in the env folder", *envFromFlag)
 	}
-	err = os.Setenv("hulakEnv", userDefinedEnv)
+	err = os.Setenv("hulakEnv", *envFromFlag)
 	if err != nil {
 		return err
 	}
 	/*
-			This function should accept user flag. Or when user provides -env staging, then
-		  set that as a default env otherwise global
-		  That means, -env fileName should trigger this function
-		  if the flag user provided does not exist in the env folder
-		  ask if the user would like to create the file in the folder
+		- If the user has provided the flag during run.
+			-  Get the flag's value.
+				- handle the error if the flag is set but the value is not provided.
+			- Check the flag's value against a list of available env files.
+				- If the flag's value does not match what's available. Ask user if they want to create the file.
+					- If Yes ~ create a file and set the env as the name.
+					- If No ~ let the user know that the default value is
+						- Get env from global.
+				- If the flag's value
+		- If the user has does not have the  flag
+			- Then set global as default.
+		- User should be able to set the variable from terminal.
 	*/
 	return nil
 }
+
+/*
+Write a function that is triggered if the user has provided flag... Figure this out.
+*/
 
 /*
 // using the function above
