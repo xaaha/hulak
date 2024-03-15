@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/xaaha/hulak/pkg/envparser"
-)
+import "github.com/xaaha/hulak/pkg/envparser"
 
 /*
 InitializeProject() starts the project by creating envfolder and global file in it.
@@ -13,7 +11,7 @@ func InitializeProject() {
 	if err != nil {
 		panic(err)
 	}
-	err = envparser.SetDefaultEnv()
+	err = envparser.SetEnvironment()
 	if err != nil {
 		panic(err)
 	}

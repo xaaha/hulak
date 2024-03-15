@@ -7,10 +7,16 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// At this point. Secrets only support strings
-var envVars map[string]string
+var hulakEnvironmentVariables map[string]string
+
+const (
+	envKey        = "hulakEnv"
+	defaultEnvVal = "global"
+)
 
 // Get a list of environment file names from the env folder
 func GetEnvFiles() ([]string, error) {
@@ -40,11 +46,10 @@ Sets default environment for the user.
 Global is default if -env flagName is not provided.
 Also, asks the user if they want to create the file in env folder
 */
-func SetDefaultEnv() error {
-	envName := "hulakEnv"
+func SetEnvironment() error {
 	// set default value if the env is empty
-	if os.Getenv(envName) == "" {
-		err := os.Setenv(envName, "global")
+	if os.Getenv(envKey) == "" {
+		err := os.Setenv(envKey, defaultEnvVal)
 		if err != nil {
 			return fmt.Errorf("error setting environment variable: %v", err)
 		}
@@ -62,7 +67,7 @@ func SetDefaultEnv() error {
 	}
 
 	// get user's provided value
-	envFromFlag := flag.String("env", "global", "environment files")
+	envFromFlag := flag.String("env", defaultEnvVal, "environment files")
 	flag.Parse()
 	*envFromFlag = strings.ToLower(*envFromFlag)
 
@@ -70,7 +75,7 @@ func SetDefaultEnv() error {
 	if !slices.Contains(envFromFiles, *envFromFlag) {
 		fmt.Printf(
 			"%v does not exist in the env directory. Current Active Environment: %v.",
-			*envFromFlag, os.Getenv(envName),
+			*envFromFlag, os.Getenv(envKey),
 		)
 		// ask if the file does not exist
 		fmt.Printf("Would you like to create the file %v? (y/n)", *envFromFlag)
@@ -90,7 +95,7 @@ func SetDefaultEnv() error {
 		}
 	}
 
-	err = os.Setenv(envName, *envFromFlag)
+	err = os.Setenv(envKey, *envFromFlag)
 	if err != nil {
 		return err
 	}
@@ -107,9 +112,9 @@ func trimQuotes(str string) string {
 	return str
 }
 
-// Given file path this func loads environment variables to a envVars map
+// Given .env file path this func loads environment variables to a hulakEnvironmentVariables map
 func LoadEnvVars(filePath string) error {
-	envVars = make(map[string]string)
+	hulakEnvironmentVariables = make(map[string]string)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -141,8 +146,42 @@ func LoadEnvVars(filePath string) error {
 		key := secret[0]
 		val := secret[1]
 		val = trimQuotes(val)
-		envVars[key] = val
+		hulakEnvironmentVariables[key] = val
 	}
+	return nil
+}
+
+/*
+Generate FinalHulakEnvironment FinalEnvMap
+Users Choice >  Global
+*/
+func FinalEnvMap() error {
+	err := SetEnvironment()
+	if err != nil {
+		return fmt.Errorf("error while setting environment: %v", err)
+	}
+	envVal, ok := os.LookupEnv(envKey)
+	if !ok {
+		return fmt.Errorf("error while looking up environment variable")
+	}
+
+	envFileName := envVal + ".env"
+
+	// if envFileName is not global, then create a map first with the val provided
+	// then merge the maps replacing the global with defined
+	// main.go has the sample code
+	// make sure the LoadEnv can actually merge the two maps, while replacing the duplicate values
+
+	completeFilePath, err := utils.CreateFilePath(envFileName)
+	if err != nil {
+		return fmt.Errorf("error during creating  %v: %v", envFileName, err)
+	}
+
+	err = LoadEnvVars(completeFilePath)
+	if err != nil {
+		return fmt.Errorf("error while loading, %v, : %v", completeFilePath, err)
+	}
+
 	return nil
 }
 

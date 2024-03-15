@@ -8,7 +8,7 @@ import (
 
 // Get secret value from envVars map
 func GetEnvVarValue(key string) (string, bool) {
-	value, ok := envVars[key]
+	value, ok := hulakEnvironmentVariables[key]
 	return value, ok
 }
 

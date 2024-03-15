@@ -32,15 +32,50 @@ func main() {
 }
 
 /*
-- Complete the SetDefaultEnv in the parser pkg
- - Handle Error conditions of SetDefaultEnv and test (what if's)
-- Keep track of all the flags
-- Use the same function if the user gives in -env flag and argument
-- Then put it in the initiallizer so that when I build the binary, it first
-    - creates the env folders
-    - creates the global.env file
-    - should be able to read and parse the contents
+// something like this
+func FinalEnvMap() error {
+	err := SetEnvironment()
+	if err != nil {
+		return fmt.Errorf("error while setting environment: %v", err)
+	}
 
+	envVal, ok := os.LookupEnv("ENV_KEY") // Make sure to use the correct envKey variable
+	if !ok {
+		return fmt.Errorf("error while looking up environment variable")
+	}
+
+	envFileName := envVal + ".env"
+
+	// Always start by loading global environment variables
+	globalEnvFileName := "global.env"
+	globalFilePath, err := utils.CreateFilePath(globalEnvFileName)
+	if err != nil {
+		return fmt.Errorf("error during creating %v: %v", globalEnvFileName, err)
+	}
+
+	// Load global environment variables
+	err = LoadEnvVars(globalFilePath)
+	if err != nil {
+		return fmt.Errorf("error while loading %v: %v", globalFilePath, err)
+	}
+
+	// If envFileName is not "global.env", load the user-provided environment variables
+	if envFileName != globalEnvFileName {
+		completeFilePath, err := utils.CreateFilePath(envFileName)
+		if err != nil {
+			return fmt.Errorf("error during creating %v: %v", envFileName, err)
+		}
+
+		// Load user-provided environment variables
+		err = LoadEnvVars(completeFilePath)
+		if err != nil {
+			return fmt.Errorf("error while loading %v: %v", completeFilePath, err)
+		}
+	}
+
+	return nil
+}
+- Comment in the FinalEnvMap with code above
 Tests
 Check SubstitueVariables and make sure the substitution is working as expected
 Make sure no two items have the same key or is replaced by the later key/value pair
