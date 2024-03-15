@@ -5,43 +5,96 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 )
 
 // At this point. Secrets only support strings
 var envVars map[string]string
 
+// Get a list of environment file names from the env folder
+func GetEnvFiles() ([]string, error) {
+	var environmentFiles []string
+	dir, err := os.Getwd()
+	if err != nil {
+		return environmentFiles, err
+	}
+	// get a list of envFileName
+	contents, err := os.ReadDir(dir + "/env")
+	if err != nil {
+		panic(err)
+	}
+
+	// discard any folder in the env directory
+	for _, fileOrDir := range contents {
+		if !fileOrDir.IsDir() {
+			environmentFiles = append(environmentFiles, fileOrDir.Name())
+		}
+	}
+	fmt.Println("Env Files", environmentFiles)
+	return environmentFiles, nil
+}
+
 /*
-TODO: parse the secrets dynamically to it's respective types
-GetEnvVarGeneric attempts to retrieve an environment variable and guess its type.
-Currently it's not being used
+Sets default environment for the user.
+Global is default if -env flagName is not provided.
+Also, asks the user if they want to create the file in env folder
 */
-func GetEnvVarGeneric(key string) (interface{}, error) {
-	valueStr, ok := envVars[key]
-	if !ok {
-		return nil, fmt.Errorf("environment variable not found: %s", key)
+func SetDefaultEnv() error {
+	envName := "hulakEnv"
+	// set default value if the env is empty
+	if os.Getenv(envName) == "" {
+		err := os.Setenv(envName, "global")
+		if err != nil {
+			return fmt.Errorf("error setting environment variable: %v", err)
+		}
+	}
+	// get a list of env files and get their file name
+	environmentFiles, err := GetEnvFiles()
+	if err != nil {
+		return err
+	}
+	var envFromFiles []string
+	for _, file := range environmentFiles {
+		file = strings.ToLower(file)
+		fileName := strings.ReplaceAll(file, ".env", "")
+		envFromFiles = append(envFromFiles, fileName)
 	}
 
-	// Attempt to parse as bool
-	if valueBool, err := strconv.ParseBool(valueStr); err == nil {
-		return valueBool, nil
+	// get user's provided value
+	envFromFlag := flag.String("env", "global", "environment files")
+	flag.Parse()
+	*envFromFlag = strings.ToLower(*envFromFlag)
+
+	// compare both values
+	if !slices.Contains(envFromFiles, *envFromFlag) {
+		fmt.Printf(
+			"%v does not exist in the env directory. Current Active Environment: %v.",
+			*envFromFlag, os.Getenv(envName),
+		)
+		// ask if the file does not exist
+		fmt.Printf("Would you like to create the file %v? (y/n)", *envFromFlag)
+		reader := bufio.NewReader(os.Stdin)
+		responses, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read responses: %v", err)
+		}
+		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
+			err := CreateDefaultEnvs(envFromFlag)
+			if err != nil {
+				return fmt.Errorf("failed to create environment file: %v", err)
+			}
+			fmt.Println("File Successfully Created")
+		} else {
+			fmt.Println("Skipping file Creation")
+		}
 	}
 
-	// Attempt to parse as int
-	if valueInt, err := strconv.Atoi(valueStr); err == nil {
-		return valueInt, nil
+	err = os.Setenv(envName, *envFromFlag)
+	if err != nil {
+		return err
 	}
-
-	// Attempt to parse as float
-	if valueFloat, err := strconv.ParseFloat(valueStr, 64); err == nil {
-		return valueFloat, nil
-	}
-
-	// Default to string if no other types match
-	return valueStr, nil
+	return nil
 }
 
 // Removes doube quotes " " or single quotes ' from env secrets
@@ -54,8 +107,8 @@ func trimQuotes(str string) string {
 	return str
 }
 
-// LoadEnv loads environment variables from the given file path into envVars map
-func ParsingEnv(filePath string) error {
+// Given file path this func loads environment variables to a envVars map
+func LoadEnvVars(filePath string) error {
 	envVars = make(map[string]string)
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -93,123 +146,8 @@ func ParsingEnv(filePath string) error {
 	return nil
 }
 
-// Get secret value from envVars map
-func getEnvVar(key string) (string, bool) {
-	value, ok := envVars[key]
-	return value, ok
-}
-
-// looks for the secret in the envMap && substitue the actual value in place of {{...}}
-func SubstitueVariables(input string) (string, error) {
-	if len(input) == 0 {
-		return "", fmt.Errorf("input string can't be empty")
-	}
-	// matches string with: {{key}}
-	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
-	matches := regex.FindAllStringSubmatch(input, -1)
-	for _, match := range matches {
-		/*
-			match[0] is the full match, match[1] is the first group
-			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
-		*/
-		envKey := match[1]
-		if envVal, ok := getEnvVar(envKey); ok {
-			input = strings.Replace(input, match[0], envVal, 1)
-		} else {
-			return "", fmt.Errorf("unresolved variable: %s", envKey)
-		}
-	}
-
-	return input, nil
-}
-
-// Get a list of environment file names from the env folder
-func GetEnvFiles() ([]string, error) {
-	var environmentFiles []string
-	dir, err := os.Getwd()
-	if err != nil {
-		return environmentFiles, err
-	}
-	// get a list of envFileName
-	contents, err := os.ReadDir(dir + "/env")
-	if err != nil {
-		panic(err)
-	}
-
-	// discard any folder in the env directory
-	for _, fileOrDir := range contents {
-		if !fileOrDir.IsDir() {
-			environmentFiles = append(environmentFiles, fileOrDir.Name())
-		}
-	}
-	fmt.Println("Env Files", environmentFiles)
-	return environmentFiles, nil
-}
-
-/*
-Sets global as default env if -env flag is not provided
-*/
-func SetDefaultEnv() error {
-	envName := "hulakEnv"
-	// set default value if the env is empty
-	if os.Getenv(envName) == "" {
-		err := os.Setenv(envName, "global")
-		if err != nil {
-			return fmt.Errorf("error setting environment variable: %v", err)
-		}
-	}
-	// get a list of env files and get their file name
-	environmentFiles, err := GetEnvFiles()
-	if err != nil {
-		return err
-	}
-	var envFromFiles []string
-	for _, file := range environmentFiles {
-		file = strings.ToLower(file)
-		fileName := strings.ReplaceAll(file, ".env", "")
-		envFromFiles = append(envFromFiles, fileName)
-	}
-
-	// get user's provided value
-	envFromFlag := flag.String("env", "global", "environment files")
-	flag.Parse()
-	*envFromFlag = strings.ToLower(*envFromFlag)
-
-	// compare both values
-	if !slices.Contains(envFromFiles, *envFromFlag) {
-		fmt.Printf(
-			"%v does not exist in the env folder. Current Active Environment: %v.",
-			*envFromFlag, os.Getenv(envName),
-		)
-		return fmt.Errorf(
-			"create '%v.env' file in the env folder or provide a valid existing environment",
-			*envFromFlag,
-		)
-	}
-
-	err = os.Setenv(envName, *envFromFlag)
-	if err != nil {
-		return err
-	}
-	/*
-		- If the user has provided the flag during run.
-			-  Get the flag's value.
-				- handle the error if the flag is set but the value is not provided.
-			- Check the flag's value against a list of available env files.
-				- If the flag's value does not match what's available. Ask user if they want to create the file.
-					- If Yes ~ create a file and set the env as the name.
-					- If No ~ let the user know that the default value is
-						- Get env from global.
-				- If the flag's value
-		- User should be able to set the variable from terminal.
-	*/
-	return nil
-}
-
-/*
-Write a function that is triggered if the user has provided flag... Figure this out.
-*/
-
+// using the os.GetEnv grab the default env set by SetDefaultEnv
+// Then construct the file name and use
 /*
 // using the function above
 func howToUse() {
@@ -232,12 +170,9 @@ func howToUse() {
 */
 
 /*
-- When do we set up the env?
   - When user passes -env staging or something similar in the shell
   - There should be a terminal ui to change the envrionment for now
   - hulak -env staging should do it whether itself or with other command
-- Find the name in the default current environment.
-- Default is global only if user does not have a defined environment.
 - Global > defined > Collection
 // something like this but with user's folder
 func ActiveEnv(envName string) error {

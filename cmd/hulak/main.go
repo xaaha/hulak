@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func main() {
@@ -28,7 +26,7 @@ func main() {
 	// these flags should be in the help docs
 
 	// Initialize the project
-	utils.InitializeProject()
+	InitializeProject()
 
 	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }

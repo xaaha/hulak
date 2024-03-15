@@ -1,22 +1,27 @@
-package utils
+package envparser
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/xaaha/hulak/pkg/envparser"
 )
 
-// creates environment folder and a default global.env file in the folder
-func createDefaultEnvs() error {
+/*
+Creates environment folder and a default global.env file in it.
+Optional: File names as a *string
+*/
+func CreateDefaultEnvs(envName *string) error {
+	defaultEnv := "global"
+	if envName != nil {
+		defaultEnv = *envName
+	}
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 	// create a env folder in the root of the project
 	envDirpath := filepath.Join(projectRoot, "env")
-	envFilePath := filepath.Join(envDirpath, "global.env") // global.env as the default
+	envFilePath := filepath.Join(envDirpath, defaultEnv+".env") // global.env as the default
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
 		fmt.Println("Creating env directory...")
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
@@ -35,19 +40,4 @@ func createDefaultEnvs() error {
 		fmt.Println("Global env file created \u2713")
 	}
 	return nil
-}
-
-/*
-InitializeProject() starts the project by creating envfolder and global file in it.
-TBC...
-*/
-func InitializeProject() {
-	err := createDefaultEnvs()
-	if err != nil {
-		panic(err)
-	}
-	err = envparser.SetDefaultEnv()
-	if err != nil {
-		panic(err)
-	}
 }
