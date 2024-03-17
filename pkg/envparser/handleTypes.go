@@ -11,7 +11,7 @@ GetEnvVarGeneric attempts to retrieve an environment variable and guess its type
 Currently it's not being used
 */
 func GetEnvVarGeneric(key string) (interface{}, error) {
-	valueStr, ok := hulakEnvironmentVariables[key]
+	valueStr, ok := GetEnvVarValue(key)
 	if !ok {
 		return nil, fmt.Errorf("environment variable not found: %s", key)
 	}
