@@ -8,7 +8,7 @@ import (
 
 // Get secret value from envVars map
 func GetEnvVarValue(key string) (string, bool) {
-	envMap, err := FinalEnvMap()
+	envMap, err := GenerateFinalEnvMap()
 	if err != nil {
 		panic(err)
 	}

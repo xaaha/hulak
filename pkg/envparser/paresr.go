@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -11,11 +12,12 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-var hulakEnvironmentVariables map[string]string
+// var HulakEnvironmentVariable map[string]string
 
 const (
-	envKey        = "hulakEnv"
-	defaultEnvVal = "global"
+	envKey            = "hulakEnv"
+	defaultEnvVal     = "global"
+	defaultFileSuffix = ".env"
 )
 
 // Get a list of environment file names from the env folder
@@ -62,7 +64,7 @@ func SetEnvironment() error {
 	var envFromFiles []string
 	for _, file := range environmentFiles {
 		file = strings.ToLower(file)
-		fileName := strings.ReplaceAll(file, ".env", "")
+		fileName := strings.ReplaceAll(file, defaultFileSuffix, "")
 		envFromFiles = append(envFromFiles, fileName)
 	}
 
@@ -112,12 +114,12 @@ func trimQuotes(str string) string {
 	return str
 }
 
-// Given .env file path this func loads environment variables to a hulakEnvironmentVariables map
-func LoadEnvVars(filePath string) error {
-	hulakEnvironmentVariables = make(map[string]string)
+// Given .env file path this func returns map of the key-value pair of the content
+func LoadEnvVars(filePath string) (map[string]string, error) {
+	hulakEnvironmentVariable := make(map[string]string)
 	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
@@ -146,86 +148,60 @@ func LoadEnvVars(filePath string) error {
 		key := secret[0]
 		val := secret[1]
 		val = trimQuotes(val)
-		hulakEnvironmentVariables[key] = val
+		hulakEnvironmentVariable[key] = val
 	}
-	return nil
+	return hulakEnvironmentVariable, nil
 }
 
 /*
-Generate FinalHulakEnvironment FinalEnvMap
-Users Choice >  Global
+Generate final HulakEnvironment map.
+User's Choice > Global.
+When user has custom env they want to use, merge custom with global
+and replace global key with custom when keys repeat
 */
-func FinalEnvMap() error {
+func GenerateFinalEnvMap() (map[string]string, error) {
 	err := SetEnvironment()
 	if err != nil {
-		return fmt.Errorf("error while setting environment: %v", err)
+		return nil, fmt.Errorf("error while setting environment: %v", err)
 	}
 	envVal, ok := os.LookupEnv(envKey)
 	if !ok {
-		return fmt.Errorf("error while looking up environment variable")
+		return nil, fmt.Errorf("error while looking up environment variable")
+	}
+	if envVal == "" {
+		envVal = defaultEnvVal
 	}
 
-	envFileName := envVal + ".env"
-
-	// if envFileName is not global, then create a map first with the val provided
-	// then merge the maps replacing the global with defined
-	// main.go has the sample code
-	// make sure the LoadEnv can actually merge the two maps, while replacing the duplicate values
-
+	envFileName := envVal + defaultFileSuffix
 	completeFilePath, err := utils.CreateFilePath(envFileName)
 	if err != nil {
-		return fmt.Errorf("error during creating  %v: %v", envFileName, err)
+		return nil, fmt.Errorf("error while creating  %v: %v", envFileName, err)
 	}
 
-	err = LoadEnvVars(completeFilePath)
+	customMap, err := LoadEnvVars(completeFilePath)
 	if err != nil {
-		return fmt.Errorf("error while loading, %v, : %v", completeFilePath, err)
+		return nil, fmt.Errorf("error while loading, %v, : %v", completeFilePath, err)
 	}
 
-	return nil
+	//	when user has custom env
+	if envFileName != defaultEnvVal {
+		globalEnv := "global.env"
+		globalPath, err := utils.CreateFilePath(globalEnv)
+		if err != nil {
+			return nil, fmt.Errorf("error while creating  %v: %v", globalEnv, err)
+		}
+		globalMap, err := LoadEnvVars(globalPath)
+		if err != nil {
+			return nil, fmt.Errorf("error while loading, %v, : %v", globalPath, err)
+		}
+		maps.Copy(globalMap, customMap)
+	}
+	return customMap, nil
 }
-
-// using the os.GetEnv grab the default env set by SetDefaultEnv
-// Then construct the file name and use
-/*
-// using the function above
-func howToUse() {
-	// get cwd
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	filePath := filepath.Join(cwd, ".env.global")
-	err = ParsingEnv(filePath)
-	if err != nil {
-		panic(err)
-	}
-	resolved, err := SubstitueVariables("myNameIs={{NAME}}")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(resolved)
-}
-*/
 
 /*
   - When user passes -env staging or something similar in the shell
   - There should be a terminal ui to change the envrionment for now
   - hulak -env staging should do it whether itself or with other command
 - Global > defined > Collection
-// something like this but with user's folder
-func ActiveEnv(envName string) error {
-	var filePath string
-	switch envName {
-	case "global":
-		filePath = "path/to/global.env"
-	case "test":
-		filePath = "path/to/test.env"
-	case "prod":
-		filePath = "path/to/prod.env"
-	default:
-		return errors.New("unknown environment")
-	}
-	return LoadEnv(filePath)
-}
 */
