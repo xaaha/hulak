@@ -156,8 +156,8 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 /*
 Generate final HulakEnvironment map.
 User's Choice > Global.
-When user has custom env they want to use, merge custom with global
-and replace global key with custom when keys repeat
+When user has custom env they want to use, it merges custom with global env.
+Replaces global key with custom when keys repeat
 */
 func GenerateFinalEnvMap() (map[string]string, error) {
 	err := SetEnvironment()

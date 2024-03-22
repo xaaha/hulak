@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	"github.com/xaaha/hulak/pkg/envparser"
 )
 
 func main() {
@@ -27,7 +29,12 @@ func main() {
 
 	// Initialize the project
 	InitializeProject()
-
+	// GenerateFinalEnvMap
+	envMap, err := envparser.GenerateFinalEnvMap()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(envMap)
 	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }
 
