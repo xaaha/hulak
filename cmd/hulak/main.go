@@ -40,6 +40,7 @@ func main() {
 
 /*
 Tests
+- Fix the error when running make run-all
 - Default Value is global.env
 - Custom -env flag is used
 - Complete & Final Map can be printed as json
