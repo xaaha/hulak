@@ -37,7 +37,7 @@ func CreateDefaultEnvs(envName *string) error {
 			return err
 		}
 		defer file.Close()
-		fmt.Println("Global env file created \u2713")
+		fmt.Println("Created", defaultEnv+".env", "\u2713")
 	}
 	return nil
 }

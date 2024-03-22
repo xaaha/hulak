@@ -48,7 +48,7 @@ Sets default environment for the user.
 Global is default if -env flagName is not provided.
 Also, asks the user if they want to create the file in env folder
 */
-func SetEnvironment() error {
+func setEnvironment() error {
 	// set default value if the env is empty
 	if os.Getenv(envKey) == "" {
 		err := os.Setenv(envKey, defaultEnvVal)
@@ -160,7 +160,7 @@ When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
 func GenerateFinalEnvMap() (map[string]string, error) {
-	err := SetEnvironment()
+	err := setEnvironment()
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
 	}
