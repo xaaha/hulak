@@ -173,7 +173,7 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	}
 
 	envFileName := envVal + defaultFileSuffix
-	completeFilePath, err := utils.CreateFilePath(envFileName)
+	completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating  %v: %v", envFileName, err)
 	}

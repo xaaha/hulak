@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 )
 
-// Creates and returns file path by joining the project root with provided fileName
-func CreateFilePath(fileName string) (string, error) {
+// Creates and returns file path by joining the project root with provided filePath
+func CreateFilePath(filePath string) (string, error) {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	filePath := filepath.Join(projectRoot, fileName)
+	finalFilePath := filepath.Join(projectRoot, filePath)
 
-	return filePath, nil
+	return finalFilePath, nil
 }
