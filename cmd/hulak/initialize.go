@@ -1,6 +1,8 @@
 package main
 
-import "github.com/xaaha/hulak/pkg/envparser"
+import (
+	"github.com/xaaha/hulak/pkg/envparser"
+)
 
 /*
 InitializeProject() starts the project by creating envfolder and global file in it.

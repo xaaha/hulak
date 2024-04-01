@@ -26,7 +26,7 @@ func CreateDefaultEnvs(envName *string) error {
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
 		fmt.Println("Created env directory \u2713")
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
-			fmt.Println("Error creating env directory")
+			fmt.Println("Error creating env directory \u2717")
 			return err
 		}
 	}
