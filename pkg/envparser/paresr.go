@@ -175,12 +175,12 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	envFileName := envVal + defaultFileSuffix
 	completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating  %v: %v", envFileName, err)
+		return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
 	}
 
 	customMap, err := LoadEnvVars(completeFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("error while loading, %v, : %v", completeFilePath, err)
+		return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
 	}
 
 	//	when user has custom env
@@ -188,11 +188,11 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 		globalEnv := "global.env"
 		globalPath, err := utils.CreateFilePath(globalEnv)
 		if err != nil {
-			return nil, fmt.Errorf("error while creating  %v: %v", globalEnv, err)
+			return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
 		}
 		globalMap, err := LoadEnvVars(globalPath)
 		if err != nil {
-			return nil, fmt.Errorf("error while loading, %v, : %v", globalPath, err)
+			return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
 		}
 		maps.Copy(globalMap, customMap)
 	}
