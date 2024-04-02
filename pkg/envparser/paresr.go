@@ -186,7 +186,7 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	//	when user has custom env
 	if envFileName != defaultEnvVal {
 		globalEnv := "global.env"
-		globalPath, err := utils.CreateFilePath(globalEnv)
+		globalPath, err := utils.CreateFilePath("env/" + globalEnv)
 		if err != nil {
 			return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
 		}
