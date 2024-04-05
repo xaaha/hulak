@@ -39,7 +39,6 @@ func GetEnvFiles() ([]string, error) {
 			environmentFiles = append(environmentFiles, fileOrDir.Name())
 		}
 	}
-	fmt.Println("Env Files", environmentFiles)
 	return environmentFiles, nil
 }
 
