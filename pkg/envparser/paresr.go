@@ -171,8 +171,7 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 		return nil, fmt.Errorf("error while looking up environment variable")
 	}
 
-	// check if the file does not exist when user skips file creation
-	// it should still be default env value when the file creation is skipped
+	// if the file creation was skipped, resort to default
 	if envVal == "" || skipped {
 		envVal = defaultEnvVal
 	}
