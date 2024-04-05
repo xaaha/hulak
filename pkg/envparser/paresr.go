@@ -48,18 +48,19 @@ Sets default environment for the user.
 Global is default if -env flagName is not provided.
 Also, asks the user if they want to create the file in env folder
 */
-func setEnvironment() error {
+func setEnvironment() (bool, error) {
+	fileCreationSkipped := false
 	// set default value if the env is empty
 	if os.Getenv(envKey) == "" {
 		err := os.Setenv(envKey, defaultEnvVal)
 		if err != nil {
-			return fmt.Errorf("error setting environment variable: %v", err)
+			return fileCreationSkipped, fmt.Errorf("error setting environment variable: %v", err)
 		}
 	}
 	// get a list of env files and get their file name
 	environmentFiles, err := GetEnvFiles()
 	if err != nil {
-		return err
+		return fileCreationSkipped, err
 	}
 	var envFromFiles []string
 	for _, file := range environmentFiles {
@@ -76,7 +77,7 @@ func setEnvironment() error {
 	// compare both values
 	if !slices.Contains(envFromFiles, *envFromFlag) {
 		fmt.Printf(
-			"%v does not exist in the env directory. Current Active Environment: %v.",
+			"%v does not exist in the env directory.\nCurrent Active Environment: %v.\n",
 			*envFromFlag, os.Getenv(envKey),
 		)
 		// ask if the file does not exist
@@ -84,24 +85,25 @@ func setEnvironment() error {
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("failed to read responses: %v", err)
+			return fileCreationSkipped, fmt.Errorf("failed to read responses: %v", err)
 		}
 		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
 			err := CreateDefaultEnvs(envFromFlag)
 			if err != nil {
-				return fmt.Errorf("failed to create environment file: %v", err)
+				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
 			}
 			fmt.Println("File Successfully Created")
 		} else {
+			fileCreationSkipped = true
 			fmt.Println("Skipping file Creation")
 		}
 	}
 
 	err = os.Setenv(envKey, *envFromFlag)
 	if err != nil {
-		return err
+		return fileCreationSkipped, err
 	}
-	return nil
+	return fileCreationSkipped, nil
 }
 
 // Removes doube quotes " " or single quotes ' from env secrets
@@ -160,7 +162,7 @@ When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
 func GenerateFinalEnvMap() (map[string]string, error) {
-	err := setEnvironment()
+	skipped, err := setEnvironment()
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
 	}
@@ -168,7 +170,10 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("error while looking up environment variable")
 	}
-	if envVal == "" {
+
+	// check if the file does not exist when user skips file creation
+	// it should still be default env value when the file creation is skipped
+	if envVal == "" || skipped {
 		envVal = defaultEnvVal
 	}
 
