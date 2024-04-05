@@ -141,7 +141,6 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 			trimedStr = strings.ReplaceAll(eachLine, " ", "")
 		}
 		// trim quotes around the =, and before and after the string
-		fmt.Println("String that is trimed of spaces", trimedStr)
 		secret := strings.Split(trimedStr, "=")
 		if len(secret) < 2 {
 			// if there is no =
