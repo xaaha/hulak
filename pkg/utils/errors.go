@@ -11,6 +11,14 @@ func PrintError(err error) {
 	os.Exit(1)
 }
 
+func PrintGreen(msg string) {
+	fmt.Printf("%s%s%s\n", Green, msg, colorReset)
+}
+
+func PrintWarning(msg string) {
+	fmt.Printf("%s%s%s\n", Yellow, msg, colorReset)
+}
+
 /*
 // assuming that ixiai is not a variable defined in the .env files
 resolved1, err := envparser.SubstitueVariables("myNameIs={{ixiai}}")

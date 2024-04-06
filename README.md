@@ -14,5 +14,4 @@
 
 ### To do
 
-- [ ] Strip special character besides \_ or - from the env file name. On `setEnvFile Line 77` and get `env file line 36 `
 - [ ] Unit Testing

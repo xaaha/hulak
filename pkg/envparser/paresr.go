@@ -97,10 +97,10 @@ func setEnvironment() (bool, error) {
 			if err != nil {
 				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
 			}
-			fmt.Println("File Successfully Created")
+			utils.PrintGreen("File Successfully Created")
 		} else {
 			fileCreationSkipped = true
-			fmt.Println("Skipping file Creation")
+			utils.PrintGreen("Skipping file Creation")
 		}
 	}
 
