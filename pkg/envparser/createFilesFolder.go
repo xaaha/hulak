@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 /*
@@ -13,7 +14,8 @@ Optional: File names as a *string
 func CreateDefaultEnvs(envName *string) error {
 	defaultEnv := "global"
 	if envName != nil {
-		defaultEnv = *envName
+		lowerCasedEnv := strings.ToLower(*envName)
+		defaultEnv = lowerCasedEnv
 	}
 	projectRoot, err := os.Getwd()
 	if err != nil {

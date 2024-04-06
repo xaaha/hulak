@@ -12,8 +12,6 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// var HulakEnvironmentVariable map[string]string
-
 const (
 	envKey            = "hulakEnv"
 	defaultEnvVal     = "global"
@@ -36,7 +34,8 @@ func GetEnvFiles() ([]string, error) {
 	// discard any folder in the env directory
 	for _, fileOrDir := range contents {
 		if !fileOrDir.IsDir() {
-			environmentFiles = append(environmentFiles, fileOrDir.Name())
+			lowerCasedEnvFromFile := strings.ToLower(fileOrDir.Name())
+			environmentFiles = append(environmentFiles, lowerCasedEnvFromFile)
 		}
 	}
 	return environmentFiles, nil
@@ -69,9 +68,16 @@ func setEnvironment() (bool, error) {
 	}
 
 	// get user's provided value
-	envFromFlag := flag.String("env", defaultEnvVal, "environment files")
+	envFromFlag := flag.String("env", defaultEnvVal, "environment file to use during the call")
 	flag.Parse()
-	*envFromFlag = strings.ToLower(*envFromFlag)
+
+	// Only take the first argument after -env flag, ignore the rest
+	arguments := strings.Fields(*envFromFlag)
+	if len(arguments) > 0 {
+		*envFromFlag = strings.ToLower(arguments[0])
+	} else {
+		*envFromFlag = defaultEnvVal
+	}
 
 	// compare both values
 	if !slices.Contains(envFromFiles, *envFromFlag) {
@@ -200,10 +206,3 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	}
 	return customMap, nil
 }
-
-/*
-  - When user passes -env staging or something similar in the shell
-  - There should be a terminal ui to change the envrionment for now
-  - hulak -env staging should do it whether itself or with other command
-- Global > defined > Collection
-*/
