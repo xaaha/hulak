@@ -81,12 +81,9 @@ func setEnvironment() (bool, error) {
 
 	// compare both values
 	if !slices.Contains(envFromFiles, *envFromFlag) {
-		fmt.Printf(
-			"%v does not exist in the env directory.\nCurrent Active Environment: %v.\n",
-			*envFromFlag, os.Getenv(envKey),
-		)
-		// ask if the file does not exist
-		fmt.Printf("Would you like to create the file %v? (y/n)", *envFromFlag)
+		fmt.Printf("'%v.env' not found in the env directory\n", *envFromFlag)
+		// ask to create the file, if the file does not exist
+		fmt.Printf("Create '%v.env'? (y/n)", *envFromFlag)
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
@@ -99,6 +96,7 @@ func setEnvironment() (bool, error) {
 			}
 		} else {
 			fileCreationSkipped = true
+			*envFromFlag = defaultEnvVal
 			utils.PrintGreen("Skipping file Creation")
 		}
 	}

@@ -41,7 +41,7 @@ func CreateDefaultEnvs(envName *string) error {
 			return err
 		}
 		defer file.Close()
-		defMsg := "Created " + defaultEnv + ".env" + " \u2713"
+		defMsg := "'" + defaultEnv + ".env'" + " Created" + " \u2713"
 		utils.PrintGreen(defMsg)
 	}
 	return nil
