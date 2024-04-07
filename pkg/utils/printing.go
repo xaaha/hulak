@@ -11,10 +11,12 @@ func PrintError(err error) {
 	os.Exit(1)
 }
 
+// Success Message
 func PrintGreen(msg string) {
 	fmt.Printf("%s%s%s\n", Green, msg, colorReset)
 }
 
+// Inform or Warn the user
 func PrintWarning(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, colorReset)
 }

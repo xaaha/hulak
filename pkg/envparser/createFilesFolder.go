@@ -28,7 +28,7 @@ func CreateDefaultEnvs(envName *string) error {
 	envDirpath := filepath.Join(projectRoot, "env")
 	envFilePath := filepath.Join(envDirpath, defaultEnv+".env") // global.env as the default
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
-		utils.PrettyPrint("Created env directory \u2713")
+		utils.PrintGreen("Created env directory \u2713")
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
 			fmt.Println("Error creating env directory \u2717")
 			return err
@@ -41,8 +41,8 @@ func CreateDefaultEnvs(envName *string) error {
 			return err
 		}
 		defer file.Close()
-		defMsg := "Created " + defaultEnv + ".env" + "\u2713"
-		utils.PrettyPrint(defMsg)
+		defMsg := "Created " + defaultEnv + ".env" + " \u2713"
+		utils.PrintGreen(defMsg)
 	}
 	return nil
 }

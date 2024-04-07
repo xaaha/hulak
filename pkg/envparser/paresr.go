@@ -97,7 +97,6 @@ func setEnvironment() (bool, error) {
 			if err != nil {
 				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
 			}
-			utils.PrintGreen("File Successfully Created")
 		} else {
 			fileCreationSkipped = true
 			utils.PrintGreen("Skipping file Creation")
@@ -105,6 +104,7 @@ func setEnvironment() (bool, error) {
 	}
 
 	err = os.Setenv(envKey, *envFromFlag)
+	fmt.Println("Current active environment:", os.Getenv(envKey))
 	if err != nil {
 		return fileCreationSkipped, err
 	}
