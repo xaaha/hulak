@@ -17,8 +17,4 @@ func TestCreateFilePath(t *testing.T) {
 	if result != expected {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
-
-	// Test case to simulate an error, for example, by temporarily changing the current working directory to an invalid path
 }
-
-// A more advanced test could mock os.Getwd() to return a controlled value or an error, but that involves more complex techniques like interface abstraction or third-party libraries for monkey patching.
