@@ -16,11 +16,23 @@ func TestCreateDefaultEnvs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	os.Chdir(tempDir)
-	defer os.Chdir(oldDir)
-	defer os.RemoveAll(tempDir)
 
-	// Test Cases
+	// Ensure we return to the original directory and remove tempDir when done
+	defer func() {
+		err := os.Chdir(oldDir) // return to the original directory
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.RemoveAll(tempDir) // cleanup: remove the temporary directory
+	}()
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	envDirPath := filepath.Join(tempDir, "env")
+
 	tests := []struct {
 		name     string
 		envName  *string
@@ -35,18 +47,12 @@ func TestCreateDefaultEnvs(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to create env files: %v", err)
 			}
-			envDirPath := filepath.Join(tempDir, "env")
 			envFilePath := filepath.Join(envDirPath, tc.expected)
 			if _, err := os.Stat(envFilePath); os.IsNotExist(err) {
 				t.Errorf("Expected file '%s' was not created", tc.expected)
 			}
 		})
 	}
-
-	// TODO: Cleanup && FIX THIS
-	defer func() {
-		os.RemoveAll(envDirPath) // Remove the test 'env' directory
-	}()
 }
 
 func stringPointer(s string) *string {
