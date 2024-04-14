@@ -1,11 +1,24 @@
 package utils
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 )
 
 // example functions and brain storming
+
+// This is how I should handle printing json files
+func PrintJson() {
+	chunk := map[string]interface{}{
+		"code":  "5000",
+		"error": "Error",
+		"a":     5,
+		"b":     7,
+	}
+	val, _ := json.Marshal(chunk)
+	fmt.Println(string(val))
+}
 
 func HowToUseFlags() {
 	/* Copied from https://gobyexample.com/command-line-flags

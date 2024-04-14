@@ -17,7 +17,7 @@ func TestCreateDefaultEnvs(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Ensure we return to the original directory and remove tempDir when done
+	// Return to the original directory and remove tempDir when done
 	defer func() {
 		err := os.Chdir(oldDir) // return to the original directory
 		if err != nil {

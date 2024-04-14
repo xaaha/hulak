@@ -14,5 +14,6 @@
 
 ### To do
 
-- [ ] Unit Testing.
+- [x] Unit Testing.
+  - Ongoing: parser_test
 - [ ] Remove the env value if the file creation is skipped.
