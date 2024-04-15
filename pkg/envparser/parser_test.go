@@ -22,7 +22,7 @@ func TestGetEnvFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current working directory: %v", err)
 	}
-	// Cleanup
+	// Cleanup temp dir
 	defer func() {
 		err := os.Chdir(oldDir)
 		if err != nil {
@@ -66,7 +66,7 @@ func TestGetEnvFiles(t *testing.T) {
 			len(resultFiles),
 		)
 	}
-
+	/* order is not guranteed with resultFiles so need to create map */
 	expectedFilesMap := make(map[string]bool)
 	for _, file := range expectedFiles {
 		expectedFilesMap[file] = true
@@ -77,4 +77,12 @@ func TestGetEnvFiles(t *testing.T) {
 			t.Errorf("Unexpected file %s returned", file)
 		}
 	}
+}
+
+func TestSetEnvironment(t *testing.T) {
+	/* Test cases
+	* provided flag is captured.
+	* It captures only first argument
+	* second argument should be ignored.
+	 */
 }
