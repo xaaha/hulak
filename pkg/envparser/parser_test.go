@@ -66,7 +66,10 @@ func TestGetEnvFiles(t *testing.T) {
 			len(resultFiles),
 		)
 	}
-	/* order is not guranteed with resultFiles so need to create map */
+	/*
+		order is not guranteed with resultFiles so need to create map
+		and check if the file exists
+	*/
 	expectedFilesMap := make(map[string]bool)
 	for _, file := range expectedFiles {
 		expectedFilesMap[file] = true
