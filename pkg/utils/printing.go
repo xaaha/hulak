@@ -7,18 +7,18 @@ import (
 
 // Prints the error message in red color and exits the program
 func PrintError(err error) {
-	fmt.Printf("%sError: %s%s\n", Red, err, colorReset)
+	fmt.Printf("%sError: %s%s\n", Red, err, ColorReset)
 	os.Exit(1)
 }
 
 // Success Message
 func PrintGreen(msg string) {
-	fmt.Printf("%s%s%s\n", Green, msg, colorReset)
+	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
 }
 
 // Inform or Warn the user
 func PrintWarning(msg string) {
-	fmt.Printf("%s%s%s\n", Yellow, msg, colorReset)
+	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
 /*
