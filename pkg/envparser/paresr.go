@@ -12,63 +12,39 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-const (
-	envKey            = "hulakEnv"
-	defaultEnvVal     = "global"
-	defaultFileSuffix = ".env"
-)
-
-// Get a list of environment file names from the env folder
-func GetEnvFiles() ([]string, error) {
-	var environmentFiles []string
-	dir, err := os.Getwd()
-	if err != nil {
-		return environmentFiles, err
-	}
-	// get a list of envFileName
-	contents, err := os.ReadDir(dir + "/env")
-	if err != nil {
-		panic(err)
-	}
-
-	// discard any folder in the env directory
-	for _, fileOrDir := range contents {
-		if !fileOrDir.IsDir() {
-			lowerCasedEnvFromFile := strings.ToLower(fileOrDir.Name())
-			environmentFiles = append(environmentFiles, lowerCasedEnvFromFile)
-		}
-	}
-	return environmentFiles, nil
-}
-
 /*
 Sets default environment for the user.
 Global is default if -env flagName is not provided.
 Also, asks the user if they want to create the file in env folder
 */
 func setEnvironment() (bool, error) {
+	var utility utils.Utilities
 	fileCreationSkipped := false
 	// set default value if the env is empty
-	if os.Getenv(envKey) == "" {
-		err := os.Setenv(envKey, defaultEnvVal)
+	if os.Getenv(utils.EnvKey) == "" {
+		err := os.Setenv(utils.EnvKey, utils.DefaultEnvVal)
 		if err != nil {
 			return fileCreationSkipped, fmt.Errorf("error setting environment variable: %v", err)
 		}
 	}
 	// get a list of env files and get their file name
-	environmentFiles, err := GetEnvFiles()
+	environmentFiles, err := utility.GetEnvFiles()
 	if err != nil {
 		return fileCreationSkipped, err
 	}
 	var envFromFiles []string
 	for _, file := range environmentFiles {
 		file = strings.ToLower(file)
-		fileName := strings.ReplaceAll(file, defaultFileSuffix, "")
+		fileName := strings.ReplaceAll(file, utils.DefaultFileSuffix, "")
 		envFromFiles = append(envFromFiles, fileName)
 	}
 
 	// get user's provided value
-	envFromFlag := flag.String("env", defaultEnvVal, "environment file to use during the call")
+	envFromFlag := flag.String(
+		"env",
+		utils.DefaultEnvVal,
+		"environment file to use during the call",
+	)
 	flag.Parse()
 
 	// Only take the first argument after -env flag, ignore the rest
@@ -76,7 +52,7 @@ func setEnvironment() (bool, error) {
 	if len(arguments) > 0 {
 		*envFromFlag = strings.ToLower(arguments[0])
 	} else {
-		*envFromFlag = defaultEnvVal
+		*envFromFlag = utils.DefaultEnvVal
 	}
 
 	// compare both values
@@ -96,13 +72,13 @@ func setEnvironment() (bool, error) {
 			}
 		} else {
 			fileCreationSkipped = true
-			*envFromFlag = defaultEnvVal
+			*envFromFlag = utils.DefaultEnvVal
 			utils.PrintGreen("Skipping file Creation")
 		}
 	}
 
-	err = os.Setenv(envKey, *envFromFlag)
-	fmt.Println("Current active environment:", os.Getenv(envKey))
+	err = os.Setenv(utils.EnvKey, *envFromFlag)
+	fmt.Println("Current active environment:", os.Getenv(utils.EnvKey))
 	if err != nil {
 		return fileCreationSkipped, err
 	}
@@ -168,17 +144,17 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
 	}
-	envVal, ok := os.LookupEnv(envKey)
+	envVal, ok := os.LookupEnv(utils.EnvKey)
 	if !ok {
 		return nil, fmt.Errorf("error while looking up environment variable")
 	}
 
 	// if the file creation was skipped, resort to default
 	if envVal == "" || skipped {
-		envVal = defaultEnvVal
+		envVal = utils.DefaultEnvVal
 	}
 
-	envFileName := envVal + defaultFileSuffix
+	envFileName := envVal + utils.DefaultFileSuffix
 	completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
 	if err != nil {
 		return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
@@ -190,7 +166,7 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 	}
 
 	//	when user has custom env
-	if envFileName != defaultEnvVal {
+	if envFileName != utils.DefaultEnvVal {
 		globalEnv := "global.env"
 		globalPath, err := utils.CreateFilePath("env/" + globalEnv)
 		if err != nil {
