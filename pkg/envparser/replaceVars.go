@@ -8,7 +8,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Provide a key name as as tring to get get secret value from envVars map
+// Provide a key name as as tring to get secret value from envVars map
 func GetEnvVarValue(key string) (string, bool) {
 	envMap, err := GenerateFinalEnvMap()
 	if err != nil {
@@ -24,13 +24,13 @@ func GetEnvVarValue(key string) (string, bool) {
  */
 func SubstitueVariables(input string) (string, error) {
 	if len(input) == 0 {
-		return "", utils.ColorError("input string can't be empty")
+		return "", utils.ColorError("variable string can't be empty")
 	}
 	// matches string with: {{key}}
 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 	matches := regex.FindAllStringSubmatch(input, -1)
 	if len(matches) == 0 {
-		return "", utils.ColorError("ensure you've key name inside {{}}")
+		return "", utils.ColorError("ensure you've proper key name inside {{}}")
 	}
 	for _, match := range matches {
 		/*

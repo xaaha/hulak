@@ -14,8 +14,7 @@
 
 ### To do
 
-- [x] Unit Testing.
+- [x] Find and replace vars that are in the env key
+- [ ] Unit Testing.
   - Ongoing: parser_test
-- [ ] Final environment map should always include global. If the variable exists
-      on both, then replace the global one with the default one
 - [ ] Remove the env value if the file creation is skipped.
