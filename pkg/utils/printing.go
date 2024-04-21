@@ -2,13 +2,17 @@ package utils
 
 import (
 	"fmt"
-	"os"
 )
 
-// Prints the error message in red color and exits the program
-func PrintError(err error) {
-	fmt.Printf("%sError: %s%s\n", Red, err, ColorReset)
-	os.Exit(1)
+// ColorError creates an error message that optionally includes an additional error.
+// If an error is provided, it formats the message with the error appended.
+// The returned error is colored for console output.
+func ColorError(errMsg string, errs ...error) error {
+	fullMsg := errMsg
+	if len(errs) > 0 && errs[0] != nil {
+		fullMsg += ": " + errs[0].Error()
+	}
+	return fmt.Errorf("%sError: %s%s", Red, fullMsg, ColorReset)
 }
 
 // Success Message

@@ -34,7 +34,7 @@ func setEnvironment(utility utils.Utilities) (bool, error) {
 	var envFromFiles []string
 	for _, file := range environmentFiles {
 		file = strings.ToLower(file)
-		fileName := strings.ReplaceAll(file, utils.DefaultFileSuffix, "")
+		fileName := strings.ReplaceAll(file, utils.DefaultEnvFileSuffix, "")
 		envFromFiles = append(envFromFiles, fileName)
 	}
 
@@ -116,7 +116,7 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 		// trim all empty spaces around the secret line and around =
 		var trimedStr string
 		for _, eachLine := range splitStr {
-			trimedStr = strings.ReplaceAll(eachLine, " ", "")
+			trimedStr = strings.Trim(eachLine, " ")
 		}
 		// trim quotes around the =, and before and after the string
 		secret := strings.Split(trimedStr, "=")
@@ -153,29 +153,32 @@ func GenerateFinalEnvMap() (map[string]string, error) {
 		envVal = utils.DefaultEnvVal
 	}
 
-	envFileName := envVal + utils.DefaultFileSuffix
-	completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
+	// load global vars in a map
+	globalEnv := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix //"global.env"
+	globalPath, err := utils.CreateFilePath("env/" + globalEnv)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
+		return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
+	}
+	globalMap, err := LoadEnvVars(globalPath)
+	if err != nil {
+		return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
 	}
 
-	customMap, err := LoadEnvVars(completeFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
+	// load custom vars in a map if necessary
+	var customMap map[string]string
+	envFileName := envVal + utils.DefaultEnvFileSuffix
+	if globalPath != envFileName {
+		completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
+		if err != nil {
+			return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
+		}
+
+		customMap, err = LoadEnvVars(completeFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
+		}
 	}
 
-	//	when user has custom env
-	if envFileName != utils.DefaultEnvVal {
-		globalEnv := "global.env"
-		globalPath, err := utils.CreateFilePath("env/" + globalEnv)
-		if err != nil {
-			return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
-		}
-		globalMap, err := LoadEnvVars(globalPath)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
-		}
-		maps.Copy(globalMap, customMap)
-	}
+	maps.Copy(customMap, globalMap)
 	return customMap, nil
 }

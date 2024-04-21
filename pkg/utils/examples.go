@@ -16,7 +16,7 @@ func PrintJson() {
 		"a":     5,
 		"b":     7,
 	}
-	val, _ := json.Marshal(chunk)
+	val, _ := json.MarshalIndent(chunk, "", "  ") // pretty print with 2 spaces
 	fmt.Println(string(val))
 }
 
