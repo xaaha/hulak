@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -10,19 +11,14 @@ func main() {
 	// Initialize the project
 	InitializeProject()
 
-	// GenerateFinalEnvMap
-	// envMap, err := envparser.GenerateFinalEnvMap()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// val, err := json.MarshalIndent(envMap, "", "  ")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// niceJson := string(val)
-	// fmt.Println(niceJson)
-
-	finalAns, err := envparser.SubstitueVariables("{{PORT}}:")
+	envMap, err := envparser.GenerateSecretsMap()
+	if err != nil {
+		panic(err)
+	}
+	// print entire json
+	niceJson, _ := json.MarshalIndent(envMap, "", "  ")
+	fmt.Println(string(niceJson))
+	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
 	if err != nil {
 		fmt.Println(err)
 	}

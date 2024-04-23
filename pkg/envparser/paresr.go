@@ -133,12 +133,12 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 }
 
 /*
-Generate final HulakEnvironment map.
+Generate final map of environemnt variables and it's values
 User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
-func GenerateFinalEnvMap() (map[string]string, error) {
+func GenerateSecretsMap() (map[string]string, error) {
 	skipped, err := setEnvironment(utils.Utilities{})
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
