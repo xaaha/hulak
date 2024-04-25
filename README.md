@@ -14,7 +14,6 @@
 
 ### To do
 
-- [x] Find and replace vars that are in the env key
 - [ ] Unit Testing.
   - Ongoing: parser_test
 - [ ] Remove the env value if the file creation is skipped.

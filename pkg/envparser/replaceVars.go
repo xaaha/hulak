@@ -15,11 +15,10 @@ func SubstitueVariables(strToChange string, mapWithVars map[string]string) (stri
 	if len(strToChange) == 0 {
 		return "", utils.ColorError("variable string can't be empty")
 	}
-	// matches string with: {{key}}
-	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
+	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`) // matches {{key}}
 	matches := regex.FindAllStringSubmatch(strToChange, -1)
 	if len(matches) == 0 {
-		return "", utils.ColorError("ensure you've proper key name inside {{}}")
+		return strToChange, nil
 	}
 	for _, match := range matches {
 		/*
@@ -29,10 +28,14 @@ func SubstitueVariables(strToChange string, mapWithVars map[string]string) (stri
 		envKey := match[1]
 		envVal := mapWithVars[envKey]
 		if len(envVal) == 0 {
-			message := "unresolved variable " + envKey
+			message := utils.UnResolvedVariable + envKey
 			return "", utils.ColorError(message)
 		}
 		strToChange = strings.Replace(strToChange, match[0], envVal, 1)
+		matches = regex.FindAllStringSubmatch(strToChange, -1)
+		if len(matches) > 0 {
+			return SubstitueVariables(strToChange, mapWithVars)
+		}
 	}
 	return strToChange, nil
 }

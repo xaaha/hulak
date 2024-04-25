@@ -15,3 +15,8 @@ const (
 	DefaultEnvVal        = "global"
 	DefaultEnvFileSuffix = ".env"
 )
+
+// Errors message
+const (
+	UnResolvedVariable = "unresolved variable "
+)
