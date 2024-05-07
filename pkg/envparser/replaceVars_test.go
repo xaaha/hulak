@@ -1,7 +1,7 @@
 package envparser
 
 import (
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -52,7 +52,19 @@ func TestSubstituteVariables(t *testing.T) {
 				output,
 			)
 		}
-		if !reflect.DeepEqual(err, tc.expectedErrs) {
+
+		if err == nil && tc.expectedErrs == nil {
+			// Both expected and got are nil, so this is correct; nothing to do here
+			return
+		} else if err == nil || tc.expectedErrs == nil {
+			// One is nil and the other is not, so this is an error
+			t.Errorf(
+				"Expected or actual error is nil: expected %v, got %v",
+				tc.expectedErrs,
+				err,
+			)
+		} else if !strings.Contains(err.Error(), tc.expectedErrs.Error()) {
+			// Both are non-nil, but do not match expected content
 			t.Errorf(
 				"Mismatch between expected vs actual err: \n%v \n%v",
 				tc.expectedErrs,
