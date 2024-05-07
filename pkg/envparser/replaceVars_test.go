@@ -40,7 +40,7 @@ func TestSubstituteVariables(t *testing.T) {
 		{
 			stringToChange: "",
 			expectedOutput: "",
-			expectedErrs:   utils.ColorError("variable string can't be empty"),
+			expectedErrs:   utils.ColorError(utils.EmptyVariables),
 		},
 	}
 	for _, tc := range testCases {

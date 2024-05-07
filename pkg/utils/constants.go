@@ -19,4 +19,5 @@ const (
 // Errors message
 const (
 	UnResolvedVariable = "unresolved variable "
+	EmptyVariables     = "variable string can't be empty"
 )

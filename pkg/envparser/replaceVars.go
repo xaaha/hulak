@@ -13,7 +13,7 @@ import (
  */
 func SubstitueVariables(strToChange string, mapWithVars map[string]string) (string, error) {
 	if len(strToChange) == 0 {
-		return "", utils.ColorError("variable string can't be empty")
+		return "", utils.ColorError(utils.EmptyVariables)
 	}
 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`) // matches {{key}}
 	matches := regex.FindAllStringSubmatch(strToChange, -1)
