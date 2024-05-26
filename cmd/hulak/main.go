@@ -15,21 +15,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	// print entire json
 	niceJson, _ := json.MarshalIndent(envMap, "", "  ")
 	fmt.Println(string(niceJson))
+
+	// how to substitute variable
 	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println(finalAns)
+
 	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }
 
 /*
-Tests
-- Complete & Final Map can be printed as json
-- SubstitueVariables
- - SubstitueVariables and make sure the substitution is working as expected
 - Find  a way to document the falg used
 */
