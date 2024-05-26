@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -164,8 +163,13 @@ func GenerateSecretsMap() (map[string]string, error) {
 		return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
 	}
 
+	// initialize customMap as a copy of globalMap
+	customMap := make(map[string]string)
+	for k, v := range globalMap {
+		customMap[k] = v
+	}
+
 	// load custom vars in a map if necessary
-	var customMap map[string]string
 	envFileName := envVal + utils.DefaultEnvFileSuffix
 	if globalPath != envFileName {
 		completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
@@ -173,12 +177,16 @@ func GenerateSecretsMap() (map[string]string, error) {
 			return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
 		}
 
-		customMap, err = LoadEnvVars(completeFilePath)
+		loadedCustomMap, err := LoadEnvVars(completeFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
 		}
+
+		// overwrite values in customMap with those from loadedCustomMap
+		for k, v := range loadedCustomMap {
+			customMap[k] = v
+		}
 	}
 
-	maps.Copy(customMap, globalMap)
 	return customMap, nil
 }
