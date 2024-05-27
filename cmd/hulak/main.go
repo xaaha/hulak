@@ -29,7 +29,3 @@ func main() {
 
 	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }
-
-/*
-- Find  a way to document the falg used
-*/
