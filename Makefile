@@ -10,3 +10,7 @@ test:
 # test:
 # 	@go test ./path/
 # 	@go test ./path2/
+
+build:
+	@go build -o bin/hulak ./cmd/hulak/
+
