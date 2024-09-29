@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	ymlReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
 )
 
-func main() {
+func testInitialization() {
 	// Initialize the project
 	InitializeProject()
 
@@ -27,5 +29,10 @@ func main() {
 	}
 	fmt.Println(finalAns)
 
-	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
+	fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
+}
+
+func main() {
+	testInitialization() // this is not working. fix it
+	ymlReader.ReadingYamlWithStruct()
 }

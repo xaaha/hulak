@@ -1,0 +1,13 @@
+---
+method: POST
+headers:
+  - application/json
+  - application/test
+  - Bearer {{auth_token}}
+body:
+  query: |
+    {
+      header {
+
+      }
+    }
