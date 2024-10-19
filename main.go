@@ -6,5 +6,6 @@ import (
 
 func main() {
 	// testInitialization()
-	ymlReader.ReadingYamlWithStruct()
+	// ymlReader.ReadingYamlWithStruct()
+	ymlReader.ReadingYamlWithoutStruct()
 }

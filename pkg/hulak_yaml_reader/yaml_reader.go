@@ -29,5 +29,20 @@ func ReadingYamlWithStruct() {
 	fmt.Printf("Name: %s, Age: %v, Email: %s", user.Name, user.Age, user.Email)
 }
 
-// simply import
-// reader.SampleReader()
+func ReadingYamlWithoutStruct() {
+	file, err := os.Open("test_collection/test.yml")
+	if err != nil {
+		log.Fatalf("Error opening file: %v", err)
+	}
+	defer file.Close()
+
+	var data map[string]interface{}
+	dec := yaml.NewDecoder(file)
+	if err = dec.Decode(&data); err != nil {
+		log.Fatalf("error decoding data: %v", err)
+	}
+
+	for key, value := range data {
+		fmt.Printf("%s: %v\n", key, value)
+	}
+}
