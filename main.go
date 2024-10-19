@@ -9,8 +9,8 @@ import (
 	ymlReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
 )
 
+// Initialize the project and how to substiture a variable
 func testInitialization() {
-	// Initialize the project
 	InitializeProject()
 
 	envMap, err := envparser.GenerateSecretsMap()
@@ -33,6 +33,6 @@ func testInitialization() {
 }
 
 func main() {
-	testInitialization() // this is not working. fix it
+	testInitialization()
 	ymlReader.ReadingYamlWithStruct()
 }
