@@ -22,7 +22,6 @@ func Get() {
 	log.Print(sb)
 }
 
-//
 // func Post(){
 //   resp, err := http.Post("", 'x-www-form-urlencoded', body io.Reader)
 // }
