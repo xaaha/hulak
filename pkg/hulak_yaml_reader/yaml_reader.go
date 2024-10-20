@@ -1,6 +1,7 @@
 package hulak_yaml_reader
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -26,7 +27,11 @@ func ReadingYamlWithStruct() {
 	if err = dec.Decode(&user); err != nil {
 		log.Fatalf("error decoding data: %v", err)
 	}
-	fmt.Printf("Name: %s, Age: %v, Email: %s", user.Name, user.Age, user.Email)
+
+	val, _ := json.MarshalIndent(user, "", "  ")
+
+	fmt.Println(string(val))
+	// fmt.Printf("Name: %s, Age: %v, Email: %s", user.Name, user.Age, user.Email)
 }
 
 func ReadingYamlWithoutStruct() {
@@ -42,7 +47,11 @@ func ReadingYamlWithoutStruct() {
 		log.Fatalf("error decoding data: %v", err)
 	}
 
-	for key, value := range data {
-		fmt.Printf("%s: %v\n", key, value)
-	}
+	val, _ := json.MarshalIndent(data, "", "  ")
+	log.Print(string(val))
+	// fmt.Println(string(val))
+
+	// for key, value := range data {
+	// 	fmt.Printf("%s: %v\n", key, value)
+	// }
 }
