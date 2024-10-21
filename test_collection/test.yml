@@ -1,5 +1,11 @@
 ---
 method: POST
+# url: https://www.gogle.com
+url:
+  base: https://www.gogle.com
+  params:
+    key1: value1
+    key2: value2
 headers:
   - application/json
   - application/test
