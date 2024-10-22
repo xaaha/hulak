@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	ymlReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
 )
@@ -8,6 +10,10 @@ import (
 func main() {
 	// testInitialization()
 	//	ymlReader.ReadingYamlWithStruct()
-	apicalls.Get()
+	// apicalls.Get()
 	ymlReader.ReadingYamlWithoutStruct()
+	fmt.Println("---")
+	apicalls.CallUrlEncodedForm()
+
+	// apicalls.GetAuthToken()
 }
