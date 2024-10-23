@@ -9,8 +9,10 @@ import (
 // The returned error is colored for console output.
 func ColorError(errMsg string, errs ...error) error {
 	fullMsg := errMsg
-	if len(errs) > 0 && errs[0] != nil {
-		fullMsg += ": " + errs[0].Error()
+	for _, err := range errs {
+		if err != nil {
+			fullMsg += ": " + err.Error()
+		}
 	}
 	return fmt.Errorf("%sError: %s%s", Red, fullMsg, ColorReset)
 }

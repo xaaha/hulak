@@ -9,6 +9,43 @@ import (
 	"strings"
 )
 
+type Headers struct {
+	key   string
+	value string
+}
+
+func StandardCall(method, url string, body io.Reader, headers ...Headers) {
+	errMessage := "error occured during" + method + "call"
+
+	// Function to handle urls (base and params)
+	// when the method has x-www-form-urlencoded, body is the  strings.NewReader(formData.Encode())
+	// body should be string. If multiple lines use `` otherwise ""
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		log.Fatalln(errMessage, err)
+	}
+
+	if len(headers) > 0 {
+		for _, header := range headers {
+			req.Header.Add(header.key, header.value)
+		}
+	}
+
+	client := &http.Client{}
+	response, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(errMessage, err)
+	}
+	defer response.Body.Close()
+
+	jsonBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println(string(jsonBody))
+}
+
 // sample get call from https://blog.logrocket.com/making-http-requests-in-go/
 // when the request is just with a url
 func Get() {
@@ -31,7 +68,7 @@ func CallUrlEncodedForm() {
 	// first prepare the baseurl
 	baseurl := ""
 
-	// Prepare query parameters
+	// Prepare query parameters (x-www-form-urlencoded)
 	formData := url.Values{}
 	formData.Set("grant_type", "http://auth0.com/oauth/grant-type/password-realm")
 	formData.Set("username", "")

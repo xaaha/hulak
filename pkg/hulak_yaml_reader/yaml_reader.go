@@ -55,3 +55,13 @@ func ReadingYamlWithoutStruct() {
 	// 	fmt.Printf("%s: %v\n", key, value)
 	// }
 }
+
+/*
+Example Usage:
+import (
+ymlReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
+)
+// use it like
+ymlReader.ReadingYamlWithStruct()
+ymlReader.ReadingYamlWithoutStruct()
+*/
