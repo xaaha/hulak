@@ -38,6 +38,7 @@ func FullUrl(baseUrl string, params ...HeaderOrUrlParam) string {
 func StandardCall(method, url string, body io.Reader, headers ...HeaderOrUrlParam) string {
 	errMessage := "error occured during" + method + "call"
 
+	// use StandardCall() and close barnch
 	// when the method has x-www-form-urlencoded, body is the  strings.NewReader(formData.Encode())
 	// body should be string. If multiple lines use `` otherwise ""
 	req, err := http.NewRequest(method, url, body)
