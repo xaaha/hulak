@@ -9,14 +9,15 @@ import (
 	"strings"
 )
 
-type HeaderOrUrlParam struct {
+// used on url paramaters and request body's form data
+type KeyValuePair struct {
 	Key   string
 	Value string
 }
 
-// if the url has parameters, the function perpares the full url otherwise,
-// returns the provided baseUrl
-func FullUrl(baseUrl string, params ...HeaderOrUrlParam) string {
+// if the url has parameters, the function perpares and returns the full url otherwise,
+// the function returns the provided baseUrl
+func FullUrl(baseUrl string, params ...KeyValuePair) string {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		// If parsing fails, return the base URL as is
@@ -35,13 +36,48 @@ func FullUrl(baseUrl string, params ...HeaderOrUrlParam) string {
 	return u.String()
 }
 
-func StandardCall(method, url string, body io.Reader, headers ...HeaderOrUrlParam) string {
-	errMessage := "error occured during" + method + "call"
+// Encodes x-www-form-urlencoded form data for request body
+func EncodeBodyFormData(keyValue []KeyValuePair) io.Reader {
+	formData := url.Values{}
+	for _, kv := range keyValue {
+		if kv.Key != "" && kv.Value != "" {
+			formData.Set(
+				kv.Key,
+				kv.Value,
+			) // assuming we don't need different values for the same key. Otherwise, use Add
+		}
+	}
+	encoded := formData.Encode()
+	return strings.NewReader(encoded)
+}
 
-	// use StandardCall() and close barnch
-	// when the method has x-www-form-urlencoded, body is the  strings.NewReader(formData.Encode())
-	// body should be string. If multiple lines use `` otherwise ""
-	req, err := http.NewRequest(method, url, body)
+type ApiInfo struct {
+	Method  string
+	Url     string
+	Body    io.Reader
+	Headers []KeyValuePair
+}
+
+func StandardCall(apiInfo ApiInfo) string {
+	if apiInfo.Headers == nil {
+		apiInfo.Headers = []KeyValuePair{}
+	}
+	method := apiInfo.Method
+	url := apiInfo.Url
+	body := apiInfo.Body
+	headers := apiInfo.Headers
+	errMessage := "error occured on " + method
+
+	preparedUrl := FullUrl(url)
+
+	// handle different case for body. EncodeBodyFormData when x-www-form-urlencoded
+	// multiple lines.
+	// single line raw body
+	// graphql query and others
+	// json and other
+	// always check StandardCall() and close barnch
+
+	req, err := http.NewRequest(method, preparedUrl, body)
 	if err != nil {
 		log.Fatalln(errMessage, err)
 	}
