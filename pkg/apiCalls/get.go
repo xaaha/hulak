@@ -9,15 +9,35 @@ import (
 	"strings"
 )
 
-type Headers struct {
-	key   string
-	value string
+type HeaderOrUrlParam struct {
+	Key   string
+	Value string
 }
 
-func StandardCall(method, url string, body io.Reader, headers ...Headers) {
+// if the url has parameters, the function perpares the full url otherwise,
+// returns the provided baseUrl
+func FullUrl(baseUrl string, params ...HeaderOrUrlParam) string {
+	u, err := url.Parse(baseUrl)
+	if err != nil {
+		// If parsing fails, return the base URL as is
+		return baseUrl
+	}
+
+	// Prepare URL query parameters
+	queryParams := url.Values{}
+	for _, param := range params {
+		queryParams.Add(param.Key, param.Value)
+	}
+	// If there are parameters, encode them and append to the base URL
+	if len(params) > 0 {
+		u.RawQuery = queryParams.Encode()
+	}
+	return u.String()
+}
+
+func StandardCall(method, url string, body io.Reader, headers ...HeaderOrUrlParam) string {
 	errMessage := "error occured during" + method + "call"
 
-	// Function to handle urls (base and params)
 	// when the method has x-www-form-urlencoded, body is the  strings.NewReader(formData.Encode())
 	// body should be string. If multiple lines use `` otherwise ""
 	req, err := http.NewRequest(method, url, body)
@@ -27,7 +47,7 @@ func StandardCall(method, url string, body io.Reader, headers ...Headers) {
 
 	if len(headers) > 0 {
 		for _, header := range headers {
-			req.Header.Add(header.key, header.value)
+			req.Header.Add(header.Key, header.Value)
 		}
 	}
 
@@ -43,7 +63,7 @@ func StandardCall(method, url string, body io.Reader, headers ...Headers) {
 		log.Fatalln(err)
 	}
 
-	fmt.Println(string(jsonBody))
+	return string(jsonBody)
 }
 
 // sample get call from https://blog.logrocket.com/making-http-requests-in-go/
