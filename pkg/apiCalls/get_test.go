@@ -2,6 +2,7 @@ package apicalls
 
 import (
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -159,6 +160,167 @@ func TestEncodeXwwwFormUrlBody(t *testing.T) {
 			// Compare the result to expected output
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestEncodeFormData(t *testing.T) {
+	tests := []struct {
+		name                      string
+		expectedContentTypePrefix string
+		input                     []KeyValuePair
+		expectedBodyContains      []string
+		expectError               bool
+	}{
+		{
+			name: "valid key-value pairs",
+			input: []KeyValuePair{
+				{Key: "username", Value: "john_doe"},
+				{Key: "password", Value: "secret"},
+			},
+			expectError:               false,
+			expectedContentTypePrefix: "multipart/form-data; boundary=",
+			expectedBodyContains:      []string{"username", "john_doe", "password", "secret"},
+		},
+		{
+			name: "ignore empty key-value pairs",
+			input: []KeyValuePair{
+				{Key: "username", Value: "john_doe"},
+				{Key: "", Value: "secret"},
+				{Key: "age", Value: ""},
+				{Key: "", Value: ""},
+				{Key: "location", Value: "USA"},
+			},
+			expectError:               false,
+			expectedContentTypePrefix: "multipart/form-data; boundary=",
+			expectedBodyContains:      []string{"username", "john_doe", "location", "USA"},
+		},
+		{
+			name:        "empty input",
+			input:       []KeyValuePair{},
+			expectError: true,
+		},
+		{
+			name: "single key-value pair",
+			input: []KeyValuePair{
+				{Key: "username", Value: "john_doe"},
+			},
+			expectError:               false,
+			expectedContentTypePrefix: "multipart/form-data; boundary=",
+			expectedBodyContains:      []string{"username", "john_doe"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload, contentType, err := EncodeFormData(tt.input)
+
+			// Check if an error is expected
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return // Skip further checks if error is expected and received
+			}
+
+			// No error expected; check result
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Check content type prefix
+			if !strings.HasPrefix(contentType, tt.expectedContentTypePrefix) {
+				t.Errorf(
+					"expected Content-Type prefix %v, got %v",
+					tt.expectedContentTypePrefix,
+					contentType,
+				)
+			}
+
+			// Check if expected fields are present in the body
+			body, err := io.ReadAll(payload)
+			if err != nil {
+				t.Fatalf("failed to read from reader: %v", err)
+			}
+			for _, expected := range tt.expectedBodyContains {
+				if !strings.Contains(string(body), expected) {
+					t.Errorf("expected body to contain %v, but it does not", expected)
+				}
+			}
+		})
+	}
+}
+
+func TestEncodeGraphQlBody(t *testing.T) {
+	tests := []struct {
+		variables    map[string]interface{}
+		name         string
+		query        string
+		expectedBody string
+		expectError  bool
+	}{
+		{
+			name:         "valid query and variables",
+			query:        "query Hello($name: String!) { hello(name: $name) }",
+			variables:    map[string]interface{}{"name": "John"},
+			expectError:  false,
+			expectedBody: `{"query":"query Hello($name: String!) { hello(name: $name) }","variables":{"name":"John"}}`,
+		},
+		{
+			name:         "no variables",
+			query:        "query Hello { hello }",
+			variables:    map[string]interface{}{},
+			expectError:  false,
+			expectedBody: `{"query":"query Hello { hello }","variables":{}}`,
+		},
+		{
+			name:         "nil variables",
+			query:        "query Hello { hello }",
+			variables:    nil,
+			expectError:  false,
+			expectedBody: `{"query":"query Hello { hello }","variables":null}`,
+		},
+		{
+			name:         "empty query",
+			query:        "",
+			variables:    map[string]interface{}{"name": "John"},
+			expectError:  false,
+			expectedBody: `{"query":"","variables":{"name":"John"}}`,
+		},
+		{
+			name:        "invalid JSON in variables",
+			query:       "query Hello { hello }",
+			variables:   map[string]interface{}{"invalid": make(chan int)}, // unsupported type
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload, err := EncodeGraphQlBody(tt.query, tt.variables)
+
+			// Check if an error is expected
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return // Skip further checks if error is expected and received
+			}
+
+			// No error expected; check result
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Read the result to verify the encoded JSON
+			body, err := io.ReadAll(payload)
+			if err != nil {
+				t.Fatalf("failed to read from reader: %v", err)
+			}
+
+			if string(body) != tt.expectedBody {
+				t.Errorf("expected %v, got %v", tt.expectedBody, string(body))
 			}
 		})
 	}
