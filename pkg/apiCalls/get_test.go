@@ -63,7 +63,7 @@ func TestFullUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fullUrl := FullUrl(tt.baseUrl, tt.params...)
+			fullUrl := PrepareUrl(tt.baseUrl, tt.params...)
 			if fullUrl != tt.expected {
 				t.Errorf("FullUrl() = %v, want %v", fullUrl, tt.expected)
 			}
@@ -71,11 +71,12 @@ func TestFullUrl(t *testing.T) {
 	}
 }
 
-func TestEncodeBodyFormData(t *testing.T) {
+func TestEncodeXwwwFormUrlBody(t *testing.T) {
 	tests := []struct {
-		name     string
-		expected string
-		input    []KeyValuePair
+		name        string
+		expected    string
+		input       []KeyValuePair
+		expectError bool
 	}{
 		{
 			name: "valid key-value pairs",
@@ -83,7 +84,8 @@ func TestEncodeBodyFormData(t *testing.T) {
 				{Key: "username", Value: "john_doe"},
 				{Key: "password", Value: "secret"},
 			},
-			expected: "password=secret&username=john_doe",
+			expected:    "password=secret&username=john_doe",
+			expectError: false,
 		},
 		{
 			name: "ignore empty key-value pairs",
@@ -94,7 +96,8 @@ func TestEncodeBodyFormData(t *testing.T) {
 				{Key: "", Value: ""},
 				{Key: "location", Value: "USA"},
 			},
-			expected: "location=USA&username=john_doe",
+			expected:    "location=USA&username=john_doe",
+			expectError: false,
 		},
 		{
 			name: "handle special characters",
@@ -103,19 +106,21 @@ func TestEncodeBodyFormData(t *testing.T) {
 				{Key: "address", Value: "123 Main St. #500"},
 				{Key: "email", Value: "john.doe@example.com"},
 			},
-			expected: "address=123+Main+St.+%23500&email=john.doe%40example.com&name=John+Doe",
+			expected:    "address=123+Main+St.+%23500&email=john.doe%40example.com&name=John+Doe",
+			expectError: false,
 		},
 		{
 			name: "single key-value pair",
 			input: []KeyValuePair{
 				{Key: "username", Value: "john_doe"},
 			},
-			expected: "username=john_doe",
+			expected:    "username=john_doe",
+			expectError: false,
 		},
 		{
-			name:     "empty input",
-			input:    []KeyValuePair{},
-			expected: "",
+			name:        "empty input",
+			input:       []KeyValuePair{},
+			expectError: true,
 		},
 		{
 			name: "key-value pairs with same key",
@@ -123,19 +128,35 @@ func TestEncodeBodyFormData(t *testing.T) {
 				{Key: "key", Value: "first_value"},
 				{Key: "key", Value: "second_value"},
 			},
-			expected: "key=second_value",
+			expected:    "key=second_value",
+			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := EncodeBodyFormData(tt.input)
+			reader, err := EncodeXwwwFormUrlBody(tt.input)
+
+			// Check if an error is expected
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return // Skip further checks if error is expected and received
+			}
+
+			// No error expected; check result
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
 			body, err := io.ReadAll(reader)
 			if err != nil {
 				t.Fatalf("failed to read from reader: %v", err)
 			}
 			result := string(body)
 
+			// Compare the result to expected output
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}

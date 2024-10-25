@@ -48,8 +48,8 @@ func ReadingYamlWithoutStruct() {
 	}
 
 	val, _ := json.MarshalIndent(data, "", "  ")
-	log.Print(string(val))
-	// fmt.Println(string(val))
+	// log prints time, which I don't need
+	fmt.Println(string(val))
 
 	// for key, value := range data {
 	// 	fmt.Printf("%s: %v\n", key, value)
