@@ -10,17 +10,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-)
 
-// used on url paramaters and request body's form data
-type KeyValuePair struct {
-	Key   string
-	Value string
-}
+	"github.com/xaaha/hulak/pkg/utils"
+)
 
 // if the url has parameters, the function perpares and returns the full url otherwise,
 // the function returns the provided baseUrl
-func PrepareUrl(baseUrl string, params ...KeyValuePair) string {
+func PrepareUrl(baseUrl string, params ...utils.KeyValuePair) string {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		// If parsing fails, return the base URL as is
@@ -39,18 +35,9 @@ func PrepareUrl(baseUrl string, params ...KeyValuePair) string {
 	return u.String()
 }
 
-// types of body that could be passed
-type Body struct {
-	RawString          string
-	FormData           []KeyValuePair
-	UrlEncodedFormData []KeyValuePair
-	// Graphql
-	// binary
-}
-
 // Encodes key-value pairs as "application/x-www-form-urlencoded" data.
 // Returns an io.Reader containing the encoded data, or an error if the input is empty.
-func EncodeXwwwFormUrlBody(keyValue []KeyValuePair) (io.Reader, error) {
+func EncodeXwwwFormUrlBody(keyValue []utils.KeyValuePair) (io.Reader, error) {
 	// Initialize form data
 	formData := url.Values{}
 
@@ -72,7 +59,7 @@ func EncodeXwwwFormUrlBody(keyValue []KeyValuePair) (io.Reader, error) {
 
 // Encodes form data other than x-www-form-urlencoded,
 // Returns the payload, Content-Type for the headers and error
-func EncodeFormData(keyValue []KeyValuePair) (io.Reader, string, error) {
+func EncodeFormData(keyValue []utils.KeyValuePair) (io.Reader, string, error) {
 	if len(keyValue) == 0 {
 		return nil, "", fmt.Errorf("no key-value pairs to encode")
 	}
@@ -106,16 +93,18 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 	return bytes.NewReader(jsonData), nil
 }
 
+// struct for StandardCall
 type ApiInfo struct {
 	Method  string
 	Url     string
 	Body    io.Reader
-	Headers []KeyValuePair
+	Headers []utils.KeyValuePair
 }
 
+// Makes an api call and resturns the json body string
 func StandardCall(apiInfo ApiInfo) string {
 	if apiInfo.Headers == nil {
-		apiInfo.Headers = []KeyValuePair{}
+		apiInfo.Headers = []utils.KeyValuePair{}
 	}
 	method := apiInfo.Method
 	url := apiInfo.Url
@@ -124,13 +113,6 @@ func StandardCall(apiInfo ApiInfo) string {
 	errMessage := "error occured on " + method
 
 	preparedUrl := PrepareUrl(url)
-
-	// handle different case for body. EncodeBodyFormData when x-www-form-urlencoded
-	// multiple lines.
-	// single line raw body
-	// graphql query and others
-	// json and other
-	// always check StandardCall() and close barnch
 
 	req, err := http.NewRequest(method, preparedUrl, body)
 	if err != nil {
@@ -156,62 +138,4 @@ func StandardCall(apiInfo ApiInfo) string {
 	}
 
 	return string(jsonBody)
-}
-
-// sample get call from https://blog.logrocket.com/making-http-requests-in-go/
-// when the request is just with a url
-func Get() {
-	resp, err := http.Get("https://jsonplaceholder.typicode.com/posts")
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// Convert the body to type string
-	sb := string(body)
-	log.Print(sb)
-}
-
-func CallUrlEncodedForm() {
-	method := "POST"
-	// first prepare the baseurl
-	baseurl := ""
-
-	// Prepare query parameters (x-www-form-urlencoded)
-	formData := url.Values{}
-	formData.Set("grant_type", "http://auth0.com/oauth/grant-type/password-realm")
-	formData.Set("username", "")
-	formData.Set("password", "")
-	formData.Set("audience", "")
-	formData.Set("scope", "openid")
-	formData.Set("client_id", "")
-	formData.Set("realm", "")
-
-	// strings.NewReader(data.Encode())
-	req, err := http.NewRequest(method, baseurl, strings.NewReader(formData.Encode()))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	// Add the Authorization token and other headers as needed
-	// req.Header.Add("Authorization", "Bearer YOUR_AUTH_TOKEN")
-
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	// Convert the body to type string
-	fmt.Println(string(body))
 }
