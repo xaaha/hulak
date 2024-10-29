@@ -1,8 +1,8 @@
 run: 
-	@go run cmd/hulak/main.go 
+	@go run . 
 
 run-all:
-	@cd cmd/hulak && go run . -env prod 
+	@cd go run . -env prod 
 
 test:
 	@go test ./...
@@ -10,3 +10,7 @@ test:
 # test:
 # 	@go test ./path/
 # 	@go test ./path2/
+
+build:
+	@go build -o bin/hulak ./cmd/hulak/
+

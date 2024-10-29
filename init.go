@@ -3,12 +3,27 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 )
 
-func main() {
-	// Initialize the project
+/*
+InitializeProject() starts the project by creating envfolder and global file in it.
+TBC...
+*/
+func InitializeProject() {
+	err := envparser.CreateDefaultEnvs(nil)
+	if err != nil {
+		panic(err)
+	}
+}
+
+/*
+Initialize the project and how to substiture a variable.
+This function is just for my dumb brain that forgets how to do simple stuff in a program I wrote
+*/
+func testInitialization() {
 	InitializeProject()
 
 	envMap, err := envparser.GenerateSecretsMap()
@@ -27,9 +42,5 @@ func main() {
 	}
 	fmt.Println(finalAns)
 
-	// fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
+	fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
 }
-
-/*
-- Find  a way to document the falg used
-*/

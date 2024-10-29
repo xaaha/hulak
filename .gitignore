@@ -1,2 +1,5 @@
 env/**
 **/env/
+bin/
+collection*
+test.go
