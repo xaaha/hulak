@@ -1,11 +1,11 @@
 ---
 method: POST
-# url: https://www.gogle.com
-url: https://graphql.postman-echo.com/graphql
-# base: https://graphql.postman-echo.com/graphql
-# params:
-#   key1: value1
-#   key2: value2
+# url: https://graphql.postman-echo.com/graphql
+url:
+  base: https://graphql.postman-echo.com/graphql
+  params:
+    key1: value1
+    key2: value2
 headers:
   - application/json
   - application/test
