@@ -2,7 +2,7 @@ package main
 
 import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
-	fileReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
+	fileReader "github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 func main() {
