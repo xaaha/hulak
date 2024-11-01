@@ -6,6 +6,6 @@ import (
 
 func main() {
 	// testInitialization()
-	// apicalls.TestApiCalls()
+	// apicalls.TestApiCalls() // temp call. replace with mock
 	fileReader.ReadingYamlWithStruct()
 }
