@@ -1,30 +1,39 @@
 package yamlParser
 
 import (
+	"net/http"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type KeyValuePair struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+type HTTPMethodType string
+
+const (
+	GET     HTTPMethodType = http.MethodGet
+	POST    HTTPMethodType = http.MethodPost
+	PUT     HTTPMethodType = http.MethodPut
+	PATCH   HTTPMethodType = http.MethodPatch
+	DELETE  HTTPMethodType = http.MethodDelete
+	HEAD    HTTPMethodType = http.MethodHead
+	OPTIONS HTTPMethodType = http.MethodOptions
+	TRACE   HTTPMethodType = http.MethodTrace
+	CONNECT HTTPMethodType = http.MethodConnect
+)
+
+// enforce HTTPMethodType
+func (m HTTPMethodType) IsValid() bool {
+	switch m {
+	case GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE, CONNECT:
+		return true
+	}
+	return false
 }
 
-type Method struct {
-	GET    string `yaml:"GET"`
-	POST   string `yaml:"POST"`
-	PUT    string `yaml:"PUT"`
-	PATCH  string `yaml:"PATCH"`
-	DELETE string `yaml:"DELETE"`
-	HEAD   string `yaml:"HEAD"`
-	// custom method is not supported yet
-}
-
+// User's yaml file
 type User struct {
-	Name   string               `yaml:"name"`
-	Age    string               `yaml:"age"`
-	Email  string               `yaml:"email"`
-	Base   string               `yaml:"base"`
-	Params []utils.KeyValuePair `yaml:"params,omitempty"`
+	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
+	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
+	Url       string            `json:"url,omitempty"       yaml:"url"`
 }
 
 type GraphQl struct {

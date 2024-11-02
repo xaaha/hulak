@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	yaml "github.com/goccy/go-yaml"
 )
 
+// handle situation when a necessary component url, method is missing from yaml
+
+// example
 func ReadingYamlWithStruct() {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {
@@ -20,6 +24,14 @@ func ReadingYamlWithStruct() {
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&user); err != nil {
 		log.Fatalf("error decoding data: %v", err)
+	}
+
+	// type conversion
+	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
+	user.Method = upperCasedMethod
+
+	if !user.Method.IsValid() {
+		log.Fatalf("invalid HTTP method: %s", user.Method)
 	}
 
 	val, _ := json.MarshalIndent(user, "", "  ")

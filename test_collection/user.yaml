@@ -1,11 +1,7 @@
 ---
-name: John Doe
-age: 30
-email: john@example.com
 # base: example.com
 method: post
-url:
-  base: https://graphql.postman-echo.com/graphql
-  params:
-    key1: value1
-    key2: value2
+url: https://graphql.postman-echo.com/graphql
+# urlparams:
+#   foo: bar
+#   baz: bin
