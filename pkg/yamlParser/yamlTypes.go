@@ -42,13 +42,13 @@ type User struct {
 // binary type is not yet configured
 // only one is possible that could be passed
 type Body struct {
-	FormData           map[string]string
-	UrlEncodedFormData map[string]string
-	Graphql            GraphQl
-	RawString          string
+	FormData           map[string]string `json:"formdata,omitempty"           yaml:"formdata"`
+	UrlEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
+	Graphql            GraphQl           `json:"graphql,omitempty"            yaml:"graphql"`
+	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
 type GraphQl struct {
-	Variable map[string]interface{}
-	Query    string
+	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
+	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
