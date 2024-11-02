@@ -4,41 +4,37 @@ import (
 	"io"
 	"strings"
 	"testing"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestFullUrl(t *testing.T) {
 	tests := []struct {
+		params   map[string]string
 		name     string
 		baseUrl  string
 		expected string
-		params   []utils.KeyValuePair
 	}{
 		// Test with no parameters
 		{
 			name:     "No parameters",
 			baseUrl:  "https://api.example.com/resource",
-			params:   []utils.KeyValuePair{},
+			params:   map[string]string{},
 			expected: "https://api.example.com/resource",
 		},
 		// Test with a single parameter
 		{
-			name:    "Single parameter",
-			baseUrl: "https://api.example.com/resource",
-			params: []utils.KeyValuePair{
-				{Key: "search", Value: "golang"},
-			},
+			name:     "Single parameter",
+			baseUrl:  "https://api.example.com/resource",
+			params:   map[string]string{"search": "golang"},
 			expected: "https://api.example.com/resource?search=golang",
 		},
 		// Test with multiple parameters
 		{
 			name:    "Multiple parameters",
 			baseUrl: "https://api.example.com/resource",
-			params: []utils.KeyValuePair{
-				{Key: "search", Value: "golang"},
-				{Key: "limit", Value: "10"},
-				{Key: "sort", Value: "desc"},
+			params: map[string]string{
+				"search": "golang",
+				"limit":  "10",
+				"sort":   "desc",
 			},
 			expected: "https://api.example.com/resource?limit=10&search=golang&sort=desc",
 		},
@@ -46,9 +42,9 @@ func TestFullUrl(t *testing.T) {
 		{
 			name:    "Special characters in parameters",
 			baseUrl: "https://api.example.com/resource",
-			params: []utils.KeyValuePair{
-				{Key: "search", Value: "go programming"},
-				{Key: "filter", Value: "name&value"},
+			params: map[string]string{
+				"search": "go programming",
+				"filter": "name&value",
 			},
 			expected: "https://api.example.com/resource?filter=name%26value&search=go+programming",
 		},
@@ -56,9 +52,9 @@ func TestFullUrl(t *testing.T) {
 		{
 			name:    "Empty parameter values",
 			baseUrl: "https://api.example.com/resource",
-			params: []utils.KeyValuePair{
-				{Key: "search", Value: ""},
-				{Key: "limit", Value: "10"},
+			params: map[string]string{
+				"search": "",
+				"limit":  "10",
 			},
 			expected: "https://api.example.com/resource?limit=10&search=",
 		},
@@ -66,7 +62,7 @@ func TestFullUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fullUrl := PrepareUrl(tt.baseUrl, tt.params...)
+			fullUrl := PrepareUrl(tt.baseUrl, tt.params)
 			if fullUrl != tt.expected {
 				t.Errorf("FullUrl() = %v, want %v", fullUrl, tt.expected)
 			}
@@ -76,63 +72,53 @@ func TestFullUrl(t *testing.T) {
 
 func TestEncodeXwwwFormUrlBody(t *testing.T) {
 	tests := []struct {
+		input       map[string]string
 		name        string
 		expected    string
-		input       []utils.KeyValuePair
 		expectError bool
 	}{
 		{
 			name: "valid key-value pairs",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
-				{Key: "password", Value: "secret"},
+			input: map[string]string{
+				"username": "john_doe",
+				"password": "secret",
 			},
 			expected:    "password=secret&username=john_doe",
 			expectError: false,
 		},
 		{
 			name: "ignore empty key-value pairs",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
-				{Key: "", Value: "secret"},
-				{Key: "age", Value: ""},
-				{Key: "", Value: ""},
-				{Key: "location", Value: "USA"},
+			input: map[string]string{
+				"username": "john_doe",
+				"":         "secret",
+				"age":      "",
+				"location": "USA",
 			},
 			expected:    "location=USA&username=john_doe",
 			expectError: false,
 		},
 		{
 			name: "handle special characters",
-			input: []utils.KeyValuePair{
-				{Key: "name", Value: "John Doe"},
-				{Key: "address", Value: "123 Main St. #500"},
-				{Key: "email", Value: "john.doe@example.com"},
+			input: map[string]string{
+				"name":    "John Doe",
+				"address": "123 Main St. #500",
+				"email":   "john.doe@example.com",
 			},
 			expected:    "address=123+Main+St.+%23500&email=john.doe%40example.com&name=John+Doe",
 			expectError: false,
 		},
 		{
 			name: "single key-value pair",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
+			input: map[string]string{
+				"username": "john_doe",
 			},
 			expected:    "username=john_doe",
 			expectError: false,
 		},
 		{
-			input:       []utils.KeyValuePair{},
+			input:       map[string]string{},
 			name:        "empty input",
 			expectError: true,
-		},
-		{
-			name: "key-value pairs with same key",
-			input: []utils.KeyValuePair{
-				{Key: "key", Value: "first_value"},
-				{Key: "key", Value: "second_value"},
-			},
-			expected:    "key=second_value",
-			expectError: false,
 		},
 	}
 
@@ -171,15 +157,15 @@ func TestEncodeFormData(t *testing.T) {
 	tests := []struct {
 		name                      string
 		expectedContentTypePrefix string
-		input                     []utils.KeyValuePair
+		input                     map[string]string
 		expectedBodyContains      []string
 		expectError               bool
 	}{
 		{
 			name: "valid key-value pairs",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
-				{Key: "password", Value: "secret"},
+			input: map[string]string{
+				"username": "john_doe",
+				"password": "secret",
 			},
 			expectError:               false,
 			expectedContentTypePrefix: "multipart/form-data; boundary=",
@@ -187,12 +173,11 @@ func TestEncodeFormData(t *testing.T) {
 		},
 		{
 			name: "ignore empty key-value pairs",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
-				{Key: "", Value: "secret"},
-				{Key: "age", Value: ""},
-				{Key: "", Value: ""},
-				{Key: "location", Value: "USA"},
+			input: map[string]string{
+				"username": "john_doe",
+				"":         "secret",
+				"age":      "",
+				"location": "USA",
 			},
 			expectError:               false,
 			expectedContentTypePrefix: "multipart/form-data; boundary=",
@@ -200,13 +185,13 @@ func TestEncodeFormData(t *testing.T) {
 		},
 		{
 			name:        "empty input",
-			input:       []utils.KeyValuePair{},
+			input:       map[string]string{},
 			expectError: true,
 		},
 		{
 			name: "single key-value pair",
-			input: []utils.KeyValuePair{
-				{Key: "username", Value: "john_doe"},
+			input: map[string]string{
+				"username": "john_doe",
 			},
 			expectError:               false,
 			expectedContentTypePrefix: "multipart/form-data; boundary=",

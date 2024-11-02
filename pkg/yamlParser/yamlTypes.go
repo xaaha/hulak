@@ -2,8 +2,6 @@ package yamlParser
 
 import (
 	"net/http"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type HTTPMethodType string
@@ -31,22 +29,23 @@ func (m HTTPMethodType) IsValid() bool {
 
 // User's yaml file
 type User struct {
-	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
+	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
+	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	Url       string            `json:"url,omitempty"       yaml:"url"`
-}
-
-type GraphQl struct {
-	Variable map[string]interface{}
-	Query    string
 }
 
 // type of Body in a yaml file
 // binary type is not yet configured
 // only one is possible that could be passed
 type Body struct {
+	FormData           map[string]string
+	UrlEncodedFormData map[string]string
 	Graphql            GraphQl
 	RawString          string
-	FormData           []utils.KeyValuePair
-	UrlEncodedFormData []utils.KeyValuePair
+}
+
+type GraphQl struct {
+	Variable map[string]interface{}
+	Query    string
 }

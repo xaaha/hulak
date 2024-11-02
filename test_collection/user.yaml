@@ -1,7 +1,8 @@
 ---
-# base: example.com
 method: post
 url: https://graphql.postman-echo.com/graphql
-# urlparams:
-#   foo: bar
-#   baz: bin
+urlparams:
+  foo: bar
+  baz: bin
+headers:
+  Content-type: application/json
