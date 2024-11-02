@@ -6,3 +6,4 @@ urlparams:
   baz: bin
 headers:
   Content-type: application/json
+body: null

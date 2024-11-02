@@ -35,6 +35,7 @@ type User struct {
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	Url       string            `json:"url,omitempty"       yaml:"url"`
+	Body      Body              `json:"body,omitempty"      yaml:"body"`
 }
 
 // type of Body in a yaml file
