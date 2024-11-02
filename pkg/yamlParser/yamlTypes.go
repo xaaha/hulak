@@ -2,6 +2,7 @@ package yamlParser
 
 import (
 	"net/http"
+	"strings"
 )
 
 type HTTPMethodType string
@@ -20,7 +21,8 @@ const (
 
 // enforce HTTPMethodType
 func (m HTTPMethodType) IsValid() bool {
-	switch m {
+	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(m)))
+	switch upperCasedMethod {
 	case GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE, CONNECT:
 		return true
 	}

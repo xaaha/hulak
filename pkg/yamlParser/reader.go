@@ -26,7 +26,7 @@ func ReadingYamlWithStruct() {
 		log.Fatalf("error decoding data: %v", err)
 	}
 
-	// type conversion
+	// uppercase and type conversion
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
 	user.Method = upperCasedMethod
 
