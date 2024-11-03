@@ -12,8 +12,9 @@ import (
 
 // handle situation when a necessary component url, method is missing from yaml
 
-// example
-func ReadingYamlWithStruct() {
+// reads the yaml for http request.
+// right now, the yaml is only meant to hold http request
+func ReadYamlForHttpRequest() {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
@@ -30,8 +31,14 @@ func ReadingYamlWithStruct() {
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
 	user.Method = upperCasedMethod
 
+	// method is required for any http request
 	if !user.Method.IsValid() {
 		log.Fatalf("invalid HTTP method: %s", user.Method)
+	}
+
+	// url is required for any http request
+	if !user.Url.IsValidURL() {
+		log.Fatalf("invalid URL: %s", user.Url)
 	}
 
 	val, _ := json.MarshalIndent(user, "", "  ")

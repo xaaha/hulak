@@ -2,6 +2,7 @@ package yamlParser
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -29,13 +30,25 @@ func (m HTTPMethodType) IsValid() bool {
 	return false
 }
 
+type URL string
+
+// URL should not be missing
+func (u URL) IsValidURL() bool {
+	userProvidedUrl := string(u)
+	_, err := url.ParseRequestURI(userProvidedUrl)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 // User's yaml file
 type User struct {
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
-	Url       string            `json:"url,omitempty"       yaml:"url"`
-	Body      Body              `json:"body,omitempty"      yaml:"body"`
+	Url       URL               `json:"url,omitempty"       yaml:"url"`
+	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 }
 
 // type of Body in a yaml file
@@ -44,7 +57,7 @@ type User struct {
 type Body struct {
 	FormData           map[string]string `json:"formdata,omitempty"           yaml:"formdata"`
 	UrlEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
-	Graphql            GraphQl           `json:"graphql,omitempty"            yaml:"graphql"`
+	Graphql            *GraphQl          `json:"graphql,omitempty"            yaml:"graphql"`
 	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
@@ -52,3 +65,10 @@ type GraphQl struct {
 	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
+
+/*
+body := Body{
+	FormData: map[string]string{"key": "value"},
+	Graphql:  &GraphQl{Query: "query string"}, // Only if Graphql has data
+}
+*/
