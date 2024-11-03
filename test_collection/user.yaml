@@ -1,4 +1,22 @@
 ---
-name: John Doe
-age: 30
-email: john@example.com
+method: post
+url: https://graphql.postman-echo.com/graphql
+urlparams:
+  foo: bar
+  baz: bin
+headers:
+  Content-type: application/json
+body:
+  formdata:
+    foo: bar
+    baz: bin
+  randomThing:
+    foo: this is being ignored correctly
+  # this should be invalid or just ignored
+  graphql:
+    query: |
+      query Hello {
+        hello(person: { name: "pratik", age: 11 })
+      }
+  # variables:
+  #   run: true

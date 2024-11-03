@@ -1,39 +1,20 @@
-package hulak_yaml_reader
+package yamlParser
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	yaml "github.com/goccy/go-yaml"
-	utils "github.com/xaaha/hulak/pkg/utils"
 )
 
-type User struct {
-	Name  string `yaml:"name"`
-	Age   string `yaml:"age"`
-	Email string `yaml:"email"`
-}
+// handle situation when a necessary component url, method is missing from yaml
 
-type GraphQl struct {
-	Variable map[string]interface{}
-	Query    string
-}
-
-// type of Body in a yaml file
-// binary type is not yet configured
-// only one is possible that could be passed
-type Body struct {
-	Graphql            GraphQl
-	RawString          string
-	FormData           []utils.KeyValuePair
-	UrlEncodedFormData []utils.KeyValuePair
-}
-
-// type Url struct{}
-
-func ReadingYamlWithStruct() {
+// reads the yaml for http request.
+// right now, the yaml is only meant to hold http request
+func ReadYamlForHttpRequest() {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
@@ -44,6 +25,25 @@ func ReadingYamlWithStruct() {
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&user); err != nil {
 		log.Fatalf("error decoding data: %v", err)
+	}
+
+	// uppercase and type conversion
+	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
+	user.Method = upperCasedMethod
+
+	// method is required for any http request
+	if !user.Method.IsValid() {
+		log.Fatalf("invalid HTTP method: %s", user.Method)
+	}
+
+	// url is required for any http request
+	if !user.Url.IsValidURL() {
+		log.Fatalf("invalid URL: %s", user.Url)
+	}
+
+	// check body is valid
+	if !user.Body.IsValid() {
+		log.Fatalf("invalid body: %v", *user.Body)
 	}
 
 	val, _ := json.MarshalIndent(user, "", "  ")
