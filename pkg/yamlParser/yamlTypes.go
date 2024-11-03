@@ -50,7 +50,7 @@ type User struct {
 
 // type of Body in a yaml file
 // binary type is not yet configured
-// only one is possible that could be passed
+// Only one is possible that could be passed
 type Body struct {
 	FormData           map[string]string `json:"formdata,omitempty"           yaml:"formdata"`
 	UrlEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
@@ -58,16 +58,20 @@ type Body struct {
 	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
+// body is valid if
+// body is not empty ({}),
+// has only one expected Body type,
+// those body type is not empty,
+// is not nil, and
+// if the body has graphql key, it has at least query on it
+func (b *Body) BodyIsValid() bool {
+	return b != nil
+}
+
 type GraphQl struct {
 	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
-
-// make sure the body is valid as well
-// handle the case where body is an empty {}
-// and any other case where other items is {}
-// also when the body is nil
-// make sure the body only has only one item
 
 /*
 body := Body{

@@ -41,8 +41,10 @@ func ReadYamlForHttpRequest() {
 		log.Fatalf("invalid URL: %s", user.Url)
 	}
 
-	// make sure body is valid too
-
+	// Ensure that body is valid
+	if !user.Body.BodyIsValid() /* && len(*user.Body) > 0 */ {
+		log.Fatalf("invalid body: %v", *user.Body)
+	}
 	val, _ := json.MarshalIndent(user, "", "  ")
 
 	fmt.Println(string(val))
