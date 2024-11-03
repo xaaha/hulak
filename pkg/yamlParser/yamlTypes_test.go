@@ -101,3 +101,65 @@ func TestMethodSet(t *testing.T) {
 		t.Errorf("Expected CONNECT to be %s, got %s", http.MethodConnect, CONNECT)
 	}
 }
+
+// Test body is valid...
+func TestBodyIsValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     Body
+		expected bool
+	}{
+		{
+			name:     "all fields empty",
+			body:     Body{},
+			expected: false,
+		},
+		{
+			name:     "non-empty FormData",
+			body:     Body{FormData: map[string]string{"key": "value"}},
+			expected: true,
+		},
+		{
+			name:     "non-empty UrlEncodedFormData",
+			body:     Body{UrlEncodedFormData: map[string]string{"key": "value"}},
+			expected: true,
+		},
+		{
+			name:     "non-nil GraphQl with Variables",
+			body:     Body{Graphql: &GraphQl{Variables: map[string]interface{}{"key": "value"}}},
+			expected: true,
+		},
+		{
+			name:     "non-nil GraphQl with Query",
+			body:     Body{Graphql: &GraphQl{Query: "query content"}},
+			expected: true,
+		},
+		{
+			name:     "non-empty Raw field",
+			body:     Body{Raw: "raw content"},
+			expected: true,
+		},
+		{
+			name:     "two non-empty fields (FormData and Raw)",
+			body:     Body{FormData: map[string]string{"key": "value"}, Raw: "raw content"},
+			expected: false,
+		},
+		{
+			name: "two non-empty fields (Graphql and FormData)",
+			body: Body{
+				Graphql:  &GraphQl{Query: "query content"},
+				FormData: map[string]string{"key": "value"},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.body.IsValid()
+			if result != tt.expected {
+				t.Errorf("Test %s failed: expected %v, got %v", tt.name, tt.expected, result)
+			}
+		})
+	}
+}
