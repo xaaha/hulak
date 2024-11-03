@@ -7,3 +7,11 @@ urlparams:
 headers:
   Content-type: application/json
 body:
+  formdata:
+    foo: bar
+    baz: bin
+  randomThing:
+    foo: bar
+  graphql:
+    query:
+    variable:

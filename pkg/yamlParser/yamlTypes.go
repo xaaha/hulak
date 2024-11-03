@@ -63,6 +63,12 @@ type GraphQl struct {
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
 
+// make sure the body is valid as well
+// handle the case where body is an empty {}
+// and any other case where other items is {}
+// also when the body is nil
+// make sure the body only has only one item
+
 /*
 body := Body{
 	FormData: map[string]string{"key": "value"},
