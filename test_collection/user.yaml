@@ -11,7 +11,12 @@ body:
     foo: bar
     baz: bin
   randomThing:
-    foo: bar
+    foo: this is being ignored correctly
+  # this should be invalid or just ignored
   graphql:
-    query:
-    variable:
+    query: |
+      query Hello {
+        hello(person: { name: "pratik", age: 11 })
+      }
+  # variables:
+  #   run: true

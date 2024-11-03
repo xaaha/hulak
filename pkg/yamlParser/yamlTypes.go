@@ -3,6 +3,7 @@ package yamlParser
 import (
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 )
 
@@ -60,12 +61,40 @@ type Body struct {
 
 // body is valid if
 // body is not empty ({}),
+// not nil,
 // has only one expected Body type,
 // those body type is not empty,
 // is not nil, and
 // if the body has graphql key, it has at least query on it
-func (b *Body) BodyIsValid() bool {
-	return b != nil
+func (b *Body) IsValid() bool {
+	validFieldCount := 0
+	ln := reflect.ValueOf(*b)
+	for i := 0; i < ln.NumField(); i++ {
+		field := ln.Field(i)
+		switch field.Kind() {
+		case reflect.Ptr:
+			// If the pointer is non-nil, it's valid
+			if !field.IsNil() {
+				validFieldCount++
+			}
+		case reflect.Map:
+			// If the map has at least one element, it's valid
+			if field.Len() > 0 {
+				validFieldCount++
+			}
+		case reflect.String:
+			// If the string is non-empty, it's valid
+			if field.Len() > 0 {
+				validFieldCount++
+			}
+		default:
+			// If there's an unexpected kind, consider it invalid
+			return false
+		}
+	}
+
+	// Return true only if there's at least one valid field
+	return validFieldCount > 0
 }
 
 type GraphQl struct {
