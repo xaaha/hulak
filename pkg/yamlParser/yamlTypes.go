@@ -36,19 +36,16 @@ type URL string
 func (u URL) IsValidURL() bool {
 	userProvidedUrl := string(u)
 	_, err := url.ParseRequestURI(userProvidedUrl)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // User's yaml file
 type User struct {
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
+	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	Url       URL               `json:"url,omitempty"       yaml:"url"`
-	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 }
 
 // type of Body in a yaml file
