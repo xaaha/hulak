@@ -93,8 +93,8 @@ func (b *Body) IsValid() bool {
 		}
 	}
 
-	// Return true only if there's at least one valid field
-	return validFieldCount > 0
+	// Return true only if there's only 1 correct body type
+	return validFieldCount == 1
 }
 
 type GraphQl struct {
