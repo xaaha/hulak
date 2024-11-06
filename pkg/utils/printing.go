@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"log"
+	"os"
 )
 
 // ColorError creates an error message that optionally includes an additional error.
@@ -19,12 +21,18 @@ func ColorError(errMsg string, errs ...error) error {
 
 // Success Message
 func PrintGreen(msg string) {
-	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
+	log.Printf("%s%s%s\n", Green, msg, ColorReset)
 }
 
 // Inform or Warn the user
 func PrintWarning(msg string) {
-	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
+	log.Printf("%s%s%s\n", Yellow, msg, ColorReset)
+}
+
+// Print message in Red
+func PanicRedAndExit(msg string, args ...any) {
+	log.Printf("%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
+	os.Exit(1)
 }
 
 /*

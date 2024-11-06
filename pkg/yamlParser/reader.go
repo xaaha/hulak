@@ -3,11 +3,11 @@ package yamlParser
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // handle situation when a necessary component url, method is missing from yaml
@@ -17,14 +17,14 @@ import (
 func ReadYamlForHttpRequest() {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		utils.PanicRedAndExit("error opening file: %v", err)
 	}
 	defer file.Close()
 
 	var user User
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&user); err != nil {
-		log.Fatalf("error decoding data: %v", err)
+		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
 	// uppercase and type conversion
@@ -33,17 +33,20 @@ func ReadYamlForHttpRequest() {
 
 	// method is required for any http request
 	if !user.Method.IsValid() {
-		log.Fatalf("invalid HTTP method: %s", user.Method)
+		utils.PanicRedAndExit("invalid HTTP method: %s", user.Method)
 	}
 
 	// url is required for any http request
 	if !user.Url.IsValidURL() {
-		log.Fatalf("invalid URL: %s", user.Url)
+		utils.PanicRedAndExit("invalid URL: %s", user.Url)
 	}
 
 	// check body is valid
 	if !user.Body.IsValid() {
-		log.Fatalf("invalid body: %v", *user.Body)
+		utils.PanicRedAndExit(
+			"Invalid Body. Make sure body contains only one valid arguments \n %v",
+			*user.Body,
+		)
 	}
 
 	val, _ := json.MarshalIndent(user, "", "  ")
@@ -55,14 +58,14 @@ func ReadYamlForHttpRequest() {
 func ReadingYamlWithoutStruct() {
 	file, err := os.Open("test_collection/test.yml")
 	if err != nil {
-		log.Fatalf("Error opening file: %v", err)
+		utils.PanicRedAndExit("Error opening file: %v", err)
 	}
 	defer file.Close()
 
 	var data map[string]interface{}
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
-		log.Fatalf("error decoding data: %v", err)
+		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
 	val, _ := json.MarshalIndent(data, "", "  ")
