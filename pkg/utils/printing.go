@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// ColorError creates an error message that optionally includes an additional error.
+// Creates an error message that optionally includes an additional error.
 // If an error is provided, it formats the message with the error appended.
 // The returned error is colored for console output.
 func ColorError(errMsg string, errs ...error) error {
@@ -31,7 +31,7 @@ func PrintWarning(msg string) {
 
 // Print message in Red
 func PanicRedAndExit(msg string, args ...any) {
-	log.Printf("%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
+	log.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
 	os.Exit(1)
 }
 
