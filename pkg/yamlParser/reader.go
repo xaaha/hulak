@@ -33,19 +33,21 @@ func ReadYamlForHttpRequest() string {
 
 	// method is required for any http request
 	if !user.Method.IsValid() {
-		utils.PanicRedAndExit("invalid HTTP method: %s", user.Method)
+		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
 	}
 
 	// url is required for any http request
 	if !user.Url.IsValidURL() {
-		utils.PanicRedAndExit("invalid URL: %s", user.Url)
+		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
 	}
 
 	// check body is valid
-	if !user.Body.IsValid() {
+	if user.Body == nil {
+		utils.PanicRedAndExit("Body is missing in the YAML file. Please add a valid Body.")
+	} else if !user.Body.IsValid() {
 		utils.PanicRedAndExit(
-			"Invalid Body. Make sure body contains only one valid arguments \n %v",
-			*user.Body,
+			"Invalid Body. Make sure body contains only one valid argument.\n %v",
+			user.Body,
 		)
 	}
 
