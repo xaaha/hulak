@@ -13,7 +13,7 @@ import (
 // handle situation when a necessary component url, method is missing from yaml
 
 // reads the yaml for http request.
-// right now, the yaml is only meant to hold http request
+// right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func ReadYamlForHttpRequest() {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {

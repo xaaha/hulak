@@ -101,10 +101,3 @@ type GraphQl struct {
 	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
-
-/*
-body := Body{
-	FormData: map[string]string{"key": "value"},
-	Graphql:  &GraphQl{Query: "query string"}, // Only if Graphql has data
-}
-*/

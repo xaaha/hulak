@@ -7,9 +7,9 @@ urlparams:
 headers:
   Content-type: application/json
 body:
-  formdata:
-    foo: bar
-    baz: bin
+  # formdata:
+  #   foo: bar
+  #   baz: bin
   randomThing:
     foo: this is being ignored correctly
   # this should be invalid or just ignored
