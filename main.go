@@ -7,5 +7,5 @@ import (
 func main() {
 	// testInitialization()
 	// apicalls.TestApiCalls() // temp call.. replace with mock
-	fileReader.ReadYamlForHttpRequest()
+	fileReader.ReadYamlForHttpRequest("test_collection/user.yaml")
 }

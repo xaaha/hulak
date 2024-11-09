@@ -14,8 +14,8 @@ import (
 
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func ReadYamlForHttpRequest() string {
-	file, err := os.Open("test_collection/user.yaml")
+func ReadYamlForHttpRequest(filePath string) string {
+	file, err := os.Open(filePath)
 	if err != nil {
 		utils.PanicRedAndExit("error opening file: %v", err)
 	}
