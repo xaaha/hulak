@@ -14,7 +14,7 @@ import (
 
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func ReadYamlForHttpRequest() {
+func ReadYamlForHttpRequest() string {
 	file, err := os.Open("test_collection/user.yaml")
 	if err != nil {
 		utils.PanicRedAndExit("error opening file: %v", err)
@@ -51,8 +51,13 @@ func ReadYamlForHttpRequest() {
 
 	val, _ := json.MarshalIndent(user, "", "  ")
 
-	fmt.Println(string(val))
-	// fmt.Printf("Name: %s, Age: %v, Email: %s", user.Name, user.Age, user.Email)
+	jsonString := string(val)
+
+	// fmt.Println(jsonString)
+
+	// fmt.Println("Name: ", user.Method)
+
+	return jsonString
 }
 
 func ReadingYamlWithoutStruct() {
