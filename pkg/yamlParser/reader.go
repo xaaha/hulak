@@ -80,16 +80,8 @@ func ReadYamlForHttpRequest(filePath string) string {
 			user.Body,
 		)
 	}
-
 	val, _ := json.MarshalIndent(user, "", "  ")
-
 	jsonString := string(val)
-
-	// fmt.Println(jsonString)
-
-	fmt.Println("Method:", user.Method)
-	fmt.Println("Variable:", user.Body.Graphql.Variables)
-
 	return jsonString
 }
 
