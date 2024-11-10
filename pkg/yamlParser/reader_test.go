@@ -104,56 +104,191 @@ AnotherKey: anotherValue
 	}
 }
 
-func TestReadingYamlWithStruc(t *testing.T) {
-	content := `
-  ---
-  method: post
-  url: https://graphql.postman-echo.com/graphql
-  urlparams:
-    foo: bar
-    baz: bin
-  headers:
-    Content-type: application/json
-  body:
-    # formdata:
-    #   foo: bar
-    #   baz: bin
-    randomThing:
-      foo: this is being ignored correctly
-    # this should be invalid or just ignored
-    graphql:
-      query: |
-        query Hello {
-          hello(person: { name: "pratik", age: 11 })
-        }
-      variable:
-        run: true
-  `
-
-	filepath, err := createTempYamlFile(content)
-	if err != nil {
-		t.Fatalf("Failed to create temp env file: %v", err)
+func TestReadingYamlWithStruct(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		expectErr bool
+	}{
+		{
+			name: "Valid YAML with POST method, valid URL, and GraphQL body",
+			content: `
+method: post
+url: https://graphql.postman-echo.com/graphql
+headers:
+  Content-Type: application/json
+body:
+  graphql:
+    query: |
+      query Hello {
+        hello(person: { name: "pratik", age: 11 })
+      }
+`,
+			expectErr: false,
+		},
+		{
+			name: "Valid YAML with GET method and FormData body",
+			content: `
+method: GET
+url: https://api.example.com/data
+urlparams:
+  key1: value1
+headers:
+  Accept: application/json
+body:
+  formdata:
+    field1: data1
+    field2: data2
+`,
+			expectErr: false,
+		},
+		// 		{
+		// 			name: "Invalid YAML with missing URL",
+		// 			content: `
+		// method: POST
+		// headers:
+		//   Content-Type: application/json
+		// body:
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Invalid URL in YAML",
+		// 			content: `
+		// method: POST
+		// url: "invalid-url"
+		// headers:
+		//   Content-Type: application/json
+		// body:
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Invalid HTTP Method",
+		// 			content: `
+		// method: INVALID
+		// url: https://api.example.com/data
+		// body:
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Missing HTTP Method",
+		// 			content: `
+		// url: https://api.example.com/data
+		// body:
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Missing body",
+		// 			content: `
+		// method: POST
+		// url: https://api.example.com/data
+		// headers:
+		//   Content-Type: application/json
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Invalid body structure",
+		// 			content: `
+		// method: POST
+		// url: https://api.example.com/data
+		// body:
+		//   randomKey:
+		//     field1: data1
+		// `,
+		// 			expectErr: true,
+		// 		},
+		// 		{
+		// 			name: "Optional GraphQL variable in body",
+		// 			content: `
+		// method: POST
+		// url: https://graphql.example.com
+		// body:
+		//   graphql:
+		//     query: |
+		//       query ExampleQuery { example }
+		// `,
+		// 			expectErr: false,
+		// 		},
+		// 		{
+		// 			name: "Uppercase HTTP Method",
+		// 			content: `
+		// method: GET
+		// url: https://api.example.com/data
+		// body:
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: false,
+		// 		},
+		// 		{
+		// 			name: "FormData and GraphQL mixed in body (invalid)",
+		// 			content: `
+		// method: POST
+		// url: https://api.example.com/data
+		// body:
+		//   formdata:
+		//     field1: data1
+		//   graphql:
+		//     query: |
+		//       query Test {
+		//         test
+		//       }
+		// `,
+		// 			expectErr: true,
+		// 		},
 	}
-	defer os.Remove(filepath)
-	// pos is invalid
-	// post and POST is valid. Same with other methods like get patch...
-	// missing url key in content is invalid
-	// url is checked if it passes the url.ParseRequestURI(), if not then it's invalie
-	// so, url or URL should be valid
-	// but Url: this is my name is invalid. As the value is not a valid url
-	// error when url, body, and method is invalid
-	// may be check if the url, method is also missing
-	// Body is only valid  if the key exists, and
-	//  it includes one of these in the body type
-	// variable in graphql is optional. If key and value is not provided, variable is only initialied with length of 0. not nill
-	// graphql's query is required.
-	// randomThing in body is safely ignored
-	/*
-	   type Body struct {
-	   	FormData           map[string]string `json:"formdata,omitempty"           yaml:"formdata"`
-	   	UrlEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
-	   	Graphql            *GraphQl          `json:"graphql,omitempty"            yaml:"graphql"`
-	   	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
-	   }
-	*/
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			filepath, err := createTempYamlFile(tc.content)
+			if err != nil {
+				t.Fatalf("Failed to create temp file: %v", err)
+			}
+			defer os.Remove(filepath)
+
+			// Defer a function to recover from panic
+			defer func() {
+				if r := recover(); r != nil {
+					if !tc.expectErr {
+						t.Errorf("Unexpected panic for test %s: %v", tc.name, r)
+					}
+				} else if tc.expectErr {
+					t.Errorf("Expected panic but got none for test %s", tc.name)
+				}
+			}()
+
+			// Call the function that may panic
+			result := ReadYamlForHttpRequest(filepath)
+			if !tc.expectErr && result == "" {
+				t.Errorf("Expected result but got empty string for test %s", tc.name)
+			}
+		})
+	}
 }
