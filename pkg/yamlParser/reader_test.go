@@ -2,6 +2,7 @@ package yamlParser
 
 import (
 	"os"
+	"os/exec"
 	"reflect"
 	"testing"
 
@@ -53,9 +54,9 @@ func deepEqualWithoutType(a, b interface{}) bool {
 
 func TestHandleYamlFile(t *testing.T) {
 	testCases := []struct {
+		expected map[string]interface{}
 		name     string
 		input    string
-		expected map[string]interface{}
 	}{
 		{
 			name: "Simple YAML structure",
@@ -104,6 +105,7 @@ AnotherKey: anotherValue
 	}
 }
 
+// tests the function that exists with invalid yaml file
 func TestReadingYamlWithStruct(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -142,127 +144,45 @@ body:
 `,
 			expectErr: false,
 		},
-		// 		{
-		// 			name: "Invalid YAML with missing URL",
-		// 			content: `
-		// method: POST
-		// headers:
-		//   Content-Type: application/json
-		// body:
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Invalid URL in YAML",
-		// 			content: `
-		// method: POST
-		// url: "invalid-url"
-		// headers:
-		//   Content-Type: application/json
-		// body:
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Invalid HTTP Method",
-		// 			content: `
-		// method: INVALID
-		// url: https://api.example.com/data
-		// body:
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Missing HTTP Method",
-		// 			content: `
-		// url: https://api.example.com/data
-		// body:
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Missing body",
-		// 			content: `
-		// method: POST
-		// url: https://api.example.com/data
-		// headers:
-		//   Content-Type: application/json
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Invalid body structure",
-		// 			content: `
-		// method: POST
-		// url: https://api.example.com/data
-		// body:
-		//   randomKey:
-		//     field1: data1
-		// `,
-		// 			expectErr: true,
-		// 		},
-		// 		{
-		// 			name: "Optional GraphQL variable in body",
-		// 			content: `
-		// method: POST
-		// url: https://graphql.example.com
-		// body:
-		//   graphql:
-		//     query: |
-		//       query ExampleQuery { example }
-		// `,
-		// 			expectErr: false,
-		// 		},
-		// 		{
-		// 			name: "Uppercase HTTP Method",
-		// 			content: `
-		// method: GET
-		// url: https://api.example.com/data
-		// body:
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: false,
-		// 		},
-		// 		{
-		// 			name: "FormData and GraphQL mixed in body (invalid)",
-		// 			content: `
-		// method: POST
-		// url: https://api.example.com/data
-		// body:
-		//   formdata:
-		//     field1: data1
-		//   graphql:
-		//     query: |
-		//       query Test {
-		//         test
-		//       }
-		// `,
-		// 			expectErr: true,
-		// 		},
+		{
+			name: "Invalid YAML with missing URL",
+			content: `
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  graphql:
+    query: |
+      query Test {
+        test
+      }
+`,
+			expectErr: true,
+		},
+		{
+			name: "Invalid HTTP Method",
+			content: `
+method: INVALID
+url: https://api.example.com/data
+body:
+  graphql:
+    query: |
+      query Test {
+        test
+      }
+`,
+			expectErr: true,
+		},
+		{
+			name: "Missing body",
+			content: `
+method: POST
+url: https://api.example.com/data
+headers:
+  Content-Type: application/json
+`,
+			expectErr: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -273,21 +193,25 @@ body:
 			}
 			defer os.Remove(filepath)
 
-			// Defer a function to recover from panic
-			defer func() {
-				if r := recover(); r != nil {
-					if !tc.expectErr {
-						t.Errorf("Unexpected panic for test %s: %v", tc.name, r)
-					}
-				} else if tc.expectErr {
-					t.Errorf("Expected panic but got none for test %s", tc.name)
+			if tc.expectErr {
+				if os.Getenv("EXPECT_EXIT") == "1" {
+					ReadYamlForHttpRequest(filepath)
+					return
 				}
-			}()
 
-			// Call the function that may panic
-			result := ReadYamlForHttpRequest(filepath)
-			if !tc.expectErr && result == "" {
-				t.Errorf("Expected result but got empty string for test %s", tc.name)
+				cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
+				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
+				err := cmd.Run()
+
+				if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
+					return // Expected exit, test passes
+				}
+				t.Fatalf("Expected process to exit with code 1, but got %v", err)
+			} else {
+				result := ReadYamlForHttpRequest(filepath)
+				if result == "" {
+					t.Errorf("Expected result but got empty string for test %s", tc.name)
+				}
 			}
 		})
 	}
