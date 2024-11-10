@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -93,5 +94,118 @@ func TestGetEnvFiles(t *testing.T) {
 		if !expectedFilesMap[strings.ToLower(file)] {
 			t.Errorf("Unexpected file %s returned", file)
 		}
+	}
+}
+
+// TestToLowercaseMap tests the ToLowercaseMap function with various cases
+func TestToLowercaseMap(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    map[string]interface{}
+		expected map[string]interface{}
+	}{
+		{
+			name: "Simple keys",
+			input: map[string]interface{}{
+				"KeyOne": "value1",
+				"KeyTwo": "value2",
+			},
+			expected: map[string]interface{}{
+				"keyone": "value1",
+				"keytwo": "value2",
+			},
+		},
+		{
+			name: "Nested map",
+			input: map[string]interface{}{
+				"KeyOuter": map[string]interface{}{
+					"KeyInner": "valueInner",
+				},
+				"AnotherKey": "valueAnother",
+			},
+			expected: map[string]interface{}{
+				"keyouter": map[string]interface{}{
+					"keyinner": "valueInner",
+				},
+				"anotherkey": "valueAnother",
+			},
+		},
+		{
+			name: "Mixed case and nested levels",
+			input: map[string]interface{}{
+				"MiXed": map[string]interface{}{
+					"UPPer": "value",
+					"loWer": map[string]interface{}{
+						"INNerKey": "innerValue",
+					},
+				},
+			},
+			expected: map[string]interface{}{
+				"mixed": map[string]interface{}{
+					"upper": "value",
+					"lower": map[string]interface{}{
+						"innerkey": "innerValue",
+					},
+				},
+			},
+		},
+		{
+			name:     "Empty map",
+			input:    map[string]interface{}{},
+			expected: map[string]interface{}{},
+		},
+		{
+			name: "Already lowercase keys",
+			input: map[string]interface{}{
+				"key": "value",
+				"nested": map[string]interface{}{
+					"innerkey": "innervalue",
+				},
+			},
+			expected: map[string]interface{}{
+				"key": "value",
+				"nested": map[string]interface{}{
+					"innerkey": "innervalue",
+				},
+			},
+		},
+		{
+			name: "Keys with non-string values",
+			input: map[string]interface{}{
+				"BoolKey":  true,
+				"IntKey":   123,
+				"FloatKey": 12.34,
+				"SliceKey": []interface{}{"item1", "item2"},
+				"MapKey":   map[string]interface{}{"InnerKey": "innerValue"},
+				"NilKey":   nil,
+			},
+			expected: map[string]interface{}{
+				"boolkey":  true,
+				"intkey":   123,
+				"floatkey": 12.34,
+				"slicekey": []interface{}{"item1", "item2"},
+				"mapkey":   map[string]interface{}{"innerkey": "innerValue"},
+				"nilkey":   nil,
+			},
+		},
+		{
+			name: "Nested empty map",
+			input: map[string]interface{}{
+				"OuterKey": map[string]interface{}{},
+			},
+			expected: map[string]interface{}{
+				"outerkey": map[string]interface{}{},
+			},
+		},
+	}
+
+	// Iterate over each test case
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ToLowercaseMap(tc.input)
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("Test %s failed. Expected %v, got %v", tc.name, tc.expected, result)
+			}
+		})
 	}
 }

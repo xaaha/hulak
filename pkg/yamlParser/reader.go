@@ -1,6 +1,7 @@
 package yamlParser
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,20 +11,40 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// handle situation when a necessary component url, method is missing from yaml
-
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func ReadYamlForHttpRequest(filePath string) string {
-	file, err := os.Open(filePath)
+func handleYamlFile(filepath string) *bytes.Buffer {
+	file, err := os.Open(filepath)
 	if err != nil {
-		utils.PanicRedAndExit("error opening file: %v", err)
+		utils.PanicRedAndExit("Error opening file: %v", err)
 	}
 	defer file.Close()
+	var data map[string]interface{}
+	dec := yaml.NewDecoder(file)
+	if err = dec.Decode(&data); err != nil {
+		utils.PanicRedAndExit("error decoding data: %v", err)
+	}
+
+	data = utils.ToLowercaseMap(data)
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	if err := enc.Encode(data); err != nil {
+		utils.PanicRedAndExit("error encoding data: %v", err)
+	}
+	enc.Close()
+
+	return &buf
+}
+
+// checks the validity of all the fields in the yaml file
+// and returns the json string of the yaml file
+func ReadYamlForHttpRequest(filePath string) string {
+	buf := handleYamlFile(filePath)
 
 	var user User
-	dec := yaml.NewDecoder(file)
-	if err = dec.Decode(&user); err != nil {
+	dec := yaml.NewDecoder(buf)
+	if err := dec.Decode(&user); err != nil {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
@@ -41,7 +62,7 @@ func ReadYamlForHttpRequest(filePath string) string {
 		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
 	}
 
-	// check body is valid
+	// check if body is valid
 	if user.Body == nil {
 		utils.PanicRedAndExit("Body is missing in the YAML file. Please add a valid Body.")
 	} else if !user.Body.IsValid() {
@@ -57,7 +78,7 @@ func ReadYamlForHttpRequest(filePath string) string {
 
 	// fmt.Println(jsonString)
 
-	// fmt.Println("Name: ", user.Method)
+	fmt.Println("Method:", user.Method)
 
 	return jsonString
 }
