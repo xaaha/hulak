@@ -13,8 +13,14 @@ import (
 
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func handleYamlFile(filepath string) *bytes.Buffer {
+func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	file, err := os.Open(filepath)
+
+	fileInfo, _ := file.Stat()
+	if fileInfo.Size() == 0 {
+		utils.PanicRedAndExit("Empty yaml file")
+	}
+
 	if err != nil {
 		utils.PanicRedAndExit("Error opening file: %v", err)
 	}
@@ -34,13 +40,16 @@ func handleYamlFile(filepath string) *bytes.Buffer {
 	}
 	enc.Close()
 
-	return &buf
+	return &buf, nil
 }
 
 // checks the validity of all the fields in the yaml file
 // and returns the json string of the yaml file
 func ReadYamlForHttpRequest(filePath string) string {
-	buf := handleYamlFile(filePath)
+	buf, err := handleYamlFile(filePath)
+	if err != nil {
+		utils.ColorError("Error occured after reading yaml file", err)
+	}
 
 	var user User
 	dec := yaml.NewDecoder(buf)
@@ -79,6 +88,7 @@ func ReadYamlForHttpRequest(filePath string) string {
 	// fmt.Println(jsonString)
 
 	fmt.Println("Method:", user.Method)
+	fmt.Println("Variable:", user.Body.Graphql.Variables)
 
 	return jsonString
 }
