@@ -11,6 +11,37 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// Recursively change the value
+// func substituteEnvVarsInMapValues(dict map[string]string) map[string]interface{} {
+// 	finalDict := make(map[string]interface{})
+// 	envMap, err := envparser.GenerateSecretsMap()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	for key, val := range finalDict {
+// 		switch changedStringVal := val.(type) {
+// 		case map[string]interface{}:
+// 			fmt.Println("handle interface")
+// 		case string:
+// 			finalStr, err := envparser.SubstitueVariables(val, envMap)
+// 			if err != nil {
+// 				fmt.Println(err)
+// 			}
+// 		}
+// 	}
+//
+// 	// print entire json
+// 	niceJson, _ := json.MarshalIndent(envMap, "", "  ")
+// 	fmt.Println(string(niceJson))
+//
+// 	// how to substitute variable
+// 	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	fmt.Println(finalAns)
+// }
+
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
@@ -57,6 +88,11 @@ func ReadYamlForHttpRequest(filePath string) string {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
+	// envMap, err := envparser.GenerateSecretsMap()
+	// if err != nil {
+	// 	utils.PanicRedAndExit("creating environment map: %v", err)
+	// }
+
 	// uppercase and type conversion
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
 	user.Method = upperCasedMethod
@@ -65,6 +101,12 @@ func ReadYamlForHttpRequest(filePath string) string {
 	if !user.Method.IsValid() {
 		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
 	}
+
+	// finalUrl, err := envparser.SubstitueVariables(string(user.Url), envMap)
+	// if err != nil {
+	// 	utils.PanicRedAndExit("creating environment map: %v", err)
+	// }
+	// user.Url = URL(finalUrl)
 
 	// url is required for any http request
 	if !user.Url.IsValidURL() {

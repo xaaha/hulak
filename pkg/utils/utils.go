@@ -42,16 +42,16 @@ func (u *Utilities) GetEnvFiles() ([]string, error) {
 	return environmentFiles, nil
 }
 
-// toLowercaseMap converts all map keys to lowercase recursively
-func ToLowercaseMap(m map[string]interface{}) map[string]interface{} {
+// converts all keys in a map to lowercase recursively
+func ToLowercaseMap(dict map[string]interface{}) map[string]interface{} {
 	loweredMap := make(map[string]interface{})
-	for k, v := range m {
-		lowerKey := strings.ToLower(k)
-		switch v := v.(type) {
+	for key, val := range dict {
+		lowerKey := strings.ToLower(key)
+		switch almostFinalValue := val.(type) {
 		case map[string]interface{}:
-			loweredMap[lowerKey] = ToLowercaseMap(v)
+			loweredMap[lowerKey] = ToLowercaseMap(almostFinalValue)
 		default:
-			loweredMap[lowerKey] = v
+			loweredMap[lowerKey] = almostFinalValue
 		}
 	}
 	return loweredMap

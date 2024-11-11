@@ -7,10 +7,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-/*
-* looks for the secret in the envMap && substitue the actual value in place of {{...}}
-* argument: string {{keyName}}
- */
+// looks for the secret in the envMap && substitue the actual value in place of {{...}}
+// argument: string {{keyName}}
 func SubstitueVariables(strToChange string, mapWithVars map[string]string) (string, error) {
 	if len(strToChange) == 0 {
 		return "", utils.ColorError(utils.EmptyVariables)
