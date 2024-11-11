@@ -88,11 +88,6 @@ func ReadYamlForHttpRequest(filePath string) string {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
-	// envMap, err := envparser.GenerateSecretsMap()
-	// if err != nil {
-	// 	utils.PanicRedAndExit("creating environment map: %v", err)
-	// }
-
 	// uppercase and type conversion
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
 	user.Method = upperCasedMethod
@@ -101,12 +96,6 @@ func ReadYamlForHttpRequest(filePath string) string {
 	if !user.Method.IsValid() {
 		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
 	}
-
-	// finalUrl, err := envparser.SubstitueVariables(string(user.Url), envMap)
-	// if err != nil {
-	// 	utils.PanicRedAndExit("creating environment map: %v", err)
-	// }
-	// user.Url = URL(finalUrl)
 
 	// url is required for any http request
 	if !user.Url.IsValidURL() {
@@ -125,6 +114,21 @@ func ReadYamlForHttpRequest(filePath string) string {
 	val, _ := json.MarshalIndent(user, "", "  ")
 	jsonString := string(val)
 	return jsonString
+}
+
+// replace the user's map's value's {{ }} with proper variable
+func GenerateFinalYamlMap(jsonString string) string {
+	// envMap, err := envparser.GenerateSecretsMap()
+	// if err != nil {
+	// 	utils.PanicRedAndExit("creating environment map: %v", err)
+	// }
+
+	// finalUrl, err := envparser.SubstitueVariables(string(user.Url), envMap)
+	// if err != nil {
+	// 	utils.PanicRedAndExit("creating environment map: %v", err)
+	// }
+	// user.Url = URL(finalUrl)
+	return ""
 }
 
 func ReadingYamlWithoutStruct() {
@@ -148,13 +152,3 @@ func ReadingYamlWithoutStruct() {
 	// 	fmt.Printf("%s: %v\n", key, value)
 	// }
 }
-
-/*
-Example Usage:
-import (
-ymlReader "github.com/xaaha/hulak/pkg/hulak_yaml_reader"
-)
-// use it like
-ymlReader.ReadingYamlWithStruct()
-ymlReader.ReadingYamlWithoutStruct()
-*/
