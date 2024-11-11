@@ -118,7 +118,7 @@ func ReadYamlForHttpRequest(filePath string) string {
 
 // replace the user's map's value's {{ }} with proper variable
 func GenerateFinalYamlMap(jsonString string) string {
-	// TODO: use this right before the standardCall
+	// TODO: Replace all the {{}} right before you validate them. URL needs the right variables to work? OR it does not?
 
 	// envMap, err := envparser.GenerateSecretsMap()
 	// if err != nil {
