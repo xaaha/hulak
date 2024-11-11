@@ -118,6 +118,8 @@ func ReadYamlForHttpRequest(filePath string) string {
 
 // replace the user's map's value's {{ }} with proper variable
 func GenerateFinalYamlMap(jsonString string) string {
+	// TODO: use this right before the standardCall
+
 	// envMap, err := envparser.GenerateSecretsMap()
 	// if err != nil {
 	// 	utils.PanicRedAndExit("creating environment map: %v", err)
