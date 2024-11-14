@@ -12,7 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Replaces all variables specified in user's map with values provided in the map
+// Recursively replaces all variables specified in user's map with values provided in the map
 func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 	changedMap := make(map[string]interface{})
 
@@ -23,7 +23,6 @@ func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 
 	for key, val := range dict {
 		switch valTyped := val.(type) {
-		// If the value is another map, recursively call ReplaceValues
 		case map[string]interface{}:
 			changedMap[key] = ReplaceVarsWithValues(valTyped)
 		case string:
