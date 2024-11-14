@@ -8,68 +8,43 @@ import (
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Recursively change the value
-// func substituteEnvVarsInMapValues(dict map[string]string) map[string]interface{} {
-// 	finalDict := make(map[string]interface{})
-// 	envMap, err := envparser.GenerateSecretsMap()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	for key, val := range finalDict {
-// 		switch changedStringVal := val.(type) {
-// 		case map[string]interface{}:
-// 			fmt.Println("handle interface")
-// 		case string:
-// 			finalStr, err := envparser.SubstitueVariables(val, envMap)
-// 			if err != nil {
-// 				fmt.Println(err)
-// 			}
-// 		}
-// 	}
-//
-// 	// print entire json
-// 	niceJson, _ := json.MarshalIndent(envMap, "", "  ")
-// 	fmt.Println(string(niceJson))
-//
-// 	// how to substitute variable
-// 	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	fmt.Println(finalAns)
-// }
-
-// TODO: Complete this, replace actual values from envmap intead of printing them
-// Check Replaces all values for all the values provided in the map, this function rep
-func ReplaceValues(dict map[string]interface{}) map[string]interface{} {
-	// Initialize a new map to store modified values
+// Replaces all variables specified in user's map with values provided in the map
+func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 	changedMap := make(map[string]interface{})
 
-	// Iterate over each key-value pair in the input map
+	envMap, err := envparser.GenerateSecretsMap()
+	if err != nil {
+		panic(err)
+	}
+
 	for key, val := range dict {
 		switch valTyped := val.(type) {
 		// If the value is another map, recursively call ReplaceValues
 		case map[string]interface{}:
-			changedMap[key] = ReplaceValues(valTyped)
-		// If the value is a string, print and add it to the changed map
+			changedMap[key] = ReplaceVarsWithValues(valTyped)
 		case string:
-			fmt.Println("This is a string:", valTyped)
-			changedMap[key] = valTyped // Add to changedMap
-		// If the value is a map of strings, iterate over it and print values
+			finalChangedString, err := envparser.SubstitueVariables(valTyped, envMap)
+			if err != nil {
+				fmt.Println(err)
+			}
+			changedMap[key] = finalChangedString
 		case map[string]string:
 			innerMap := make(map[string]interface{})
 			for k, v := range valTyped {
-				fmt.Println("This is a string within map[string]string:", v)
-				innerMap[k] = v // Add string values from map[string]string to a new map
+				finalChangedString, err := envparser.SubstitueVariables(v, envMap)
+				if err != nil {
+					fmt.Println(err)
+				}
+				innerMap[k] = finalChangedString
 			}
 			changedMap[key] = innerMap
-		// Default case for unexpected types
 		default:
 			fmt.Println("Unexpected type:", val)
-			changedMap[key] = val // Add unmodified
+			changedMap[key] = val
 		}
 	}
 	return changedMap
