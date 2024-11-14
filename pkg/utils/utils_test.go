@@ -202,7 +202,7 @@ func TestToLowercaseMap(t *testing.T) {
 	// Iterate over each test case
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := ToLowercaseMap(tc.input)
+			result := ConvertKeysToLowerCase(tc.input)
 			if !reflect.DeepEqual(result, tc.expected) {
 				t.Errorf("Test %s failed. Expected %v, got %v", tc.name, tc.expected, result)
 			}

@@ -42,6 +42,52 @@ import (
 // 	fmt.Println(finalAns)
 // }
 
+// TODO: Complete this, replace actual values from envmap intead of printing them
+// Check Replaces all values for all the values provided in the map, this function rep
+func ReplaceValues(dict map[string]interface{}) map[string]interface{} {
+	// Initialize a new map to store modified values
+	changedMap := make(map[string]interface{})
+
+	// Iterate over each key-value pair in the input map
+	for key, val := range dict {
+		switch valTyped := val.(type) {
+		// If the value is another map, recursively call ReplaceValues
+		case map[string]interface{}:
+			changedMap[key] = ReplaceValues(valTyped)
+		// If the value is a string, print and add it to the changed map
+		case string:
+			fmt.Println("This is a string:", valTyped)
+			changedMap[key] = valTyped // Add to changedMap
+		// If the value is a map of strings, iterate over it and print values
+		case map[string]string:
+			innerMap := make(map[string]interface{})
+			for k, v := range valTyped {
+				fmt.Println("This is a string within map[string]string:", v)
+				innerMap[k] = v // Add string values from map[string]string to a new map
+			}
+			changedMap[key] = innerMap
+		// Default case for unexpected types
+		default:
+			fmt.Println("Unexpected type:", val)
+			changedMap[key] = val // Add unmodified
+		}
+	}
+	return changedMap
+	/*
+		// test this with
+				test := map[string]interface{}{
+						"first": "Pratik",
+						"last":  "Thapa",
+						"work":  map[string]interface{}{"position": "engineer"},
+						"roles": map[string]string{"primary": "developer", "secondary": "designer"},
+					}
+
+					// Call ReplaceValues to process and print each value
+					updatedTest := ReplaceValues(test)
+					fmt.Println("Updated map:", updatedTest)
+	*/
+}
+
 // reads the yaml for http request.
 // right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
@@ -62,7 +108,8 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
-	data = utils.ToLowercaseMap(data)
+	// TODO: after lowering the key, change all the values as well {{}}
+	data = utils.ConvertKeysToLowerCase(data)
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
