@@ -9,7 +9,7 @@ import (
 
 // looks for the secret in the envMap && substitue the actual value in place of {{...}}
 // argument: string {{keyName}}
-func SubstitueVariables(strToChange string, mapWithVars map[string]string) (string, error) {
+func SubstituteVariables(strToChange string, mapWithVars map[string]string) (string, error) {
 	if len(strToChange) == 0 {
 		return "", utils.ColorError(utils.EmptyVariables)
 	}
@@ -32,7 +32,7 @@ func SubstitueVariables(strToChange string, mapWithVars map[string]string) (stri
 		strToChange = strings.Replace(strToChange, match[0], envVal, 1)
 		matches = regex.FindAllStringSubmatch(strToChange, -1)
 		if len(matches) > 0 {
-			return SubstitueVariables(strToChange, mapWithVars)
+			return SubstituteVariables(strToChange, mapWithVars)
 		}
 	}
 	return strToChange, nil
