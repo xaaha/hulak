@@ -26,7 +26,7 @@ func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 		case map[string]interface{}:
 			changedMap[key] = ReplaceVarsWithValues(valTyped)
 		case string:
-			finalChangedString, err := envparser.SubstitueVariables(valTyped, envMap)
+			finalChangedString, err := envparser.SubstituteVariables(valTyped, envMap)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -34,7 +34,7 @@ func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 		case map[string]string:
 			innerMap := make(map[string]interface{})
 			for k, v := range valTyped {
-				finalChangedString, err := envparser.SubstitueVariables(v, envMap)
+				finalChangedString, err := envparser.SubstituteVariables(v, envMap)
 				if err != nil {
 					fmt.Println(err)
 				}

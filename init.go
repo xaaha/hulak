@@ -36,7 +36,7 @@ func testInitialization() {
 	fmt.Println(string(niceJson))
 
 	// how to substitute variable
-	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
+	finalAns, err := envparser.SubstituteVariables("env{{PORT}}", envMap)
 	if err != nil {
 		fmt.Println(err)
 	}

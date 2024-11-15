@@ -44,7 +44,7 @@ func TestSubstituteVariables(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		output, err := SubstitueVariables(tc.stringToChange, varMap)
+		output, err := SubstituteVariables(tc.stringToChange, varMap)
 		if output != tc.expectedOutput {
 			t.Errorf(
 				"Expected Output and does not match the result: \n%v \nvs \n%v",
