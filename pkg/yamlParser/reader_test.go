@@ -97,7 +97,7 @@ KeyTwo: value2
 					handleYamlFile(filepath) // Call function that triggers os.Exit
 					return
 				}
-
+				// handle the current subprocess
 				cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
 				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
 				err := cmd.Run()
@@ -108,12 +108,10 @@ KeyTwo: value2
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				// For non-error cases, verify correct function output
 				buf, err := handleYamlFile(filepath)
 				if err != nil {
 					t.Fatalf("Unexpected error: %v", err)
 				}
-
 				if buf.Len() == 0 {
 					t.Errorf("Expected non-empty buffer, got empty buffer for test %s", tc.name)
 				}

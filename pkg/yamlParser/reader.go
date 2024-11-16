@@ -14,7 +14,6 @@ import (
 
 // From the yaml file, create a json file. But the json could have {{}} on it
 // But we need to make sure those values are replaced. Then
-//
 
 // First, this generates the "envMap" from the .env files.
 // Parses the user's input yaml file in json interface.
