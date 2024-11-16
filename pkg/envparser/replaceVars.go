@@ -2,7 +2,6 @@ package envparser
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -17,12 +16,12 @@ func replaceVariables(
 	}
 	tmpl, err := template.New("template").Option("missingkey=error").Parse(strToChange)
 	if err != nil {
-		return "", fmt.Errorf("template parsing error: %w", err)
+		return "", utils.ColorError("template parsing error: %w", err)
 	}
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, mapWithVars)
 	if err != nil {
-		return "", fmt.Errorf("%v", err) // Simplified error handling
+		return "", utils.ColorError("%v", err)
 	}
 	return result.String(), nil
 }
@@ -33,7 +32,7 @@ func prepareMap(varsMap map[string]string) (map[string]string, error) {
 	for key, val := range varsMap {
 		changedStr, err := replaceVariables(val, varsMap)
 		if err != nil {
-			return nil, fmt.Errorf("error while preparing variables in map: %v", err)
+			return nil, utils.ColorError("error while preparing variables in map: %v", err)
 		}
 		varsMap[key] = changedStr
 	}
