@@ -1,83 +1,89 @@
 package envparser
 
 import (
-	"regexp"
-	"strings"
+	"bytes"
+	"fmt"
+	"html/template"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// looks for the secret in the envMap && substitue the actual value in place of {{...}}
-// argument: string {{keyName}}
-func SubstituteVariables(strToChange string, mapWithVars map[string]string) (string, error) {
+func replaceVariables(
+	strToChange string,
+	mapWithVars map[string]string,
+) (string, error) {
 	if len(strToChange) == 0 {
-		return "", utils.ColorError(utils.EmptyVariables)
+		return "", utils.ColorError("input string is empty")
 	}
-	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`) // matches {{key}}
-	matches := regex.FindAllStringSubmatch(strToChange, -1)
-	if len(matches) == 0 {
-		return strToChange, nil
+	tmpl, err := template.New("template").Option("missingkey=error").Parse(strToChange)
+	if err != nil {
+		return "", fmt.Errorf("template parsing error: %w", err)
 	}
-	for _, match := range matches {
-		/*
-			match[0] is the full match, match[1] is the first group
-			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
-		*/
-		envKey := match[1]
-		envVal := mapWithVars[envKey]
-		if len(envVal) == 0 {
-			message := utils.UnResolvedVariable + envKey
-			return "", utils.ColorError(message)
-		}
-		strToChange = strings.Replace(strToChange, match[0], envVal, 1)
-		matches = regex.FindAllStringSubmatch(strToChange, -1)
-		if len(matches) > 0 {
-			return SubstituteVariables(strToChange, mapWithVars)
-		}
+	var result bytes.Buffer
+	err = tmpl.Execute(&result, mapWithVars)
+	if err != nil {
+		return "", fmt.Errorf("%v", err) // Simplified error handling
 	}
-	return strToChange, nil
+	return result.String(), nil
 }
 
-//
+// Replace the template {{ }} in the variable map itself.
+// Sometimes, we have a variables map that references some other variable in itself.
+func prepareMap(varsMap map[string]string) (map[string]string, error) {
+	for key, val := range varsMap {
+		changedStr, err := replaceVariables(val, varsMap)
+		if err != nil {
+			return nil, fmt.Errorf("error while preparing variables in map: %v", err)
+		}
+		varsMap[key] = changedStr
+	}
+	return varsMap, nil
+}
+
+func SubstituteVariables(
+	strToChange string,
+	mapWithVars map[string]string,
+) (string, error) {
+	finalMap, err := prepareMap(mapWithVars)
+	if err != nil {
+		return "", err
+	}
+
+	result, err := replaceVariables(strToChange, finalMap)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+// we can also use recursion and regex to solve this issue
+// trying to use template as much as possible
+
 // func SubstituteVariables(strToChange string, mapWithVars map[string]string) (string, error) {
 // 	if len(strToChange) == 0 {
-// 		return "", errors.New("Input string is empty")
+// 		return "", utils.ColorError(utils.EmptyVariables)
 // 	}
-// 	tmpl, err := template.New("template").Parse(strToChange)
-// 	if err != nil {
-// 		return "", fmt.Errorf("Failed to parse template: %w", err)
+// 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`) // matches {{key}}
+// 	matches := regex.FindAllStringSubmatch(strToChange, -1)
+// 	if len(matches) == 0 {
+// 		return strToChange, nil
 // 	}
-// 	var result bytes.Buffer
-// 	err = tmpl.Execute(&result, mapWithVars)
-// 	if err != nil {
-// 		return "", fmt.Errorf("Failed to execute template: %w", err)
-// 	}
-// 	return result.String(), nil
-// }
-//
-// func main() {
-// 	str := "Hello, {{.name}}! Welcome to {{.place}}. This is a {{.project}}. And a comment {{/* a comment */}}. Finally, an {{.error}}"
-// 	vars := map[string]string{
-// 		"name":    "John",
-// 		"place":   "Gopherland",
-// 		"project": "{{.hulak}}",
-// 		"hulak":   "Hulak v1",
-// 	}
-// 	// in case the map has nested vals
-// 	for key, val := range vars {
-// 		result, err := SubstituteVariables(val, vars)
-// 		vars[key] = result
-// 		if err != nil {
-// 			fmt.Println("Error:", err)
-// 		} else {
-// 			fmt.Println(result)
+// 	for _, match := range matches {
+// 		/*
+// 			match[0] is the full match, match[1] is the first group
+// 			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
+// 		*/
+// 		envKey := match[1]
+// 		envVal := mapWithVars[envKey]
+// 		if len(envVal) == 0 {
+// 			message := utils.UnResolvedVariable + envKey
+// 			return "", utils.ColorError(message)
+// 		}
+// 		strToChange = strings.Replace(strToChange, match[0], envVal, 1)
+// 		matches = regex.FindAllStringSubmatch(strToChange, -1)
+// 		if len(matches) > 0 {
+// 			return SubstituteVariables(strToChange, mapWithVars)
 // 		}
 // 	}
-//
-// 	result, err := SubstituteVariables(str, vars)
-// 	if err != nil {
-// 		fmt.Println("Error:", err)
-// 	} else {
-// 		fmt.Println(result)
-// 	}
+// 	return strToChange, nil
 // }

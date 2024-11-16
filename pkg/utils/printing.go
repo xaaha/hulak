@@ -37,7 +37,7 @@ func PanicRedAndExit(msg string, args ...any) {
 
 /*
 // assuming that ixiai is not a variable defined in the .env files
-resolved1, err := envparser.SubstitueVariables("myNameIs={{ixiai}}")
+resolved1, err := envparser.SubstitueVariables("myNameIs={{.ixiai}}")
 	if err != nil {
 		utils.PrintError(err)
 	}

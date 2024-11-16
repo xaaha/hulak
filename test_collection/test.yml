@@ -9,7 +9,7 @@ url:
 headers:
   - application/json
   - application/test
-  - Bearer {{auth_token}}
+  - Bearer {{.auth_token}}
 body:
   graphql:
     query: |
