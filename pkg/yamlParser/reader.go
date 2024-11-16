@@ -12,19 +12,26 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Recursively replaces all variables specified in user's map with values provided in the map
-func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
+// From the yaml file, create a json file. But the json could have {{}} on it
+// But we need to make sure those values are replaced. Then
+//
+
+// First, this generates the "envMap" from the .env files.
+// Parses the user's input yaml file in json interface.
+// Then, this function recursively replaces all variables {{.value}} specified in user's yaml values, with values from environment map
+// This is necessary, as the all variables, like URL needs correct string
+func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 	changedMap := make(map[string]interface{})
 
 	envMap, err := envparser.GenerateSecretsMap()
 	if err != nil {
-		panic(err)
+		utils.PanicRedAndExit("%v", err)
 	}
 
 	for key, val := range dict {
 		switch valTyped := val.(type) {
 		case map[string]interface{}:
-			changedMap[key] = ReplaceVarsWithValues(valTyped)
+			changedMap[key] = replaceVarsWithValues(valTyped)
 		case string:
 			finalChangedString, err := envparser.SubstituteVariables(valTyped, envMap)
 			if err != nil {
@@ -62,9 +69,15 @@ func ReplaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 	*/
 }
 
-// reads the yaml for http request.
-// right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
+// Reads the yaml for http request.
+// Right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
+	_, err := os.Stat(filepath)
+	if os.IsNotExist(err) {
+		// utils.PanicRedAndExit("File does not exist, %s", filepath)
+		panic("File does not exist " + filepath)
+	}
+
 	file, err := os.Open(filepath)
 
 	fileInfo, _ := file.Stat()
@@ -82,8 +95,8 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
-	// TODO: after lowering the key, change all the values as well {{}}
 	data = utils.ConvertKeysToLowerCase(data)
+	// TODO: parse all the values to with {{.key}}
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
@@ -135,23 +148,6 @@ func ReadYamlForHttpRequest(filePath string) string {
 	val, _ := json.MarshalIndent(user, "", "  ")
 	jsonString := string(val)
 	return jsonString
-}
-
-// replace the user's map's value's {{ }} with proper variable
-func GenerateFinalYamlMap(jsonString string) string {
-	// TODO: Replace all the {{}} right before you validate them. URL needs the right variables to work.
-
-	// envMap, err := envparser.GenerateSecretsMap()
-	// if err != nil {
-	// 	utils.PanicRedAndExit("creating environment map: %v", err)
-	// }
-
-	// finalUrl, err := envparser.SubstitueVariables(string(user.Url), envMap)
-	// if err != nil {
-	// 	utils.PanicRedAndExit("creating environment map: %v", err)
-	// }
-	// user.Url = URL(finalUrl)
-	return ""
 }
 
 func ReadingYamlWithoutStruct() {

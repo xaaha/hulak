@@ -1,9 +1,11 @@
 package yamlParser
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 
 	yaml "github.com/goccy/go-yaml"
@@ -54,9 +56,10 @@ func deepEqualWithoutType(a, b interface{}) bool {
 
 func TestHandleYamlFile(t *testing.T) {
 	testCases := []struct {
-		expected map[string]interface{}
-		name     string
-		input    string
+		name      string
+		input     string
+		expected  map[string]interface{}
+		expectErr bool
 	}{
 		{
 			name: "Simple YAML structure",
@@ -68,6 +71,7 @@ KeyTwo: value2
 				"keyone": "value1",
 				"keytwo": "value2",
 			},
+			expectErr: false,
 		},
 		{
 			name: "Nested YAML structure",
@@ -82,24 +86,61 @@ AnotherKey: anotherValue
 				},
 				"anotherkey": "anotherValue",
 			},
+			expectErr: false,
+		},
+		{
+			name:      "Non-existent file",
+			input:     "",
+			expected:  nil,
+			expectErr: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpFile, err := createTempYamlFile(tc.input)
-			if err != nil {
-				t.Fatalf("Failed to create temp env file: %v", err)
+			var tmpFile string
+			var err error
+
+			if !tc.expectErr {
+				tmpFile, err = createTempYamlFile(tc.input)
+				if err != nil {
+					t.Fatalf("Failed to create temp YAML file: %v", err)
+				}
+				defer os.Remove(tmpFile)
+			} else {
+				tmpFile = "/non/existent/file.yaml"
 			}
-			defer os.Remove(tmpFile)
+
+			defer func() {
+				if r := recover(); r != nil {
+					if tc.expectErr {
+						expectedMsg := "File does not exist"
+						if !strings.Contains(fmt.Sprintf("%v", r), expectedMsg) {
+							t.Errorf(
+								"Expected panic with message '%s', but got: %v",
+								expectedMsg,
+								r,
+							)
+						}
+					} else {
+						t.Errorf("Unexpected panic: %v", r)
+					}
+				} else if tc.expectErr {
+					t.Errorf("Expected a panic but did not get one")
+				}
+			}()
+
 			buf, _ := handleYamlFile(tmpFile)
-			var result map[string]interface{}
-			if err := yaml.NewDecoder(buf).Decode(&result); err != nil {
-				t.Fatalf("Failed to decode YAML from buffer: %v", err)
-			}
-			// Compare result with expected output
-			if !deepEqualWithoutType(result, tc.expected) {
-				t.Errorf("Test %s failed. Expected %v, got %v", tc.name, tc.expected, result)
+			if !tc.expectErr {
+				var result map[string]interface{}
+				if err := yaml.NewDecoder(buf).Decode(&result); err != nil {
+					t.Fatalf("Failed to decode YAML from buffer: %v", err)
+				}
+
+				// Compare result with expected output
+				if !deepEqualWithoutType(result, tc.expected) {
+					t.Errorf("Test %s failed. Expected %v, got %v", tc.name, tc.expected, result)
+				}
 			}
 		})
 	}

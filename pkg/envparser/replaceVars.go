@@ -39,6 +39,7 @@ func prepareMap(varsMap map[string]string) (map[string]string, error) {
 	return varsMap, nil
 }
 
+// from the mapWithVars, parse the string and replace {{}}
 func SubstituteVariables(
 	strToChange string,
 	mapWithVars map[string]string,
