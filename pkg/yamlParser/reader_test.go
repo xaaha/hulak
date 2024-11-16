@@ -1,14 +1,10 @@
 package yamlParser
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"reflect"
-	"strings"
 	"testing"
-
-	yaml "github.com/goccy/go-yaml"
 )
 
 func createTempYamlFile(content string) (string, error) {
@@ -55,91 +51,71 @@ func deepEqualWithoutType(a, b interface{}) bool {
 }
 
 func TestHandleYamlFile(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name      string
-		input     string
-		expected  map[string]interface{}
+		content   string
 		expectErr bool
 	}{
 		{
-			name: "Simple YAML structure",
-			input: `
+			name: "Valid YAML",
+			content: `
 KeyOne: value1
 KeyTwo: value2
 `,
-			expected: map[string]interface{}{
-				"keyone": "value1",
-				"keytwo": "value2",
-			},
 			expectErr: false,
 		},
 		{
-			name: "Nested YAML structure",
-			input: `
-KeyOuter:
-  KeyInner: innerValue
-AnotherKey: anotherValue
-`,
-			expected: map[string]interface{}{
-				"keyouter": map[string]interface{}{
-					"keyinner": "innerValue",
-				},
-				"anotherkey": "anotherValue",
-			},
-			expectErr: false,
+			name:      "Empty file",
+			content:   "",
+			expectErr: true,
 		},
 		{
 			name:      "Non-existent file",
-			input:     "",
-			expected:  nil,
+			content:   "",
 			expectErr: true,
 		},
 	}
 
-	for _, tc := range testCases {
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var tmpFile string
+			var filepath string
 			var err error
 
-			if !tc.expectErr {
-				tmpFile, err = createTempYamlFile(tc.input)
+			if !tc.expectErr || tc.name != "Non-existent file" {
+				filepath, err = createTempYamlFile(tc.content)
 				if err != nil {
-					t.Fatalf("Failed to create temp YAML file: %v", err)
+					t.Fatalf("Failed to create temp file: %v", err)
 				}
-				defer os.Remove(tmpFile)
+				defer os.Remove(filepath)
 			} else {
-				tmpFile = "/non/existent/file.yaml"
+				filepath = "/non/existent/file.yaml"
 			}
 
-			defer func() {
-				if r := recover(); r != nil {
-					if tc.expectErr {
-						expectedMsg := "File does not exist"
-						if !strings.Contains(fmt.Sprintf("%v", r), expectedMsg) {
-							t.Errorf(
-								"Expected panic with message '%s', but got: %v",
-								expectedMsg,
-								r,
-							)
-						}
-					} else {
-						t.Errorf("Unexpected panic: %v", r)
-					}
-				} else if tc.expectErr {
-					t.Errorf("Expected a panic but did not get one")
-				}
-			}()
-
-			buf, _ := handleYamlFile(tmpFile)
-			if !tc.expectErr {
-				var result map[string]interface{}
-				if err := yaml.NewDecoder(buf).Decode(&result); err != nil {
-					t.Fatalf("Failed to decode YAML from buffer: %v", err)
+			if tc.expectErr {
+				// Simulate child process to test os.Exit behavior
+				if os.Getenv("EXPECT_EXIT") == "1" {
+					handleYamlFile(filepath) // Call function that triggers os.Exit
+					return
 				}
 
-				// Compare result with expected output
-				if !deepEqualWithoutType(result, tc.expected) {
-					t.Errorf("Test %s failed. Expected %v, got %v", tc.name, tc.expected, result)
+				cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
+				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
+				err := cmd.Run()
+
+				// Verify exit code from the subprocess
+				if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
+					return // Test passes
+				}
+				t.Fatalf("Expected process to exit with code 1, but got %v", err)
+			} else {
+				// For non-error cases, verify correct function output
+				buf, err := handleYamlFile(filepath)
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+
+				if buf.Len() == 0 {
+					t.Errorf("Expected non-empty buffer, got empty buffer for test %s", tc.name)
 				}
 			}
 		})

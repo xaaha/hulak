@@ -74,8 +74,7 @@ func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	_, err := os.Stat(filepath)
 	if os.IsNotExist(err) {
-		// utils.PanicRedAndExit("File does not exist, %s", filepath)
-		panic("File does not exist " + filepath)
+		utils.PanicRedAndExit("File does not exist, %s", filepath)
 	}
 
 	file, err := os.Open(filepath)
