@@ -13,7 +13,7 @@ import (
 )
 
 // From the yaml file, create a json file. But the json could have {{}} on it
-// But we need to make sure those values are replaced. Then
+// So, we need to, read the file, make sure those values are handled, then return the proper map
 
 // First, this generates the "envMap" from the .env files.
 // Parses the user's input yaml file in json interface.
@@ -71,8 +71,7 @@ func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 // Reads the yaml for http request.
 // Right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
-	_, err := os.Stat(filepath)
-	if os.IsNotExist(err) {
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)
 	}
 
@@ -93,6 +92,8 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 		utils.PanicRedAndExit("error decoding data: %v", err)
 	}
 
+	// case sensitivity keys in yaml file is ignored.
+	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 	// TODO: parse all the values to with {{.key}}
 
