@@ -95,7 +95,7 @@ KeyTwo: value2
 			if tc.expectErr {
 				// Simulate child process to test os.Exit behavior
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					handleYamlFile(filepath, secretsMap) // Call function that triggers os.Exit
+					checkYamlFile(filepath, secretsMap) // Call function that triggers os.Exit
 					return
 				}
 				// handle the current subprocess
@@ -109,7 +109,7 @@ KeyTwo: value2
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				buf, err := handleYamlFile(filepath, secretsMap)
+				buf, err := checkYamlFile(filepath, secretsMap)
 				if err != nil {
 					t.Fatalf("Unexpected error: %v", err)
 				}
