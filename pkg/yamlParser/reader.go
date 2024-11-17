@@ -68,7 +68,7 @@ func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 	*/
 }
 
-// Reads the yaml for http request.
+// Reads YAML, validates if the it exists, is not empty, and changes keys to lowercase for http request.
 // Right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
@@ -76,16 +76,16 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	}
 
 	file, err := os.Open(filepath)
+	if err != nil {
+		utils.PanicRedAndExit("Error opening file: %v", err)
+	}
+	defer file.Close()
 
 	fileInfo, _ := file.Stat()
 	if fileInfo.Size() == 0 {
 		utils.PanicRedAndExit("Empty yaml file")
 	}
 
-	if err != nil {
-		utils.PanicRedAndExit("Error opening file: %v", err)
-	}
-	defer file.Close()
 	var data map[string]interface{}
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
@@ -95,7 +95,9 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	// case sensitivity keys in yaml file is ignored.
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
-	// TODO: parse all the values to with {{.key}}
+
+	// parse all the values to with {{.key}}
+	// parsedMap := replaceVarsWithValues(data)
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
