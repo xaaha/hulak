@@ -19,20 +19,18 @@ import (
 // Parses the user's input yaml file in json interface.
 // Then, this function recursively replaces all variables {{.value}} specified in user's yaml values, with values from environment map
 // This is necessary, as the all variables, like URL needs correct string
-func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
+func replaceVarsWithValues(
+	dict map[string]interface{},
+	secretsMap map[string]string,
+) map[string]interface{} {
 	changedMap := make(map[string]interface{})
-
-	envMap, err := envparser.GenerateSecretsMap()
-	if err != nil {
-		utils.PanicRedAndExit("%v", err)
-	}
 
 	for key, val := range dict {
 		switch valTyped := val.(type) {
 		case map[string]interface{}:
-			changedMap[key] = replaceVarsWithValues(valTyped)
+			changedMap[key] = replaceVarsWithValues(valTyped, secretsMap)
 		case string:
-			finalChangedString, err := envparser.SubstituteVariables(valTyped, envMap)
+			finalChangedString, err := envparser.SubstituteVariables(valTyped, secretsMap)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -40,7 +38,7 @@ func replaceVarsWithValues(dict map[string]interface{}) map[string]interface{} {
 		case map[string]string:
 			innerMap := make(map[string]interface{})
 			for k, v := range valTyped {
-				finalChangedString, err := envparser.SubstituteVariables(v, envMap)
+				finalChangedString, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -95,9 +93,7 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	// case sensitivity keys in yaml file is ignored.
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
-
-	// parse all the values to with {{.key}}
-	// parsedMap := replaceVarsWithValues(data)
+	// TODO: parse all the values to with {{.key}}
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
