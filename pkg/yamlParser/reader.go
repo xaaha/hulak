@@ -15,10 +15,9 @@ import (
 // From the yaml file, create a json file. But the json could have {{}} on it
 // So, we need to, read the file, make sure those values are handled, then return the proper map
 
-// First, this generates the "envMap" from the .env files.
-// Parses the user's input yaml file in json interface.
+// Parses the user's input yaml file to a json interface.
 // Then, this function recursively replaces all variables {{.value}} specified in user's yaml values, with values from environment map
-// This is necessary, as the all variables, like URL needs correct string
+// This is necessary, as the some variables, like URL needs correct string
 func replaceVarsWithValues(
 	dict map[string]interface{},
 	secretsMap map[string]string,
@@ -68,7 +67,7 @@ func replaceVarsWithValues(
 
 // Reads YAML, validates if the it exists, is not empty, and changes keys to lowercase for http request.
 // Right now, the yaml is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func handleYamlFile(filepath string) (*bytes.Buffer, error) {
+func handleYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)
 	}
@@ -93,11 +92,13 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 	// case sensitivity keys in yaml file is ignored.
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
-	// TODO: parse all the values to with {{.key}}
+
+	// parse all the values to with {{.key}}
+	parsedMap := replaceVarsWithValues(data, secretsMap)
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
-	if err := enc.Encode(data); err != nil {
+	if err := enc.Encode(parsedMap); err != nil {
 		utils.PanicRedAndExit("error encoding data: %v", err)
 	}
 	enc.Close()
@@ -107,8 +108,8 @@ func handleYamlFile(filepath string) (*bytes.Buffer, error) {
 
 // checks the validity of all the fields in the yaml file
 // and returns the json string of the yaml file
-func ReadYamlForHttpRequest(filePath string) string {
-	buf, err := handleYamlFile(filePath)
+func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) string {
+	buf, err := handleYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.ColorError("Error occured after reading yaml file", err)
 	}

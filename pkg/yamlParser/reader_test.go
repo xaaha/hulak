@@ -51,6 +51,7 @@ func deepEqualWithoutType(a, b interface{}) bool {
 }
 
 func TestHandleYamlFile(t *testing.T) {
+	secretsMap := map[string]string{}
 	tests := []struct {
 		name      string
 		content   string
@@ -94,7 +95,7 @@ KeyTwo: value2
 			if tc.expectErr {
 				// Simulate child process to test os.Exit behavior
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					handleYamlFile(filepath) // Call function that triggers os.Exit
+					handleYamlFile(filepath, secretsMap) // Call function that triggers os.Exit
 					return
 				}
 				// handle the current subprocess
@@ -108,7 +109,7 @@ KeyTwo: value2
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				buf, err := handleYamlFile(filepath)
+				buf, err := handleYamlFile(filepath, secretsMap)
 				if err != nil {
 					t.Fatalf("Unexpected error: %v", err)
 				}
@@ -122,6 +123,7 @@ KeyTwo: value2
 
 // tests the function that exists with invalid yaml file
 func TestReadingYamlWithStruct(t *testing.T) {
+	secretsMap := map[string]string{}
 	tests := []struct {
 		name      string
 		content   string
@@ -210,7 +212,7 @@ headers:
 
 			if tc.expectErr {
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					ReadYamlForHttpRequest(filepath)
+					ReadYamlForHttpRequest(filepath, secretsMap)
 					return
 				}
 
@@ -223,7 +225,7 @@ headers:
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				result := ReadYamlForHttpRequest(filepath)
+				result := ReadYamlForHttpRequest(filepath, secretsMap)
 				if result == "" {
 					t.Errorf("Expected result but got empty string for test %s", tc.name)
 				}
