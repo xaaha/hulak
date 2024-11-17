@@ -123,7 +123,6 @@ KeyTwo: value2
 
 // tests the function that exists with invalid yaml file
 func TestReadingYamlWithStruct(t *testing.T) {
-	secretsMap := map[string]string{}
 	tests := []struct {
 		name      string
 		content   string
@@ -200,6 +199,26 @@ headers:
 `,
 			expectErr: true,
 		},
+		// 		{
+		// 			name: "Valid YAML with valid template",
+		// 			content: `
+		// method: GET
+		// url: https://api.example.com/data
+		// urlparams:
+		//   key1: value1
+		// headers:
+		//   Accept: application/json
+		// body:
+		//   formdata:
+		//     field1: {{.sponsor}}
+		//     field2: data2
+		// `,
+		// 			expectErr: false,
+		// 		},
+	}
+
+	secretsMap := map[string]string{
+		"sponsor": "mastercard",
 	}
 
 	for _, tc := range tests {
