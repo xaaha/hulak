@@ -2,14 +2,14 @@ package envparser
 
 import (
 	"bytes"
-	"html/template"
+	"text/template"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func replaceVariables(
 	strToChange string,
-	mapWithVars map[string]string,
+	secretsMap map[string]string,
 ) (string, error) {
 	if len(strToChange) == 0 {
 		return "", utils.ColorError("input string is empty")
@@ -19,7 +19,7 @@ func replaceVariables(
 		return "", utils.ColorError("template parsing error: %w", err)
 	}
 	var result bytes.Buffer
-	err = tmpl.Execute(&result, mapWithVars)
+	err = tmpl.Execute(&result, secretsMap)
 	if err != nil {
 		return "", utils.ColorError("%v", err)
 	}
@@ -28,23 +28,23 @@ func replaceVariables(
 
 // Replace the template {{ }} in the variable map itself.
 // Sometimes, we have a variables map that references some other variable in itself.
-func prepareMap(varsMap map[string]string) (map[string]string, error) {
-	for key, val := range varsMap {
-		changedStr, err := replaceVariables(val, varsMap)
+func prepareMap(secretsMap map[string]string) (map[string]string, error) {
+	for key, val := range secretsMap {
+		changedStr, err := replaceVariables(val, secretsMap)
 		if err != nil {
 			return nil, utils.ColorError("error while preparing variables in map: %v", err)
 		}
-		varsMap[key] = changedStr
+		secretsMap[key] = changedStr
 	}
-	return varsMap, nil
+	return secretsMap, nil
 }
 
 // from the mapWithVars, parse the string and replace {{}}
 func SubstituteVariables(
 	strToChange string,
-	mapWithVars map[string]string,
+	secretsMap map[string]string,
 ) (string, error) {
-	finalMap, err := prepareMap(mapWithVars)
+	finalMap, err := prepareMap(secretsMap)
 	if err != nil {
 		return "", err
 	}
