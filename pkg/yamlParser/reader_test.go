@@ -199,22 +199,22 @@ headers:
 `,
 			expectErr: true,
 		},
-		// 		{
-		// 			name: "Valid YAML with valid template",
-		// 			content: `
-		// method: GET
-		// url: https://api.example.com/data
-		// urlparams:
-		//   key1: value1
-		// headers:
-		//   Accept: application/json
-		// body:
-		//   formdata:
-		//     field1: {{.sponsor}}
-		//     field2: data2
-		// `,
-		// 			expectErr: false,
-		// 		},
+		{
+			name: "Valid YAML with valid template",
+			content: `
+Method: GET
+url: https://api.example.com/data
+urlparams:
+  key1: value1
+headers:
+  Accept: application/json
+body:
+  formdata:
+    field1: "this is {{.sponsor}} body"
+    field2: data2
+`,
+			expectErr: false,
+		},
 	}
 
 	secretsMap := map[string]string{

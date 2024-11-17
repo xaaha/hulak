@@ -86,7 +86,7 @@ func checkYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer
 	var data map[string]interface{}
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
-		utils.PanicRedAndExit("error decoding data: %v", err)
+		utils.PanicRedAndExit("1. error decoding data: %v", err)
 	}
 
 	// case sensitivity keys in yaml file is ignored.
@@ -117,7 +117,7 @@ func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) strin
 	var user User
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&user); err != nil {
-		utils.PanicRedAndExit("error decoding data: %v", err)
+		utils.PanicRedAndExit("3. error decoding data: %v", err)
 	}
 
 	// uppercase and type conversion
@@ -145,6 +145,7 @@ func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) strin
 	}
 	val, _ := json.MarshalIndent(user, "", "  ")
 	jsonString := string(val)
+	fmt.Println(jsonString)
 	return jsonString
 }
 
@@ -158,7 +159,7 @@ func ReadingYamlWithoutStruct() {
 	var data map[string]interface{}
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
-		utils.PanicRedAndExit("error decoding data: %v", err)
+		utils.PanicRedAndExit("2. error decoding data: %v", err)
 	}
 
 	val, _ := json.MarshalIndent(data, "", "  ")
