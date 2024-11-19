@@ -3,7 +3,6 @@ package yamlParser
 import (
 	"os"
 	"os/exec"
-	"reflect"
 	"testing"
 )
 
@@ -17,37 +16,6 @@ func createTempYamlFile(content string) (string, error) {
 		return "", nil
 	}
 	return file.Name(), nil
-}
-
-func deepEqualWithoutType(a, b interface{}) bool {
-	switch a := a.(type) {
-	case map[string]interface{}:
-		bMap, ok := b.(map[string]interface{})
-		if !ok {
-			return false
-		}
-		if len(a) != len(bMap) {
-			return false
-		}
-		for k, v := range a {
-			if !deepEqualWithoutType(v, bMap[k]) {
-				return false
-			}
-		}
-	case []interface{}:
-		bSlice, ok := b.([]interface{})
-		if !ok || len(a) != len(bSlice) {
-			return false
-		}
-		for i := range a {
-			if !deepEqualWithoutType(a[i], bSlice[i]) {
-				return false
-			}
-		}
-	default:
-		return reflect.DeepEqual(a, b)
-	}
-	return true
 }
 
 func TestHandleYamlFile(t *testing.T) {
@@ -122,7 +90,7 @@ KeyTwo: value2
 }
 
 // tests the function that exists with invalid yaml file
-func TestReadingYamlWithStruct(t *testing.T) {
+func TestReadYamlForHttpRequest(t *testing.T) {
 	tests := []struct {
 		name      string
 		content   string
@@ -215,26 +183,44 @@ body:
 `,
 			expectErr: false,
 		},
-		// 		{
-		// 			name: "Invalid YAML: template without double quote",
-		// 			content: `
-		// Method: GET
-		// url: https://api.example.com/data
-		// urlparams:
-		//   key1: value1
-		// headers:
-		//   Accept: application/json
-		// body:
-		//   formdata:
-		//     field1: this is {{.sponsor}} body
-		//     field2: data2
-		// `,
-		// 			expectErr: true,
-		// 		},
+		{
+			name: "Valid YAML: template without and without double quote",
+			content: `
+Method: GET
+url: https://api.example.com/data
+urlparams:
+  key1: value1
+headers:
+  Accept: application/json
+body:
+  formdata:
+    field1: this is {{.sponsor}} body
+    field2: "{{.field2}}"
+`,
+			expectErr: false,
+		},
+		// note: since yaml is essentially json under the hood, we need to wrap {{}} with ""
+		{
+			name: "Invalid YAML: Unexpected mapping key",
+			content: `
+Method: GET
+url: https://api.example.com/data
+urlparams:
+  key1: value1
+headers:
+  Accept: application/json
+body:
+  formdata:
+    field1: this is {{.sponsor}} body
+    field2: {{.field2}} 
+`,
+			expectErr: true,
+		},
 	}
 
 	secretsMap := map[string]string{
-		"sponsor": "mastercard",
+		"sponsor": "mastercard, visa, google",
+		"field2":  "myRandomStringWith19382",
 	}
 
 	for _, tc := range tests {

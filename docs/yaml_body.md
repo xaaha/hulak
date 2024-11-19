@@ -35,16 +35,16 @@ method: GET
 
 Represents the body of an HTTP request. Only one body type is allowed per request.
 
-- FormData map[string]string Form data fields sent as multipart/form-data.
-- UrlEncodedFormData map[string]string Data sent as application/x-www-form-urlencoded.
-- Graphql \*GraphQl GraphQL queries and variables.
+- FormData `map[string]string` Form data fields sent as multipart/form-data.
+- UrlEncodedFormData `map[string]string` Data sent as application/x-www-form-urlencoded.
+- Graphql: With GraphQL queries and variables.
 - Raw string Raw body content as a string.
 
-Rules: 1. The body must not be empty or nil. 2. Only one body type must be present and non-empty. 3. If using Graphql, the query field must be provided.
-
-#### GraphQl
-
-Graphql must have query. Specifies the structure for GraphQL requests.
+> [!Note]
+>
+> 1. The body must not be empty or nil.
+> 2. Only one body type must be present and non-empty.
+> 3. If using Graphql, the query field must be provided.
 
 ## Examples
 
@@ -58,7 +58,7 @@ urlparams:
 	param2: "value2"
 headers:
 	Content-Type: "application/json"
-	Authorization: "Bearer token"
+	Authorization: "Bearer {{.token}}"
 body:
 	formdata:
 		field1: "value1"
@@ -74,12 +74,25 @@ headers:
   Accept: application/json
 body:
   formdata:
-    field1: "this is {{.secret}} body"
+    field1: this is {{.secret}} body
     field2: data2
 ```
 
-- Hulak uses go template under the hood to replace your secrets. As seen above,
-  if you want to replace the string with secrets, wrap the entire value with double quote `" "` in your yaml file.
+```yaml
+Method: GET
+url: "{{.baseUrl}}" # Remember to wrap the secret decleration with double if that's the only string
+urlparams:
+  key1: this is {{.secret}} also valid
+headers:
+  Accept: application/json
+body:
+  formdata:
+    field1: this is {{.secret}} body
+    field2: data2
+```
+
+- Hulak uses `Go's` template under the hood to replace your secrets. As seen above,
+  if you want to replace the string with secrets, entire secret with double quote `" "` in your yaml file.
   - For secrets, use dot/period `.` to reference a secret
 
 ```yaml
@@ -100,20 +113,10 @@ body:
       id: "12345"
 ```
 
-Key Rules:
-
-1.  URL: Must be a valid, well-formed URI.
-2.  Method: Must be one of the supported HTTP methods.
-3.  Headers: Key-value pairs for HTTP headers.
-4.  Body: Only one body type is allowed, and it must be valid.
-
-Error Handling and Validation
-
-```txt
-  1.	HTTP Method Validation:
-    •	Invalid methods will be rejected during validation.
-  2.	URL Validation:
-    •	If the URL is invalid, the request cannot proceed.
-  3.	Body Validation:
-    •	If multiple body types are present or none are valid, an error is thrown.
-```
+> [!Note]
+>
+> 1.  URL: Must be a valid, well-formed URI.
+> 2.  Method: Must be one of the supported HTTP methods.
+> 3.  Headers: Key-value pairs for HTTP headers.
+> 4.  Body: Only one body type is allowed, and it must be valid.
+> 5.  Secrets are allowed with `{{.secretName}}` but make sure formatting is right

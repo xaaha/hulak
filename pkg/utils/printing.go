@@ -29,6 +29,11 @@ func PrintWarning(msg string) {
 	log.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
+// Used mostly for errors
+func PrintRed(msg string) {
+	log.Printf("%s%s%s\n", Red, msg, ColorReset)
+}
+
 // Print message in Red
 func PanicRedAndExit(msg string, args ...any) {
 	log.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)

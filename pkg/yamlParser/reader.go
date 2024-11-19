@@ -111,7 +111,7 @@ func checkYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer
 func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) string {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.ColorError("Error occured after reading yaml file", err)
+		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
 	}
 
 	var user User

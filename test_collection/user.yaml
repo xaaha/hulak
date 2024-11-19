@@ -11,7 +11,8 @@ body:
   #   foo: bar
   #   baz: bin
   randomThing:
-    foo: this is being ignored correctly
+    foo: this is {{.great}} being ignored correctly
+    bar: "{{.this}}"
   # this should be invalid or just ignored
   graphql:
     query: |
