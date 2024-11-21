@@ -14,7 +14,7 @@ Creates environment folder and a default global.env file in it.
 Optional: File names as a *string
 */
 func CreateDefaultEnvs(envName *string) error {
-	defaultEnv := "global"
+	defaultEnv := utils.DefaultEnvVal
 	if envName != nil {
 		lowerCasedEnv := strings.ToLower(*envName)
 		defaultEnv = lowerCasedEnv

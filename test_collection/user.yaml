@@ -1,6 +1,6 @@
 ---
 method: post
-url: https://graphql.postman-echo.com/graphql
+url: "{{.baseUrl}}"
 urlparams:
   foo: bar
   baz: bin
@@ -17,7 +17,7 @@ body:
   graphql:
     query: |
       query Hello {
-        hello(person: { name: "pratik", age: 11 })
+        hello(person: { name: {{.userName}}, age: {{.userAge}} })
       }
   # variables:
   #   run: true
