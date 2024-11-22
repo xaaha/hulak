@@ -64,7 +64,7 @@ func setEnvironment(utility utils.Utilities) (bool, error) {
 	}
 
 	err = os.Setenv(utils.EnvKey, envFromFlag)
-	utils.PrintGreen("Current active environment: " + os.Getenv(utils.EnvKey))
+	utils.PrintGreen("Using Environment: " + os.Getenv(utils.EnvKey))
 	if err != nil {
 		return fileCreationSkipped, err
 	}
