@@ -2,7 +2,6 @@ package envparser
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 	"slices"
@@ -37,45 +36,34 @@ func setEnvironment(utility utils.Utilities) (bool, error) {
 		envFromFiles = append(envFromFiles, fileName)
 	}
 
-	// get user's provided value
-	envFromFlag := flag.String(
+	envFromFlag := utils.CaptureUserFlag(
 		"env",
 		utils.DefaultEnvVal,
 		"environment file to use during the call",
 	)
-	flag.Parse()
-
-	// Only take the first argument after -env flag, ignore the rest
-	arguments := strings.Fields(*envFromFlag)
-	if len(arguments) > 0 {
-		*envFromFlag = strings.ToLower(arguments[0])
-	} else {
-		*envFromFlag = utils.DefaultEnvVal
-	}
-
 	// compare both values
-	if !slices.Contains(envFromFiles, *envFromFlag) {
-		fmt.Printf("'%v.env' not found in the env directory\n", *envFromFlag)
+	if !slices.Contains(envFromFiles, envFromFlag) {
+		fmt.Printf("'%v.env' not found in the env directory\n", envFromFlag)
 		// ask to create the file, if the file does not exist
-		fmt.Printf("Create '%v.env'? (y/n)", *envFromFlag)
+		fmt.Printf("Create '%v.env'? (y/n)", envFromFlag)
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
 			return fileCreationSkipped, fmt.Errorf("failed to read responses: %v", err)
 		}
 		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
-			err := CreateDefaultEnvs(envFromFlag)
+			err := CreateDefaultEnvs(&envFromFlag)
 			if err != nil {
 				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
 			}
 		} else {
 			fileCreationSkipped = true
-			*envFromFlag = utils.DefaultEnvVal
+			envFromFlag = utils.DefaultEnvVal
 			utils.PrintGreen("Skipping file Creation")
 		}
 	}
 
-	err = os.Setenv(utils.EnvKey, *envFromFlag)
+	err = os.Setenv(utils.EnvKey, envFromFlag)
 	utils.PrintGreen("Current active environment: " + os.Getenv(utils.EnvKey))
 	if err != nil {
 		return fileCreationSkipped, err
