@@ -97,7 +97,7 @@ type ApiInfo struct {
 	Url     string
 }
 
-// Makes an api call and resturns the json body string
+// Makes an api call and returns the json body string
 func StandardCall(apiInfo ApiInfo) string {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}

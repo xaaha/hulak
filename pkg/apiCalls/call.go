@@ -1,12 +1,33 @@
 package apicalls
 
+import (
+	"encoding/json"
+
+	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlParser"
+)
+
 // reads the json file based on the user's flag
 // if the flag is absent, it panics.
-// Finally, it uses json from yaml with StandardCall
-func combineAndCall(jsonString string) {
+// Finally, it uses the json from yaml with StandardCall
+func CombineAndCall(jsonString string) ApiInfo {
 	// unmarhall the json
 	// need to return struct ApiInfo for StandardCall
-	// i need to think this through
+	var user yamlParser.User
+	err := json.Unmarshal([]byte(jsonString), &user)
+	if err != nil {
+		message := "Error unmarshalling jsonString " + err.Error()
+		utils.PrintRed(message)
+	}
+	// prepare the user's body
+	// if user.Body.Raw
+
+	data := ApiInfo{
+		Method: string(user.Method),
+		Url:    string(user.Url),
+		// Body: ,
+	}
+	return data
 }
 
 // need to Unmarshal json string
