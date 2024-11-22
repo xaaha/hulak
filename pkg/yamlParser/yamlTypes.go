@@ -61,7 +61,7 @@ type Body struct {
 
 // body is valid if
 // body is not empty ({}),
-// not nil,
+// not nil, TODO: 1. Body could be nil. Add that as an Option in Body struct
 // has only one expected Body type,
 // those body type is not empty,
 // is not nil, and
