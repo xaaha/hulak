@@ -2,6 +2,7 @@ package apicalls
 
 import (
 	"encoding/json"
+	"io"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
@@ -11,8 +12,6 @@ import (
 // if the flag is absent, it panics.
 // Finally, it uses the json from yaml with StandardCall
 func CombineAndCall(jsonString string) ApiInfo {
-	// unmarhall the json
-	// need to return struct ApiInfo for StandardCall
 	var user yamlParser.User
 	err := json.Unmarshal([]byte(jsonString), &user)
 	if err != nil {
@@ -20,12 +19,16 @@ func CombineAndCall(jsonString string) ApiInfo {
 		utils.PrintRed(message)
 	}
 	// prepare the user's body
-	// if user.Body.Raw
+	var body io.Reader
+	if user.Body == nil {
+		body = nil
+	}
+	// handle the rest of the situation
 
 	data := ApiInfo{
 		Method: string(user.Method),
 		Url:    string(user.Url),
-		// Body: ,
+		Body:   body,
 	}
 	return data
 }
