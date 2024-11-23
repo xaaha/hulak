@@ -59,22 +59,8 @@ type Body struct {
 	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
-/*
-type MyStruct struct {
-    Name  string
-    Age   int
-    Slice []int
-    Ptr   *int
-}
-•	nil for pointers, slices, maps, channels, and interfaces.
-var s MyStruct
-fmt.Printf("%+v\n", s)
-// Output: {Name: Age:0 Slice:[] Ptr:<nil>}
-*/
-
 // body is valid if
 // body is not empty ({}),
-// not nil, TODO: 1. Body could be nil. Add that as an Option in Body struct like above
 // has only one expected Body type,
 // those body type is not empty,
 // is not nil, and
