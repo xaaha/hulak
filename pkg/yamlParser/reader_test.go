@@ -165,7 +165,7 @@ url: https://api.example.com/data
 headers:
   Content-Type: application/json
 `,
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			name: "Valid YAML with valid template",

@@ -138,7 +138,6 @@ func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) strin
 	// TODO: 2. Once the 1st todo is done, remove this non nil check. This sould exist in call.go
 	// if the body is not present in the body, then the body is nil
 	if user.Body == nil {
-		utils.PanicRedAndExit("Body is missing in the YAML file. Please add a valid Body.")
 	} else if !user.Body.IsValid() {
 		utils.PanicRedAndExit(
 			"Invalid Body. Make sure body contains only one valid argument.\n %v",
