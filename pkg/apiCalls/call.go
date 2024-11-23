@@ -23,7 +23,8 @@ func CombineAndCall(jsonString string) ApiInfo {
 	if user.Body == nil {
 		body = nil
 	}
-	// handle the rest of the situation
+	// TODO handle the rest of the situation for body.... Raw could be xml, json, html.
+	// Does string handles everthing
 
 	data := ApiInfo{
 		Method: string(user.Method),
