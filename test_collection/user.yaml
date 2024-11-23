@@ -5,7 +5,7 @@ urlparams:
   foo: bar
   baz: bin
 headers:
-  Content-type: application/json
+  Content-Type: application/json
 body:
   # formdata:
   #   foo: bar

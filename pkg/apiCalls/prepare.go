@@ -53,7 +53,7 @@ func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
 	return strings.NewReader(formData.Encode()), nil
 }
 
-// Encodes form data other than x-www-form-urlencoded,
+// Encodes multipart/form-data other than x-www-form-urlencoded,
 // Returns the payload, Content-Type for the headers and error
 func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	if len(keyValue) == 0 {

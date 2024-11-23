@@ -3,6 +3,7 @@ package apicalls
 import (
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
@@ -23,7 +24,41 @@ func CombineAndCall(jsonString string) ApiInfo {
 	if user.Body == nil {
 		body = nil
 	}
+
+	if user.Body != nil && user.Body.Graphql != nil && user.Body.Graphql.Query != "" {
+		body, err = EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
+		if err != nil {
+			utils.ColorError("Call.go: Error while encoding graphql body", err)
+		}
+	}
+
+	if user.Headers != nil && len(user.Headers) > 0 {
+		headerMap := user.Headers
+		for key, value := range headerMap {
+			if strings.ToLower(key) == "content-type" {
+				if value == "multipart/form-data" {
+					if user.Body != nil && user.Body.FormData != nil &&
+						len(user.Body.FormData) > 0 {
+						body, value, err = EncodeFormData(user.Body.FormData)
+						if err != nil {
+							utils.ColorError("Check your header type and body of FormData", err)
+						}
+					}
+				}
+				if value == "application/x-www-form-urlencoded" {
+					if user.Body != nil {
+						EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+					}
+				}
+
+			}
+		}
+	}
+
+	// if user.Body != nil && user.Headers
+	// if the user has header of form-data, then formData otherwise it's x-form-urlencoded
 	// TODO handle the rest of the situation for body.... Raw could be xml, json, html.
+	// if the body is of type string, or urlEncoded, or x-form-urlencoded
 	// Does string handles everthing
 
 	data := ApiInfo{
