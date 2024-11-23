@@ -32,6 +32,8 @@ func CombineAndCall(jsonString string) ApiInfo {
 		}
 	}
 
+	// var formDatacontentType string. // use this to get the content-type for form data
+
 	if user.Headers != nil && len(user.Headers) > 0 {
 		headerMap := user.Headers
 		for key, value := range headerMap {
