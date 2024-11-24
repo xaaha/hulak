@@ -46,6 +46,7 @@ func CombineAndCall(jsonString string) ApiInfo {
 					if user.Body != nil && user.Body.FormData != nil &&
 						len(user.Body.FormData) > 0 {
 						body, value, err = EncodeFormData(user.Body.FormData)
+						user.Headers["content-type"] = value
 						if err != nil {
 							utils.ColorError("Error encoding multipart form data", err)
 							return ApiInfo{}
