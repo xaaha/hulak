@@ -19,7 +19,7 @@ func TestCombineAndCall(t *testing.T) {
 			expectedResponse: ApiInfo{},
 		},
 		{
-			name: "proper json string",
+			name: "proper json string: with body",
 			json: `
 {
   "urlparams": {
@@ -51,6 +51,93 @@ func TestCombineAndCall(t *testing.T) {
 				),
 			},
 		},
+		{
+			name: "proper json string: without body",
+			json: `
+{
+  "urlparams": {
+    "baz": "bin",
+    "foo": "bar"
+  },
+  "headers": {
+    "content-type": "application/json"
+  },
+  "method": "POST",
+  "url": "https://example.com/graphql"
+}
+      `,
+			expectedResponse: ApiInfo{
+				Method: "POST",
+				Url:    "https://example.com/graphql",
+				UrlParams: map[string]string{
+					"baz": "bin",
+					"foo": "bar",
+				},
+				Headers: map[string]string{"content-type": "application/json"},
+				Body:    nil,
+			},
+		},
+		{
+			name: "proper json string: without body and headers",
+			json: `
+{
+  "urlparams": {
+    "baz": "bin",
+    "foo": "bar"
+  },
+  "method": "POST",
+  "url": "https://example.com/graphql"
+}
+      `,
+			expectedResponse: ApiInfo{
+				Method: "POST",
+				Url:    "https://example.com/graphql",
+				UrlParams: map[string]string{
+					"baz": "bin",
+					"foo": "bar",
+				},
+				Headers: nil,
+				Body:    nil,
+			},
+		},
+		{
+			name: "proper json string: with url and method only",
+			json: `
+{
+  "method": "POST",
+  "url": "https://example.com/graphql"
+}
+      `,
+			expectedResponse: ApiInfo{
+				Method:    "POST",
+				Url:       "https://example.com/graphql",
+				UrlParams: nil,
+				Headers:   nil,
+				Body:      nil,
+			},
+		},
+		// 		{
+		// 			name: "proper json string: with url and method and formdata",
+		// 			json: `
+		// {
+		//   "method": "POST",
+		//   "url": "https://example.com/graphql",
+		//   "body": {
+		//     "formdata": {
+		//       "baz": "bin",
+		//       "foo": "bar"
+		//     }
+		//   }
+		// }
+		//       `,
+		// 			expectedResponse: ApiInfo{
+		// 				Method:    "POST",
+		// 				Url:       "https://example.com/graphql",
+		// 				UrlParams: nil,
+		// 				Headers:   map[string]string{"content-type": "multipart/form-data"},
+		// 				Body:      nil,
+		// 			},
+		// 		},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {

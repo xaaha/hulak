@@ -41,36 +41,26 @@ func CombineAndCall(jsonString string) ApiInfo {
 			return ApiInfo{}
 		}
 	}
-
-	// Handle headers and their corresponding body types
-	if user.Headers != nil && len(user.Headers) > 0 {
-		for key, value := range user.Headers {
-			switch strings.ToLower(key) {
-			case "content-type":
-				switch value {
-				case "multipart/form-data":
-					if user.Body != nil && user.Body.FormData != nil &&
-						len(user.Body.FormData) > 0 {
-						body, value, err = EncodeFormData(user.Body.FormData)
-						user.Headers["content-type"] = value
-						if err != nil {
-							utils.ColorError("call.go: Error encoding multipart form data", err)
-							return ApiInfo{}
-						}
-					}
-				case "application/x-www-form-urlencoded":
-					if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
-						len(user.Body.UrlEncodedFormData) > 0 {
-						body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
-						if err != nil {
-							utils.ColorError("call.go: Error encoding URL-encoded form data", err)
-							return ApiInfo{}
-						}
-					}
-				}
-			}
+	var contentType string
+	if user.Body != nil && user.Body.FormData != nil &&
+		len(user.Body.FormData) > 0 {
+		body, contentType, err = EncodeFormData(user.Body.FormData)
+		user.Headers["Content-Type"] = contentType
+		if err != nil {
+			utils.ColorError("call.go: Error encoding multipart form data", err)
+			return ApiInfo{}
 		}
 	}
+
+	if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
+		len(user.Body.UrlEncodedFormData) > 0 {
+		body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+		if err != nil {
+			utils.ColorError("call.go: Error encoding URL-encoded form data", err)
+			return ApiInfo{}
+		}
+	}
+	// TODO: Use if else for raw string  and fix test. Form data has unique headers now
 
 	// Handle raw body as a fallback (e.g., JSON, XML, HTML)
 	if body == nil && user.Body != nil && user.Body.Raw != "" {
