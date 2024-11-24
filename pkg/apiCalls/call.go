@@ -9,18 +9,21 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
-// TODO handle the rest of the situation for body.... Raw could be xml, json, html. Does string handles everthing?
-// Need to test with real apis. Also, file references
-
-// reads the json file based on the user's flag
-// if the flag is absent, it panics.
-// Finally, it uses the json from yaml with StandardCall
+// Takes in the jsonString from ReadYamlForHttpRequest
+// And prepares the ApiInfo struct for StandardCall function
 func CombineAndCall(jsonString string) ApiInfo {
+	// ReadYamlForHttpRequest should not return an empty string
+	// but if it does, return nil struct
+	if len(jsonString) == 0 {
+		utils.ColorError("call.go: jsonString constructed from yamlFile is empty")
+		return ApiInfo{}
+	}
 	// Parse the JSON string into a User struct
 	var user yamlParser.User
 	err := json.Unmarshal([]byte(jsonString), &user)
 	if err != nil {
-		utils.ColorError("Error unmarshalling jsonString", err)
+		msg := "call.go: Error unmarshalling json \n" + jsonString
+		utils.ColorError(msg, err)
 		return ApiInfo{} // we shouldn't proceed if there is an error on processing jsonString
 	}
 
@@ -28,10 +31,13 @@ func CombineAndCall(jsonString string) ApiInfo {
 	var body io.Reader
 
 	// Handle GraphQL body if provided
-	if user.Body != nil && user.Body.Graphql != nil && user.Body.Graphql.Query != "" {
+	hasGraphQlBody := user.Body != nil && user.Body.Graphql != nil &&
+		len(user.Body.Graphql.Query) > 0
+	if hasGraphQlBody {
 		body, err = EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
 		if err != nil {
-			utils.ColorError("Error encoding GraphQL body", err)
+			msg := "call.go: Error encoding GraphQL body of json\n" + jsonString
+			utils.ColorError(msg, err)
 			return ApiInfo{}
 		}
 	}
@@ -48,7 +54,7 @@ func CombineAndCall(jsonString string) ApiInfo {
 						body, value, err = EncodeFormData(user.Body.FormData)
 						user.Headers["content-type"] = value
 						if err != nil {
-							utils.ColorError("Error encoding multipart form data", err)
+							utils.ColorError("call.go: Error encoding multipart form data", err)
 							return ApiInfo{}
 						}
 					}
@@ -57,7 +63,7 @@ func CombineAndCall(jsonString string) ApiInfo {
 						len(user.Body.UrlEncodedFormData) > 0 {
 						body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
 						if err != nil {
-							utils.ColorError("Error encoding URL-encoded form data", err)
+							utils.ColorError("call.go: Error encoding URL-encoded form data", err)
 							return ApiInfo{}
 						}
 					}
