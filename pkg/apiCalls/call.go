@@ -16,9 +16,9 @@ func CombineAndCall(jsonString string) ApiInfo {
 	var user yamlParser.User
 	err := json.Unmarshal([]byte(jsonString), &user)
 	if err != nil {
-		message := "Error unmarshalling jsonString " + err.Error()
-		utils.PrintRed(message)
+		utils.ColorError("Error unmarshalling jsonString", err)
 	}
+
 	// prepare the user's body
 	var body io.Reader
 	if user.Body == nil {
@@ -28,33 +28,43 @@ func CombineAndCall(jsonString string) ApiInfo {
 	if user.Body != nil && user.Body.Graphql != nil && user.Body.Graphql.Query != "" {
 		body, err = EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
 		if err != nil {
-			utils.ColorError("Call.go: Error while encoding graphql body", err)
+			utils.ColorError("call.go: Error while encoding graphql body", err)
 		}
 	}
 
 	// var formDatacontentType string. // use this to get the content-type for form data
 
 	if user.Headers != nil && len(user.Headers) > 0 {
-		headerMap := user.Headers
-		for key, value := range headerMap {
+		for key, value := range user.Headers {
 			if strings.ToLower(key) == "content-type" {
 				if value == "multipart/form-data" {
 					if user.Body != nil && user.Body.FormData != nil &&
 						len(user.Body.FormData) > 0 {
 						body, value, err = EncodeFormData(user.Body.FormData)
 						if err != nil {
-							utils.ColorError("Check your header type and body of FormData", err)
+							utils.ColorError(
+								"call.go Check your header type and body of FormData",
+								err,
+							)
 						}
 					}
 				}
 				if value == "application/x-www-form-urlencoded" {
-					if user.Body != nil {
-						EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+					if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
+						len(user.Body.UrlEncodedFormData) > 0 {
+						body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+						if err != nil {
+							utils.ColorError(
+								"call.go Check your header type and body of Url UrlEncodedFormData",
+								err,
+							)
+						}
 					}
 				}
-
 			}
 		}
+	} else {
+		body = strings.NewReader(user.Body.Raw)
 	}
 
 	// if user.Body != nil && user.Headers
@@ -64,9 +74,11 @@ func CombineAndCall(jsonString string) ApiInfo {
 	// Does string handles everthing
 
 	data := ApiInfo{
-		Method: string(user.Method),
-		Url:    string(user.Url),
-		Body:   body,
+		Method:    string(user.Method),
+		Url:       string(user.Url),
+		UrlParams: user.UrlParams,
+		Headers:   user.Headers,
+		Body:      body,
 	}
 	return data
 }

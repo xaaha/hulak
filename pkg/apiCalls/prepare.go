@@ -91,10 +91,11 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 
 // struct for StandardCall
 type ApiInfo struct {
-	Body    io.Reader
-	Headers map[string]string
-	Method  string
-	Url     string
+	Body      io.Reader
+	Headers   map[string]string
+	Method    string
+	Url       string
+	UrlParams map[string]string
 }
 
 // Makes an api call and returns the json body string
