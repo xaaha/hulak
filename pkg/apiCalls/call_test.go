@@ -56,11 +56,10 @@ func TestCombineAndCall(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			apiInfo := CombineAndCall(testCase.json)
 
-			// Compare fields except `Body` using a shallow copy of `expectedResponse`
 			expected := testCase.expectedResponse
 			expected.Body = nil
 			actual := apiInfo
-			actual.Body = nil
+			actual.Body = nil // Compare fields except `Body` using a shallow copy of `expectedResponse`
 
 			if !reflect.DeepEqual(actual, expected) {
 				t.Errorf(
