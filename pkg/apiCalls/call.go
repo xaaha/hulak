@@ -9,12 +9,12 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
+// TODO handle the rest of the situation for body.... Raw could be xml, json, html. Does string handles everthing?
+// Need to test with real apis. Also, file references
+
 // reads the json file based on the user's flag
 // if the flag is absent, it panics.
 // Finally, it uses the json from yaml with StandardCall
-
-// TODO handle the rest of the situation for body.... Raw could be xml, json, html. Does string handles everthing?
-// Need to test with real apis. Also, file references
 func CombineAndCall(jsonString string) ApiInfo {
 	// Parse the JSON string into a User struct
 	var user yamlParser.User
