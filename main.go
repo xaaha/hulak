@@ -23,4 +23,5 @@ func main() {
 		pritnThis, _ := io.ReadAll(rdr)
 		fmt.Println(string(pritnThis))
 	}
+	fmt.Println("Headers", apiInfo.Headers)
 }

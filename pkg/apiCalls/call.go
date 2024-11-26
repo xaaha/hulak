@@ -9,14 +9,6 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
-func normalizeHeaders(headers map[string]string) map[string]string {
-	normalized := make(map[string]string)
-	for k, v := range headers {
-		normalized[strings.ToLower(k)] = v
-	}
-	return normalized
-}
-
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
 func CombineAndCall(jsonString string) (ApiInfo, error) {
@@ -53,7 +45,8 @@ func CombineAndCall(jsonString string) (ApiInfo, error) {
 	if user.Body != nil && user.Body.FormData != nil &&
 		len(user.Body.FormData) > 0 {
 		body, contentType, err = EncodeFormData(user.Body.FormData)
-		user.Headers["Content-Type"] = contentType
+		// override header for FormData
+		user.Headers["content-type"] = contentType
 		if err != nil {
 			err := utils.ColorError("call.go: Error encoding multipart form data", err)
 			return ApiInfo{}, err
