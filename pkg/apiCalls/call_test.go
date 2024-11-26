@@ -21,7 +21,7 @@ func TestCombineAndCall(t *testing.T) {
 			expectedError:    "jsonString constructed from yamlFile is empty",
 		},
 		{
-			name: "proper json string: with body",
+			name: "proper json string: with GraphQL body",
 			json: `
 {
   "urlparams": {
@@ -79,6 +79,7 @@ func TestCombineAndCall(t *testing.T) {
 				Headers: map[string]string{"content-type": "application/json"},
 				Body:    nil,
 			},
+			expectedError: "",
 		},
 		{
 			name: "proper json string: without body and headers",
@@ -102,6 +103,7 @@ func TestCombineAndCall(t *testing.T) {
 				Headers: nil,
 				Body:    nil,
 			},
+			expectedError: "",
 		},
 		{
 			name: "proper json string: with url and method only",
@@ -120,29 +122,31 @@ func TestCombineAndCall(t *testing.T) {
 			},
 			expectedError: "",
 		},
-		// 		{
-		// 			name: "proper json string: with url and method and formdata",
-		// 			json: `
-		// {
-		//   "method": "POST",
-		//   "url": "https://example.com/graphql",
-		//   "body": {
-		//     "formdata": {
-		//       "baz": "bin",
-		//       "foo": "bar"
-		//     }
-		//   }
-		// }
-		//       `,
-		// 			expectedResponse: ApiInfo{
-		// 				Method:    "POST",
-		// 				Url:       "https://example.com/graphql",
-		// 				UrlParams: nil,
-		// 				Headers:   map[string]string{"content-type": "multipart/form-data"},
-		// 				Body:      nil,
-		// 			},
-		// 		},
+		{
+			name: "form data body with headers set",
+			json: `
+{
+  "method": "POST",
+  "url": "https://example.com/graphql",
+  "body": {
+    "formdata": {
+      "baz": "bin",
+      "foo": "bar"
+    }
+  }
+}
+      `,
+			expectedResponse: ApiInfo{
+				Method:    "POST",
+				Url:       "https://example.com/graphql",
+				UrlParams: nil,
+				Headers:   map[string]string{"content-type": "multipart/form-data"},
+				Body:      nil,
+			},
+			expectedError: "",
+		},
 	}
+
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			apiInfo, err := CombineAndCall(testCase.json)
@@ -157,14 +161,22 @@ func TestCombineAndCall(t *testing.T) {
 						err.Error(),
 					)
 				}
-				return // Stop further checks if an error is expected
+				return
 			}
 
+			var formData bool
+			actualHeaders := apiInfo.Headers
+			if contentType, ok := actualHeaders["content-type"]; ok &&
+				strings.Contains(contentType, "multipart/form-data") {
+				actualHeaders["content-type"] = "multipart/form-data"
+				formData = true
+			}
+
+			// Compare all fields except Body
 			expected := testCase.expectedResponse
 			expected.Body = nil
 			actual := apiInfo
-			actual.Body = nil // Compare fields except `Body` using a shallow copy of `expectedResponse`
-
+			actual.Body = nil
 			if !reflect.DeepEqual(actual, expected) {
 				t.Errorf(
 					"Expected ApiInfo (except Body) to be \n%v, but got \n%v",
@@ -172,9 +184,12 @@ func TestCombineAndCall(t *testing.T) {
 				)
 			}
 
-			// Compare the `Body` content separately
+			// Compare Body content separately
 			expectedBody, err1 := readBodyContent(testCase.expectedResponse.Body)
 			actualBody, err2 := readBodyContent(apiInfo.Body)
+			if formData {
+				actualBody = "" // body has dynamic value. So, setting it to empty string
+			}
 			if err1 != nil || err2 != nil {
 				t.Fatalf(
 					"Failed to read body content: expected error=%v, actual error=%v",

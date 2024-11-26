@@ -46,6 +46,9 @@ func CombineAndCall(jsonString string) (ApiInfo, error) {
 		len(user.Body.FormData) > 0 {
 		body, contentType, err = EncodeFormData(user.Body.FormData)
 		// override header for FormData
+		if user.Headers == nil {
+			user.Headers = make(map[string]string)
+		}
 		user.Headers["content-type"] = contentType
 		if err != nil {
 			err := utils.ColorError("call.go: Error encoding multipart form data", err)
