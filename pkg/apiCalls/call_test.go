@@ -1,7 +1,6 @@
 package apicalls
 
 import (
-	"errors"
 	"io"
 	"reflect"
 	"strings"
@@ -13,13 +12,13 @@ func TestCombineAndCall(t *testing.T) {
 		name             string
 		json             string
 		expectedResponse ApiInfo
-		expectedError    error
+		expectedError    string
 	}{
 		{
 			name:             "empty json string should result in nil ApiInfo",
 			json:             "",
 			expectedResponse: ApiInfo{},
-			expectedError:    errors.New("call.go: jsonString constructed from yamlFile is empty"),
+			expectedError:    "jsonString constructed from yamlFile is empty",
 		},
 		{
 			name: "proper json string: with body",
@@ -53,7 +52,7 @@ func TestCombineAndCall(t *testing.T) {
 					`{"query":"query Hello {\n  hello(person: { name: Jane Doe, age: 22 })\n}\n","variables":null}`,
 				),
 			},
-			expectedError: nil,
+			expectedError: "",
 		},
 		{
 			name: "proper json string: without body",
@@ -119,7 +118,7 @@ func TestCombineAndCall(t *testing.T) {
 				Headers:   nil,
 				Body:      nil,
 			},
-			expectedError: nil,
+			expectedError: "",
 		},
 		// 		{
 		// 			name: "proper json string: with url and method and formdata",
@@ -146,7 +145,20 @@ func TestCombineAndCall(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			apiInfo, _ := CombineAndCall(testCase.json)
+			apiInfo, err := CombineAndCall(testCase.json)
+			if testCase.expectedError != "" {
+				if err == nil {
+					t.Fatalf("Expected error but got none")
+				}
+				if !strings.Contains(err.Error(), testCase.expectedError) {
+					t.Errorf(
+						"Expected error to contain %q, but got %q",
+						testCase.expectedError,
+						err.Error(),
+					)
+				}
+				return // Stop further checks if an error is expected
+			}
 
 			expected := testCase.expectedResponse
 			expected.Body = nil
