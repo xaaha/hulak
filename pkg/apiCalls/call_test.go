@@ -188,7 +188,7 @@ func TestCombineAndCall(t *testing.T) {
 			expectedBody, err1 := readBodyContent(testCase.expectedResponse.Body)
 			actualBody, err2 := readBodyContent(apiInfo.Body)
 			if formData {
-				actualBody = "" // body has dynamic value. So, setting it to empty string
+				actualBody = "" // body has dynamic value for formData. So, setting it to empty string
 			}
 			if err1 != nil || err2 != nil {
 				t.Fatalf(

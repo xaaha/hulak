@@ -89,13 +89,38 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 	return bytes.NewReader(jsonData), nil
 }
 
+func processResponse(response *http.Response) string {
+	jsonBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatalf("prepare.go: Error while reading response %v", err)
+	}
+	defer response.Body.Close()
+
+	responseData := map[string]interface{}{
+		"Response Status": response.Status,
+	}
+	var parsedBody interface{}
+	if err := json.Unmarshal(jsonBody, &parsedBody); err == nil {
+		responseData["Body"] = parsedBody
+	} else {
+		// If the body isn't valid JSON, include it as a string
+		responseData["Body"] = string(jsonBody)
+	}
+
+	finalJSON, err := json.MarshalIndent(responseData, "", "  ")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return string(finalJSON)
+}
+
 // struct for StandardCall
 type ApiInfo struct {
 	Body      io.Reader
 	Headers   map[string]string
+	UrlParams map[string]string
 	Method    string
 	Url       string
-	UrlParams map[string]string
 }
 
 // Makes an api call and returns the json body string
@@ -128,12 +153,5 @@ func StandardCall(apiInfo ApiInfo) string {
 	if err != nil {
 		log.Fatalln(errMessage, err)
 	}
-	defer response.Body.Close()
-
-	jsonBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	return string(jsonBody)
+	return processResponse(response)
 }

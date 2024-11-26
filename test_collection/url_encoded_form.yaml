@@ -1,0 +1,13 @@
+---
+method: post
+url: "{{.baseUrl}}"
+urlparams:
+  foo: bar
+  baz: bin
+# headers:
+#   Content-Type: application/x-www-form-urlencoded
+#   Header is optional when body has "formdata" or "urlencodedformdata"
+body:
+  urlencodedformdata:
+    user: "{{.userName}}"
+    product: "{{.product}}"

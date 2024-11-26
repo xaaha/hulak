@@ -45,7 +45,6 @@ func CombineAndCall(jsonString string) (ApiInfo, error) {
 	if user.Body != nil && user.Body.FormData != nil &&
 		len(user.Body.FormData) > 0 {
 		body, contentType, err = EncodeFormData(user.Body.FormData)
-		// override header for FormData
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
@@ -59,6 +58,10 @@ func CombineAndCall(jsonString string) (ApiInfo, error) {
 	if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
 		len(user.Body.UrlEncodedFormData) > 0 {
 		body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+		if user.Headers == nil {
+			user.Headers = make(map[string]string)
+		}
+		user.Headers["content-type"] = "application/x-www-form-urlencoded"
 		if err != nil {
 			err := utils.ColorError("call.go: Error encoding URL-encoded form data", err)
 			return ApiInfo{}, err
