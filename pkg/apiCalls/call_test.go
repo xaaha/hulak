@@ -1,6 +1,7 @@
 package apicalls
 
 import (
+	"errors"
 	"io"
 	"reflect"
 	"strings"
@@ -12,11 +13,13 @@ func TestCombineAndCall(t *testing.T) {
 		name             string
 		json             string
 		expectedResponse ApiInfo
+		expectedError    error
 	}{
 		{
 			name:             "empty json string should result in nil ApiInfo",
 			json:             "",
 			expectedResponse: ApiInfo{},
+			expectedError:    errors.New("call.go: jsonString constructed from yamlFile is empty"),
 		},
 		{
 			name: "proper json string: with body",
@@ -50,6 +53,7 @@ func TestCombineAndCall(t *testing.T) {
 					`{"query":"query Hello {\n  hello(person: { name: Jane Doe, age: 22 })\n}\n","variables":null}`,
 				),
 			},
+			expectedError: nil,
 		},
 		{
 			name: "proper json string: without body",
@@ -115,6 +119,7 @@ func TestCombineAndCall(t *testing.T) {
 				Headers:   nil,
 				Body:      nil,
 			},
+			expectedError: nil,
 		},
 		// 		{
 		// 			name: "proper json string: with url and method and formdata",

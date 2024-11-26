@@ -9,6 +9,14 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
+func normalizeHeaders(headers map[string]string) map[string]string {
+	normalized := make(map[string]string)
+	for k, v := range headers {
+		normalized[strings.ToLower(k)] = v
+	}
+	return normalized
+}
+
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
 func CombineAndCall(jsonString string) (ApiInfo, error) {
