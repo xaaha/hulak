@@ -11,20 +11,20 @@ import (
 
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
-func CombineAndCall(jsonString string) ApiInfo {
+func CombineAndCall(jsonString string) (ApiInfo, error) {
 	// ReadYamlForHttpRequest should not return an empty string
 	// but if it does, return nil struct
 	if len(jsonString) == 0 {
-		utils.ColorError("call.go: jsonString constructed from yamlFile is empty")
-		return ApiInfo{}
+		err := utils.ColorError("call.go: jsonString constructed from yamlFile is empty")
+		return ApiInfo{}, err
 	}
 	// Parse the JSON string into a User struct
 	var user yamlParser.User
 	err := json.Unmarshal([]byte(jsonString), &user)
 	if err != nil {
 		msg := "call.go: Error unmarshalling json \n" + jsonString
-		utils.ColorError(msg, err)
-		return ApiInfo{} // we shouldn't proceed if there is an error on processing jsonString
+		err := utils.ColorError(msg, err)
+		return ApiInfo{}, err // we shouldn't proceed if there is an error on processing jsonString
 	}
 
 	// Initialize the request body
@@ -37,8 +37,8 @@ func CombineAndCall(jsonString string) ApiInfo {
 		body, err = EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
 		if err != nil {
 			msg := "call.go: Error encoding GraphQL body of json\n" + jsonString
-			utils.ColorError(msg, err)
-			return ApiInfo{}
+			err := utils.ColorError(msg, err)
+			return ApiInfo{}, err
 		}
 	}
 	var contentType string
@@ -47,8 +47,8 @@ func CombineAndCall(jsonString string) ApiInfo {
 		body, contentType, err = EncodeFormData(user.Body.FormData)
 		user.Headers["Content-Type"] = contentType
 		if err != nil {
-			utils.ColorError("call.go: Error encoding multipart form data", err)
-			return ApiInfo{}
+			err := utils.ColorError("call.go: Error encoding multipart form data", err)
+			return ApiInfo{}, err
 		}
 	}
 
@@ -56,8 +56,8 @@ func CombineAndCall(jsonString string) ApiInfo {
 		len(user.Body.UrlEncodedFormData) > 0 {
 		body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
 		if err != nil {
-			utils.ColorError("call.go: Error encoding URL-encoded form data", err)
-			return ApiInfo{}
+			err := utils.ColorError("call.go: Error encoding URL-encoded form data", err)
+			return ApiInfo{}, err
 		}
 	}
 	// TODO: Use if else for raw string  and fix test. Form data has unique headers now
@@ -74,5 +74,5 @@ func CombineAndCall(jsonString string) ApiInfo {
 		UrlParams: user.UrlParams,
 		Headers:   user.Headers,
 		Body:      body,
-	}
+	}, nil
 }

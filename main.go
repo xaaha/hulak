@@ -14,7 +14,10 @@ func main() {
 	// apicalls.TestApiCalls() // temp call.. replace with mock
 	jsonString := fileReader.ReadYamlForHttpRequest("test_collection/user.yaml", envMap)
 	fmt.Println(jsonString)
-	apiInfo := apicalls.CombineAndCall(jsonString)
+	apiInfo, err := apicalls.CombineAndCall(jsonString)
+	if err != nil {
+		fmt.Errorf("Error occoured in main %v", err)
+	}
 	rdr := apiInfo.Body
 	if rdr != nil {
 		pritnThis, _ := io.ReadAll(rdr)

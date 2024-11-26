@@ -141,7 +141,7 @@ func TestCombineAndCall(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			apiInfo := CombineAndCall(testCase.json)
+			apiInfo, _ := CombineAndCall(testCase.json)
 
 			expected := testCase.expectedResponse
 			expected.Body = nil
