@@ -1,0 +1,14 @@
+---
+method: POST
+url: "{{.graphqlUrl}}"
+headers:
+  Content-Type: application/json
+body:
+  graphql:
+    query: |
+      query Hello($name: String!, $age: Int) {
+        hello(person: { name: $name, age: $age })
+      }
+    variables:
+      name: "{{.userName}}"
+      age: 22
