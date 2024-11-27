@@ -1,6 +1,6 @@
 ---
 # should result in error 404 Not found
-method: Post
+method: get
 url: "{{.baseUrl}}"
 urlparams:
   foo: bar
