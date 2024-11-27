@@ -10,8 +10,8 @@ TODO: parse the secrets dynamically to it's respective types
 GetEnvVarGeneric attempts to retrieve an environment variable and guess its type.
 Currently it's not being used
 */
-func GetEnvVarGeneric(key string) (interface{}, error) {
-	envVarMap, err := GenerateSecretsMap()
+func GetEnvVarGeneric(key string, envFromFlag string) (interface{}, error) {
+	envVarMap, err := GenerateSecretsMap(envFromFlag)
 	valueStr := envVarMap[key]
 	if err != nil {
 		return nil, fmt.Errorf("environment variable not found: %s", key)

@@ -11,11 +11,12 @@ import (
 
 func main() {
 	// Initialize the project environment
-	envMap := InitializeProject()
-
 	flag.Parse()
 
 	fp := userflags.FilePath()
+	env := userflags.Env()
+
+	envMap := InitializeProject(env)
 
 	var wg sync.WaitGroup
 

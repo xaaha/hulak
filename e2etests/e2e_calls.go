@@ -4,6 +4,7 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 )
 
+// takes in the environment secrets map and file path (fp) from user flag
 func RunFormData(envMap map[string]string, fp string) {
 	apicalls.SendApiRequest(envMap, fp)
 }
