@@ -3,7 +3,7 @@ package main
 import (
 	"sync"
 
-	"github.com/xaaha/hulak/pkg/e2etests"
+	"github.com/xaaha/hulak/e2etests"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
