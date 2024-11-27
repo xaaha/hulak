@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,20 +55,6 @@ func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} 
 		}
 	}
 	return loweredMap
-}
-
-func CaptureUserFlag(flagName, defaultName, description string) string {
-	usersFlag := flag.String(flagName, defaultName, description)
-	flag.Parse()
-
-	// Accept only the first argument after -name, ignore the rest
-	arguments := strings.Fields(*usersFlag)
-	if len(arguments) > 0 {
-		*usersFlag = strings.ToLower(arguments[0])
-	} else {
-		*usersFlag = defaultName
-	}
-	return *usersFlag
 }
 
 // Copies the Environment map[string]string and returns a CopyEnvMap
