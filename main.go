@@ -25,20 +25,5 @@ func main() {
 			taskfunc(utils.CopyEnvMap(env))
 		}(task, envMap)
 	}
-
-	// wg.Add(3) // number of go routines
-	//
-	// go func() {
-	// 	defer wg.Done()
-	// 	e2etests.RunFormData(utils.CopyEnvMap(envMap))
-	// }()
-	// go func() {
-	// 	defer wg.Done()
-	// 	e2etests.RunUrlEncodedFormData(utils.CopyEnvMap(envMap))
-	// }()
-	// go func() {
-	// 	defer wg.Done()
-	// 	e2etests.RunFormDataError(utils.CopyEnvMap(envMap))
-	// }()
 	wg.Wait()
 }

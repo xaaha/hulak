@@ -1,8 +1,8 @@
 run: 
-	@go run . 
+	@go run .
 
 run-all:
-	@go run . -env prod 
+	@go run . -env prod
 
 test:
 	@go test ./...
