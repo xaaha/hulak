@@ -2,6 +2,7 @@ package apicalls
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
@@ -81,4 +82,19 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 		Headers:   user.Headers,
 		Body:      body,
 	}, nil
+}
+
+// Using the provided envMap, this function calls the PrepareStruct,
+// and Makes the Api Call with StandardCall
+func SendApiRequest(envMap map[string]string, filePath string) {
+	formDataJSONString := yamlParser.ReadYamlForHttpRequest(
+		filePath,
+		envMap,
+	)
+	apiInfo, err := PrepareStruct(formDataJSONString)
+	if err != nil {
+		_ = fmt.Errorf("Error occoured in main %v", err)
+	}
+	resp := StandardCall(apiInfo)
+	fmt.Println(resp)
 }
