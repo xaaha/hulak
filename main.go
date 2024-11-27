@@ -10,12 +10,13 @@ import (
 )
 
 func main() {
-	// Initialize the project environment
+	// parse all the necessary flags
 	flag.Parse()
 
 	fp := userflags.FilePath()
 	env := userflags.Env()
 
+	// create envMap
 	envMap := InitializeProject(env)
 
 	var wg sync.WaitGroup
