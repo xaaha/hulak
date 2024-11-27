@@ -85,7 +85,8 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 }
 
 // Using the provided envMap, this function calls the PrepareStruct,
-// and Makes the Api Call with StandardCall
+// and Makes the Api Call with StandardCall and prints the response in console
+// TODO: save a json response on the path as well
 func SendApiRequest(envMap map[string]string, filePath string) {
 	formDataJSONString := yamlParser.ReadYamlForHttpRequest(
 		filePath,
@@ -93,7 +94,8 @@ func SendApiRequest(envMap map[string]string, filePath string) {
 	)
 	apiInfo, err := PrepareStruct(formDataJSONString)
 	if err != nil {
-		_ = fmt.Errorf("Error occoured in main %v", err)
+		err := utils.ColorError("call.go: error occured while preparing Struct from "+filePath, err)
+		fmt.Println(err)
 	}
 	resp := StandardCall(apiInfo)
 	fmt.Println(resp)
