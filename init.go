@@ -3,7 +3,7 @@ package main
 import "github.com/xaaha/hulak/pkg/envparser"
 
 /*
-InitializeProject() starts the project by creating envfolder and global file in it.
+InitializeProject() starts the project by creating envfolder and global.env file in it.
 returns the envMap
 TBC...
 */
