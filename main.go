@@ -1,29 +1,37 @@
 package main
 
 import (
+	"flag"
 	"sync"
 
 	"github.com/xaaha/hulak/e2etests"
+	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func main() {
+	// Initialize the project environment
 	envMap := InitializeProject()
+
+	flag.Parse()
+
+	fp := userflags.FilePath()
+
 	var wg sync.WaitGroup
-	// apicalls.TestApiCalls() // temp call.. replace with mock
 
-	tasks := []func(map[string]string){
+	// Define tasks
+	tasks := []func(map[string]string, string){
 		e2etests.RunFormData,
-		e2etests.RunUrlEncodedFormData,
-		e2etests.RunFormDataError,
 	}
 
+	// Run tasks concurrently
 	for _, task := range tasks {
-		wg.Add(1) // one for each task
-		go func(taskfunc func(map[string]string), env map[string]string) {
+		wg.Add(1)
+		go func(taskfunc func(map[string]string, string), env map[string]string, filePath string) {
 			defer wg.Done()
-			taskfunc(utils.CopyEnvMap(env))
-		}(task, envMap)
+			taskfunc(utils.CopyEnvMap(env), filePath)
+		}(task, envMap, fp)
 	}
+
 	wg.Wait()
 }
