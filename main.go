@@ -1,6 +1,6 @@
 package main
 
-import "github.com/xaaha/hulak/e2etests"
+import "github.com/xaaha/hulak/pkg/e2etests"
 
 func main() {
 	envMap := InitializeProject()

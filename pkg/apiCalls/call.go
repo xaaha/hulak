@@ -67,7 +67,6 @@ func CombineAndCall(jsonString string) (ApiInfo, error) {
 			return ApiInfo{}, err
 		}
 	}
-	// TODO: Use if else for raw string  and fix test. Form data has unique headers now
 
 	// Handle raw body as a fallback (e.g., JSON, XML, HTML)
 	if body == nil && user.Body != nil && user.Body.Raw != "" {
