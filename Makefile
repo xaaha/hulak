@@ -2,7 +2,7 @@ run:
 	@go run . 
 
 run-all:
-	@cd go run . -env prod 
+	@go run . -env prod 
 
 test:
 	@go test ./...

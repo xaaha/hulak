@@ -1,0 +1,14 @@
+---
+# should result in error 404 Not found
+method: Post
+url: "{{.baseUrl}}"
+urlparams:
+  foo: bar
+  baz: bin
+headers:
+  Content-Type: multipart/form-data
+#   Header is optional when body has "formdata" or "urlencodedformdata"
+body:
+  formdata:
+    user: "{{.userName}}"
+    product: "{{.product}}"

@@ -10,13 +10,19 @@ import (
 
 /*
 InitializeProject() starts the project by creating envfolder and global file in it.
+returns the envMap
 TBC...
 */
-func InitializeProject() {
+func InitializeProject() map[string]string {
 	err := envparser.CreateDefaultEnvs(nil)
 	if err != nil {
 		panic(err)
 	}
+	envMap, err := envparser.GenerateSecretsMap()
+	if err != nil {
+		panic(err)
+	}
+	return envMap
 }
 
 /*
@@ -36,7 +42,7 @@ func testInitialization() {
 	fmt.Println(string(niceJson))
 
 	// how to substitute variable
-	finalAns, err := envparser.SubstitueVariables("env{{PORT}}", envMap)
+	finalAns, err := envparser.SubstituteVariables("env{{.PORT}}", envMap)
 	if err != nil {
 		fmt.Println(err)
 	}

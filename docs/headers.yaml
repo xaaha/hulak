@@ -1,0 +1,51 @@
+---
+# use this in yaml Headers directly as Content-Type: application/json
+Content-Type:
+  application:
+    - application/json
+    - application/xml
+    - application/x-www-form-urlencoded
+    - application/octet-stream
+    - application/pdf
+    - application/zip
+    - application/vnd.api+json
+    - application/javascript
+    - application/msword
+    - application/vnd.ms-excel
+    - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  multipart:
+    - multipart/form-data
+    - multipart/byteranges
+    - multipart/related
+  text:
+    - text/plain
+    - text/html
+    - text/css
+    - text/javascript
+    - text/csv
+    - text/markdown
+    - text/xml
+  image:
+    - image/png
+    - image/jpeg
+    - image/gif
+    - image/svg+xml
+    - image/webp
+    - image/bmp
+    - image/tiff
+  audio:
+    - audio/mpeg
+    - audio/wav
+    - audio/ogg
+    - audio/aac
+    - audio/webm
+  video:
+    - video/mp4
+    - video/mpeg
+    - video/ogg
+    - video/webm
+    - video/x-msvideo
+  font:
+    - font/ttf
+    - font/woff
+    - font/woff2

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,4 +41,44 @@ func (u *Utilities) GetEnvFiles() ([]string, error) {
 		}
 	}
 	return environmentFiles, nil
+}
+
+// converts all keys in a map to lowercase recursively
+func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} {
+	loweredMap := make(map[string]interface{})
+	for key, val := range dict {
+		lowerKey := strings.ToLower(key)
+		switch almostFinalValue := val.(type) {
+		case map[string]interface{}:
+			loweredMap[lowerKey] = ConvertKeysToLowerCase(almostFinalValue)
+		default:
+			loweredMap[lowerKey] = almostFinalValue
+		}
+	}
+	return loweredMap
+}
+
+func CaptureUserFlag(flagName, defaultName, description string) string {
+	usersFlag := flag.String(flagName, defaultName, description)
+	flag.Parse()
+
+	// Accept only the first argument after -name, ignore the rest
+	arguments := strings.Fields(*usersFlag)
+	if len(arguments) > 0 {
+		*usersFlag = strings.ToLower(arguments[0])
+	} else {
+		*usersFlag = defaultName
+	}
+	return *usersFlag
+}
+
+// Copies the Environment map[string]string and returns a CopyEnvMap
+// EnvMap is a simple json without any nested properties.
+// Mostly used for go routines
+func CopyEnvMap(original map[string]string) map[string]string {
+	result := map[string]string{}
+	for key, val := range original {
+		result[key] = val
+	}
+	return result
 }
