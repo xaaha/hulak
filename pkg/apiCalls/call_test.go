@@ -149,7 +149,7 @@ func TestCombineAndCall(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			apiInfo, err := CombineAndCall(testCase.json)
+			apiInfo, err := PrepareStruct(testCase.json)
 			if testCase.expectedError != "" {
 				if err == nil {
 					t.Fatalf("Expected error but got none")

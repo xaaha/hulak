@@ -71,3 +71,14 @@ func CaptureUserFlag(flagName, defaultName, description string) string {
 	}
 	return *usersFlag
 }
+
+// Copies the Environment map[string]string and returns a CopyEnvMap
+// EnvMap is a simple json without any nested properties.
+// Mostly used for go routines
+func CopyEnvMap(original map[string]string) map[string]string {
+	result := map[string]string{}
+	for key, val := range original {
+		result[key] = val
+	}
+	return result
+}

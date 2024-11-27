@@ -11,7 +11,7 @@ import (
 
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
-func CombineAndCall(jsonString string) (ApiInfo, error) {
+func PrepareStruct(jsonString string) (ApiInfo, error) {
 	// ReadYamlForHttpRequest should not return an empty string
 	// but if it does, return nil struct
 	if len(jsonString) == 0 {

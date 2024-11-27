@@ -12,7 +12,7 @@ func RunFormData(envMap map[string]string) {
 		"test_collection/form_data.yaml",
 		envMap,
 	)
-	apiInfo, err := apicalls.CombineAndCall(formDataJSONString)
+	apiInfo, err := apicalls.PrepareStruct(formDataJSONString)
 	if err != nil {
 		_ = fmt.Errorf("Error occoured in main %v", err)
 	}
@@ -26,7 +26,7 @@ func RunFormDataError(envMap map[string]string) {
 		"test_collection/form_data_error.yml",
 		envMap,
 	)
-	apiInfo, err := apicalls.CombineAndCall(formDataJSONString)
+	apiInfo, err := apicalls.PrepareStruct(formDataJSONString)
 	if err != nil {
 		_ = fmt.Errorf("Error occoured in main %v", err)
 	}
@@ -40,7 +40,7 @@ func RunUrlEncodedFormData(envMap map[string]string) {
 		"test_collection/url_encoded_form.yaml",
 		envMap,
 	)
-	apiInfo, err := apicalls.CombineAndCall(formDataJSONString)
+	apiInfo, err := apicalls.PrepareStruct(formDataJSONString)
 	if err != nil {
 		_ = fmt.Errorf("Error occoured in main %v", err)
 	}
