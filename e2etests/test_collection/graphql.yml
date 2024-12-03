@@ -11,7 +11,7 @@ body:
       }
     variables:
       name: "{{.userName}}"
-      age: "{{.userAge}}"
+      age: !!int "{{.userAge}}"
       # TODO: graph ql variables can be different
-  #String , Int , Float , Boolean , and ID
-  #support these types as well
+# String , Int , Float , Boolean , and ID
+# support these types as well
