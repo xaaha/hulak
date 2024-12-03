@@ -17,7 +17,7 @@ func init() {
 	env = flag.String("env", utils.DefaultEnvVal, "environment file to use during the call")
 }
 
-// FilePath returns the parsed value of the "fp" flag
+// FilePath returns the parsed value of the file path "fp" flag
 func FilePath() string {
 	return *fp
 }
