@@ -4,7 +4,7 @@ import (
 	"flag"
 	"sync"
 
-	"github.com/xaaha/hulak/e2etests"
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -23,7 +23,7 @@ func main() {
 
 	// Define tasks
 	tasks := []func(map[string]string, string){
-		e2etests.RunFormData,
+		apicalls.SendApiRequest,
 	}
 
 	// Run tasks concurrently
