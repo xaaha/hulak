@@ -77,11 +77,11 @@ func CopyEnvMap(original map[string]string) map[string]string {
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	matchFile = strings.ToLower(matchFile)
 	var result []string
+	errMsg := "no files with the matching name "
 
-	// Get the initial path to start the search
 	initAbsFp, err := CreateFilePath("")
 	if err != nil {
-		return nil, ColorError("error getting initial file path: %w", err)
+		return nil, fmt.Errorf("error getting initial file path: %w", err)
 	}
 
 	var startPath string
@@ -91,25 +91,22 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		startPath = initialPath[0]
 	}
 
-	// Read the contents of the starting directory
 	dirContents, err := os.ReadDir(startPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading directory %s: %w", startPath, err)
+		return nil, ColorError("error reading directory "+startPath, err)
 	}
 
 	filePattern := [2]string{".yaml", ".yml"}
 
 	for _, val := range dirContents {
-		// Skip `.git` or `.vscode` directory
+		// Skip hidden directories
 		if val.IsDir() && strings.HasPrefix(val.Name(), ".") {
 			continue
 		}
 
 		// Process files
 		if !val.IsDir() {
-			lowerName := strings.ToLower(
-				val.Name(),
-			)
+			lowerName := strings.ToLower(val.Name())
 			for _, ext := range filePattern {
 				if strings.HasSuffix(lowerName, ext) {
 					yamlFile := strings.TrimSuffix(lowerName, ext)
@@ -121,24 +118,21 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			}
 		}
 
-		// Recurse into subdirectories, but skip hidden folders `.git` `.vscode`
+		// Process subdirectories
 		if val.IsDir() {
 			subDirPath := filepath.Join(startPath, val.Name())
 			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			if err != nil {
-				dir := path.Base(subDirPath)
-				return nil, fmt.Errorf("\n error processing subdirectory %s: %w", dir, err)
+			matchErr := strings.Contains(err.Error(), errMsg)
+			if err != nil && !matchErr {
+				PrintRed("Skipping subdirectory" + val.Name() + "due to error: \n" + err.Error())
+				continue
 			}
 			result = append(result, matches...)
 		}
 	}
 
 	if len(result) == 0 {
-		err := ColorError(
-			"\n no files with matching name '" + matchFile + "' found in path: " + initAbsFp,
-		)
-		return nil, err
+		return nil, ColorError(errMsg + matchFile + " found in path \n" + path.Base(initAbsFp))
 	}
-
 	return result, nil
 }
