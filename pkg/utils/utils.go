@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -130,8 +129,8 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	}
 
 	if len(result) == 0 {
-		return []string{}, fmt.Errorf(
-			"no files with matching name '%s' found in: %s", matchFile, path.Base(initAbsFp),
+		return []string{}, ColorError(
+			"no files with matching name " + matchFile + " found in " + initAbsFp,
 		)
 	}
 	return result, nil

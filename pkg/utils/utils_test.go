@@ -100,9 +100,9 @@ func TestGetEnvFiles(t *testing.T) {
 // TestToLowercaseMap tests the ToLowercaseMap function with various cases
 func TestToLowercaseMap(t *testing.T) {
 	testCases := []struct {
-		name     string
 		input    map[string]interface{}
 		expected map[string]interface{}
+		name     string
 	}{
 		{
 			name: "Simple keys",
