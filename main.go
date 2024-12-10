@@ -41,18 +41,13 @@ func main() {
 	// 	numTasks = len(filePathList)
 	// }
 	// Define tasks
-	tasks := []func(map[string]string, string){
-		apicalls.SendApiRequest,
-	}
 
 	// Run tasks concurrently
-	for _, task := range tasks {
-		wg.Add(1)
-		go func(taskfunc func(map[string]string, string), env map[string]string, filePath string) {
-			defer wg.Done()
-			taskfunc(utils.CopyEnvMap(env), filePath)
-		}(task, envMap, fp)
-	}
+	wg.Add(1)
+	go func(sendRequest func(map[string]string, string), env map[string]string, filePath string) {
+		defer wg.Done()
+		sendRequest(utils.CopyEnvMap(env), filePath)
+	}(apicalls.SendApiRequest, envMap, fp)
 
 	wg.Wait()
 }
