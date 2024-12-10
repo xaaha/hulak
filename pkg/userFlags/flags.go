@@ -15,8 +15,16 @@ var (
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	env = flag.String("env", utils.DefaultEnvVal, "environment file to use during the call")
-	fp = flag.String("fp", "", "file path (fp) of the request file")
-	f = flag.String("f", "", "file name case insensitive")
+	fp = flag.String(
+		"fp",
+		"",
+		"Relative (or absolute) file path (fp) of the request file from the environment directory",
+	)
+	f = flag.String(
+		"f",
+		"",
+		"File name for making an api request. File name is case-insensitive",
+	)
 }
 
 // FilePath returns the parsed value of the file path "fp" flag -fp

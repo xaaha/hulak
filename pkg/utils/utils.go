@@ -77,7 +77,6 @@ func CopyEnvMap(original map[string]string) map[string]string {
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	matchFile = strings.ToLower(matchFile)
 	var result []string
-	errMsg := "no files with the matching name "
 
 	initAbsFp, err := CreateFilePath("")
 	if err != nil {
@@ -122,8 +121,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		if val.IsDir() {
 			subDirPath := filepath.Join(startPath, val.Name())
 			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			matchErr := strings.Contains(err.Error(), errMsg)
-			if err != nil && !matchErr {
+			if err != nil && !isNoMatchingFileError(err) {
 				PrintRed("Skipping subdirectory" + val.Name() + "due to error: \n" + err.Error())
 				continue
 			}
@@ -132,7 +130,14 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	}
 
 	if len(result) == 0 {
-		return nil, ColorError(errMsg + matchFile + " found in path \n" + path.Base(initAbsFp))
+		return []string{}, fmt.Errorf(
+			"no files with matching name '%s' found in: %s", matchFile, path.Base(initAbsFp),
+		)
 	}
 	return result, nil
+}
+
+// isNoMatchingFileError determines if the error is related to no matching files found.
+func isNoMatchingFileError(err error) bool {
+	return strings.Contains(err.Error(), "no files with matching name")
 }

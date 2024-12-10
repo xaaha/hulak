@@ -1,32 +1,36 @@
 package userflags
 
-import "github.com/xaaha/hulak/pkg/utils"
+import (
+	"github.com/xaaha/hulak/pkg/utils"
+)
 
-// returns a slice of file paths to run from the flags -f and -fp
+// Returns a slice of file paths based on the flags -f and -fp.
 func GenerateFilePathList(fileName string, fp string) ([]string, error) {
-	var filePathlist []string
-	standardErrMsg := "to send api request(s), please provide a file name with '-f fileName' flag or use  '-fp file/path/' to provide the file path from environment directory"
+	standardErrMsg := "to send api request(s), please provide a file name with '-f fileName' flag or use '-fp file/path/' to provide the file path from environment directory"
 
-	if len(fileName) == 0 && len(fp) == 0 {
-		return []string{}, utils.ColorError(standardErrMsg)
+	// Both inputs are empty, return an error
+	if fileName == "" && fp == "" {
+		return nil, utils.ColorError(standardErrMsg)
 	}
 
-	if len(fp) > 0 {
-		filePathlist = append(filePathlist, fp)
+	var filePathList []string
+
+	// Add file path from -fp flag if provided
+	if fp != "" {
+		filePathList = append(filePathList, fp)
 	}
 
-	if len(fileName) > 0 {
-		matchingPaths, err := utils.ListMatchingFiles(fileName)
-		if err != nil {
-			utils.PrintRed("helper.go: error occured while collecting file paths" + err.Error())
+	// Add matching paths for -f flag if provided
+	if fileName != "" {
+		if matchingPaths, err := utils.ListMatchingFiles(fileName); err != nil {
+			utils.PrintRed("helper.go: error occurred while collecting file paths: " + err.Error())
+		} else {
+			filePathList = append(filePathList, matchingPaths...)
 		}
-		filePathlist = append(filePathlist, matchingPaths...)
 	}
 
-	var error error
-	if len(filePathlist) == 0 {
-		error = utils.ColorError(standardErrMsg)
+	if len(filePathList) == 0 {
+		return nil, utils.ColorError(standardErrMsg)
 	}
-
-	return filePathlist, error
+	return filePathList, nil
 }
