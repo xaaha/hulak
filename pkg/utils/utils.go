@@ -96,7 +96,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		return nil, ColorError("error reading directory "+startPath, err)
 	}
 
-	filePattern := [2]string{".yaml", ".yml"}
+	filePattern := [2]string{YAML, YML}
 
 	for _, val := range dirContents {
 		// Skip hidden directories
