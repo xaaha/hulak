@@ -15,9 +15,19 @@ func main() {
 
 	fp := userflags.FilePath()
 	env := userflags.Env()
+	// file := userflags.File()
 
 	// create envMap
 	envMap := InitializeProject(env)
+	// filePathList, err := utils.ListMatchingFiles(file)
+	// if err != nil {
+	// 	utils.PanicRedAndExit(err.Error())
+	// }
+
+	// if the fp is present use that
+	// if both -fp and -f are provided use the fp and ignore file
+	// if only the filePathList is present then number of tasks equal to len(filePathList) and run job concurrently
+	// if nothing is panic
 
 	var wg sync.WaitGroup
 
