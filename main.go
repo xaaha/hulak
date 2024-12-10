@@ -39,19 +39,3 @@ func main() {
 	// wait for all go routines to complete
 	wg.Wait()
 }
-
-/*
-// Define the shared task function
-	task := apicalls.SendApiRequest
-
-	// Run tasks concurrently
-	for i := 0; i < numTasks; i++ {
-		wg.Add(1)
-		go func(env map[string]string, filePath string) {
-			defer wg.Done()
-			task(utils.CopyEnvMap(env), filePath)
-		}(envMap, fp) // Pass the parameters
-	}
-
-	wg.Wait()
-*/
