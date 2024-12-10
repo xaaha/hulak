@@ -45,7 +45,6 @@ func replaceVarsWithValues(
 			}
 			changedMap[key] = innerMap
 		default:
-			fmt.Println("Unexpected type:", val)
 			changedMap[key] = val
 		}
 	}
