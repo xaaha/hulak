@@ -34,7 +34,7 @@ func PrintRed(msg string) {
 	log.Printf("%s%s%s\n", Red, msg, ColorReset)
 }
 
-// Print message in Red
+// Print message in Red and os.Exit(1)
 func PanicRedAndExit(msg string, args ...any) {
 	log.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
 	os.Exit(1)

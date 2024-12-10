@@ -19,16 +19,17 @@ func init() {
 	f = flag.String("f", "", "file name case insensitive")
 }
 
-// FilePath returns the parsed value of the file path "fp" flag
+// FilePath returns the parsed value of the file path "fp" flag -fp
 func FilePath() string {
 	return *fp
 }
 
-// File name, case insensitive, for the request
+// File name, case insensitive, for the request -f
 func File() string {
 	return *f
 }
 
+// defines the env for the call
 func Env() string {
 	return *env
 }
