@@ -98,5 +98,10 @@ func SendApiRequest(envMap map[string]string, filePath string) {
 		fmt.Println(err)
 	}
 	resp := StandardCall(apiInfo)
+	// but the file could be html, xml, just plain text, json or any other type. We can't simply write in json
+	// err = os.WriteFile("test.json", []byte(resp), 0644)
+	// if err != nil {
+	// 	utils.PrintRed(err.Error())
+	// }
 	fmt.Println(resp)
 }
