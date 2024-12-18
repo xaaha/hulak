@@ -72,7 +72,7 @@ func CopyEnvMap(original map[string]string) map[string]string {
 // Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
-// Returns slice of mathed file path and an error if no matching files are found or if there are file system errors.
+// Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	matchFile = strings.ToLower(matchFile)
 	var result []string
@@ -139,4 +139,9 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 // isNoMatchingFileError determines if the error is related to no matching files found.
 func isNoMatchingFileError(err error) bool {
 	return strings.Contains(err.Error(), "no files with matching name")
+}
+
+// takes in filepath and returns the name of the file
+func FileNameWithoutExtension(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
