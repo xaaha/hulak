@@ -25,6 +25,7 @@ func isHTML(str string) bool {
 	return err == nil
 }
 
+// Writes a file to the specified directory with the given name and suffix.
 func writeFile(fileName, suffixType, contentBody string) {
 	if err := os.WriteFile(fileName+suffixType, []byte(contentBody), 0644); err != nil {
 		utils.PrintRed("call.go: error while saving file \n" + err.Error())
