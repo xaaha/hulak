@@ -110,8 +110,7 @@ func SendAndSaveApiRequest(envMap map[string]string, path string) {
 		return
 	}
 
-	fileName := utils.FileNameWithoutExtension(path)
-	evalAndWriteRes(resp, path, fileName)
+	evalAndWriteRes(resp, path)
 
 	fmt.Println(resp)
 }

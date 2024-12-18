@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -22,31 +23,34 @@ func isXML(str string) bool {
 
 func isHTML(str string) bool {
 	_, err := html.Parse(strings.NewReader(str))
-	return err == nil
+	return err == nil && strings.Contains(str, "<html>")
 }
 
-// Writes a file to the specified directory with the given name and suffix.
-func writeFile(fileName, suffixType, contentBody string) {
-	if err := os.WriteFile(fileName+suffixType, []byte(contentBody), 0644); err != nil {
-		utils.PrintRed("call.go: error while saving file \n" + err.Error())
+// Write the content to the specified path with the appropriate file extension
+func writeFile(path, suffixType, contentBody string) {
+	fileName := utils.FileNameWithoutExtension(path)
+	dir := filepath.Dir(path)
+	fullFilePath := filepath.Join(dir, fileName+suffixType)
+	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0644); err != nil {
+		utils.PrintRed("Error while saving file: %v\n" + err.Error())
+		return
 	}
 }
 
-// Checks whether the response is of certain type, json, xml, html or text.
-// Based on the evaluation, it writes the response to the provided path in respective file path
-func evalAndWriteRes(resBody, path, fileName string) {
-	if fileName == "" || resBody == "" {
-		utils.PrintRed("Invalid input: fileName and resBody cannot be empty")
+// checks the content type of resBody and writes to the corresponding file format
+func evalAndWriteRes(resBody, path string) {
+	if resBody == "" || path == "" {
+		utils.PrintRed("Invalid input: file path and resBody cannot be empty")
 		return
 	}
 
 	if isJson(resBody) {
-		writeFile(fileName, ".json", resBody)
+		writeFile(path, ".json", resBody)
 	} else if isXML(resBody) {
-		writeFile(fileName, ".xml", resBody)
+		writeFile(path, ".xml", resBody)
 	} else if isHTML(resBody) {
-		writeFile(fileName, ".html", resBody)
+		writeFile(path, ".html", resBody)
 	} else {
-		writeFile(fileName, ".txt", resBody)
+		writeFile(path, ".txt", resBody)
 	}
 }
