@@ -32,7 +32,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			apicalls.SendApiRequest(utils.CopyEnvMap(envMap), eachPath)
+			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(envMap), eachPath)
 		}()
 	}
 

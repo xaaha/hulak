@@ -2,13 +2,9 @@ package apicalls
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
-	"os"
 	"strings"
-
-	"golang.org/x/net/html"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
@@ -91,7 +87,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 // TODO: save a json response on the path as well
-func SendApiRequest(envMap map[string]string, filePath string) {
+func SendAndSaveApiRequest(envMap map[string]string, filePath string) {
 	formDataJSONString := yamlParser.ReadYamlForHttpRequest(
 		filePath,
 		envMap,
@@ -102,46 +98,5 @@ func SendApiRequest(envMap map[string]string, filePath string) {
 		fmt.Println(err)
 	}
 	resp := StandardCall(apiInfo)
-	// but the file could be html, xml, just plain text, json or any other type. We can't simply write in json
-	// err = os.WriteFile("test.json", []byte(resp), 0644)
-	// if err != nil {
-	// 	utils.PrintRed(err.Error())
-	// }
 	fmt.Println(resp)
-}
-
-func isJson(str string) bool {
-	var jsBfr json.RawMessage
-	return json.Unmarshal([]byte(str), &jsBfr) == nil
-}
-
-func isXML(str string) bool {
-	var v interface{}
-	return xml.Unmarshal([]byte(str), &v) == nil
-}
-
-func isHTML(str string) bool {
-	_, err := html.Parse(strings.NewReader(str))
-	return err == nil
-}
-
-func writeFile(fileName, suffixType, contentBody string) {
-	err := os.WriteFile(fileName+suffixType, []byte(contentBody), 0644)
-	if err != nil {
-		utils.PrintRed("call.go: error while saving file \n" + err.Error())
-	}
-}
-
-// Checks whether the response is of certain type, json, xml, html or text.
-// Based on the evaluation, it writes the response to the provided path in respective file path
-func EvalAndWriteRes(resBody, path, fileName string) {
-	if isJson(resBody) {
-		writeFile(fileName, ".json", resBody)
-	} else if isXML(resBody) {
-		writeFile(fileName, ".xml", resBody)
-	} else if isHTML(resBody) {
-		writeFile(fileName, ".html", resBody)
-	} else {
-		writeFile(fileName, ".txt", resBody)
-	}
 }
