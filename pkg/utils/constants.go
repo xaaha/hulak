@@ -21,3 +21,9 @@ const (
 	UnResolvedVariable = "unresolved variable "
 	EmptyVariables     = "variable string can't be empty"
 )
+
+// acceptable file patterns
+const (
+	YAML = ".yaml"
+	YML  = ".yml"
+)

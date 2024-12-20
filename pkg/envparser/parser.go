@@ -15,7 +15,7 @@ Sets default environment for the user.
 Global is default if -env flagName is not provided.
 Also, asks the user if they want to create the file in env folder
 */
-func setEnvironment(utility utils.Utilities) (bool, error) {
+func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 	fileCreationSkipped := false
 	// set default value if the env is empty
 	if os.Getenv(utils.EnvKey) == "" {
@@ -36,11 +36,6 @@ func setEnvironment(utility utils.Utilities) (bool, error) {
 		envFromFiles = append(envFromFiles, fileName)
 	}
 
-	envFromFlag := utils.CaptureUserFlag(
-		"env",
-		utils.DefaultEnvVal,
-		"environment file to use during the call",
-	)
 	// compare both values
 	if !slices.Contains(envFromFiles, envFromFlag) {
 		fmt.Printf("'%v.env' not found in the env directory\n", envFromFlag)
@@ -125,8 +120,8 @@ User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
-func GenerateSecretsMap() (map[string]string, error) {
-	skipped, err := setEnvironment(utils.Utilities{})
+func GenerateSecretsMap(envFromFlag string) (map[string]string, error) {
+	skipped, err := setEnvironment(utils.Utilities{}, envFromFlag)
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
 	}

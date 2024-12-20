@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,20 +58,6 @@ func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} 
 	return loweredMap
 }
 
-func CaptureUserFlag(flagName, defaultName, description string) string {
-	usersFlag := flag.String(flagName, defaultName, description)
-	flag.Parse()
-
-	// Accept only the first argument after -name, ignore the rest
-	arguments := strings.Fields(*usersFlag)
-	if len(arguments) > 0 {
-		*usersFlag = strings.ToLower(arguments[0])
-	} else {
-		*usersFlag = defaultName
-	}
-	return *usersFlag
-}
-
 // Copies the Environment map[string]string and returns a CopyEnvMap
 // EnvMap is a simple json without any nested properties.
 // Mostly used for go routines
@@ -81,4 +67,81 @@ func CopyEnvMap(original map[string]string) map[string]string {
 		result[key] = val
 	}
 	return result
+}
+
+// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml only)
+// in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
+// Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
+// Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
+func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
+	matchFile = strings.ToLower(matchFile)
+	var result []string
+
+	initAbsFp, err := CreateFilePath("")
+	if err != nil {
+		return nil, fmt.Errorf("error getting initial file path: %w", err)
+	}
+
+	var startPath string
+	if len(initialPath) == 0 {
+		startPath = initAbsFp
+	} else {
+		startPath = initialPath[0]
+	}
+
+	dirContents, err := os.ReadDir(startPath)
+	if err != nil {
+		return nil, ColorError("error reading directory "+startPath, err)
+	}
+
+	filePattern := [2]string{YAML, YML}
+
+	for _, val := range dirContents {
+		// Skip hidden directories
+		if val.IsDir() && strings.HasPrefix(val.Name(), ".") {
+			continue
+		}
+
+		// Process files
+		if !val.IsDir() {
+			lowerName := strings.ToLower(val.Name())
+			for _, ext := range filePattern {
+				if strings.HasSuffix(lowerName, ext) {
+					yamlFile := strings.TrimSuffix(lowerName, ext)
+					if matchFile == yamlFile {
+						matchingFp := filepath.Join(startPath, val.Name())
+						result = append(result, matchingFp)
+					}
+				}
+			}
+		}
+
+		// Process subdirectories
+		if val.IsDir() {
+			subDirPath := filepath.Join(startPath, val.Name())
+			matches, err := ListMatchingFiles(matchFile, subDirPath)
+			if err != nil && !isNoMatchingFileError(err) {
+				PrintRed("Skipping subdirectory" + val.Name() + "due to error: \n" + err.Error())
+				continue
+			}
+			result = append(result, matches...)
+		}
+	}
+
+	if len(result) == 0 {
+		return []string{}, ColorError(
+			"no files with matching name " + matchFile + " found in " + initAbsFp,
+		)
+	}
+	return result, nil
+}
+
+// isNoMatchingFileError determines if the error is related to no matching files found.
+func isNoMatchingFileError(err error) bool {
+	return strings.Contains(err.Error(), "no files with matching name")
+}
+
+// takes in filepath and returns the name of the file
+func FileNameWithoutExtension(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }

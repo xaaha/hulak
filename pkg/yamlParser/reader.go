@@ -45,24 +45,10 @@ func replaceVarsWithValues(
 			}
 			changedMap[key] = innerMap
 		default:
-			fmt.Println("Unexpected type:", val)
 			changedMap[key] = val
 		}
 	}
 	return changedMap
-	/*
-		// test this with
-				test := map[string]interface{}{
-						"first": "Pratik",
-						"last":  "Thapa",
-						"work":  map[string]interface{}{"position": "engineer"},
-						"roles": map[string]string{"primary": "developer", "secondary": "designer"},
-					}
-
-					// Call ReplaceValues to process and print each value
-					updatedTest := ReplaceValues(test)
-					fmt.Println("Updated map:", updatedTest)
-	*/
 }
 
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
@@ -93,7 +79,7 @@ func checkYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 
-	// parse all the values to with {{.key}}
+	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
 	var buf bytes.Buffer

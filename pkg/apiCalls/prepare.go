@@ -89,22 +89,30 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 	return bytes.NewReader(jsonData), nil
 }
 
+// structure of the result to print in the console as the std output
+type CustomResponse struct {
+	Body           interface{} `json:"Body"`
+	ResponseStatus string      `json:"Response Status"`
+}
+
+// Takes in http response, adds response status code,
+// and returns CustomResponse type string for the StandardCall function below
 func processResponse(response *http.Response) string {
-	jsonBody, err := io.ReadAll(response.Body)
+	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response %v", err)
 	}
 	defer response.Body.Close()
 
-	responseData := map[string]interface{}{
-		"Response Status": response.Status,
+	responseData := CustomResponse{
+		ResponseStatus: response.Status,
 	}
 	var parsedBody interface{}
-	if err := json.Unmarshal(jsonBody, &parsedBody); err == nil {
-		responseData["Body"] = parsedBody
+	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
+		responseData.Body = parsedBody
 	} else {
 		// If the body isn't valid JSON, include it as a string
-		responseData["Body"] = string(jsonBody)
+		responseData.Body = string(respBody)
 	}
 
 	finalJSON, err := json.MarshalIndent(responseData, "", "  ")

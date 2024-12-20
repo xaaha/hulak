@@ -17,11 +17,11 @@ func TestSubstituteVariables(t *testing.T) {
 	}
 
 	testCases := []struct {
+		expectedErr    error
+		varMap         map[string]string
 		name           string
 		stringToChange string
 		expectedOutput string
-		expectedErr    error
-		varMap         map[string]string
 	}{
 		{
 			name:           "Valid variables with nested replacement",

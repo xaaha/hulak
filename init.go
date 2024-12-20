@@ -1,52 +1,41 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
+	"sync"
 
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 /*
-InitializeProject() starts the project by creating envfolder and global file in it.
+InitializeProject() starts the project by creating envfolder and global.env file in it.
 returns the envMap
 TBC...
 */
-func InitializeProject() map[string]string {
+func InitializeProject(env string) map[string]string {
 	err := envparser.CreateDefaultEnvs(nil)
 	if err != nil {
 		panic(err)
 	}
-	envMap, err := envparser.GenerateSecretsMap()
+	envMap, err := envparser.GenerateSecretsMap(env)
 	if err != nil {
 		panic(err)
 	}
 	return envMap
 }
 
-/*
-Initialize the project and how to substiture a variable.
-This function is just for my dumb brain that forgets how to do simple stuff in a program I wrote
-*/
-func testInitialization() {
-	InitializeProject()
+func RunTasks(filePathList []string, envMap map[string]string) {
+	var wg sync.WaitGroup
 
-	envMap, err := envparser.GenerateSecretsMap()
-	if err != nil {
-		panic(err)
+	// Run tasks concurrently
+	for _, eachPath := range filePathList {
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
+			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(envMap), path)
+		}(eachPath)
 	}
 
-	// print entire json
-	niceJson, _ := json.MarshalIndent(envMap, "", "  ")
-	fmt.Println(string(niceJson))
-
-	// how to substitute variable
-	finalAns, err := envparser.SubstituteVariables("env{{.PORT}}", envMap)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(finalAns)
-
-	fmt.Println("Default Environment value:", os.Getenv("hulakEnv"))
+	wg.Wait()
 }
