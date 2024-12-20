@@ -48,7 +48,8 @@ func TestEvalAndWriteRes(t *testing.T) {
 
 			_ = evalAndWriteRes(tc.resBody, filePath)
 
-			expectedPath := filepath.Join(tempDir, tc.expectedFile)
+			expectedFileName := "test_response" + tc.expectedExt
+			expectedPath := filepath.Join(tempDir, expectedFileName)
 			if _, err := os.Stat(expectedPath); err != nil {
 				t.Errorf("Expected file %s to be created, but it was not", expectedPath)
 			}
