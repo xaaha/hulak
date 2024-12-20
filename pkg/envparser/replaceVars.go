@@ -47,6 +47,10 @@ func getValueOf(key, fileName string) string {
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
 		utils.PrintWarning(jsonResFilePath + " file does not exist. Fetching API response...")
 
+		// or
+		// utils.PrintWarning(
+		// 	jsonResFilePath + "  does not exist. Fetch API response for the file: " + fileName + " first",
+		// )
 		// env := userflags.Env()
 		// envMap := InitializeProject(env)
 		fmt.Println(jsonResFilePath) // just a place holder for now
