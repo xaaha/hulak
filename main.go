@@ -30,10 +30,10 @@ func main() {
 	// Run tasks concurrently
 	for _, eachPath := range filePathList {
 		wg.Add(1)
-		go func() {
+		go func(path string) {
 			defer wg.Done()
 			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(envMap), eachPath)
-		}()
+		}(eachPath)
 	}
 
 	// wait for all go routines to complete

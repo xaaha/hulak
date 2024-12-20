@@ -2,14 +2,48 @@ package envparser
 
 import (
 	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
 	"text/template"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// gets the value of key from the json path provided
-func getValueOf(key, path string) string {
-	return key + " && " + path
+// gets the value of key from the file
+// looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
+func getValueOf(key, fileName string) string {
+	yamlPathList, err := utils.ListMatchingFiles(fileName)
+	if err != nil {
+		utils.PrintRed(
+			"replaceVars.go: error occured while grabbing matchingPath for " + fileName + " \n" +
+				err.Error(),
+		)
+	}
+
+	singlePath := yamlPathList[0] // there could be multiple yaml file matches only take the first one
+	if len(yamlPathList) > 1 {
+		utils.PrintWarning(
+			"Multiple matches for the file " + fileName + " found. Using the first one",
+		)
+	}
+
+	dirPath := filepath.Dir(singlePath)
+	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + "_response.json"
+	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
+
+	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
+		fmt.Println(jsonResFilePath) // just a place holder for now
+		// call the response
+	}
+
+	// with fileName find all the paths and use the first one
+	// if the _response.json file does not exit, call the api, write the file
+	// only in json file. Not sure how would I do this in xml or html yet
+	// if the _response.json file exists, use recursion, find the vlaue and return the value
+	// if the value does not exist, return an empty string and print the message in Red
+
+	return key + " && " + fileName
 }
 
 func replaceVariables(
@@ -21,8 +55,8 @@ func replaceVariables(
 	}
 
 	funcMap := template.FuncMap{
-		"getValueOf": func(key, path string) string {
-			return getValueOf(key, path)
+		"getValueOf": func(key, fileName string) string {
+			return getValueOf(key, fileName)
 		},
 	}
 
