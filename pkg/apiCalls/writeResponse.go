@@ -28,7 +28,7 @@ func isHTML(str string) bool {
 
 // Write the content to the specified path with the appropriate file extension
 func writeFile(path, suffixType, contentBody string) {
-	fileName := utils.FileNameWithoutExtension(path)
+	fileName := utils.FileNameWithoutExtension(path) + "_response"
 	dir := filepath.Dir(path)
 	fullFilePath := filepath.Join(dir, fileName+suffixType)
 	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0644); err != nil {
