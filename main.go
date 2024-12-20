@@ -41,13 +41,6 @@ func main() {
 }
 
 /*
-- How do you dynamically, save the response. What if it's not json? call.go
-  - use the function EvalAndWriteRes
-  - have unit tests
-  - have a bool flag to turn off if you don't want to save the file
-  - In that case, we need to print the html too. Right now it's just json
-  - Then save the file in respective format, in the path where the call happened.
-  - Do we need to save file with different thread?
 - How do we handle making a file dependent on a response of different request call?
   - Save the file to it's respective file type concurrently
   - Once the file is done saving, lock it and copy the content in a buffer (mutex)
