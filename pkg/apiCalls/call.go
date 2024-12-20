@@ -110,7 +110,25 @@ func SendAndSaveApiRequest(envMap map[string]string, path string) {
 		return
 	}
 
-	evalAndWriteRes(resp, path)
+	// save the response file
+	var strBody string
+	// by default save the response body
+	// if err, save the entire resp with status code
+	switch body := customResponse.Body.(type) {
+	case string:
+		strBody = body
+	case map[string]interface{}, []interface{}:
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			strBody = resp
+		} else {
+			strBody = string(jsonData)
+		}
+	default:
+		strBody = resp
+	}
+
+	evalAndWriteRes(strBody, path)
 
 	fmt.Println(resp)
 }
