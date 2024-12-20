@@ -38,10 +38,9 @@ func writeFile(path, suffixType, contentBody string) {
 }
 
 // checks the content type of resBody and writes to the corresponding file format
-func evalAndWriteRes(resBody, path string) {
+func evalAndWriteRes(resBody, path string) error {
 	if resBody == "" || path == "" {
-		utils.PrintRed("Invalid input: file path and resBody cannot be empty")
-		return
+		return utils.ColorError("Invalid input: file path and resBody cannot be empty")
 	}
 
 	switch {
@@ -54,4 +53,5 @@ func evalAndWriteRes(resBody, path string) {
 	default:
 		writeFile(path, ".txt", resBody)
 	}
+	return nil
 }

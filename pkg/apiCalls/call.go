@@ -128,7 +128,10 @@ func SendAndSaveApiRequest(envMap map[string]string, path string) {
 		strBody = resp
 	}
 
-	evalAndWriteRes(strBody, path)
+	err = evalAndWriteRes(strBody, path)
+	if err != nil {
+		utils.PrintRed("call.go: " + err.Error())
+	}
 
 	fmt.Println(resp)
 }
