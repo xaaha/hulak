@@ -22,8 +22,8 @@ func isXML(str string) bool {
 }
 
 func isHTML(str string) bool {
-	_, err := html.Parse(strings.NewReader(str))
-	return err == nil && strings.Contains(str, "<html>")
+	doc, err := html.Parse(strings.NewReader(str))
+	return err == nil && strings.Contains(str, "</html>") && doc != nil
 }
 
 // Write the content to the specified path with the appropriate file extension
@@ -44,17 +44,14 @@ func evalAndWriteRes(resBody, path string) {
 		return
 	}
 
-	if isJson(resBody) {
+	switch {
+	case isJson(resBody):
 		writeFile(path, ".json", resBody)
-		return
-	} else if isXML(resBody) {
+	case isXML(resBody):
 		writeFile(path, ".xml", resBody)
-		return
-	} else if isHTML(resBody) {
+	case isHTML(resBody):
 		writeFile(path, ".html", resBody)
-		return
-	} else {
+	default:
 		writeFile(path, ".txt", resBody)
-		return
 	}
 }
