@@ -13,6 +13,10 @@ import (
 // gets the value of key from the file
 // looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
 func getValueOf(key, fileName string) string {
+	if key == "" && fileName == "" {
+		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
+	}
+
 	yamlPathList, err := utils.ListMatchingFiles(fileName)
 	if err != nil {
 		utils.PrintRed(
@@ -21,10 +25,18 @@ func getValueOf(key, fileName string) string {
 		)
 	}
 
-	singlePath := yamlPathList[0] // there could be multiple yaml file matches only take the first one
+	var singlePath string
+	if len(yamlPathList) > 0 {
+		// only take the first one
+		singlePath = yamlPathList[0]
+	} else {
+		utils.PrintRed("could not find matching files " + fileName)
+		return ""
+	}
+
 	if len(yamlPathList) > 1 {
 		utils.PrintWarning(
-			"Multiple matches for the file " + fileName + " found. Using the first one",
+			"Multiple matches for the file " + fileName + " found. Using the first one: \n" + singlePath,
 		)
 	}
 
@@ -33,6 +45,10 @@ func getValueOf(key, fileName string) string {
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
+		utils.PrintWarning(jsonResFilePath + " file does not exist. Fetching API response...")
+
+		// env := userflags.Env()
+		// envMap := InitializeProject(env)
 		fmt.Println(jsonResFilePath) // just a place holder for now
 		// call the response
 	}
@@ -104,35 +120,3 @@ func SubstituteVariables(
 	}
 	return result, nil
 }
-
-// we can also use recursion and regex to solve this issue
-// trying to use template as much as possible
-
-// func SubstituteVariables(strToChange string, mapWithVars map[string]string) (string, error) {
-// 	if len(strToChange) == 0 {
-// 		return "", utils.ColorError(utils.EmptyVariables)
-// 	}
-// 	regex := regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`) // matches {{key}}
-// 	matches := regex.FindAllStringSubmatch(strToChange, -1)
-// 	if len(matches) == 0 {
-// 		return strToChange, nil
-// 	}
-// 	for _, match := range matches {
-// 		/*
-// 			match[0] is the full match, match[1] is the first group
-// 			thisisa/{{test}}/ofmywork/{{work}} => [["{{test}}" "test"] ["{{work}}" "work"]]
-// 		*/
-// 		envKey := match[1]
-// 		envVal := mapWithVars[envKey]
-// 		if len(envVal) == 0 {
-// 			message := utils.UnResolvedVariable + envKey
-// 			return "", utils.ColorError(message)
-// 		}
-// 		strToChange = strings.Replace(strToChange, match[0], envVal, 1)
-// 		matches = regex.FindAllStringSubmatch(strToChange, -1)
-// 		if len(matches) > 0 {
-// 			return SubstituteVariables(strToChange, mapWithVars)
-// 		}
-// 	}
-// 	return strToChange, nil
-// }

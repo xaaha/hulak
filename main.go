@@ -2,9 +2,7 @@ package main
 
 import (
 	"flag"
-	"sync"
 
-	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -25,19 +23,7 @@ func main() {
 		utils.PanicRedAndExit("main.go %v", err)
 	}
 
-	var wg sync.WaitGroup
-
-	// Run tasks concurrently
-	for _, eachPath := range filePathList {
-		wg.Add(1)
-		go func(path string) {
-			defer wg.Done()
-			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(envMap), eachPath)
-		}(eachPath)
-	}
-
-	// wait for all go routines to complete
-	wg.Wait()
+	RunTasks(filePathList, envMap)
 }
 
 /*
