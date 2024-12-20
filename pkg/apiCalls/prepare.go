@@ -98,7 +98,7 @@ type CustomResponse struct {
 // Takes in http response, adds response status code,
 // and returns CustomResponse type string for the StandardCall function below
 func processResponse(response *http.Response) string {
-	jsonBody, err := io.ReadAll(response.Body)
+	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response %v", err)
 	}
@@ -108,11 +108,11 @@ func processResponse(response *http.Response) string {
 		ResponseStatus: response.Status,
 	}
 	var parsedBody interface{}
-	if err := json.Unmarshal(jsonBody, &parsedBody); err == nil {
+	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
 		responseData.Body = parsedBody
 	} else {
 		// If the body isn't valid JSON, include it as a string
-		responseData.Body = string(jsonBody)
+		responseData.Body = string(respBody)
 	}
 
 	finalJSON, err := json.MarshalIndent(responseData, "", "  ")

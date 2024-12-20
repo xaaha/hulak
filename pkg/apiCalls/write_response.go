@@ -46,11 +46,15 @@ func evalAndWriteRes(resBody, path string) {
 
 	if isJson(resBody) {
 		writeFile(path, ".json", resBody)
+		return
 	} else if isXML(resBody) {
 		writeFile(path, ".xml", resBody)
+		return
 	} else if isHTML(resBody) {
 		writeFile(path, ".html", resBody)
+		return
 	} else {
 		writeFile(path, ".txt", resBody)
+		return
 	}
 }
