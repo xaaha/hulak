@@ -7,6 +7,11 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// gets the value of key from the json path provided
+func getValueOf(key, path string) string {
+	return key + " && " + path
+}
+
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]string,
@@ -14,7 +19,17 @@ func replaceVariables(
 	if len(strToChange) == 0 {
 		return "", utils.ColorError("input string is empty")
 	}
-	tmpl, err := template.New("template").Option("missingkey=error").Parse(strToChange)
+
+	funcMap := template.FuncMap{
+		"getValueOf": func(key, path string) string {
+			return getValueOf(key, path)
+		},
+	}
+
+	tmpl, err := template.New("template").
+		Funcs(funcMap).
+		Option("missingkey=error").
+		Parse(strToChange)
 	if err != nil {
 		return "", utils.ColorError("template parsing error: %w", err)
 	}
