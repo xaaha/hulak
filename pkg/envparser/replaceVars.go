@@ -2,11 +2,13 @@ package envparser
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"
 
+	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -36,7 +38,7 @@ func getValueOf(key, fileName string) string {
 
 	if len(yamlPathList) > 1 {
 		utils.PrintWarning(
-			"Multiple matches for the file " + fileName + " found. Using the first one: \n" + singlePath,
+			"Multiple matches for the file " + fileName + " found. Using \n" + singlePath,
 		)
 	}
 
@@ -44,16 +46,25 @@ func getValueOf(key, fileName string) string {
 	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + "_response.json"
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
+	// If the file path is valid but the file does not exist, fetch the response
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
 		utils.PrintWarning(jsonResFilePath + " file does not exist. Fetching API response...")
 
-		// or
-		// utils.PrintWarning(
-		// 	jsonResFilePath + "  does not exist. Fetch API response for the file: " + fileName + " first",
-		// )
+		flag.Parse()
+		env := userflags.Env()
+		envMap, err := GenerateSecretsMap(env)
+		if err != nil {
+			utils.PrintRed(
+				"replaceVars.go: Could not get the secrets map. Call the api manually" + err.Error(),
+			)
+		}
+
+		// TODO: Fix the cyclic dependency
+		// apicalls.SendAndSaveApiRequest(envMap, singlePath)
+
 		// env := userflags.Env()
 		// envMap := InitializeProject(env)
-		fmt.Println(jsonResFilePath) // just a place holder for now
+		fmt.Println(envMap) // just a place holder for now
 		// call the response
 	}
 

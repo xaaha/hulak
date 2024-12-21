@@ -14,3 +14,5 @@ test:
 build:
 	@go build -o bin/hulak ./cmd/hulak/
 
+check:
+	@make test && make run && make run-all  && make graphql
