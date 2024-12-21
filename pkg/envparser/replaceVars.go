@@ -59,7 +59,10 @@ func getValueOf(key, fileName string) string {
 			)
 		}
 
-		// TODO: Fix the cyclic dependency
+		// TODO: Fix the cyclic dependency. Remove the common dependency
+		// yamlParser uses `envparser.SubstituteVariables`
+		// and apiCalls uses `yamlParser.ReadYamlForHttpRequest`
+		// now I am trying to use apiCalls.SendAndSaveApiRequest
 		// apicalls.SendAndSaveApiRequest(envMap, singlePath)
 
 		// env := userflags.Env()
