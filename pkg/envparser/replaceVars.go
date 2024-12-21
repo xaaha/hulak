@@ -64,6 +64,7 @@ func getValueOf(key, fileName string) string {
 		// and apiCalls uses `yamlParser.ReadYamlForHttpRequest`
 		// now I am trying to use apiCalls.SendAndSaveApiRequest
 		// apicalls.SendAndSaveApiRequest(envMap, singlePath)
+		// see github to solve this issue:https://github.com/xaaha/hulak/issues/15#issuecomment-2558266096
 
 		// env := userflags.Env()
 		// envMap := InitializeProject(env)
