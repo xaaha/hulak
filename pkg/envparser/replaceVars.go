@@ -2,13 +2,10 @@ package envparser
 
 import (
 	"bytes"
-	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"
 
-	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -46,36 +43,20 @@ func getValueOf(key, fileName string) string {
 	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + "_response.json"
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
-	// If the file path is valid but the file does not exist, fetch the response
+	// If the file does not exist
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
-		utils.PrintWarning(jsonResFilePath + " file does not exist. Fetching API response...")
-
-		flag.Parse()
-		env := userflags.Env()
-		envMap, err := GenerateSecretsMap(env)
-		if err != nil {
-			utils.PrintRed(
-				"replaceVars.go: Could not get the secrets map. Call the api manually" + err.Error(),
-			)
-		}
-
-		// TODO: Fix the cyclic dependency. Remove the common dependency
-		// yamlParser uses `envparser.SubstituteVariables`
-		// and apiCalls uses `yamlParser.ReadYamlForHttpRequest`
-		// now I am trying to use apiCalls.SendAndSaveApiRequest
-		// apicalls.SendAndSaveApiRequest(envMap, singlePath)
-		// see github to solve this issue:https://github.com/xaaha/hulak/issues/15#issuecomment-2558266096
-
-		// env := userflags.Env()
-		// envMap := InitializeProject(env)
-		fmt.Println(envMap) // just a place holder for now
-		// call the response
+		utils.PrintRed(
+			jsonResFilePath + " file does not exist. Fetch the API response for '" + fileName + "' first.",
+		)
+		return ""
 	}
 
-	// with fileName find all the paths and use the first one
-	// if the _response.json file does not exit, call the api, write the file
+	// make sure the file has valid json content with apicalls.IsJson
+
 	// only in json file. Not sure how would I do this in xml or html yet
 	// if the _response.json file exists, use recursion, find the vlaue and return the value
+	// key.anotherKey should be direct exact match
+	// or anohterkey, if multiple returns the first
 	// if the value does not exist, return an empty string and print the message in Red
 
 	return key + " && " + fileName
