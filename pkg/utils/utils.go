@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,4 +145,40 @@ func isNoMatchingFileError(err error) bool {
 // takes in filepath and returns the name of the file
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
+// searches the myKey in dict, and returns the interface.
+// if the result is map[string]interface{}, a json string is returned
+func LookupValue(myKey string, dict map[string]interface{}) interface{} {
+	var result interface{}
+
+	for key, value := range dict {
+		if key == myKey {
+			result = value
+			if va, ok := value.(map[string]interface{}); ok {
+				jsonString, err := json.Marshal(va)
+				if err != nil {
+					return fmt.Sprintf("Error converting to JSON: %v", err)
+				}
+				return string(jsonString)
+			}
+			return result
+		}
+
+		// Recursively check nested maps
+		if val, ok := value.(map[string]interface{}); ok {
+			innerMap := LookupValue(myKey, val)
+			if va, ok := innerMap.(map[string]interface{}); ok {
+				jsonString, err := json.Marshal(va)
+				if err != nil {
+					return fmt.Sprintf("Error converting to JSON: %v", err)
+				}
+				return string(jsonString)
+			}
+			if innerMap != nil {
+				return innerMap
+			}
+		}
+	}
+	return result
 }
