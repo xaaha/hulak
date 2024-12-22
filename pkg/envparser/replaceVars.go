@@ -2,6 +2,7 @@ package envparser
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -9,7 +10,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// gets the value of key from the file
+// gets the value of key from a json file
 // looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
 func getValueOf(key, fileName string) string {
 	if key == "" && fileName == "" {
@@ -46,17 +47,33 @@ func getValueOf(key, fileName string) string {
 	// If the file does not exist
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
 		utils.PrintRed(
-			jsonResFilePath + " file does not exist. Fetch the API response for '" + fileName + "' first.",
+			jsonResFilePath + " file does not exist. Fetch the API response for '" + fileName + "'. \nOr make sure the '" + jsonResFilePath + "' exists with '" + key + "'",
 		)
 		return ""
 	}
 
-	// make sure the file has valid json content with apicalls.IsJson
+	file, err := os.Open(jsonBaseName)
+	if err != nil {
+		utils.PrintRed(
+			"replaceVars.go: error occured while opening the file  " + jsonBaseName + err.Error(),
+		)
+	}
+	defer file.Close()
 
-	// only in json file. Not sure how would I do this in xml or html yet
+	var fileContent map[string]interface{}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&fileContent)
+	if err != nil {
+		utils.PrintRed(
+			"replaceVars.go: make sure " + jsonBaseName + " has proper json content" + err.Error(),
+		)
+	}
+
 	// if the _response.json file exists, use recursion, find the vlaue and return the value
+	// try to see if fuzzy match works. Can a user ask for 'bar' that's inside foo in json? Otherwise
 	// key.anotherKey should be direct exact match
-	// or anohterkey, if multiple returns the first
+	// or Anotherkey, if multiple returns the first
+	// return interface from the recursion, and see if that works. I don't want to assume that user is only seeking a string
 	// if the value does not exist, return an empty string and print the message in Red
 
 	return key + " && " + fileName

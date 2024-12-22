@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func IsJson(str string) bool {
+func isJson(str string) bool {
 	var jsBfr json.RawMessage
 	return json.Unmarshal([]byte(str), &jsBfr) == nil
 }
@@ -44,7 +44,7 @@ func evalAndWriteRes(resBody, path string) error {
 	}
 
 	switch {
-	case IsJson(resBody):
+	case isJson(resBody):
 		writeFile(path, ".json", resBody)
 	case isXML(resBody):
 		writeFile(path, ".xml", resBody)
