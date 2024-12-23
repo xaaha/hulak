@@ -69,6 +69,8 @@ func getValueOf(key, fileName string) string {
 		)
 	}
 
+	// if the key has ".", or example, user.name.last, use it directly
+
 	// if the _response.json file exists, use recursion, find the vlaue and return the value
 	// try to see if fuzzy match works. Can a user ask for 'bar' that's inside foo in json? Otherwise
 	// key.anotherKey should be direct exact match

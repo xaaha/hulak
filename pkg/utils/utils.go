@@ -148,7 +148,7 @@ func FileNameWithoutExtension(path string) string {
 }
 
 // searches the myKey in dict, and returns the interface.
-// if the result is map[string]interface{}, a json string is returned
+// If the interface is map[string]interface{}, a json string is returned
 func LookupValue(myKey string, dict map[string]interface{}) interface{} {
 	var result interface{}
 
