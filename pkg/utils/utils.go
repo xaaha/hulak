@@ -151,7 +151,6 @@ func FileNameWithoutExtension(path string) string {
 // If the interface is map[string]interface{}, a json string is returned
 // LookupValue collects all matches for a given key, including nested maps and arrays.
 // TODO: accept [0] for the array otherwise return error && skip . and [] with \ and make them string
-
 func LookUpValuePath(key string, data map[string]interface{}) (string, error) {
 	if value, exists := data[key]; exists {
 		return marshalToJSON(value)
@@ -162,7 +161,6 @@ func LookUpValuePath(key string, data map[string]interface{}) (string, error) {
 	segments := strings.Split(key, pathSeparator)
 	current := data
 
-	// Traverse the path
 	for i, segment := range segments {
 		value, exists := current[segment]
 		if !exists {
