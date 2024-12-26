@@ -150,42 +150,110 @@ func FileNameWithoutExtension(path string) string {
 // searches the myKey in dict, and returns the interface[].
 // If the interface is map[string]interface{}, a json string is returned
 // LookupValue collects all matches for a given key, including nested maps and arrays.
-func LookupValue(myKey string, dict map[string]interface{}) []interface{} {
-	var results []interface{}
+// TODO: accept [0] for the array otherwise return error && skip . and [] with \ and make them string
 
-	for key, value := range dict {
-		// Check if the current key matches
-		if key == myKey {
-			if va, ok := value.(map[string]interface{}); ok {
-				// If it's a nested map, convert it to JSON string
-				jsonString, err := json.Marshal(va)
-				if err != nil {
-					results = append(results, fmt.Sprintf("Error converting to JSON: %v", err))
-				} else {
-					results = append(results, string(jsonString))
-				}
-			} else {
-				results = append(results, value)
-			}
+func LookUpValuePath(key string, data map[string]interface{}) (string, error) {
+	if value, exists := data[key]; exists {
+		return marshalToJSON(value)
+	}
+
+	// Path separator to traverse the key path
+	pathSeparator := "."
+	segments := strings.Split(key, pathSeparator)
+	current := data
+
+	// Traverse the path
+	for i, segment := range segments {
+		value, exists := current[segment]
+		if !exists {
+			return "", ColorError("key not found: " + strings.Join(segments[:i+1], pathSeparator))
 		}
 
-		// Recursively check nested maps
-		if val, ok := value.(map[string]interface{}); ok {
-			nestedResults := LookupValue(myKey, val)
-			results = append(results, nestedResults...)
+		// If we're at the last segment, return the JSON representation of the value
+		if i == len(segments)-1 {
+			return marshalToJSON(value)
 		}
 
-		// Recursively check arrays
-		if arr, ok := value.([]interface{}); ok {
-			for _, item := range arr {
-				// If an item in the array is a map, check it recursively
-				if itemMap, ok := item.(map[string]interface{}); ok {
-					nestedResults := LookupValue(myKey, itemMap)
-					results = append(results, nestedResults...)
-				}
-			}
+		// continue inside map
+		if nestedMap, ok := value.(map[string]interface{}); ok {
+			current = nestedMap
+		} else {
+			return "", ColorError("invalid path, segment is not a map: " + strings.Join(segments[:i+1], pathSeparator))
 		}
 	}
 
-	return results
+	return "", ColorError("unexpected error")
 }
+
+func marshalToJSON(value interface{}) (string, error) {
+	if arr, ok := value.([]interface{}); ok {
+		var jsonArray []string
+		for _, item := range arr {
+			jsonStr, err := json.Marshal(item)
+			if err != nil {
+				return "", err
+			}
+			jsonArray = append(jsonArray, string(jsonStr))
+		}
+		return fmt.Sprintf("[%s]", strings.Join(jsonArray, ",")), nil
+	}
+	jsonStr, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonStr), nil
+}
+
+/*
+type Person struct {
+	Name  string `json:"name"`
+	Age   int    `json:"age"`
+	Years int    `json:"years"`
+}
+
+func main() {
+	myDict := map[string]interface{}{
+		"name":  "Pratik",
+		"age":   32,
+		"years": 111,
+		"profession": map[string]interface{}{
+			"title": "Senior Test SE",
+			"years": 5,
+		},
+		"myArr": []Person{
+			{Name: "xaaha", Age: 22, Years: 11},
+			{Name: "pt", Age: 35, Years: 88},
+		},
+		"myArr2": []interface{}{
+			Person{Name: "xaaha", Age: 22, Years: 11},
+			Person{Name: "pt", Age: 35, Years: 88},
+		},
+	}
+
+	result, err := LookUpValuePath("profession", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'profession':", result)
+	}
+
+	result, err = LookUpValuePath("myArr", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'myArr':", result)
+	}
+	result, err = LookUpValuePath("years", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'years':", result)
+	}
+	result, err = LookUpValuePath("myArr[0].name", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'myArr':", result)
+	}
+}
+*/
