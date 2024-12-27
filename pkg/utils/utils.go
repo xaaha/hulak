@@ -2,9 +2,12 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -147,43 +150,115 @@ func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
-// searches the myKey in dict, and returns the interface[].
-// If the interface is map[string]interface{}, a json string is returned
-// LookupValue collects all matches for a given key, including nested maps and arrays.
-// TODO: accept [0] for the array otherwise return error && skip . and [] with \ and make them string
 func LookUpValuePath(key string, data map[string]interface{}) (string, error) {
 	if value, exists := data[key]; exists {
-		return marshalToJSON(value)
+		return MarshalToJSON(value)
 	}
 
-	// Path separator to traverse the key path
 	pathSeparator := "."
-	segments := strings.Split(key, pathSeparator)
-	current := data
+	segments := parseKeySegments(key, pathSeparator)
+	current := interface{}(data)
 
 	for i, segment := range segments {
-		value, exists := current[segment]
-		if !exists {
-			return "", ColorError("key not found: " + strings.Join(segments[:i+1], pathSeparator))
-		}
+		// Check if the segment includes an array index
+		isArrayKey, keyPart, index := parseArrayKey(segment)
 
-		// If we're at the last segment, return the JSON representation of the value
-		if i == len(segments)-1 {
-			return marshalToJSON(value)
-		}
+		if isArrayKey {
+			// Ensure current is an array
+			arr, ok := current.([]interface{})
+			if !ok {
+				return "", errors.New("key not found or not an array: " + segment)
+			}
 
-		// continue inside map
-		if nestedMap, ok := value.(map[string]interface{}); ok {
-			current = nestedMap
+			// Check index validity
+			if index < 0 || index >= len(arr) {
+				return "", errors.New("array index out of bounds: " + segment)
+			}
+
+			current = arr[index]
 		} else {
-			return "", ColorError("invalid path, segment is not a map: " + strings.Join(segments[:i+1], pathSeparator))
+			// Treat as map key
+			currMap, ok := current.(map[string]interface{})
+			if !ok {
+				// Handle struct conversion
+				currMap, ok = structToMap(current)
+				if !ok {
+					return "", errors.New("invalid path, segment is not a map: " + strings.Join(segments[:i+1], pathSeparator))
+				}
+			}
+
+			value, exists := currMap[keyPart]
+			if !exists {
+				return "", errors.New("key not found: " + strings.Join(segments[:i+1], pathSeparator))
+			}
+			current = value
+		}
+
+		// If this is the last segment, marshal and return the value
+		if i == len(segments)-1 {
+			return MarshalToJSON(current)
 		}
 	}
 
-	return "", ColorError("unexpected error")
+	return "", errors.New("unexpected error")
 }
 
-func marshalToJSON(value interface{}) (string, error) {
+func structToMap(value interface{}) (map[string]interface{}, bool) {
+	val := reflect.ValueOf(value)
+	if val.Kind() == reflect.Struct {
+		mapData := make(map[string]interface{})
+		valType := val.Type()
+		for i := 0; i < val.NumField(); i++ {
+			field := valType.Field(i)
+			mapData[field.Name] = val.Field(i).Interface()
+		}
+		return mapData, true
+	}
+	return nil, false
+}
+
+func parseKeySegments(key, pathSeparator string) []string {
+	var segments []string
+	current := strings.Builder{}
+	inBracket := false
+
+	for _, char := range key {
+		switch {
+		case char == '{':
+			inBracket = true
+		case char == '}':
+			inBracket = false
+			segments = append(segments, current.String())
+			current.Reset()
+		case char == rune(pathSeparator[0]) && !inBracket:
+			segments = append(segments, current.String())
+			current.Reset()
+		default:
+			current.WriteRune(char)
+		}
+	}
+	// Append the last segment, if any
+	if current.Len() > 0 {
+		segments = append(segments, current.String())
+	}
+	return segments
+}
+
+func parseArrayKey(segment string) (bool, string, int) {
+	if strings.HasSuffix(segment, "]") && strings.Contains(segment, "[") {
+		openBracket := strings.LastIndex(segment, "[")
+		closeBracket := strings.LastIndex(segment, "]")
+		indexStr := segment[openBracket+1 : closeBracket]
+		index, err := strconv.Atoi(indexStr)
+		if err != nil {
+			return false, segment, -1 // Invalid index
+		}
+		return true, segment[:openBracket], index
+	}
+	return false, segment, -1
+}
+
+func MarshalToJSON(value interface{}) (string, error) {
 	if arr, ok := value.([]interface{}); ok {
 		var jsonArray []string
 		for _, item := range arr {
@@ -211,42 +286,67 @@ type Person struct {
 
 func main() {
 	myDict := map[string]interface{}{
-		"name":  "Pratik",
-		"age":   32,
-		"years": 111,
+		"company.inc": "Test Company",
+		"name":        "Pratik",
+		"age":         32,
+		"years":       111,
+		"marathon":    false,
 		"profession": map[string]interface{}{
-			"title": "Senior Test SE",
-			"years": 5,
+			"company.info": "Earth Based Human Led",
+			"title":        "Senior Test SE",
+			"years":        5,
 		},
 		"myArr": []Person{
 			{Name: "xaaha", Age: 22, Years: 11},
 			{Name: "pt", Age: 35, Years: 88},
-		},
-		"myArr2": []interface{}{
+		}, "myArr2": []interface{}{
 			Person{Name: "xaaha", Age: 22, Years: 11},
 			Person{Name: "pt", Age: 35, Years: 88},
 		},
 	}
 
-	result, err := LookUpValuePath("profession", myDict)
+	result, err := LookUpValuePath("age", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'age':", result)
+	}
+
+	result, err = LookUpValuePath("marathon", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'marathon':", result)
+	}
+
+	result, err = LookUpValuePath("profession", myDict)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
 		fmt.Println("Result for 'profession':", result)
 	}
 
-	result, err = LookUpValuePath("myArr", myDict)
+	result, err = LookUpValuePath("myArr2", myDict)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
-		fmt.Println("Result for 'myArr':", result)
+		fmt.Println("Result for 'myArr2':", result)
 	}
-	result, err = LookUpValuePath("years", myDict)
+
+	result, err = LookUpValuePath("{company.inc}", myDict)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
-		fmt.Println("Result for 'years':", result)
+		fmt.Println("Result for '{company.inc}':", result)
 	}
+
+	result, err = LookUpValuePath("profession.{company.info}", myDict)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Result for 'company.info':", result)
+	}
+
 	result, err = LookUpValuePath("myArr[0].name", myDict)
 	if err != nil {
 		fmt.Println(err.Error())
