@@ -3,6 +3,7 @@ package envparser
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -46,16 +47,24 @@ func getValueOf(key, fileName string) string {
 
 	// If the file does not exist
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
-		utils.PrintRed(
-			jsonResFilePath + " file does not exist. Fetch the API response for '" + fileName + "'. \nOr make sure the '" + jsonResFilePath + "' exists with '" + key + "'",
-		)
+		utils.PrintRed(fmt.Sprintf(
+			"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'. \n",
+			jsonResFilePath,
+			fileName,
+			jsonResFilePath,
+			key,
+		))
 		return ""
 	}
 
 	file, err := os.Open(jsonBaseName)
 	if err != nil {
 		utils.PrintRed(
-			"replaceVars.go: error occured while opening the file  " + jsonBaseName + err.Error(),
+			fmt.Sprintf(
+				"replaceVars.go: error occured while opening the file '%s': %s",
+				jsonBaseName,
+				err.Error(),
+			),
 		)
 	}
 	defer file.Close()
@@ -69,16 +78,12 @@ func getValueOf(key, fileName string) string {
 		)
 	}
 
-	// if the key has ".", or example, user.name.last, use it directly
+	result, err := utils.LookupValue(key, fileContent)
+	if err != nil {
+		utils.PanicRedAndExit("replaceVars.go: error while looking up the value")
+	}
 
-	// if the _response.json file exists, use recursion, find the vlaue and return the value
-	// try to see if fuzzy match works. Can a user ask for 'bar' that's inside foo in json? Otherwise
-	// key.anotherKey should be direct exact match
-	// or Anotherkey, if multiple returns the first
-	// return interface from the recursion, and see if that works. I don't want to assume that user is only seeking a string
-	// if the value does not exist, return an empty string and print the message in Red
-
-	return key + " && " + fileName
+	return result
 }
 
 func replaceVariables(
