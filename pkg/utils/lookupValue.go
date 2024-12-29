@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-var (
-	indexOutOfBounds string = "array index out of bounds: "
-	keyNotFound      string = "key not found: "
-)
-
 // LookupValue retrieves the value for a given key or path from the map.
 // A key can be a simple string like "name", or a path like "user.name", where "user" is an object and "name" is a key inside it.
 // Use {} to escape dots in keys (e.g., "{user.name}").
@@ -53,12 +48,12 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 			// Step 6: Handle array keys
 			value, exists := currMap[keyPart]
 			if !exists {
-				return "", ColorError(keyNotFound + keyPart)
+				return "", ColorError(KeyNotFound + keyPart)
 			}
 
 			rv := reflect.ValueOf(value)
 			if rv.Kind() != reflect.Slice || index < 0 || index >= rv.Len() {
-				return "", ColorError(indexOutOfBounds + segment)
+				return "", ColorError(IndexOutOfBounds + segment)
 			}
 
 			current = rv.Index(index).Interface()
@@ -66,7 +61,7 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 			// Step 7: Handle map keys
 			value, exists := currMap[segment]
 			if !exists {
-				return "", ColorError(keyNotFound + segment)
+				return "", ColorError(KeyNotFound + segment)
 			}
 			current = value
 		}

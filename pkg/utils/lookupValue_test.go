@@ -51,9 +51,9 @@ func TestGetValueOf(t *testing.T) {
 		{"profession.{company.info}", `"Earth Based Human Led"`, "", false},
 		{"myArr[1]", `{"Age":35,"Name":"pt","Years":88}`, "", false},
 		{"myArr[1].Name", `"pt"`, "", false},
-		{"myArr[10]", "", indexOutOfBounds + "myArr[10]", true},
-		{"nonexistentKey", "", keyNotFound + "nonexistentKey", true},
-		{"myArr[0].InvalidKey", "", keyNotFound + "InvalidKey", true},
+		{"myArr[10]", "", IndexOutOfBounds + "myArr[10]", true},
+		{"nonexistentKey", "", KeyNotFound + "nonexistentKey", true},
+		{"myArr[0].InvalidKey", "", KeyNotFound + "InvalidKey", true},
 	}
 
 	for _, test := range tests {
