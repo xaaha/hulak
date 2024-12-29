@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -77,8 +78,8 @@ func trimQuotes(str string) string {
 }
 
 // Given .env file path this func returns map of the key-value pair of the content
-func LoadEnvVars(filePath string) (map[string]string, error) {
-	hulakEnvironmentVariable := make(map[string]string)
+func LoadEnvVars(filePath string) (map[string]interface{}, error) {
+	hulakEnvironmentVariable := make(map[string]interface{})
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -88,30 +89,52 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// skip empty line and comments
+		// Skip empty lines and comments
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// remove the empty lines
+		// Remove empty lines
 		splitStr := strings.Split(line, "\n")
 
-		// trim all empty spaces around the secret line and around =
-		var trimedStr string
+		// Trim spaces around the line and around "="
+		var trimmedStr string
 		for _, eachLine := range splitStr {
-			trimedStr = strings.Trim(eachLine, " ")
+			trimmedStr = strings.TrimSpace(eachLine)
 		}
-		// trim quotes around the =, and before and after the string
-		secret := strings.Split(trimedStr, "=")
+
+		// Parse key-value pairs
+		secret := strings.SplitN(trimmedStr, "=", 2)
 		if len(secret) < 2 {
-			// if there is no =
+			// If there is no "=" or invalid format, skip
 			continue
 		}
-		key := secret[0]
-		val := secret[1]
+		key := strings.TrimSpace(secret[0])
+		val := strings.TrimSpace(secret[1])
 		val = trimQuotes(val)
-		hulakEnvironmentVariable[key] = val
+
+		// Infer value type and assign to the map
+		hulakEnvironmentVariable[key] = inferType(val)
 	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return hulakEnvironmentVariable, nil
+}
+
+// Helper function to infer type of a value
+func inferType(val string) interface{} {
+	if intValue, err := strconv.Atoi(val); err == nil {
+		return intValue
+	}
+	if floatValue, err := strconv.ParseFloat(val, 64); err == nil {
+		return floatValue
+	}
+	if boolValue, err := strconv.ParseBool(val); err == nil {
+		return boolValue
+	}
+	return val
 }
 
 /*
