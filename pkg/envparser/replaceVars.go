@@ -13,7 +13,7 @@ import (
 
 // gets the value of key from a json file
 // looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
-func getValueOf(key, fileName string) string {
+func getValueOf(key, fileName string) interface{} {
 	if key == "" && fileName == "" {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
 	}
@@ -57,7 +57,7 @@ func getValueOf(key, fileName string) string {
 		return ""
 	}
 
-	file, err := os.Open(jsonBaseName)
+	file, err := os.Open(jsonResFilePath)
 	if err != nil {
 		utils.PrintRed(
 			fmt.Sprintf(
@@ -88,14 +88,14 @@ func getValueOf(key, fileName string) string {
 
 func replaceVariables(
 	strToChange string,
-	secretsMap map[string]string,
-) (string, error) {
+	secretsMap map[string]interface{},
+) (interface{}, error) {
 	if len(strToChange) == 0 {
 		return "", utils.ColorError("input string is empty")
 	}
 
 	funcMap := template.FuncMap{
-		"getValueOf": func(key, fileName string) string {
+		"getValueOf": func(key, fileName string) interface{} {
 			return getValueOf(key, fileName)
 		},
 	}
@@ -115,32 +115,40 @@ func replaceVariables(
 	return result.String(), nil
 }
 
-// Replace the template {{ }} in the variable map itself.
-// Sometimes, we have a variables map that references some other variable in itself.
-func prepareMap(secretsMap map[string]string) (map[string]string, error) {
+func prepareMap(secretsMap map[string]interface{}) (map[string]interface{}, error) {
+	updatedMap := make(map[string]interface{})
 	for key, val := range secretsMap {
-		changedStr, err := replaceVariables(val, secretsMap)
-		if err != nil {
-			return nil, utils.ColorError("error while preparing variables in map: %v", err)
+		switch v := val.(type) {
+		case string:
+			changedValue, err := replaceVariables(v, secretsMap)
+			if err != nil {
+				return nil, utils.ColorError("error while preparing variables in map: %v", err)
+			}
+			updatedMap[key] = changedValue
+		case bool, int, float64, nil:
+			updatedMap[key] = v
+		default:
+			return nil, utils.ColorError(
+				fmt.Sprintf("unsupported type for key '%s': %T", key, val),
+			)
 		}
-		secretsMap[key] = changedStr
 	}
-	return secretsMap, nil
+	return updatedMap, nil
 }
 
-// from the mapWithVars, parse the string and replace {{}}
 func SubstituteVariables(
 	strToChange string,
-	secretsMap map[string]string,
-) (string, error) {
+	secretsMap map[string]interface{},
+) (interface{}, error) {
 	finalMap, err := prepareMap(secretsMap)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	result, err := replaceVariables(strToChange, finalMap)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+
 	return result, nil
 }

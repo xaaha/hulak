@@ -12,3 +12,5 @@ body:
   formdata:
     user: "{{.userName}}"
     product: "{{.product}}"
+    message: !!bool '{{getValueOf "data.runs" "graphql"}}'
+#   Need double quotes for the gotemplate function argument

@@ -29,12 +29,12 @@ func TestGetValueOf(t *testing.T) {
 
 	tests := []struct {
 		key          string
-		expected     string
+		expected     interface{}
 		errorMessage string
 		expectErr    bool
 	}{
-		{"age", "32", "", false},
-		{"marathon", "false", "", false},
+		{"age", 32, "", false},
+		{"marathon", false, "", false},
 		{
 			"profession",
 			`{"company.info":"Earth Based Human Led","title":"Senior Test SE","years":5}`,
@@ -47,10 +47,10 @@ func TestGetValueOf(t *testing.T) {
 			"",
 			false,
 		},
-		{"{company.inc}", `"Test Company"`, "", false},
-		{"profession.{company.info}", `"Earth Based Human Led"`, "", false},
+		{"{company.inc}", "Test Company", "", false},
+		{"profession.{company.info}", "Earth Based Human Led", "", false},
 		{"myArr[1]", `{"Age":35,"Name":"pt","Years":88}`, "", false},
-		{"myArr[1].Name", `"pt"`, "", false},
+		{"myArr[1].Name", "pt", "", false},
 		{"myArr[10]", "", IndexOutOfBounds + "myArr[10]", true},
 		{"nonexistentKey", "", KeyNotFound + "nonexistentKey", true},
 		{"myArr[0].InvalidKey", "", KeyNotFound + "InvalidKey", true},

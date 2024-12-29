@@ -7,26 +7,42 @@ import (
 )
 
 func TestSubstituteVariables(t *testing.T) {
-	varMap := map[string]string{
+	varMap := map[string]interface{}{
 		"varName":       "replacedValue",
 		"secondName":    "anju",
 		"thirdName":     "pratik",
-		"anotherNumber": "5678",
+		"anotherNumber": 5678, // int type
 		"xaaha":         "hero",
 		"number":        "1234{{.anotherNumber}}",
+		"truthyValue":   true,  // bool type
+		"floatValue":    12.34, // float64 type
 	}
 
 	testCases := []struct {
 		expectedErr    error
-		varMap         map[string]string
+		expectedOutput interface{}
+		varMap         map[string]interface{}
 		name           string
 		stringToChange string
-		expectedOutput string
 	}{
 		{
 			name:           "Valid variables with nested replacement",
 			stringToChange: "this/is/a/{{.varName}}/with/{{.number}}/{{.xaaha}}",
 			expectedOutput: "this/is/a/replacedValue/with/12345678/hero",
+			expectedErr:    nil,
+			varMap:         varMap,
+		},
+		{
+			name:           "Variable with bool value",
+			stringToChange: "This is {{.truthyValue}}",
+			expectedOutput: "This is true",
+			expectedErr:    nil,
+			varMap:         varMap,
+		},
+		{
+			name:           "Variable with float value",
+			stringToChange: "Float is {{.floatValue}}",
+			expectedOutput: "Float is 12.34",
 			expectedErr:    nil,
 			varMap:         varMap,
 		},
@@ -40,7 +56,7 @@ func TestSubstituteVariables(t *testing.T) {
 		{
 			name:           "Unresolved variable",
 			stringToChange: "1234 comes before {{.naa}}",
-			expectedOutput: "",
+			expectedOutput: nil,
 			expectedErr: errors.New(
 				"map has no entry for key \"naa\"",
 			),
@@ -49,41 +65,41 @@ func TestSubstituteVariables(t *testing.T) {
 		{
 			name:           "Empty string input",
 			stringToChange: "",
-			expectedOutput: "",
+			expectedOutput: nil,
 			expectedErr:    errors.New("input string is empty"),
 			varMap:         varMap,
 		},
 		{
 			name:           "Empty map and empty string",
 			stringToChange: "",
-			expectedOutput: "",
+			expectedOutput: nil,
 			expectedErr:    errors.New("input string is empty"),
-			varMap:         map[string]string{},
+			varMap:         map[string]interface{}{},
 		},
 		{
 			name:           "Empty map with regular string",
 			stringToChange: "just a normal string",
 			expectedOutput: "just a normal string",
 			expectedErr:    nil,
-			varMap:         map[string]string{},
+			varMap:         map[string]interface{}{},
 		},
 		{
 			name:           "Empty map with unresolved template",
 			stringToChange: "this string has {{.unresolvedKey}}",
-			expectedOutput: "",
+			expectedOutput: nil,
 			expectedErr: errors.New(
 				"map has no entry for key \"unresolvedKey\"",
 			),
-			varMap: map[string]string{},
+			varMap: map[string]interface{}{},
 		},
 		{
 			name:           "Empty map with multiple templates",
 			stringToChange: "{{.varName}} is missing, so is {{.secondName}}",
-			expectedOutput: "",
+			expectedOutput: nil,
 			expectedErr: errors.New(
 				"map has no entry for key \"varName\"",
 			),
-			varMap: map[string]string{},
+			varMap: map[string]interface{}{},
 		},
 	}
 

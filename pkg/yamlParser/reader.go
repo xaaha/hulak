@@ -20,7 +20,7 @@ import (
 // This is necessary, as the some variables, like URL needs correct string
 func replaceVarsWithValues(
 	dict map[string]interface{},
-	secretsMap map[string]string,
+	secretsMap map[string]interface{},
 ) map[string]interface{} {
 	changedMap := make(map[string]interface{})
 
@@ -53,7 +53,7 @@ func replaceVarsWithValues(
 
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
 // Right now, the yaml file is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
-func checkYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer, error) {
+func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)
 	}
@@ -94,7 +94,7 @@ func checkYamlFile(filepath string, secretsMap map[string]string) (*bytes.Buffer
 
 // checks the validity of all the fields in the yaml file
 // and returns the json string of the yaml file
-func ReadYamlForHttpRequest(filePath string, secretsMap map[string]string) string {
+func ReadYamlForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)

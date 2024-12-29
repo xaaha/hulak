@@ -120,7 +120,7 @@ User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
-func GenerateSecretsMap(envFromFlag string) (map[string]string, error) {
+func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 	skipped, err := setEnvironment(utils.Utilities{}, envFromFlag)
 	if err != nil {
 		return nil, fmt.Errorf("error while setting environment: %v", err)
@@ -147,7 +147,7 @@ func GenerateSecretsMap(envFromFlag string) (map[string]string, error) {
 	}
 
 	// initialize customMap as a copy of globalMap
-	customMap := make(map[string]string)
+	customMap := make(map[string]interface{})
 	for k, v := range globalMap {
 		customMap[k] = v
 	}
