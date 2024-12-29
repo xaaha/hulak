@@ -41,7 +41,7 @@ func getValueOf(key, fileName string) string {
 	}
 
 	dirPath := filepath.Dir(singlePath)
-	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + "_response.json"
+	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
 	// If the file does not exist

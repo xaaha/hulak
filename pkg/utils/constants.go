@@ -30,4 +30,8 @@ const (
 	YML  = ".yml"
 )
 
-const ResponseFile = "_response.json"
+const (
+	ResponseBase       = "_response"
+	ResponseFileSuffix = ".json"
+	ResponseFileName   = ResponseBase + ResponseFileSuffix
+)
