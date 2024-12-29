@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -31,24 +30,24 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 			// Ensure the current value is a map so we can access the array key
 			currMap, ok := current.(map[string]interface{})
 			if !ok {
-				return "", errors.New("current is not a map, cannot access key: " + keyPart)
+				return "", ColorError("current is not a map, cannot access key: " + keyPart)
 			}
 
 			// Retrieve the value associated with the keyPart (e.g., "myArr")
 			value, exists := currMap[keyPart]
 			if !exists {
-				return "", errors.New("key not found: " + keyPart)
+				return "", ColorError("key not found: " + keyPart)
 			}
 
 			// Verify the retrieved value is a slice
 			rv := reflect.ValueOf(value)
 			if rv.Kind() != reflect.Slice {
-				return "", errors.New("value is not an array: " + keyPart)
+				return "", ColorError("value is not an array: " + keyPart)
 			}
 
 			// Check index bounds
 			if index < 0 || index >= rv.Len() {
-				return "", errors.New("array index out of bounds: " + segment)
+				return "", ColorError("array index out of bounds: " + segment)
 			}
 
 			// Get the element at the specified index
@@ -63,7 +62,7 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 				if !ok {
 					currMap, ok = structToMap(current)
 					if !ok {
-						return "", errors.New(
+						return "", ColorError(
 							"invalid path, cannot process segment: " + remainingKey,
 						)
 					}
@@ -77,13 +76,13 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 				// Handle struct conversion
 				currMap, ok = structToMap(current)
 				if !ok {
-					return "", errors.New("invalid path, segment is not a map: " + strings.Join(segments[:i+1], pathSeparator))
+					return "", ColorError("invalid path, segment is not a map: " + strings.Join(segments[:i+1], pathSeparator))
 				}
 			}
 
 			value, exists := currMap[segment]
 			if !exists {
-				return "", errors.New("key not found: " + strings.Join(segments[:i+1], pathSeparator))
+				return "", ColorError("key not found: " + strings.Join(segments[:i+1], pathSeparator))
 			}
 			current = value
 		}
@@ -94,7 +93,7 @@ func LookupValue(key string, data map[string]interface{}) (string, error) {
 		}
 	}
 
-	return "", errors.New("unexpected error")
+	return "", ColorError("unexpected error")
 }
 
 func structToMap(value interface{}) (map[string]interface{}, bool) {
