@@ -9,7 +9,12 @@ import (
 	"strings"
 )
 
-func GetValueOf(key string, data map[string]interface{}) (string, error) {
+// LookupValue retrieves the value for a given key or path from the map.
+// A key can be a simple string like "name", or a path like "user.name", where "user" is an object and "name" is a key inside it.
+// Use {} to escape dots in keys (e.g., "user{.}name").
+// For arrays, reference an index with square brackets (e.g., myArr[0] for the first element).
+// You can also access nested properties like myArr[0].name for the "name" key of the first array element.
+func LookupValue(key string, data map[string]interface{}) (string, error) {
 	if value, exists := data[key]; exists {
 		return MarshalToJSON(value)
 	}
@@ -63,7 +68,7 @@ func GetValueOf(key string, data map[string]interface{}) (string, error) {
 						)
 					}
 				}
-				return GetValueOf(remainingKey, currMap)
+				return LookupValue(remainingKey, currMap)
 			}
 		} else {
 			// Treat as map key
