@@ -22,7 +22,10 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 	if os.Getenv(utils.EnvKey) == "" {
 		err := os.Setenv(utils.EnvKey, utils.DefaultEnvVal)
 		if err != nil {
-			return fileCreationSkipped, fmt.Errorf("error setting environment variable: %v", err)
+			return fileCreationSkipped, utils.ColorError(
+				"error setting environment variable: %v",
+				err,
+			)
 		}
 	}
 	// get a list of env files and get their file name
@@ -45,12 +48,15 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
-			return fileCreationSkipped, fmt.Errorf("failed to read responses: %v", err)
+			return fileCreationSkipped, utils.ColorError("failed to read responses: %v", err)
 		}
 		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
 			err := CreateDefaultEnvs(&envFromFlag)
 			if err != nil {
-				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
+				return fileCreationSkipped, utils.ColorError(
+					"failed to create environment file: %v",
+					err,
+				)
 			}
 		} else {
 			fileCreationSkipped = true
@@ -189,12 +195,12 @@ func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 func loadEnvFile(fileName string) (map[string]interface{}, error) {
 	filePath, err := utils.CreateFilePath("env/" + fileName)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating file path for %v: %w", fileName, err)
+		return nil, utils.ColorError("error while creating file path for "+fileName, err)
 	}
 
 	envVars, err := LoadEnvVars(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error while loading env vars from %v: %w", filePath, err)
+		return nil, utils.ColorError("error while loading env vars from "+filePath, err)
 	}
 
 	return envVars, nil
