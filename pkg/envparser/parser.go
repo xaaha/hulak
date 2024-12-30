@@ -117,8 +117,8 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 		key := strings.TrimSpace(secret[0])
 		// TODO
 		// support, string, bool, int, float64 and nil
-		// to be an int, bool, float64 and nil, infertype should not return
-		// an error and the value must not contain inside a quote
+		// to be an int, bool, float64 and nil, infertype should not return an error
+		// and the value must not have quotes wrapping it
 		// if has quotes, it's a string
 		val := strings.TrimSpace(secret[1])
 		val = trimQuotes(val)
@@ -134,16 +134,29 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 	return hulakEnvironmentVariable, nil
 }
 
+func hasQuotes(val string) bool {
+	if len(val) < 2 {
+		return false
+	}
+
+	firstChar := string(val[0])
+	lastChar := string(val[len(val)-1])
+
+	return (firstChar == "\"" && lastChar == "\"") || (firstChar == "'" && lastChar == "'")
+}
+
 // Helper function to infer type of a value
 func inferType(val string) interface{} {
-	if intValue, err := strconv.Atoi(val); err == nil {
-		return intValue
-	}
-	if floatValue, err := strconv.ParseFloat(val, 64); err == nil {
-		return floatValue
-	}
-	if boolValue, err := strconv.ParseBool(val); err == nil {
-		return boolValue
+	if !hasQuotes(val) {
+		if intValue, err := strconv.Atoi(val); err == nil {
+			return intValue
+		}
+		if floatValue, err := strconv.ParseFloat(val, 64); err == nil {
+			return floatValue
+		}
+		if boolValue, err := strconv.ParseBool(val); err == nil {
+			return boolValue
+		}
 	}
 	return val
 }
@@ -187,6 +200,9 @@ func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 			return nil, err
 		}
 	}
+
+	// myMap, _ := utils.MarshalToJSON(customMap)
+	// fmt.Println(myMap)
 
 	return customMap, nil
 }
