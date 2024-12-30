@@ -151,56 +151,68 @@ Replaces global key with custom when keys repeat
 func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 	skipped, err := setEnvironment(utils.Utilities{}, envFromFlag)
 	if err != nil {
-		return nil, fmt.Errorf("error while setting environment: %v", err)
-	}
-	envVal, ok := os.LookupEnv(utils.EnvKey)
-	if !ok {
-		return nil, fmt.Errorf("error while looking up environment variable")
+		return nil, utils.ColorError("error while setting environment: %w", err)
 	}
 
-	// if the file creation was skipped, resort to default
+	// Retrieve the environment value
+	envVal, ok := os.LookupEnv(utils.EnvKey)
+	if !ok {
+		return nil, utils.ColorError("error while looking up environment variable")
+	}
+
 	if envVal == "" || skipped {
 		envVal = utils.DefaultEnvVal
 	}
 
-	// load global vars in a map
-	globalEnv := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix //"global.env"
-	globalPath, err := utils.CreateFilePath("env/" + globalEnv)
+	// Load global environment variables
+	globalMap, err := loadEnvFile(utils.DefaultEnvVal + utils.DefaultEnvFileSuffix)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
-	}
-	globalMap, err := LoadEnvVars(globalPath)
-	if err != nil {
-		return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
+		return nil, err
 	}
 
-	// initialize customMap as a copy of globalMap
-	customMap := make(map[string]interface{})
-	for k, v := range globalMap {
-		customMap[k] = v
-	}
+	// copy instead of calling the function twice
+	customMap := utils.CopyEnvMap(globalMap)
 
-	// load custom vars in a map if necessary
+	// Load and merge custom environment variables if applicable
 	envFileName := envVal + utils.DefaultEnvFileSuffix
-	if globalPath != envFileName {
-		completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
+	if globalFilePath := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix; globalFilePath != envFileName {
+		customMap, err = mergeCustomEnvVars(customMap, envFileName)
 		if err != nil {
-			return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
-		}
-
-		loadedCustomMap, err := LoadEnvVars(completeFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
-		}
-
-		// overwrite values in customMap with those from loadedCustomMap
-		for k, v := range loadedCustomMap {
-			customMap[k] = v
+			return nil, err
 		}
 	}
-
-	// val, _ := utils.MarshalToJSON(customMap)
-	// fmt.Println("This is the val: ", val)
 
 	return customMap, nil
+}
+
+// Helper to load environment variables from a file
+func loadEnvFile(fileName string) (map[string]interface{}, error) {
+	filePath, err := utils.CreateFilePath("env/" + fileName)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating file path for %v: %w", fileName, err)
+	}
+
+	envVars, err := LoadEnvVars(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error while loading env vars from %v: %w", filePath, err)
+	}
+
+	return envVars, nil
+}
+
+// Helper to merge custom environment variables
+func mergeCustomEnvVars(
+	baseMap map[string]interface{},
+	customFileName string,
+) (map[string]interface{}, error) {
+	customVars, err := loadEnvFile(customFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range customVars {
+		baseMap[k] = v
+	}
+
+	return baseMap, nil
 }

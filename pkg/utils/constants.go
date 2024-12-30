@@ -30,6 +30,7 @@ const (
 	YML  = ".yml"
 )
 
+// response pattern for files saved
 const (
 	ResponseBase       = "_response"
 	ResponseFileSuffix = ".json"
