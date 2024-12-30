@@ -109,6 +109,11 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 			continue
 		}
 		key := strings.TrimSpace(secret[0])
+		// TODO
+		// support, string, bool, int, float64 and nil
+		// to be an int, bool, float64 and nil, infertype should not return
+		// an error and the value must not contain inside a quote
+		// if has quotes, it's a string
 		val := strings.TrimSpace(secret[1])
 		val = trimQuotes(val)
 
@@ -193,6 +198,9 @@ func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 			customMap[k] = v
 		}
 	}
+
+	// val, _ := utils.MarshalToJSON(customMap)
+	// fmt.Println("This is the val: ", val)
 
 	return customMap, nil
 }
