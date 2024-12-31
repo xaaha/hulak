@@ -29,19 +29,27 @@ func replaceVarsWithValues(
 		case map[string]interface{}:
 			changedMap[key] = replaceVarsWithValues(valTyped, secretsMap)
 		case string:
-			finalChangedString, err := envparser.SubstituteVariables(valTyped, secretsMap)
+			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
 			if err != nil {
 				fmt.Println(err)
 			}
-			changedMap[key] = finalChangedString
+			if replacedValue, ok := secretsMap[valTyped]; ok {
+				changedMap[key] = replacedValue
+			} else {
+				changedMap[key] = finalChangedValue
+			}
 		case map[string]string:
 			innerMap := make(map[string]interface{})
 			for k, v := range valTyped {
-				finalChangedString, err := envparser.SubstituteVariables(v, secretsMap)
+				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
 					fmt.Println(err)
 				}
-				innerMap[k] = finalChangedString
+				if replacedValue, ok := secretsMap[v]; ok {
+					innerMap[k] = replacedValue
+				} else {
+					innerMap[k] = finalChangedValue
+				}
 			}
 			changedMap[key] = innerMap
 		default:
@@ -81,6 +89,9 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
+
+	// TODO:
+	// parsedMap is always string
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
