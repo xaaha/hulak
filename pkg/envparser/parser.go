@@ -186,9 +186,6 @@ func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 		}
 	}
 
-	// myMap, _ := utils.MarshalToJSON(customMap)
-	// fmt.Println(myMap)
-
 	return customMap, nil
 }
 
