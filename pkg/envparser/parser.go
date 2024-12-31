@@ -73,14 +73,15 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 	return fileCreationSkipped, nil
 }
 
-// Removes doube quotes " " or single quotes ' from env secrets
-func trimQuotes(str string) string {
+// trimQuotes Removes doube quotes " " or single quotes ' from env secrets
+// and returns true if the quotes were trimmed
+func trimQuotes(str string) (string, bool) {
 	if len(str) >= 2 {
 		if str[0] == str[len(str)-1] && (str[0] == '"' || str[0] == '\'') {
-			return str[1 : len(str)-1]
+			return str[1 : len(str)-1], true
 		}
 	}
-	return str
+	return str, false
 }
 
 // Given .env file path this func returns map of the key-value pair of the content
@@ -115,16 +116,11 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 			continue
 		}
 		key := strings.TrimSpace(secret[0])
-		// TODO
-		// support, string, bool, int, float64 and nil
-		// to be an int, bool, float64 and nil, infertype should not return an error
-		// and the value must not have quotes wrapping it
-		// if has quotes, it's a string
 		val := strings.TrimSpace(secret[1])
-		val = trimQuotes(val)
+		val, wasTrimmed := trimQuotes(val)
 
 		// Infer value type and assign to the map
-		hulakEnvironmentVariable[key] = inferType(val)
+		hulakEnvironmentVariable[key] = inferType(val, wasTrimmed)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -134,20 +130,9 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 	return hulakEnvironmentVariable, nil
 }
 
-func hasQuotes(val string) bool {
-	if len(val) < 2 {
-		return false
-	}
-
-	firstChar := string(val[0])
-	lastChar := string(val[len(val)-1])
-
-	return (firstChar == "\"" && lastChar == "\"") || (firstChar == "'" && lastChar == "'")
-}
-
 // Helper function to infer type of a value
-func inferType(val string) interface{} {
-	if !hasQuotes(val) {
+func inferType(val string, wasTrimmed bool) interface{} {
+	if !wasTrimmed {
 		if intValue, err := strconv.Atoi(val); err == nil {
 			return intValue
 		}
