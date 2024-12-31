@@ -80,7 +80,12 @@ func getValueOf(key, fileName string) interface{} {
 
 	result, err := utils.LookupValue(key, fileContent)
 	if err != nil {
-		utils.PanicRedAndExit("replaceVars.go: error while looking up the value")
+		utils.PanicRedAndExit(
+			"replaceVars.go: error while looking up the value: '%s'. \nMake sure '%s' exists and has key '%s'",
+			key,
+			filepath.Join("...", utils.FileNameWithoutExtension(dirPath), jsonBaseName),
+			key,
+		)
 	}
 
 	return result
