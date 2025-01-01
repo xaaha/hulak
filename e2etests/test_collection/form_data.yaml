@@ -13,6 +13,6 @@ body:
     product: "{{.product}}"
     myBool: false
     myFloat: '{{getValueOf "data.height" "graphql"}}'
-    myInt: "{{.myAwesomeNumber}}"
+    myAwesomeNumber: "{{.myAwesomeNumber}}"
     # message: !!bool '{{getValueOf "data.runs" "graphql"}}'
 #   Need double quotes for the gotemplate function argument
