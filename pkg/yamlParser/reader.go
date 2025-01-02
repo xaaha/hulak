@@ -90,6 +90,12 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
+	// printPm, _ := utils.MarshalToJSON(parsedMap)
+	// fmt.Println("this is parsed map", printPm)
+
+	// printSm, _ := utils.MarshalToJSON(secretsMap)
+	// fmt.Println("this is secretsMap", printSm)
+
 	// TODO:
 	// parsedMap is always string
 
