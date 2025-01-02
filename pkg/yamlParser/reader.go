@@ -31,7 +31,7 @@ func replaceVarsWithValues(
 		case string:
 			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
 			if err != nil {
-				fmt.Println(err)
+				utils.PrintRed(err.Error())
 			}
 			if replacedValue, ok := secretsMap[valTyped]; ok {
 				changedMap[key] = replacedValue
@@ -43,7 +43,7 @@ func replaceVarsWithValues(
 			for k, v := range valTyped {
 				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
-					fmt.Println(err)
+					utils.PrintRed(err.Error())
 				}
 				if replacedValue, ok := secretsMap[v]; ok {
 					innerMap[k] = replacedValue
@@ -57,6 +57,20 @@ func replaceVarsWithValues(
 		}
 	}
 	return changedMap
+}
+
+func CompareAndConvert(
+	dataBefore, dataAfter, secretsMap map[string]interface{},
+) map[string]interface{} {
+	var result map[string]interface{}
+	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
+	// here, myAwesomeNumber value is of type string
+	// then range over the secretsMap, map[string]interface{}, -- find the key `myAwesomeNumber` and determine it's type -- `int` in this case 22
+	// and find the type, (string, int, float, bool or null), and compare  the type with the value. -- compare the type int from secretsMap to the
+	// here, myAwesomeNumber value's type is int
+	// if there is a mismatch, find the exact key, in the dataAfter map[string] and convert it's value to the the type shown by secretsMap
+	// so, finally, in dataAfter, the map would be `"myAwesomeNumber": 22` from ``"myAwesomeNumber": "22"``
+	return result
 }
 
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
@@ -87,14 +101,20 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 
+	// TODO:
+	// if data has key whose value is a template,
+	// && the replacement value's type is either false, float64, int, nil/null
+	// convert these to original values again
+	// or if the key is the same,
+	// and the value are of different type, convert them from string to the one of secretsMap
+
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
+	// dataFmt, _ := utils.MarshalToJSON(data)
+	// fmt.Println("this is data", dataFmt)
 	// printPm, _ := utils.MarshalToJSON(parsedMap)
 	// fmt.Println("this is parsed map", printPm)
-
-	// printSm, _ := utils.MarshalToJSON(secretsMap)
-	// fmt.Println("this is secretsMap", printSm)
 
 	// TODO:
 	// parsedMap is always string

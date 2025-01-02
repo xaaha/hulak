@@ -91,6 +91,9 @@ func getValueOf(key, fileName string) interface{} {
 	return result
 }
 
+// Processes a given string, strToChange, by substituting template variables with values from the secretsMap.
+// It uses Go’s template package to parse the string, dynamically evaluate functions like getValueOf, and replace placeholders.
+// Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]interface{},
@@ -120,6 +123,10 @@ func replaceVariables(
 	return result.String(), nil
 }
 
+// Iterates over a map of secret values (secretsMap), resolving any string values
+// containing template variables using the replaceVariables function.
+// It ensures that non-string values (e.g., booleans, integers) are preserved and validates against unsupported types.
+// Returns a new map with resolved values or an error if any resolution fails.
 func prepareMap(secretsMap map[string]interface{}) (map[string]interface{}, error) {
 	updatedMap := make(map[string]interface{})
 	for key, val := range secretsMap {
@@ -141,6 +148,10 @@ func prepareMap(secretsMap map[string]interface{}) (map[string]interface{}, erro
 	return updatedMap, nil
 }
 
+// Substitutes template variables in a given string strToChange using the secretsMap.
+// It first prepares the map by resolving all nested variables using prepareMap
+// and then applies replaceVariables to the input string.
+// Returns the final substituted string or an error if any step fails.
 func SubstituteVariables(
 	strToChange string,
 	secretsMap map[string]interface{},
