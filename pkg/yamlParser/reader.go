@@ -60,24 +60,30 @@ func replaceVarsWithValues(
 }
 
 // checks whether string has "{{value}}"
-func stringHasDelimiter(s string) bool {
-	if len(s) < 4 || !strings.HasPrefix(s, "{{") || !strings.HasSuffix(s, "}}") {
+func stringHasDelimiter(value string) bool {
+	if len(value) < 4 || !strings.HasPrefix(value, "{{") || !strings.HasSuffix(value, "}}") {
 		return false
 	}
-	if strings.Count(s[:3], "{") > 2 || strings.Count(s[len(s)-3:], "}") > 2 {
+	if strings.Count(value[:3], "{") > 2 || strings.Count(value[len(value)-3:], "}") > 2 {
 		return false
 	}
-	// Extract the content inside the curly braces
-	content := s[2 : len(s)-2]
-	// Check if the content is non-empty and doesn't consist solely of whitespace characters
+	content := value[2 : len(value)-2]
 	return len(strings.TrimSpace(content)) > 0
 }
+
+// for actions, evaluate the type that's coming from the getValueOf, and convert it to the original form
+// return the type, and use the type convert the value again to the original type
+// func stringHasTypeAssertion(value string) bool {
+// 	return false
+// }
 
 func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},
 ) map[string]interface{} {
 	var result map[string]interface{}
-	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
+	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}"
+	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
+	// got the key with delimiters
 	// here, myAwesomeNumber value is of type string
 	// then range over the secretsMap, map[string]interface{}, -- find the key `myAwesomeNumber` and determine it's type -- `int` in this case 22
 	// and find the type, (string, int, float, bool or null), and compare  the type with the value. -- compare the type int from secretsMap to the
@@ -196,12 +202,6 @@ func ReadingYamlWithoutStruct() {
 	if err = dec.Decode(&data); err != nil {
 		utils.PanicRedAndExit("3. error decoding data: %v", err)
 	}
-
 	val, _ := json.MarshalIndent(data, "", "  ")
-	// log prints time, which I don't need
 	fmt.Println(string(val))
-
-	// for key, value := range data {
-	// 	fmt.Printf("%s: %v\n", key, value)
-	// }
 }

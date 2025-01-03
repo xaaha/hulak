@@ -36,3 +36,12 @@ const (
 	ResponseFileSuffix = ".json"
 	ResponseFileName   = ResponseBase + ResponseFileSuffix
 )
+
+// JSON supported types
+const (
+	JSONString = "string"
+	JSONNumber = "number"
+	JSONInt    = "int"
+	JSONBool   = "bool"
+	JSONNull   = "null"
+)

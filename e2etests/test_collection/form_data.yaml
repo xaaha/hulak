@@ -12,6 +12,7 @@ body:
     user: "{{.userName}}"
     product: "{{.product}}"
     myBool: false
+    other: null
     myFloat: '{{getValueOf "data.height" "graphql"}}'
     myAwesomeNumber: "{{.myAwesomeNumber}}"
     # message: !!bool '{{getValueOf "data.runs" "graphql"}}'

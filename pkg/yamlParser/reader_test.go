@@ -276,6 +276,8 @@ func TestStringHasDelimiter(t *testing.T) {
 		{"{{.valid}}", true},
 		{"{}", false},
 		{"{{{valid}}}", false},
+		{"this {{valid}}", false},
+		{"this {{}} is invalid", false},
 	}
 
 	// Run the tests
