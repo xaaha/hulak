@@ -59,6 +59,20 @@ func replaceVarsWithValues(
 	return changedMap
 }
 
+// checks whether string has "{{value}}"
+func stringHasDelimiter(s string) bool {
+	if len(s) < 4 || !strings.HasPrefix(s, "{{") || !strings.HasSuffix(s, "}}") {
+		return false
+	}
+	if strings.Count(s[:3], "{") > 2 || strings.Count(s[len(s)-3:], "}") > 2 {
+		return false
+	}
+	// Extract the content inside the curly braces
+	content := s[2 : len(s)-2]
+	// Check if the content is non-empty and doesn't consist solely of whitespace characters
+	return len(strings.TrimSpace(content)) > 0
+}
+
 func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},
 ) map[string]interface{} {

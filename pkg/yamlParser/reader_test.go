@@ -257,3 +257,32 @@ body:
 		})
 	}
 }
+
+func TestStringHasDelimiter(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"{{ valid }}", true},
+		{"{{   valid}}", true},
+		{"{{valid }}", true},
+		{"{{ \nvalid\n }}", true},
+		{"{{}}", false},
+		{"{{     }}", false},
+		{"No delimiters here", false},
+		{"{{\tvalid}}", true},
+		{"{{valid\t}}", true},
+		{"{{valid\n}}", true},
+		{"{{.valid}}", true},
+		{"{}", false},
+		{"{{{valid}}}", false},
+	}
+
+	// Run the tests
+	for _, tc := range testCases {
+		result := stringHasDelimiter(tc.input)
+		if result != tc.expected {
+			t.Errorf("stringHasDelimiter(%q) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
