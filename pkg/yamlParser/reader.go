@@ -94,6 +94,18 @@ func CompareAndConvert(
 	var result map[string]interface{}
 	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" (recursion)
 	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
+
+	// for bkey, bvalue := range dataBefore {
+	// 	switch bValType := bvalue.(type) {
+	// 	case string:
+	// 		strHasDelimeter, innerStr := stringHasDelimiter(bValType)
+	// 		if strHasDelimeter {
+	// 			// it has getValueOf
+	// 			// or it has .Value
+	// 		}
+	// 	}
+	// }
+
 	// if it has . in the first and only one word when slicing on empty space " " then look in the secretsMap and find the type of the `value`
 	// if it has getValueOf (and other actions, keep them as const somewhere), then getValueOf again, and find the type of the 1st index, remove quote
 
