@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
@@ -59,16 +60,24 @@ func replaceVarsWithValues(
 	return changedMap
 }
 
-// checks whether string has "{{value}}"
-func stringHasDelimiter(value string) bool {
+// checks whether string matches exactly "{{value}}"
+// and retuns whether the string matches the delimiter criteria and the associated content
+// So, the "{{ .value }}" returns "true, .value". Space is trimmed around the return string
+func stringHasDelimiter(value string) (bool, string) {
 	if len(value) < 4 || !strings.HasPrefix(value, "{{") || !strings.HasSuffix(value, "}}") {
-		return false
+		return false, ""
 	}
 	if strings.Count(value[:3], "{") > 2 || strings.Count(value[len(value)-3:], "}") > 2 {
-		return false
+		return false, ""
 	}
 	content := value[2 : len(value)-2]
-	return len(strings.TrimSpace(content)) > 0
+	re := regexp.MustCompile(`^\s+$`)
+	onlyHasEmptySpace := re.Match([]byte(value))
+	if len(content) == 0 || onlyHasEmptySpace {
+		return false, ""
+	}
+	content = strings.TrimSpace(content)
+	return len(content) > 0, content
 }
 
 // for actions, evaluate the type that's coming from the getValueOf, and convert it to the original form
@@ -76,6 +85,8 @@ func stringHasDelimiter(value string) bool {
 // func stringHasTypeAssertion(value string) bool {
 // 	return false
 // }
+// what type is the value coming from secretsMap, is the final dataAfter value, (key's value the same as before)?
+// For example, for `key: "{{.value}}"` if this gets replaced to `key: "22"`, what type was the 22 before it became string?
 
 func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},

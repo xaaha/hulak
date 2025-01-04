@@ -92,24 +92,24 @@ func getValueOf(key, fileName string) interface{} {
 }
 
 // Processes a given string, strToChange, by substituting template variables with values from the secretsMap.
-// It uses Go’s template package to parse the string, dynamically evaluate functions like getValueOf, and replace placeholders.
+// It uses Go’s template package to parse the string, dynamically.
 // Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]interface{},
-) (interface{}, error) {
+) (string, error) {
 	if len(strToChange) == 0 {
 		return "", utils.ColorError("input string is empty")
 	}
 
-	funcMap := template.FuncMap{
+	getValueOf := template.FuncMap{
 		"getValueOf": func(key, fileName string) interface{} {
 			return getValueOf(key, fileName)
 		},
 	}
 
 	tmpl, err := template.New("template").
-		Funcs(funcMap).
+		Funcs(getValueOf).
 		Option("missingkey=error").
 		Parse(strToChange)
 	if err != nil {

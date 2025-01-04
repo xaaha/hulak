@@ -260,31 +260,60 @@ body:
 
 func TestStringHasDelimiter(t *testing.T) {
 	testCases := []struct {
+		number   int
 		input    string
 		expected bool
+		content  string
 	}{
-		{"{{ valid }}", true},
-		{"{{   valid}}", true},
-		{"{{valid }}", true},
-		{"{{ \nvalid\n }}", true},
-		{"{{}}", false},
-		{"{{     }}", false},
-		{"No delimiters here", false},
-		{"{{\tvalid}}", true},
-		{"{{valid\t}}", true},
-		{"{{valid\n}}", true},
-		{"{{.valid}}", true},
-		{"{}", false},
-		{"{{{valid}}}", false},
-		{"this {{valid}}", false},
-		{"this {{}} is invalid", false},
+		{1, "{{ valid }}", true, "valid"},
+		{2, "{{   valid2}}", true, "valid2"},
+		{3, "{{valid }}", true, "valid"},
+		{4, "{{valid}}", true, "valid"},
+		{5, "{{}}", false, ""},
+		{6, "{{     }}", false, ""},
+		{7, "No delimiters here", false, ""},
+		{8, "{{valid}}", true, "valid"},
+		{9, "{{valid}}", true, "valid"},
+		{10, "{{ .valid}}", true, ".valid"},
+		{11, "{{.valid }}", true, ".valid"},
+		{12, "{}", false, ""},
+		{13, "{{{valid}}}", false, ""},
+		{14, "this {{valid}}", false, ""},
+		{15, "this {{}} is invalid", false, ""},
+		{16, "{{getValueOf 'foo' 'bar'}}", true, "getValueOf 'foo' 'bar'"},
+		{17, "{{getValueOf 'foo' 'bar'}}", true, "getValueOf 'foo' 'bar'"},
+		{18, `{{getValueOf "foo" "bar"}}`, true, `getValueOf "foo" "bar"`},
+		{19, `{{ getValueOf "foo" "bar" }}`, true, `getValueOf "foo" "bar"`},
+		{20, `{{getValueOf "foo" 'bar' }}`, true, `getValueOf "foo" 'bar'`},
 	}
 
 	// Run the tests
 	for _, tc := range testCases {
-		result := stringHasDelimiter(tc.input)
+		result, resultContent := stringHasDelimiter(tc.input)
 		if result != tc.expected {
-			t.Errorf("stringHasDelimiter(%q) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf(
+				"On %d: stringHasDelimiter(%q) = %v; want %v",
+				tc.number,
+				tc.input,
+				result,
+				tc.expected,
+			)
+		}
+		if resultContent != tc.content {
+			t.Errorf(
+				"On %d: stringHasDelimiter error: expected %v but got %v",
+				tc.number,
+				tc.content,
+				resultContent,
+			)
+			if len(tc.content) != len(resultContent) {
+				t.Errorf(
+					"length of expected content %d, but got %d",
+					len(tc.content),
+					len(resultContent),
+				)
+			}
+
 		}
 	}
 }
