@@ -92,15 +92,14 @@ func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},
 ) map[string]interface{} {
 	var result map[string]interface{}
-	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}"
+	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" (recursion)
 	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
-	// got the key with delimiters
-	// here, myAwesomeNumber value is of type string
-	// then range over the secretsMap, map[string]interface{}, -- find the key `myAwesomeNumber` and determine it's type -- `int` in this case 22
-	// and find the type, (string, int, float, bool or null), and compare  the type with the value. -- compare the type int from secretsMap to the
-	// here, myAwesomeNumber value's type is int
-	// if there is a mismatch, find the exact key, in the dataAfter map[string] and convert it's value to the the type shown by secretsMap
-	// so, finally, in dataAfter, the map would be `"myAwesomeNumber": 22` from ``"myAwesomeNumber": "22"``
+	// if it has . in the first and only one word when slicing on empty space " " then look in the secretsMap and find the type of the `value`
+	// if it has getValueOf (and other actions, keep them as const somewhere), then getValueOf again, and find the type of the 1st index, remove quote
+
+	// finally, loop over the dataAfter and look for the key from the dataBefore map.
+	// Then if the type of the value in dataAfter != type of the value we got from type evaluation, then convert and relace in dataAfter
+
 	return result
 }
 
