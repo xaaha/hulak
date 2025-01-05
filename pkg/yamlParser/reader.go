@@ -132,9 +132,12 @@ func CompareAndConvert(
 		}
 	}
 
-	// From here, we get a flatmap like this {myAwesomeNumber : 22, foo: false}
-	// but we will get our values replaced in flatMap if there are items with the same key in nested objects
-	// So, we need to return path as well. Somehow, we need to create path and attach the path to the key and it's value
+	// From here, we get a flatmap like this {myAwesomeNumber : 22, foo: false} but what if there are multiple myAwesomeNumber references?
+	// For example, we could have getValueOf key path1  && getValueOf key path2.
+	// in this case, path2's key will replace the key of path1. So, for the getValueOf section, join "key--from--path"
+	// this will make sure that each getValueOf is unique
+	// We don't have to worry about {{.value}} because they are coming from secretsMap, which ensures key is unique
+	// first handle if strings.Contains("key--from--path", "--from--"), then in the dataAfter, find the
 
 	// {"myAwesomeNumber": 22, "foo": false, "body.foo": "345", "body.{company.inc}" : "xaaha.inc", "body.{company.inc}.assets[0]: 2344239" ]
 
