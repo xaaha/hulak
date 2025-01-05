@@ -13,7 +13,7 @@ import (
 
 // gets the value of key from a json file
 // looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
-func getValueOf(key, fileName string) interface{} {
+func GetValueOf(key, fileName string) interface{} {
 	if key == "" && fileName == "" {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
 	}
@@ -104,7 +104,7 @@ func replaceVariables(
 
 	getValueOf := template.FuncMap{
 		"getValueOf": func(key, fileName string) interface{} {
-			return getValueOf(key, fileName)
+			return GetValueOf(key, fileName)
 		},
 	}
 

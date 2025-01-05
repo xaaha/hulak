@@ -91,25 +91,45 @@ func stringHasDelimiter(value string) (bool, string) {
 func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},
 ) map[string]interface{} {
-	var result map[string]interface{}
+	result := make(map[string]interface{})
 	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" (recursion)
 	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
 
-	// for bkey, bvalue := range dataBefore {
-	// 	switch bValType := bvalue.(type) {
-	// 	case string:
-	// 		strHasDelimeter, innerStr := stringHasDelimiter(bValType)
-	// 		if strHasDelimeter {
-	// 			// it has getValueOf
-	// 			// or it has .Value
-	// 		}
-	// 	}
-	// }
-
-	// if it has . in the first and only one word when slicing on empty space " " then look in the secretsMap and find the type of the `value`
-	// if it has getValueOf (and other actions, keep them as const somewhere), then getValueOf again, and find the type of the 1st index, remove quote
-
+	for _, bvalue := range dataBefore {
+		switch bValType := bvalue.(type) {
+		case string:
+			strHasDelimeter, innerStr := stringHasDelimiter(bValType)
+			if strHasDelimeter {
+				// first separate them into array [getValueOf, `"foo"`, `"bar"`] or [".value"]
+				innerStrChunks := strings.Split(innerStr, " ")
+				// evaluate if the string has .value
+				if len(innerStrChunks) == 1 { // when using dot there should only be 1 in the array
+					dotStr := innerStrChunks[0] // get the first chunk with dot (.)
+					if strings.Contains(dotStr, ".") {
+						dotStr = strings.Replace(dotStr, ".", "", 1) // remove the first dot
+						result[dotStr] = secretsMap[dotStr]
+					}
+				}
+				// getValueOf "key" "path"
+				if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
+					gvoKey := innerStrChunks[1]  // key
+					gvoPath := innerStrChunks[2] // path
+					// replace the characters " and `. Single quote ' is not allowed in go template
+					gvoKey = strings.ReplaceAll(gvoKey, `"`, "")
+					gvoPath = strings.ReplaceAll(gvoPath, `"`, "")
+					gvoKey = strings.ReplaceAll(gvoKey, "`", "")
+					gvoPath = strings.ReplaceAll(gvoPath, "`", "")
+					result[gvoKey] = envparser.GetValueOf(gvoKey, gvoPath)
+				}
+			}
+		case map[string]interface{}:
+			return CompareAndConvert(bValType, dataAfter, secretsMap)
+		default:
+			// Handle error
+		}
+	}
 	// finally, loop over the dataAfter and look for the key from the dataBefore map.
+
 	// Then if the type of the value in dataAfter != type of the value we got from type evaluation, then convert and relace in dataAfter
 
 	return result
