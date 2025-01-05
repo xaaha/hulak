@@ -92,6 +92,7 @@ func CompareAndConvert(
 	dataBefore, dataAfter, secretsMap map[string]interface{},
 ) map[string]interface{} {
 	result := make(map[string]interface{})
+	beforeMap := make(map[string]interface{})
 	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" (recursion)
 	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
 
@@ -107,7 +108,7 @@ func CompareAndConvert(
 					dotStr := innerStrChunks[0] // get the first chunk with dot (.)
 					if strings.Contains(dotStr, ".") {
 						dotStr = strings.Replace(dotStr, ".", "", 1) // remove the first dot
-						result[dotStr] = secretsMap[dotStr]
+						beforeMap[dotStr] = secretsMap[dotStr]
 					}
 				}
 				// getValueOf "key" "path"
@@ -119,17 +120,28 @@ func CompareAndConvert(
 					gvoPath = strings.ReplaceAll(gvoPath, `"`, "")
 					gvoKey = strings.ReplaceAll(gvoKey, "`", "")
 					gvoPath = strings.ReplaceAll(gvoPath, "`", "")
-					result[gvoKey] = envparser.GetValueOf(gvoKey, gvoPath)
+					beforeMap[gvoKey] = envparser.GetValueOf(gvoKey, gvoPath)
 				}
 			}
 		case map[string]interface{}:
 			return CompareAndConvert(bValType, dataAfter, secretsMap)
 		default:
+			// Handle Array of objects
+			// handle simple arrays
 			// Handle error and other cases
 		}
 	}
 
-	// finally, loop over the dataAfter and look for the key from the dataBefore map.
+	// From here, we get a flatmap like this {myAwesomeNumber : 22, foo: false}
+	// but we will get our values replaced in flatMap if there are items with the same key in nested objects
+	// So, we need to return path as well. Somehow, we need to create path and attach the path to the key and it's value
+
+	// {"myAwesomeNumber": 22, "foo": false, "body.foo": "345", "body.{company.inc}" : "xaaha.inc", "body.{company.inc}.assets[0]: 2344239" ]
+
+	// finally, loop over the dataAfter and look for the key from beforeMap
+	// the path of the key returned by the dataBefore map should make this easier to find exaclty
+	// for aKey, aValue := range dataAfter {
+	// }
 
 	// Then if the type of the value in dataAfter != type of the value we got from type evaluation, then convert and relace in dataAfter
 
