@@ -125,9 +125,10 @@ func CompareAndConvert(
 		case map[string]interface{}:
 			return CompareAndConvert(bValType, dataAfter, secretsMap)
 		default:
-			// Handle error
+			// Handle error and other cases
 		}
 	}
+
 	// finally, loop over the dataAfter and look for the key from the dataBefore map.
 
 	// Then if the type of the value in dataAfter != type of the value we got from type evaluation, then convert and relace in dataAfter
