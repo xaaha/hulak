@@ -189,10 +189,10 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
-	// dataFmt, _ := utils.MarshalToJSON(data)
-	// fmt.Println("this is data", dataFmt)
-	// printPm, _ := utils.MarshalToJSON(parsedMap)
-	// fmt.Println("this is parsed map", printPm)
+	dataFmt, _ := utils.MarshalToJSON(data)
+	fmt.Println("this is data", dataFmt)
+	printPm, _ := utils.MarshalToJSON(parsedMap)
+	fmt.Println("this is parsed map", printPm)
 
 	// TODO:
 	// parsedMap is always string
@@ -209,7 +209,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 
 // checks the validity of all the fields in the yaml file
 // and returns the json string of the yaml file
-func ReadYamlForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
+func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
@@ -246,20 +246,4 @@ func ReadYamlForHttpRequest(filePath string, secretsMap map[string]interface{}) 
 	val, _ := json.MarshalIndent(user, "", "  ")
 	jsonString := string(val)
 	return jsonString
-}
-
-func ReadingYamlWithoutStruct() {
-	file, err := os.Open("test_collection/test.yml")
-	if err != nil {
-		utils.PanicRedAndExit("Error opening file: %v", err)
-	}
-	defer file.Close()
-
-	var data map[string]interface{}
-	dec := yaml.NewDecoder(file)
-	if err = dec.Decode(&data); err != nil {
-		utils.PanicRedAndExit("3. error decoding data: %v", err)
-	}
-	val, _ := json.MarshalIndent(data, "", "  ")
-	fmt.Println(string(val))
 }
