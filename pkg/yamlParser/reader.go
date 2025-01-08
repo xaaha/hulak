@@ -80,6 +80,53 @@ func stringHasDelimiter(value string) (bool, string) {
 	return len(content) > 0, content
 }
 
+// Recurses through the map and finds the key and it's path.
+// The resulting map helps us determine exact location to replace the values in
+/*
+{
+  "miles": "modified_value",
+  "person -> age": "modified_value"
+}
+*/
+func ReplaceInPlace(
+	beforeMap map[string]interface{},
+	parentKey string,
+) map[string]interface{} {
+	cmprt := make(map[string]interface{})
+	for bKey, bValue := range beforeMap {
+		currentKey := bKey
+
+		// if the parentKey has something,
+		if parentKey != "" {
+			currentKey = parentKey + " -> " + bKey
+		}
+
+		switch bTypeVal := bValue.(type) {
+		case string:
+			// Example: Check if value contains a "." and modify accordingly
+			if strings.Contains(bTypeVal, ".") {
+				cmprt[currentKey] = "modified_value"
+			}
+		case map[string]interface{}:
+			// Recurse into nested maps
+			cmprt = mergeMaps(cmprt, ReplaceInPlace(bTypeVal, currentKey))
+			// TODO: COVER Array's as well
+		default:
+			fmt.Println("uncovered type")
+			cmprt[currentKey] = bValue
+		}
+	}
+	return cmprt
+}
+
+// Helper function to merge two maps
+func mergeMaps(map1, map2 map[string]interface{}) map[string]interface{} {
+	for k, v := range map2 {
+		map1[k] = v
+	}
+	return map1
+}
+
 // for actions, evaluate the type that's coming from the getValueOf, and convert it to the original form
 // return the type, and use the type convert the value again to the original type
 // func stringHasTypeAssertion(value string) bool {
