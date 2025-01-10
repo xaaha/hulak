@@ -12,6 +12,7 @@ type ActionType string
 const (
 	DotString  ActionType = "DotString"
 	GetValueOf ActionType = "GetValueOf"
+	Invalid    ActionType = "Invalid"
 )
 
 type Action struct {
@@ -40,8 +41,11 @@ func stringHasDelimiter(value string) (bool, string) {
 	return len(content) > 0, content
 }
 
-// Returns ActionType of the input string
-func delimiterLogic(delimiterString string) Action {
+// Accepts a delimiterString and returns an Action struct to help the afterMap
+// navigate to the appropriate dictionary for value replacement.
+// Additionally, it removes double quotes, single quotes, dots (.),
+// and backticks (`) from the action.
+func delimiterLogicAndCleanup(delimiterString string) Action {
 	strHasDelimiter, innerStr := stringHasDelimiter(delimiterString)
 	if !strHasDelimiter {
 		return Action{}
@@ -55,6 +59,8 @@ func delimiterLogic(delimiterString string) Action {
 		return Action{Type: DotString, DotString: dotStr}
 	}
 
+	// TODO: Instead of making getValueOf a requirement, use regex and if it matches with
+	// case insensitivity use the getValueOf
 	// Check for GetValueOf action
 	if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
 		cleanedChunks := cleanStrings(innerStrChunks[1:])
@@ -64,8 +70,7 @@ func delimiterLogic(delimiterString string) Action {
 		}
 	}
 
-	// Invalid case
-	return Action{}
+	return Action{Type: Invalid}
 }
 
 // Recurses through the raw map prior to actions, beforeMap,
@@ -92,6 +97,7 @@ func FindPathInMap(
 
 		switch bTypeVal := bValue.(type) {
 		case string:
+			// TODO: uses the delimiterLogicAndCleanup
 			ok, _ := stringHasDelimiter(bTypeVal)
 			if ok {
 				cmprt[currentKey] = "modified_value"
@@ -119,7 +125,7 @@ func mergeMaps(map1, map2 map[string]interface{}) map[string]interface{} {
 	return map1
 }
 
-// Helper function to clean strings of backtick (“), and double qoutes ("")
+// Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 func cleanStrings(stringsToClean []string) []string {
 	cleaned := make([]string, len(stringsToClean))
 	for i, str := range stringsToClean {

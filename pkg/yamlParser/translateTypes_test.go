@@ -76,10 +76,22 @@ func TestDelimiterLogic(t *testing.T) {
 			input:    `{{getValueOf "key" "value"}}`,
 			expected: Action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
 		},
+		{
+			input:    `{{getvalueof "key" "value"}}`,
+			expected: Action{Type: Invalid, GetValueOf: []string{}},
+		},
+		{
+			input:    `{{getValueOf key "value}}`,
+			expected: Action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+		},
+		{
+			input:    `{{getValueOf}}`,
+			expected: Action{Type: Invalid, GetValueOf: []string{"getValueOf", "key", "value"}},
+		},
 	}
 
 	for _, tc := range testCases {
-		action := delimiterLogic(tc.input)
+		action := delimiterLogicAndCleanup(tc.input)
 		if action.Type != tc.expected.Type {
 			t.Errorf("expected type to be %v but got %v", tc.expected.Type, action.Type)
 		}
@@ -90,7 +102,8 @@ func TestDelimiterLogic(t *testing.T) {
 				action.DotString,
 			)
 		}
-		if !reflect.DeepEqual(action.GetValueOf, tc.expected.GetValueOf) {
+		if tc.expected.Type == GetValueOf && action.Type == GetValueOf &&
+			!reflect.DeepEqual(action.GetValueOf, tc.expected.GetValueOf) {
 			t.Errorf(
 				"expected getValueOf to be '%v' but got '%v'",
 				tc.expected.GetValueOf,
