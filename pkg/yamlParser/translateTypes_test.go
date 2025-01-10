@@ -1,6 +1,9 @@
 package yamlParser
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestStringHasDelimiter(t *testing.T) {
 	testCases := []struct {
@@ -58,6 +61,41 @@ func TestStringHasDelimiter(t *testing.T) {
 				)
 			}
 
+		}
+	}
+}
+
+func TestDelimiterLogic(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected Action
+	}{
+		{input: "", expected: Action{}},
+		{input: "{{.Value}}", expected: Action{Type: DotString, DotString: "Value"}},
+		{
+			input:    `{{getValueOf "key" "value"}}`,
+			expected: Action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+		},
+	}
+
+	for _, tc := range testCases {
+		action := delimiterLogic(tc.input)
+		if action.Type != tc.expected.Type {
+			t.Errorf("expected type to be %v but got %v", tc.expected.Type, action.Type)
+		}
+		if action.DotString != tc.expected.DotString {
+			t.Errorf(
+				"expected DotString to be '%v' but got '%v'",
+				tc.expected.DotString,
+				action.DotString,
+			)
+		}
+		if !reflect.DeepEqual(action.GetValueOf, tc.expected.GetValueOf) {
+			t.Errorf(
+				"expected getValueOf to be '%v' but got '%v'",
+				tc.expected.GetValueOf,
+				action.GetValueOf,
+			)
 		}
 	}
 }

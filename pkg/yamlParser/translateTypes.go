@@ -40,11 +40,11 @@ func stringHasDelimiter(value string) (bool, string) {
 	return len(content) > 0, content
 }
 
-// Returns ActionType
-func DelimiterLogic(delimiterString string) (Action, bool) {
+// Returns ActionType of the input string
+func delimiterLogic(delimiterString string) Action {
 	strHasDelimiter, innerStr := stringHasDelimiter(delimiterString)
 	if !strHasDelimiter {
-		return Action{}, false
+		return Action{}
 	}
 
 	innerStrChunks := strings.Split(innerStr, " ")
@@ -52,7 +52,7 @@ func DelimiterLogic(delimiterString string) (Action, bool) {
 	// Check for DotString action
 	if len(innerStrChunks) == 1 && strings.HasPrefix(innerStrChunks[0], ".") {
 		dotStr := strings.TrimPrefix(innerStrChunks[0], ".")
-		return Action{Type: DotString, DotString: dotStr}, true
+		return Action{Type: DotString, DotString: dotStr}
 	}
 
 	// Check for GetValueOf action
@@ -61,11 +61,11 @@ func DelimiterLogic(delimiterString string) (Action, bool) {
 		return Action{
 			Type:       GetValueOf,
 			GetValueOf: append([]string{innerStrChunks[0]}, cleanedChunks...),
-		}, true
+		}
 	}
 
 	// Invalid case
-	return Action{}, false
+	return Action{}
 }
 
 // Recurses through the raw map prior to actions, beforeMap,
