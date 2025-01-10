@@ -3,9 +3,7 @@ package yamlParser
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
@@ -60,144 +58,6 @@ func replaceVarsWithValues(
 	return changedMap
 }
 
-// checks whether string matches exactly "{{value}}"
-// and retuns whether the string matches the delimiter criteria and the associated content
-// So, the "{{ .value }}" returns "true, .value". Space is trimmed around the return string
-func stringHasDelimiter(value string) (bool, string) {
-	if len(value) < 4 || !strings.HasPrefix(value, "{{") || !strings.HasSuffix(value, "}}") {
-		return false, ""
-	}
-	if strings.Count(value[:3], "{") > 2 || strings.Count(value[len(value)-3:], "}") > 2 {
-		return false, ""
-	}
-	content := value[2 : len(value)-2]
-	re := regexp.MustCompile(`^\s+$`)
-	onlyHasEmptySpace := re.Match([]byte(value))
-	if len(content) == 0 || onlyHasEmptySpace {
-		return false, ""
-	}
-	content = strings.TrimSpace(content)
-	return len(content) > 0, content
-}
-
-// Recurses through the map and finds the key and it's path.
-// The resulting map helps us determine exact location to replace the values in
-/*
-{
-  "miles": "modified_value",
-  "person -> age": "modified_value"
-}
-*/
-func ReplaceInPlace(
-	beforeMap map[string]interface{},
-	parentKey string,
-) map[string]interface{} {
-	cmprt := make(map[string]interface{})
-	for bKey, bValue := range beforeMap {
-		currentKey := bKey
-
-		// if the parentKey has something,
-		if parentKey != "" {
-			currentKey = parentKey + " -> " + bKey
-		}
-
-		switch bTypeVal := bValue.(type) {
-		case string:
-			// Example: Check if value contains a "." and modify accordingly
-			if strings.Contains(bTypeVal, ".") {
-				cmprt[currentKey] = "modified_value"
-			}
-		case map[string]interface{}:
-			// Recurse into nested maps
-			cmprt = mergeMaps(cmprt, ReplaceInPlace(bTypeVal, currentKey))
-			// TODO: COVER Array's as well
-		default:
-			fmt.Println("uncovered type")
-			cmprt[currentKey] = bValue
-		}
-	}
-	return cmprt
-}
-
-// Helper function to merge two maps
-func mergeMaps(map1, map2 map[string]interface{}) map[string]interface{} {
-	for k, v := range map2 {
-		map1[k] = v
-	}
-	return map1
-}
-
-// for actions, evaluate the type that's coming from the getValueOf, and convert it to the original form
-// return the type, and use the type convert the value again to the original type
-// func stringHasTypeAssertion(value string) bool {
-// 	return false
-// }
-// what type is the value coming from secretsMap, is the final dataAfter value, (key's value the same as before)?
-// For example, for `key: "{{.value}}"` if this gets replaced to `key: "22"`, what type was the 22 before it became string?
-
-func CompareAndConvert(
-	dataBefore, dataAfter, secretsMap map[string]interface{},
-) map[string]interface{} {
-	result := make(map[string]interface{})
-	beforeMap := make(map[string]interface{})
-	// range over on dataBefore, (key, value) and find all the values, with valid delimiters "{{}}" (recursion)
-	// -- keep track of the key and value we are concerned with `"myAwesomeNumber": "{{.myAwesomeNumber}}"`
-
-	for _, bvalue := range dataBefore {
-		switch bValType := bvalue.(type) {
-		case string:
-			strHasDelimeter, innerStr := stringHasDelimiter(bValType)
-			if strHasDelimeter {
-				// first separate them into array [getValueOf, `"foo"`, `"bar"`] or [".value"]
-				innerStrChunks := strings.Split(innerStr, " ")
-				// evaluate if the string has .value
-				if len(innerStrChunks) == 1 { // when using dot there should only be 1 in the array
-					dotStr := innerStrChunks[0] // get the first chunk with dot (.)
-					if strings.Contains(dotStr, ".") {
-						dotStr = strings.Replace(dotStr, ".", "", 1) // remove the first dot
-						beforeMap[dotStr] = secretsMap[dotStr]
-					}
-				}
-				// getValueOf "key" "path"
-				if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
-					gvoKey := innerStrChunks[1]  // key
-					gvoPath := innerStrChunks[2] // path
-					// replace the characters " and `. Single quote ' is not allowed in go template
-					gvoKey = strings.ReplaceAll(gvoKey, `"`, "")
-					gvoPath = strings.ReplaceAll(gvoPath, `"`, "")
-					gvoKey = strings.ReplaceAll(gvoKey, "`", "")
-					gvoPath = strings.ReplaceAll(gvoPath, "`", "")
-					beforeMap[gvoKey] = envparser.GetValueOf(gvoKey, gvoPath)
-				}
-			}
-		case map[string]interface{}:
-			return CompareAndConvert(bValType, dataAfter, secretsMap)
-		default:
-			// Handle Array of objects
-			// handle simple arrays
-			// Handle error and other cases
-		}
-	}
-
-	// From here, we get a flatmap like this {myAwesomeNumber : 22, foo: false} but what if there are multiple myAwesomeNumber references?
-	// For example, we could have getValueOf key path1  && getValueOf key path2.
-	// in this case, path2's key will replace the key of path1. So, for the getValueOf section, join "key--from--path"
-	// this will make sure that each getValueOf is unique
-	// We don't have to worry about {{.value}} because they are coming from secretsMap, which ensures key is unique
-	// first handle if strings.Contains("key--from--path", "--from--"), then in the dataAfter, find the
-
-	// {"myAwesomeNumber": 22, "foo": false, "body.foo": "345", "body.{company.inc}" : "xaaha.inc", "body.{company.inc}.assets[0]: 2344239" ]
-
-	// finally, loop over the dataAfter and look for the key from beforeMap
-	// the path of the key returned by the dataBefore map should make this easier to find exaclty
-	// for aKey, aValue := range dataAfter {
-	// }
-
-	// Then if the type of the value in dataAfter != type of the value we got from type evaluation, then convert and relace in dataAfter
-
-	return result
-}
-
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
 // Right now, the yaml file is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
 func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.Buffer, error) {
@@ -236,10 +96,10 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
-	dataFmt, _ := utils.MarshalToJSON(data)
-	fmt.Println("this is data", dataFmt)
-	printPm, _ := utils.MarshalToJSON(parsedMap)
-	fmt.Println("this is parsed map", printPm)
+	// dataFmt, _ := utils.MarshalToJSON(data)
+	// fmt.Println("this is data", dataFmt)
+	// printPm, _ := utils.MarshalToJSON(parsedMap)
+	// fmt.Println("this is parsed map", printPm)
 
 	// TODO:
 	// parsedMap is always string
