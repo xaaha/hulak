@@ -73,52 +73,35 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 // Recurses through the raw map prior to actions, beforeMap,
 // and finds the key and it's path that needs type conversion.
 // The resulting map helps us determine exact location to replace the values in afterMap
-/*
-{
-  "miles": "modified_value", // flat map
-  "person -> age": "modified_value" // for nested maps
-  "company[0]" -> "position" // for arrays
-}
-*/
-func FindPathInMap(
+func FindPathFromMap(
 	beforeMap map[string]interface{},
 	parentKey string,
-) map[string]interface{} {
-	cmprt := make(map[string]interface{})
+) []string {
+	var cmprt []string
 	for bKey, bValue := range beforeMap {
 		currentKey := bKey
-		// if the parentKey has something.
 		if parentKey != "" {
 			currentKey = parentKey + " -> " + bKey
 		}
-
 		switch bTypeVal := bValue.(type) {
 		case string:
 			action := delimiterLogicAndCleanup(bTypeVal)
 			if action.Type != Invalid {
-				cmprt[currentKey] = "modified_value"
+				cmprt = append(cmprt, currentKey)
 			}
 		case map[string]interface{}:
-			cmprt = mergeMaps(cmprt, FindPathInMap(bTypeVal, currentKey))
+			cmprt = append(cmprt, FindPathFromMap(bTypeVal, currentKey)...)
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
 				key := fmt.Sprintf("%s[%d]", currentKey, idx)
-				cmprt = mergeMaps(cmprt, FindPathInMap(val, key))
+				cmprt = append(cmprt, FindPathFromMap(val, key)...)
 			}
 		default:
 			fmt.Println("uncovered type")
-			cmprt[currentKey] = bValue
+			cmprt = append(cmprt, fmt.Sprintf("%s: %v", currentKey, bTypeVal))
 		}
 	}
 	return cmprt
-}
-
-// Helper functions to merge two maps
-func mergeMaps(map1, map2 map[string]interface{}) map[string]interface{} {
-	for k, v := range map2 {
-		map1[k] = v
-	}
-	return map1
 }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
