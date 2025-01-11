@@ -48,7 +48,7 @@ func stringHasDelimiter(value string) (bool, string) {
 func delimiterLogicAndCleanup(delimiterString string) Action {
 	strHasDelimiter, innerStr := stringHasDelimiter(delimiterString)
 	if !strHasDelimiter {
-		return Action{}
+		return Action{Type: Invalid}
 	}
 
 	innerStrChunks := strings.Split(innerStr, " ")
@@ -59,9 +59,6 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 		return Action{Type: DotString, DotString: dotStr}
 	}
 
-	// TODO: Instead of making getValueOf a requirement, use regex and if it matches with
-	// case insensitivity use the getValueOf
-	// Check for GetValueOf action
 	if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
 		cleanedChunks := cleanStrings(innerStrChunks[1:])
 		return Action{
@@ -97,9 +94,8 @@ func FindPathInMap(
 
 		switch bTypeVal := bValue.(type) {
 		case string:
-			// TODO: uses the delimiterLogicAndCleanup
-			ok, _ := stringHasDelimiter(bTypeVal)
-			if ok {
+			action := delimiterLogicAndCleanup(bTypeVal)
+			if action.Type != Invalid {
 				cmprt[currentKey] = "modified_value"
 			}
 		case map[string]interface{}:

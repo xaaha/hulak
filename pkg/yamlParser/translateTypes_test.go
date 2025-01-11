@@ -70,7 +70,7 @@ func TestDelimiterLogic(t *testing.T) {
 		input    string
 		expected Action
 	}{
-		{input: "", expected: Action{}},
+		{input: "", expected: Action{Type: Invalid}},
 		{input: "{{.Value}}", expected: Action{Type: DotString, DotString: "Value"}},
 		{
 			input:    `{{getValueOf "key" "value"}}`,
