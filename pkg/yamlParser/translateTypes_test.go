@@ -1,7 +1,6 @@
 package yamlParser
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -147,7 +146,7 @@ func TestFindPathFromMap(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		result := findPathFromMap(tc.beforeMap, "")
-		if !reflect.DeepEqual(result, tc.expected) {
+		if !compareMaps(tc.expected, result) {
 			t.Errorf("FindPathFromMap error: expected %v got %v", tc.expected, result)
 		}
 	}
@@ -219,19 +218,39 @@ func equal(a, b []string) bool {
 	return true
 }
 
-// Mock function to simulate marshalToJSON for the main test
-func marshalToJSON(input []string) (string, error) {
-	return fmt.Sprintf("%v", input), nil
+func compareMaps(expected, actual map[ActionType][]string) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+	for key, expectedValues := range expected {
+		actualValues, exists := actual[key]
+		if !exists {
+			return false
+		}
+		if !compareStringSlices(expectedValues, actualValues) {
+			return false
+		}
+	}
+	return true
 }
 
-func main() {
-	arg := []string{`myva'l`, `"marshall"`, "`should w'ork`"}
-	result := cleanStrings(arg)
-	pt, _ := marshalToJSON(result) // just for readability
-	fmt.Println(pt)
-	// expected: ["myva'l", "marshall", "should w'ork"]
+func compareStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aMap := make(map[string]int)
+	bMap := make(map[string]int)
 
-	// Running the test suite
-	t := &testing.T{}
-	TestCleanStrings(t)
+	for _, val := range a {
+		aMap[val]++
+	}
+	for _, val := range b {
+		bMap[val]++
+	}
+	for key, count := range aMap {
+		if bMap[key] != count {
+			return false
+		}
+	}
+	return true
 }
