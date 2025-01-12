@@ -1,6 +1,7 @@
 package yamlParser
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -111,4 +112,126 @@ func TestDelimiterLogic(t *testing.T) {
 			)
 		}
 	}
+}
+
+func TestFindPathFromMap(t *testing.T) {
+	testCases := []struct {
+		beforeMap map[string]interface{}
+		expected  map[ActionType][]string
+	}{
+		{
+			beforeMap: map[string]interface{}{
+				"foo":   "bar",
+				"miles": "{{.distance}}",
+				"age":   "28",
+				"person": map[string]interface{}{
+					"name":   "Jane Doe",
+					"age":    "{{.Age}}",
+					"height": "{{getValueOf 'key1', 'path2'}}",
+				},
+				"users": []map[string]interface{}{
+					{
+						"person": map[string]interface{}{
+							"name":   "Jane Doe",
+							"age":    "{{.Age}}",
+							"height": "{{getValueOf 'key2', 'path1'}}",
+						},
+					},
+				},
+			},
+			expected: map[ActionType][]string{
+				DotString:  {"miles", "person -> age", "users[0] -> person -> age"},
+				GetValueOf: {"person -> height", "users[0] -> person -> height"},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		result := findPathFromMap(tc.beforeMap, "")
+		if !reflect.DeepEqual(result, tc.expected) {
+			t.Errorf("FindPathFromMap error: expected %v got %v", tc.expected, result)
+		}
+	}
+}
+
+func TestCleanStrings(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          []string
+		expectedOutput []string
+	}{
+		{
+			name:           "Basic replacement",
+			input:          []string{`"test"`, "`example`"},
+			expectedOutput: []string{"test", "example"},
+		},
+		{
+			name:           "No replacement needed",
+			input:          []string{"hello", "world"},
+			expectedOutput: []string{"hello", "world"},
+		},
+		{
+			name:           "Empty string",
+			input:          []string{""},
+			expectedOutput: []string{""},
+		},
+		{
+			name:           "Multiple replacements in one string",
+			input:          []string{`"He"llo"`, "`Te`st`", `"Mu"l`},
+			expectedOutput: []string{"Hello", "Test", "Mul"},
+		},
+		{
+			name:           "Mixed content",
+			input:          []string{`He"llo`, "Wor`ld", `Tes"t'`},
+			expectedOutput: []string{"Hello", "World", "Test'"},
+		},
+		{
+			name:           "Special characters and whitespace",
+			input:          []string{"` ", `" "`, `"hello`},
+			expectedOutput: []string{" ", " ", "hello"},
+		},
+		{
+			name:           "Large input",
+			input:          []string{`"a"`, "`b`", `"c"`, "`d`"},
+			expectedOutput: []string{"a", "b", "c", "d"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := cleanStrings(tt.input)
+			if !equal(output, tt.expectedOutput) {
+				t.Errorf("got %v, want %v", output, tt.expectedOutput)
+			}
+		})
+	}
+}
+
+// Helper function for slice comparison
+func equal(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Mock function to simulate marshalToJSON for the main test
+func marshalToJSON(input []string) (string, error) {
+	return fmt.Sprintf("%v", input), nil
+}
+
+func main() {
+	arg := []string{`myva'l`, `"marshall"`, "`should w'ork`"}
+	result := cleanStrings(arg)
+	pt, _ := marshalToJSON(result) // just for readability
+	fmt.Println(pt)
+	// expected: ["myva'l", "marshall", "should w'ork"]
+
+	// Running the test suite
+	t := &testing.T{}
+	TestCleanStrings(t)
 }

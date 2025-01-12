@@ -9,6 +9,7 @@ import (
 type ActionType string
 
 // These consts represent functions users can take in a yaml file
+// except Invalid, which represents error
 const (
 	DotString  ActionType = "DotString"
 	GetValueOf ActionType = "GetValueOf"
@@ -73,11 +74,13 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 // Recurses through the raw map prior to actions, beforeMap,
 // and finds the key and it's path that needs type conversion.
 // The resulting map helps us determine exact location to replace the values in afterMap
-func FindPathFromMap(
+func findPathFromMap(
 	beforeMap map[string]interface{},
 	parentKey string,
-) []string {
-	var cmprt []string
+) map[ActionType][]string {
+	cmprt := make(map[ActionType][]string, 2)
+	var dotStringValue []string
+	var getValueOf []string
 	for bKey, bValue := range beforeMap {
 		currentKey := bKey
 		if parentKey != "" {
@@ -87,24 +90,43 @@ func FindPathFromMap(
 		case string:
 			action := delimiterLogicAndCleanup(bTypeVal)
 			if action.Type != Invalid {
-				cmprt = append(cmprt, currentKey)
+				// since we only have two actions, we can keep it here.
+				// but this could be a problem on large number of cases
+				switch action.Type {
+				case DotString:
+					dotStringValue = append(dotStringValue, currentKey)
+					cmprt[DotString] = dotStringValue
+				case GetValueOf:
+					getValueOf = append(getValueOf, currentKey)
+					cmprt[GetValueOf] = getValueOf
+				}
 			}
 		case map[string]interface{}:
-			cmprt = append(cmprt, FindPathFromMap(bTypeVal, currentKey)...)
+			cmprt = mergeMaps(cmprt, findPathFromMap(bTypeVal, currentKey))
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
-				key := fmt.Sprintf("%s[%d]", currentKey, idx)
-				cmprt = append(cmprt, FindPathFromMap(val, key)...)
+				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
+				cmprt = mergeMaps(cmprt, findPathFromMap(val, arrayKey))
 			}
 		default:
-			fmt.Println("uncovered type")
-			cmprt = append(cmprt, fmt.Sprintf("%s: %v", currentKey, bTypeVal))
+			// No action needed for now. We should keep expanding cases above
+			// as they appear
 		}
 	}
+
 	return cmprt
 }
 
+// Helper function to merge two action maps
+func mergeMaps(map1, map2 map[ActionType][]string) map[ActionType][]string {
+	for key, val := range map2 {
+		map1[key] = append(map1[key], val...)
+	}
+	return map1
+}
+
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
+// around the string
 func cleanStrings(stringsToClean []string) []string {
 	cleaned := make([]string, len(stringsToClean))
 	for i, str := range stringsToClean {
