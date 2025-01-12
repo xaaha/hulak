@@ -78,7 +78,7 @@ func findPathFromMap(
 	beforeMap map[string]interface{},
 	parentKey string,
 ) map[ActionType][]string {
-	cmprt := make(map[ActionType][]string, 2)
+	cmprt := make(map[ActionType][]string)
 	var dotStringValue []string
 	var getValueOf []string
 	for bKey, bValue := range beforeMap {
@@ -95,18 +95,24 @@ func findPathFromMap(
 				switch action.Type {
 				case DotString:
 					dotStringValue = append(dotStringValue, currentKey)
-					cmprt[DotString] = dotStringValue
+					cmprt[DotString] = append(cmprt[DotString], dotStringValue...)
 				case GetValueOf:
 					getValueOf = append(getValueOf, currentKey)
-					cmprt[GetValueOf] = getValueOf
+					cmprt[GetValueOf] = append(cmprt[GetValueOf], getValueOf...)
 				}
 			}
 		case map[string]interface{}:
-			cmprt = mergeMaps(cmprt, findPathFromMap(bTypeVal, currentKey))
+			subMap := findPathFromMap(bTypeVal, currentKey)
+			for key, values := range subMap {
+				cmprt[key] = append(cmprt[key], values...)
+			}
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
-				cmprt = mergeMaps(cmprt, findPathFromMap(val, arrayKey))
+				subMap := findPathFromMap(val, arrayKey)
+				for key, values := range subMap {
+					cmprt[key] = append(cmprt[key], values...)
+				}
 			}
 		default:
 			// No action needed for now. We should keep expanding cases above
@@ -118,12 +124,12 @@ func findPathFromMap(
 }
 
 // Helper function to merge two action maps
-func mergeMaps(map1, map2 map[ActionType][]string) map[ActionType][]string {
-	for key, val := range map2 {
-		map1[key] = append(map1[key], val...)
-	}
-	return map1
-}
+// func mergeMaps(map1, map2 map[ActionType][]string) map[ActionType][]string {
+// 	for key, val := range map2 {
+// 		map1[key] = append(map1[key], val...)
+// 	}
+// 	return map1
+// }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
