@@ -79,8 +79,6 @@ func findPathFromMap(
 	parentKey string,
 ) map[ActionType][]string {
 	cmprt := make(map[ActionType][]string)
-	var dotStringValue []string
-	var getValueOf []string
 	for bKey, bValue := range beforeMap {
 		currentKey := bKey
 		if parentKey != "" {
@@ -94,11 +92,9 @@ func findPathFromMap(
 				// but this could be a problem on large number of cases
 				switch action.Type {
 				case DotString:
-					dotStringValue = append(dotStringValue, currentKey)
-					cmprt[DotString] = append(cmprt[DotString], dotStringValue...)
+					cmprt[DotString] = append(cmprt[DotString], currentKey)
 				case GetValueOf:
-					getValueOf = append(getValueOf, currentKey)
-					cmprt[GetValueOf] = append(cmprt[GetValueOf], getValueOf...)
+					cmprt[GetValueOf] = append(cmprt[GetValueOf], currentKey)
 				}
 			}
 		case map[string]interface{}:
@@ -122,14 +118,6 @@ func findPathFromMap(
 
 	return cmprt
 }
-
-// Helper function to merge two action maps
-// func mergeMaps(map1, map2 map[ActionType][]string) map[ActionType][]string {
-// 	for key, val := range map2 {
-// 		map1[key] = append(map1[key], val...)
-// 	}
-// 	return map1
-// }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string

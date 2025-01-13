@@ -143,6 +143,61 @@ func TestFindPathFromMap(t *testing.T) {
 				GetValueOf: {"person -> height", "users[0] -> person -> height"},
 			},
 		},
+		{
+			beforeMap: map[string]interface{}{
+				"foo":   "bar",
+				"miles": "{{get}}",
+				"age":   "28",
+				"person": map[string]interface{}{
+					"name":   "{{.jane}}",
+					"age":    "{{.Age}}",
+					"height": "{{getValueOf 'key1', 'path2'}}",
+				},
+				"users": []map[string]interface{}{
+					{
+						"person": map[string]interface{}{
+							"name":   "Jane Doe",
+							"age":    "{{.Age}}",
+							"height": "{{getValueOf 'key2', 'path1'}}",
+						},
+					},
+				},
+			},
+			expected: map[ActionType][]string{
+				DotString:  {"person -> name", "person -> age", "users[0] -> person -> age"},
+				GetValueOf: {"person -> height", "users[0] -> person -> height"},
+			},
+		},
+		{
+			beforeMap: map[string]interface{}{
+				"foo":   "bar",
+				"miles": "{{.get}}",
+				"age":   "28",
+				"person": map[string]interface{}{
+					"name":   "{{.jane}}",
+					"age":    "{{.Age}}",
+					"height": "{{getValueOf 'key1', 'path2'}}",
+				},
+				"users": []map[string]interface{}{
+					{
+						"person": map[string]interface{}{
+							"name":   "Jane Doe",
+							"age":    "{{.Age}}",
+							"height": "{{getValueOf 'key2', 'path1'}}",
+						},
+					},
+				},
+			},
+			expected: map[ActionType][]string{
+				DotString: {
+					"miles",
+					"person -> name",
+					"person -> age",
+					"users[0] -> person -> age",
+				},
+				GetValueOf: {"person -> height", "users[0] -> person -> height"},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		result := findPathFromMap(tc.beforeMap, "")
