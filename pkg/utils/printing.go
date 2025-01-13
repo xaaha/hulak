@@ -1,9 +1,11 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 // Creates an error message that optionally includes an additional error.
@@ -40,11 +42,29 @@ func PanicRedAndExit(msg string, args ...any) {
 	os.Exit(1)
 }
 
-/*
-// assuming that ixiai is not a variable defined in the .env files
-resolved1, err := envparser.SubstitueVariables("myNameIs={{.ixiai}}")
-	if err != nil {
-		utils.PrintError(err)
+// JSON.stringify equivalent for go
+func MarshalToJSON(value interface{}) (interface{}, error) {
+	switch val := value.(type) {
+	case string, bool, int, float64:
+		return val, nil
+	case nil:
+		return nil, nil
+	default:
+		if arr, ok := value.([]interface{}); ok {
+			var jsonArray []string
+			for _, item := range arr {
+				jsonStr, err := json.Marshal(item)
+				if err != nil {
+					return "", err
+				}
+				jsonArray = append(jsonArray, string(jsonStr))
+			}
+			return fmt.Sprintf("[%s]", strings.Join(jsonArray, ",")), nil
+		}
+		jsonStr, err := json.Marshal(value)
+		if err != nil {
+			return "", err
+		}
+		return string(jsonStr), nil
 	}
-	fmt.Println("Hello", resolved1)
-*/
+}
