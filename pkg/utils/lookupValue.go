@@ -131,6 +131,7 @@ func parseArrayKey(segment string) (bool, string, int) {
 	return false, segment, -1
 }
 
+// JSON.stringify equivalent for go
 func MarshalToJSON(value interface{}) (interface{}, error) {
 	switch val := value.(type) {
 	case string, bool, int, float64:
