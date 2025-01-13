@@ -119,6 +119,11 @@ func findPathFromMap(
 	return cmprt
 }
 
+//  Write function to Evaluate path
+// Create a helper function to parse the string
+// Use the same logic to find the index from string
+// then replace the string based on the Key
+
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
 func cleanStrings(stringsToClean []string) []string {
