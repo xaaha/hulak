@@ -26,7 +26,7 @@ func LookupValue(key string, data map[string]interface{}) (interface{}, error) {
 
 	// Step 4: Iterate through key segments
 	for i, segment := range segments {
-		isArrayKey, keyPart, index := parseArrayKey(segment)
+		isArrayKey, keyPart, index := ParseArrayKey(segment)
 
 		// Step 5: Ensure current context is a map
 		currMap, ok := current.(map[string]interface{})
@@ -115,7 +115,7 @@ func parseKeySegments(key, pathSeparator string) []string {
 	return segments
 }
 
-func parseArrayKey(segment string) (bool, string, int) {
+func ParseArrayKey(segment string) (bool, string, int) {
 	if strings.HasSuffix(segment, "]") && strings.Contains(segment, "[") {
 		openBracket := strings.LastIndex(segment, "[")
 		closeBracket := strings.LastIndex(segment, "]")

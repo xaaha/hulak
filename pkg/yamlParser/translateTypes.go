@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type ActionType string
@@ -119,10 +121,16 @@ func findPathFromMap(
 	return cmprt
 }
 
-//  Write function to Evaluate path
 // Create a helper function to parse the string
 // Use the same logic to find the index from string
 // then replace the string based on the Key
+func ReplaceInPlace(
+	pathMap map[ActionType][]string,
+	afterMap map[string]interface{},
+	secretsMap map[string]interface{},
+) {
+	// range over the pathMap and based on the key, either navigate to the secretsMap and replace
+}
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
@@ -132,4 +140,25 @@ func cleanStrings(stringsToClean []string) []string {
 		cleaned[i] = strings.NewReplacer(`"`, "", "`", "").Replace(str)
 	}
 	return cleaned
+}
+
+func ParsePath(path string) ([]interface{}, error) {
+	var keys []interface{}
+
+	if len(path) == 0 {
+		return keys, utils.ColorError("path should not be empty")
+	}
+
+	rawKeys := strings.Split(path, "->")
+	for _, segment := range rawKeys {
+		trimmedKey := strings.TrimSpace(segment)
+		isArrayKey, keyPart, index := utils.ParseArrayKey(trimmedKey)
+		if isArrayKey {
+			keys = append(keys, keyPart)
+			keys = append(keys, index)
+		} else {
+			keys = append(keys, trimmedKey)
+		}
+	}
+	return keys, nil
 }
