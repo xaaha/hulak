@@ -260,6 +260,24 @@ func TestCleanStrings(t *testing.T) {
 	}
 }
 
+// func TestParsePath(t *testing.T) {
+// 	testCases := []struct {
+// 		name   string
+// 		input  string
+// 		output []interface{}
+// 	}{
+// 		{name: "empty string", input: "", output: []interface{}{}, error: "path should not be empty" },
+// 	}
+//
+// 	for _, tt := range testCases {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			output := cleanStrings(tt.input)
+// 			if !equal(output, tt.expectedOutput) {
+// 				t.Errorf("got %v, want %v", output, tt.expectedOutput)
+// 			} })
+// 	}
+// }
+
 // Helper function for slice comparison
 func equal(a, b []string) bool {
 	if len(a) != len(b) {

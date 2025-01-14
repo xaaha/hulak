@@ -142,6 +142,8 @@ func cleanStrings(stringsToClean []string) []string {
 	return cleaned
 }
 
+// Helper function for the replace in place. Parses the string with -> and array indexed strings
+// Returns an array of []interface{} ["key1", "value", 0]
 func ParsePath(path string) ([]interface{}, error) {
 	var keys []interface{}
 
@@ -150,8 +152,12 @@ func ParsePath(path string) ([]interface{}, error) {
 	}
 
 	rawKeys := strings.Split(path, "->")
-	for _, segment := range rawKeys {
+	for i, segment := range rawKeys {
 		trimmedKey := strings.TrimSpace(segment)
+		if trimmedKey == "" {
+			msg := fmt.Sprintf("Invalid format: empty key at position %d", i+1)
+			return nil, utils.ColorError(msg)
+		}
 		isArrayKey, keyPart, index := utils.ParseArrayKey(trimmedKey)
 		if isArrayKey {
 			keys = append(keys, keyPart)
