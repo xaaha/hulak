@@ -121,15 +121,12 @@ func findPathFromMap(
 	return cmprt
 }
 
-// Create a helper function to parse the string
-// Use the same logic to find the index from string
-// then replace the string based on the Key
-func ReplaceInPlace(
-	pathMap map[ActionType][]string,
-	afterMap map[string]interface{},
-	secretsMap map[string]interface{},
+// Translates value types user picked in the secretsMap (.env) and
+// dynamically finds type for other actions (currently only getValueOf)
+func TranslateType(afterMap map[string]interface{}, secretsMap map[string]interface{},
 ) {
-	// range over the pathMap and based on the key, either navigate to the secretsMap and replace
+	// range over the pathMap provided by
+	// and based on the key, either navigate to the secretsMap and replace
 }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
