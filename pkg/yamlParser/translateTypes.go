@@ -2,7 +2,9 @@ package yamlParser
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -121,43 +123,201 @@ func findPathFromMap(
 	return cmprt
 }
 
+// TODO: Fix the logic
 // Translates value types user picked in the secretsMap (.env) and
-// dynamically finds type for other actions (currently only getValueOf)
-// func TranslateType(beforeMap, afterMap map[string]interface{}, secretsMap map[string]interface{},
-// ) (map[string]interface{}, error) {
-// 	// find the path map first
-// 	pathMap := findPathFromMap(beforeMap, "")
-// 	//
-// 	for actionKey, pathArr := range pathMap {
-// 		for _, str := range pathArr {
-// 			if actionKey == DotString {
-// 				path, err := parsePath(str)
-// 				if err != nil {
-// 					return nil, err
-// 				}
-// 				// loop over the path,
-// 				for i, key := range path {
-// 					// each item is a key, unless it's an int, in which case  it's the array index
-// 					// we need to append to the previous key
-// 					// so the key should
-// 					// for dot string, use secretsMap[key] and grab the value, and chec it's type.
-// 					// using the key above,  go to afterMap, if the type of the afterMap[key] is not equal to the
-// 					// secretsMap[key] type, change the type of afterMap[key]'s value.
-// 				}
-//
-// 			}
-// 			if actionKey == GetValueOf {
-// 				// each item is a key, unless it's an int, in which case  it's the array index
-// 				// we need to append to the previous key
-// 				// so the key should for getValueOf, use [key] and grab the value, and chec it's type.
-// 				// using the key above,  go to afterMap, if the type of the afterMap[key] is not equal to the
-// 				// secretsMap[key] type, change the type of afterMap[key]'s value
-// 			}
-//
-// 		}
-// 	}
-// }
+func TranslateType(
+	beforeMap, afterMap, secretsMap map[string]interface{},
+	getValueOfInterface interface{},
+) (map[string]interface{}, error) {
+	// Find the path map from beforeMap
+	pathMap := findPathFromMap(beforeMap, "")
 
+	// Iterate through the paths grouped by their action type
+	for actionKey, pathArr := range pathMap {
+		for _, str := range pathArr {
+			// Parse the path string into a structured path array
+			path, err := parsePath(str)
+			if err != nil {
+				return nil, err
+			}
+
+			// Navigate through afterMap step by step
+			current := afterMap
+			var parent interface{}
+			var lastKey interface{}
+
+			for i, key := range path {
+				// Stop before the last key to prepare for value update
+				if i == len(path)-1 {
+					lastKey = key
+					break
+				}
+
+				switch typedKey := key.(type) {
+				case string:
+					// Navigate through maps
+					if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
+						parent = current
+						current = nextMap
+					} else if arr, ok := current[typedKey].([]interface{}); ok {
+						parent = arr
+						current = nil // Prepare for array index handling
+					} else {
+						// Key does not exist or is not a map/array, skip
+						current = nil
+					}
+				case int:
+					// Navigate through arrays
+					if parentArr, ok := parent.([]interface{}); ok {
+						if typedKey >= 0 && typedKey < len(parentArr) {
+							parent = current
+							current = parentArr[typedKey].(map[string]interface{})
+						} else {
+							current = nil // Index out of bounds
+						}
+					} else {
+						current = nil
+					}
+				default:
+					current = nil
+				}
+
+				if current == nil {
+					break
+				}
+			}
+
+			// If we successfully navigated to the last key, process the value
+			if current != nil {
+				var compareVal interface{}
+				if lastKeyStr, ok := lastKey.(string); ok {
+					if actionKey == DotString {
+						compareVal, ok = secretsMap[lastKeyStr]
+						if !ok {
+							// Skip if the key does not exist in secretsMap
+							continue
+						}
+					}
+					if actionKey == GetValueOf {
+						compareVal = getValueOfInterface
+					}
+					if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
+						convertedVal, err := convertType(current[lastKeyStr], compareVal)
+						if err == nil {
+							current[lastKeyStr] = convertedVal
+						}
+					}
+				}
+			}
+		}
+	}
+	return afterMap, nil
+}
+
+// dynamically finds type for other actions (currently only getValueOf)
+func convertType(value, targetType interface{}) (interface{}, error) {
+	switch targetType.(type) {
+	case int:
+		switch v := value.(type) {
+		case string:
+			return strconv.Atoi(v)
+		case float64:
+			return int(v), nil
+		default:
+			return nil, fmt.Errorf("cannot convert %T to int", value)
+		}
+	case string:
+		return fmt.Sprintf("%v", value), nil
+	case float64:
+		switch v := value.(type) {
+		case string:
+			return strconv.ParseFloat(v, 64)
+		case int:
+			return float64(v), nil
+		default:
+			return nil, fmt.Errorf("cannot convert %T to float64", value)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported target type %T", targetType)
+	}
+}
+
+//	func getValueAtPath(m map[string]interface{}, path []interface{}) (interface{}, bool) {
+//		current := m
+//		for i, key := range path {
+//			switch typedKey := key.(type) {
+//			case string:
+//				if next, ok := current[typedKey].(map[string]interface{}); ok {
+//					current = next
+//				} else if i == len(path)-1 {
+//					return current[typedKey], true
+//				} else {
+//					return nil, false
+//				}
+//			case int:
+//				array, ok := current[path[i-1].(string)].([]interface{})
+//				if !ok || typedKey < 0 || typedKey >= len(array) {
+//					return nil, false
+//				}
+//				if i == len(path)-1 {
+//					return array[typedKey], true
+//				}
+//				next, ok := array[typedKey].(map[string]interface{})
+//				if !ok {
+//					return nil, false
+//				}
+//				current = next
+//			default:
+//				return nil, false
+//			}
+//		}
+//		return nil, false
+//	}
+//
+//	func setValueAtPath(m map[string]interface{}, path []interface{}, value interface{}) {
+//		current := m
+//		for i, key := range path {
+//			switch typedKey := key.(type) {
+//			case string:
+//				if i == len(path)-1 {
+//					current[typedKey] = value
+//					return
+//				}
+//				if next, ok := current[typedKey].(map[string]interface{}); ok {
+//					current = next
+//				} else {
+//					newMap := make(map[string]interface{})
+//					current[typedKey] = newMap
+//					current = newMap
+//				}
+//			case int:
+//				arrayKey := path[i-1].(string)
+//				array, ok := current[arrayKey].([]interface{})
+//				if !ok {
+//					array = make([]interface{}, typedKey+1)
+//					current[arrayKey] = array
+//				}
+//				if typedKey >= len(array) {
+//					newArray := make([]interface{}, typedKey+1)
+//					copy(newArray, array)
+//					array = newArray
+//					current[arrayKey] = array
+//				}
+//				if i == len(path)-1 {
+//					array[typedKey] = value
+//					return
+//				}
+//				if next, ok := array[typedKey].(map[string]interface{}); ok {
+//					current = next
+//				} else {
+//					newMap := make(map[string]interface{})
+//					array[typedKey] = newMap
+//					current = newMap
+//				}
+//			}
+//		}
+//	}
+//
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
 func cleanStrings(stringsToClean []string) []string {
