@@ -144,6 +144,7 @@ func TranslateType(
 			// Navigate through afterMap step by step
 			current := afterMap
 			var parent interface{}
+			// last item in the path array
 			var lastKey interface{}
 
 			for i, key := range path {
