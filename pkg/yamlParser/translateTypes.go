@@ -123,11 +123,25 @@ func findPathFromMap(
 
 // Translates value types user picked in the secretsMap (.env) and
 // dynamically finds type for other actions (currently only getValueOf)
-func TranslateType(afterMap map[string]interface{}, secretsMap map[string]interface{},
-) {
-	// range over the pathMap provided by
-	// and based on the key, either navigate to the secretsMap and replace
-}
+// func TranslateType(beforeMap, afterMap map[string]interface{}, secretsMap map[string]interface{},
+//
+//	) (map[string]interface{}, err) {
+//		pathMap := findPathFromMap(beforeMap, "")
+//		for actionKey, pathArr := range pathMap {
+//			for _, str := range pathArr {
+//				if actionKey == DotString {
+//					path, err := parsePath(str)
+//					if err != nil {
+//						return nil, err
+//					}
+//				}
+//				if actionKey == GetValueOf {
+//				}
+//
+//			}
+//		}
+//		// and based on the key, either navigate to the secretsMap and replace
+//	}
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
@@ -141,7 +155,7 @@ func cleanStrings(stringsToClean []string) []string {
 
 // Helper function for the replace in place. Parses the string with -> and array indexed strings
 // Returns an array of []interface{} ["key1", "value", 0]
-func ParsePath(path string) ([]interface{}, error) {
+func parsePath(path string) ([]interface{}, error) {
 	var keys []interface{}
 
 	if len(path) == 0 {

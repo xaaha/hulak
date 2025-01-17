@@ -2,6 +2,7 @@ package yamlParser
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -260,23 +261,84 @@ func TestCleanStrings(t *testing.T) {
 	}
 }
 
-// func TestParsePath(t *testing.T) {
-// 	testCases := []struct {
-// 		name   string
-// 		input  string
-// 		output []interface{}
-// 	}{
-// 		{name: "empty string", input: "", output: []interface{}{}, error: "path should not be empty" },
-// 	}
-//
-// 	for _, tt := range testCases {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			output := cleanStrings(tt.input)
-// 			if !equal(output, tt.expectedOutput) {
-// 				t.Errorf("got %v, want %v", output, tt.expectedOutput)
-// 			} })
-// 	}
-// }
+func TestParsePath(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		output []interface{}
+		error  string
+	}{
+		{
+			name:   "empty string",
+			input:  "",
+			output: []interface{}{},
+			error:  "path should not be empty",
+		},
+		{
+			name:   "single key",
+			input:  "key",
+			output: []interface{}{"key"},
+			error:  "",
+		},
+		{
+			name:   "multiple keys with no arrays",
+			input:  "key1 -> key2 -> key3",
+			output: []interface{}{"key1", "key2", "key3"},
+			error:  "",
+		},
+		{
+			name:   "array index in path",
+			input:  "users[0] -> name",
+			output: []interface{}{"users", 0, "name"},
+			error:  "",
+		},
+		{
+			name:   "complex path with arrays",
+			input:  "users[2] -> address -> city",
+			output: []interface{}{"users", 2, "address", "city"},
+			error:  "",
+		},
+		{
+			name:   "leading and trailing whitespace",
+			input:  "  key1  ->   key2 ->   key3  ",
+			output: []interface{}{"key1", "key2", "key3"},
+			error:  "",
+		},
+		{
+			name:   "empty key in path",
+			input:  "key1 ->  -> key3",
+			output: nil,
+			error:  "Invalid format: empty key at position 2",
+		},
+		{
+			name:   "array key with invalid format",
+			input:  "users[invalid] -> name",
+			output: []interface{}{"users[invalid]", "name"},
+			error:  "",
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parsePath(tt.input)
+			if err != nil && !strings.Contains(err.Error(), tt.error) {
+				t.Errorf(
+					"error message do not match on parsePath. \nExpected \n%s \nbut got %s",
+					tt.error,
+					err.Error(),
+				)
+			}
+			// cannot deep equal empty slices
+			if len(tt.output) != len(result) && !reflect.DeepEqual(tt.output, result) {
+				t.Errorf(
+					"result does not match the expected output: expected %v, got %v",
+					tt.output,
+					result,
+				)
+			}
+		})
+	}
+}
 
 // Helper function for slice comparison
 func equal(a, b []string) bool {
