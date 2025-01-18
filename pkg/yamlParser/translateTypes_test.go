@@ -1,9 +1,12 @@
 package yamlParser
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestStringHasDelimiter(t *testing.T) {
@@ -334,6 +337,65 @@ func TestParsePath(t *testing.T) {
 					"result does not match the expected output: expected %v, got %v",
 					tt.output,
 					result,
+				)
+			}
+		})
+	}
+}
+
+func TestTranslateType(t *testing.T) {
+	testCases := []struct {
+		name        string
+		before      map[string]interface{}
+		after       map[string]interface{}
+		secrets     map[string]interface{}
+		getValueOf  interface{}
+		modifiedMap map[string]interface{}
+	}{
+		{
+			before: map[string]interface{}{
+				"foo":  "{{.foo}}",
+				"bar":  "{{getValueOf 'bar' '/'}}",
+				"baz":  "{{.baz}}",
+				"name": "Jane",
+			},
+			after: map[string]interface{}{
+				"foo":  "22",      // should be converted to int
+				"bar":  "true",    // should be converted to bool
+				"baz":  "22.2292", // should remain string,
+				"name": "Jane",
+			},
+			secrets: map[string]interface{}{
+				"foo": 22,
+				"baz": "22.2292",
+			},
+			getValueOf: true,
+			modifiedMap: map[string]interface{}{
+				"foo":  22,
+				"bar":  true,
+				"baz":  "22.2292",
+				"name": "Jane",
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			resultMap, err := TranslateType(tt.before, tt.after, tt.secrets, tt.getValueOf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(tt.modifiedMap, resultMap) {
+				mod, _ := utils.MarshalToJSON(tt.modifiedMap)
+				fmt.Println("Expected modifiedMap", mod)
+
+				res, _ := utils.MarshalToJSON(resultMap)
+				fmt.Println("Result Map", res)
+
+				t.Errorf(
+					"TranslateType error: \nExpected \n%v, \ngot \n%v",
+					tt.modifiedMap,
+					resultMap,
 				)
 			}
 		})

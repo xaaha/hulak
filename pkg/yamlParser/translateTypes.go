@@ -124,7 +124,8 @@ func findPathFromMap(
 }
 
 // TODO: Fix the logic
-// Translates value types user picked in the secretsMap (.env) and
+// TranslateType is the function that performs translation on the `afterMap`
+// based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func TranslateType(
 	beforeMap, afterMap, secretsMap map[string]interface{},
 	getValueOfInterface interface{},
@@ -199,10 +200,13 @@ func TranslateType(
 					} else if actionKey == GetValueOf {
 						compareVal = getValueOfInterface
 					}
+					// Perform the type conversion if necessary
 					if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
 						convertedVal, err := convertType(current[lastKeyStr], compareVal)
 						if err == nil {
 							current[lastKeyStr] = convertedVal
+						} else {
+							return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
 						}
 					}
 				}
@@ -221,6 +225,11 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 			return strconv.Atoi(v)
 		case float64:
 			return int(v), nil
+		case bool:
+			if v {
+				return 1, nil
+			}
+			return 0, nil
 		default:
 			return nil, fmt.Errorf("cannot convert %T to int", value)
 		}
@@ -232,90 +241,33 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 			return strconv.ParseFloat(v, 64)
 		case int:
 			return float64(v), nil
+		case bool:
+			if v {
+				return 1.0, nil
+			}
+			return 0.0, nil
 		default:
 			return nil, fmt.Errorf("cannot convert %T to float64", value)
+		}
+	case bool:
+		switch v := value.(type) {
+		case string:
+			// Handle "true" or "false" strings
+			return strconv.ParseBool(v)
+		case int:
+			// Non-zero values are true, zero is false
+			return v != 0, nil
+		case float64:
+			// Non-zero values are true, zero is false
+			return v != 0.0, nil
+		default:
+			return nil, fmt.Errorf("cannot convert %T to bool", value)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported target type %T", targetType)
 	}
 }
 
-//	func getValueAtPath(m map[string]interface{}, path []interface{}) (interface{}, bool) {
-//		current := m
-//		for i, key := range path {
-//			switch typedKey := key.(type) {
-//			case string:
-//				if next, ok := current[typedKey].(map[string]interface{}); ok {
-//					current = next
-//				} else if i == len(path)-1 {
-//					return current[typedKey], true
-//				} else {
-//					return nil, false
-//				}
-//			case int:
-//				array, ok := current[path[i-1].(string)].([]interface{})
-//				if !ok || typedKey < 0 || typedKey >= len(array) {
-//					return nil, false
-//				}
-//				if i == len(path)-1 {
-//					return array[typedKey], true
-//				}
-//				next, ok := array[typedKey].(map[string]interface{})
-//				if !ok {
-//					return nil, false
-//				}
-//				current = next
-//			default:
-//				return nil, false
-//			}
-//		}
-//		return nil, false
-//	}
-//
-//	func setValueAtPath(m map[string]interface{}, path []interface{}, value interface{}) {
-//		current := m
-//		for i, key := range path {
-//			switch typedKey := key.(type) {
-//			case string:
-//				if i == len(path)-1 {
-//					current[typedKey] = value
-//					return
-//				}
-//				if next, ok := current[typedKey].(map[string]interface{}); ok {
-//					current = next
-//				} else {
-//					newMap := make(map[string]interface{})
-//					current[typedKey] = newMap
-//					current = newMap
-//				}
-//			case int:
-//				arrayKey := path[i-1].(string)
-//				array, ok := current[arrayKey].([]interface{})
-//				if !ok {
-//					array = make([]interface{}, typedKey+1)
-//					current[arrayKey] = array
-//				}
-//				if typedKey >= len(array) {
-//					newArray := make([]interface{}, typedKey+1)
-//					copy(newArray, array)
-//					array = newArray
-//					current[arrayKey] = array
-//				}
-//				if i == len(path)-1 {
-//					array[typedKey] = value
-//					return
-//				}
-//				if next, ok := array[typedKey].(map[string]interface{}); ok {
-//					current = next
-//				} else {
-//					newMap := make(map[string]interface{})
-//					array[typedKey] = newMap
-//					current = newMap
-//				}
-//			}
-//		}
-//	}
-//
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
 // around the string
 func cleanStrings(stringsToClean []string) []string {
