@@ -141,11 +141,9 @@ func TranslateType(
 				return nil, err
 			}
 
-			// Navigate through afterMap step by step
 			current := afterMap
 			var parent interface{}
-			// last item in the path array
-			var lastKey interface{}
+			var lastKey interface{} // last item in the path array
 
 			for i, key := range path {
 				// Stop before the last key to prepare for value update
@@ -198,8 +196,7 @@ func TranslateType(
 							// Skip if the key does not exist in secretsMap
 							continue
 						}
-					}
-					if actionKey == GetValueOf {
+					} else if actionKey == GetValueOf {
 						compareVal = getValueOfInterface
 					}
 					if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
