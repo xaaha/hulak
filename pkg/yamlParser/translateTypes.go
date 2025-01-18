@@ -123,7 +123,8 @@ func findPathFromMap(
 	return cmprt
 }
 
-// TODO: Fix the logic
+// TODO: Fix the logic. GetValueOf takes in the file name.
+// This function should take the file name and then call GetValueOf
 // TranslateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func TranslateType(

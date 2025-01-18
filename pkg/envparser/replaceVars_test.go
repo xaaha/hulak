@@ -9,8 +9,8 @@ import (
 func TestSubstituteVariables(t *testing.T) {
 	varMap := map[string]interface{}{
 		"varName":       "replacedValue",
-		"secondName":    "anju",
-		"thirdName":     "pratik",
+		"secondName":    "John",
+		"thirdName":     "Doe",
 		"anotherNumber": 5678, // int type
 		"xaaha":         "hero",
 		"number":        "1234{{.anotherNumber}}",
