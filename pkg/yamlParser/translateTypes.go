@@ -124,7 +124,8 @@ func findPathFromMap(
 }
 
 // TODO: Fix the logic. GetValueOf takes in the file name.
-// This function should take the file name and then call GetValueOf
+// This function should take the file name and then call GetValueOf instead of using interface for getVaue of
+// From delimiterLogicAndCleanup, returns the Acton as map for GetValueOf {getValueOf: [key, path/fileName]}
 // TranslateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func TranslateType(
