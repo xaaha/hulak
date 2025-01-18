@@ -377,6 +377,38 @@ func TestTranslateType(t *testing.T) {
 				"name": "Jane",
 			},
 		},
+		{
+			before: map[string]interface{}{
+				"foo": "{{.foo}}",
+				"baz": "{{.baz}}",
+				"person": map[string]interface{}{
+					"age":    "{{.age}}",
+					"height": "{{getValueOf 'height' '/'}}",
+				},
+			},
+			after: map[string]interface{}{
+				"foo": "22",
+				"baz": "22.2292",
+				"person": map[string]interface{}{
+					"age":    "39",
+					"height": "300.2",
+				},
+			},
+			secrets: map[string]interface{}{
+				"foo": 22,
+				"baz": "22.2292",
+				"age": 39,
+			},
+			getValueOf: 300.2,
+			modifiedMap: map[string]interface{}{
+				"foo": 22,
+				"baz": "22.2292",
+				"person": map[string]interface{}{
+					"age":    39,
+					"height": 300.2,
+				},
+			},
+		},
 	}
 
 	for _, tt := range testCases {

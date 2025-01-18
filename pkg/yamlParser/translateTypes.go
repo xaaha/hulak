@@ -191,13 +191,13 @@ func TranslateType(
 			if current != nil {
 				var compareVal interface{}
 				if lastKeyStr, ok := lastKey.(string); ok {
-					if actionKey == DotString {
+					switch actionKey {
+					case DotString:
 						compareVal, ok = secretsMap[lastKeyStr]
 						if !ok {
-							// Skip if the key does not exist in secretsMap
-							continue
+							continue // Skip if the key does not exist in secretsMap
 						}
-					} else if actionKey == GetValueOf {
+					case GetValueOf:
 						compareVal = getValueOfInterface
 					}
 					// Perform the type conversion if necessary
