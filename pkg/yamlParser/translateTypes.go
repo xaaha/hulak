@@ -206,7 +206,7 @@ func TranslateType(
 						if err == nil {
 							current[lastKeyStr] = convertedVal
 						} else {
-							return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
+							return nil, utils.ColorError(fmt.Sprintf("error converting type for key %s: ", lastKeyStr), err)
 						}
 					}
 				}
@@ -216,7 +216,7 @@ func TranslateType(
 	return afterMap, nil
 }
 
-// dynamically finds type for other actions (currently only getValueOf)
+// dynamically finds type for other actions
 func convertType(value, targetType interface{}) (interface{}, error) {
 	switch targetType.(type) {
 	case int:
@@ -231,7 +231,7 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 			}
 			return 0, nil
 		default:
-			return nil, fmt.Errorf("cannot convert %T to int", value)
+			return nil, utils.ColorError(fmt.Sprintf("cannot convert '%T' to int", value))
 		}
 	case string:
 		return fmt.Sprintf("%v", value), nil
@@ -247,7 +247,7 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 			}
 			return 0.0, nil
 		default:
-			return nil, fmt.Errorf("cannot convert %T to float64", value)
+			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to float64", value))
 		}
 	case bool:
 		switch v := value.(type) {
@@ -261,10 +261,10 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 			// Non-zero values are true, zero is false
 			return v != 0.0, nil
 		default:
-			return nil, fmt.Errorf("cannot convert %T to bool", value)
+			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to bool", value))
 		}
 	default:
-		return nil, fmt.Errorf("unsupported target type %T", targetType)
+		return nil, utils.ColorError(fmt.Sprintf("unsupported target type %T", targetType))
 	}
 }
 
