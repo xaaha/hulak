@@ -26,6 +26,18 @@ type Action struct {
 	GetValueOf []string
 }
 
+type ActionComposition struct {
+	DotString  []string
+	GetValueOf []struct {
+		key      string
+		fileName string
+	}
+}
+
+type PathProvider interface {
+	findPathFromMap() string
+}
+
 // checks whether string matches exactly "{{value}}"
 // and retuns whether the string matches the delimiter criteria and the associated content
 // So, the "{{ .value }}" returns "true, .value". Space is trimmed around the return string
