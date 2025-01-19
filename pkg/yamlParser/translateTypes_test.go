@@ -223,6 +223,11 @@ func TestCleanStrings(t *testing.T) {
 			expectedOutput: []string{"test", "example"},
 		},
 		{
+			name:           "Replace Single quotes",
+			input:          []string{`'test'`, "'example'"},
+			expectedOutput: []string{"test", "example"},
+		},
+		{
 			name:           "No replacement needed",
 			input:          []string{"hello", "world"},
 			expectedOutput: []string{"hello", "world"},
@@ -240,7 +245,7 @@ func TestCleanStrings(t *testing.T) {
 		{
 			name:           "Mixed content",
 			input:          []string{`He"llo`, "Wor`ld", `Tes"t'`},
-			expectedOutput: []string{"Hello", "World", "Test'"},
+			expectedOutput: []string{"Hello", "World", "Test"},
 		},
 		{
 			name:           "Special characters and whitespace",

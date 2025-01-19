@@ -275,7 +275,7 @@ func convertType(value, targetType interface{}) (interface{}, error) {
 func cleanStrings(stringsToClean []string) []string {
 	cleaned := make([]string, len(stringsToClean))
 	for i, str := range stringsToClean {
-		cleaned[i] = strings.NewReplacer(`"`, "", "`", "").Replace(str)
+		cleaned[i] = strings.NewReplacer(`"`, "", "`", "", "'", "").Replace(str)
 	}
 	return cleaned
 }
