@@ -6,24 +6,31 @@ import (
 )
 
 func TestTrimQuotes(t *testing.T) {
-	// it's a bit tricky to test since trim quotes trims the quotest the value from env file
 	testCases := []struct {
-		input  string
-		output string
+		output     interface{}
+		input      string
+		wasTrimmed bool
 	}{
-		{input: "", output: ""},
-		{input: "test's value", output: "test's value"},
-		{input: "userNam2", output: "userNam2"},
+		{input: "", output: "", wasTrimmed: false},
+		{input: `"test's value"`, output: "test's value", wasTrimmed: true},
+		{input: `"userNam2"`, output: "userNam2", wasTrimmed: true},
+		{input: `22`, output: `22`, wasTrimmed: false},
+		{input: `"false"`, output: `false`, wasTrimmed: true},
+		{input: `199.289`, output: `199.289`, wasTrimmed: false},
+		{input: `"199.289"`, output: `199.289`, wasTrimmed: true},
 	}
 
 	for _, tc := range testCases {
-		resultStr := trimQuotes(tc.input)
+		resultStr, wasTrimmed := trimQuotes(tc.input)
 		if resultStr != tc.output {
 			t.Errorf(
 				"Expected output does not match the result: \n%v \nvs \n%v",
 				tc.output,
 				resultStr,
 			)
+		}
+		if tc.wasTrimmed != wasTrimmed {
+			t.Errorf("Expected wasTrimmed to be %t but got %t", tc.wasTrimmed, wasTrimmed)
 		}
 	}
 }

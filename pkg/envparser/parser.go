@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -21,7 +22,10 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 	if os.Getenv(utils.EnvKey) == "" {
 		err := os.Setenv(utils.EnvKey, utils.DefaultEnvVal)
 		if err != nil {
-			return fileCreationSkipped, fmt.Errorf("error setting environment variable: %v", err)
+			return fileCreationSkipped, utils.ColorError(
+				"error setting environment variable: %v",
+				err,
+			)
 		}
 	}
 	// get a list of env files and get their file name
@@ -44,12 +48,15 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
-			return fileCreationSkipped, fmt.Errorf("failed to read responses: %v", err)
+			return fileCreationSkipped, utils.ColorError("failed to read responses: %v", err)
 		}
 		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
 			err := CreateDefaultEnvs(&envFromFlag)
 			if err != nil {
-				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %v", err)
+				return fileCreationSkipped, utils.ColorError(
+					"failed to create environment file: %v",
+					err,
+				)
 			}
 		} else {
 			fileCreationSkipped = true
@@ -66,19 +73,20 @@ func setEnvironment(utility utils.Utilities, envFromFlag string) (bool, error) {
 	return fileCreationSkipped, nil
 }
 
-// Removes doube quotes " " or single quotes ' from env secrets
-func trimQuotes(str string) string {
+// trimQuotes Removes doube quotes " " or single quotes ' from env secrets
+// and returns true if the quotes were trimmed
+func trimQuotes(str string) (string, bool) {
 	if len(str) >= 2 {
 		if str[0] == str[len(str)-1] && (str[0] == '"' || str[0] == '\'') {
-			return str[1 : len(str)-1]
+			return str[1 : len(str)-1], true
 		}
 	}
-	return str
+	return str, false
 }
 
 // Given .env file path this func returns map of the key-value pair of the content
-func LoadEnvVars(filePath string) (map[string]string, error) {
-	hulakEnvironmentVariable := make(map[string]string)
+func LoadEnvVars(filePath string) (map[string]interface{}, error) {
+	hulakEnvironmentVariable := make(map[string]interface{})
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -88,30 +96,54 @@ func LoadEnvVars(filePath string) (map[string]string, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// skip empty line and comments
+		// Skip empty lines and comments
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// remove the empty lines
+		// Remove empty lines
 		splitStr := strings.Split(line, "\n")
 
-		// trim all empty spaces around the secret line and around =
-		var trimedStr string
+		// Trim spaces around the line and around "="
+		var trimmedStr string
 		for _, eachLine := range splitStr {
-			trimedStr = strings.Trim(eachLine, " ")
+			trimmedStr = strings.TrimSpace(eachLine)
 		}
-		// trim quotes around the =, and before and after the string
-		secret := strings.Split(trimedStr, "=")
+
+		// Parse key-value pairs
+		secret := strings.SplitN(trimmedStr, "=", 2)
 		if len(secret) < 2 {
-			// if there is no =
+			// If there is no "=" or invalid format, skip
 			continue
 		}
-		key := secret[0]
-		val := secret[1]
-		val = trimQuotes(val)
-		hulakEnvironmentVariable[key] = val
+		key := strings.TrimSpace(secret[0])
+		val := strings.TrimSpace(secret[1])
+		val, wasTrimmed := trimQuotes(val)
+
+		// Infer value type and assign to the map
+		hulakEnvironmentVariable[key] = inferType(val, wasTrimmed)
 	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return hulakEnvironmentVariable, nil
+}
+
+// Helper function to infer type of a value
+func inferType(val string, wasTrimmed bool) interface{} {
+	if !wasTrimmed {
+		if intValue, err := strconv.Atoi(val); err == nil {
+			return intValue
+		}
+		if floatValue, err := strconv.ParseFloat(val, 64); err == nil {
+			return floatValue
+		}
+		if boolValue, err := strconv.ParseBool(val); err == nil {
+			return boolValue
+		}
+	}
+	return val
 }
 
 /*
@@ -120,56 +152,71 @@ User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
-func GenerateSecretsMap(envFromFlag string) (map[string]string, error) {
+func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 	skipped, err := setEnvironment(utils.Utilities{}, envFromFlag)
 	if err != nil {
-		return nil, fmt.Errorf("error while setting environment: %v", err)
-	}
-	envVal, ok := os.LookupEnv(utils.EnvKey)
-	if !ok {
-		return nil, fmt.Errorf("error while looking up environment variable")
+		return nil, utils.ColorError("error while setting environment: %w", err)
 	}
 
-	// if the file creation was skipped, resort to default
+	// Retrieve the environment value
+	envVal, ok := os.LookupEnv(utils.EnvKey)
+	if !ok {
+		return nil, utils.ColorError("error while looking up environment variable")
+	}
+
 	if envVal == "" || skipped {
 		envVal = utils.DefaultEnvVal
 	}
 
-	// load global vars in a map
-	globalEnv := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix //"global.env"
-	globalPath, err := utils.CreateFilePath("env/" + globalEnv)
+	// Load global environment variables
+	globalMap, err := loadEnvFile(utils.DefaultEnvVal + utils.DefaultEnvFileSuffix)
 	if err != nil {
-		return nil, fmt.Errorf("error while creating %v: %v", globalEnv, err)
-	}
-	globalMap, err := LoadEnvVars(globalPath)
-	if err != nil {
-		return nil, fmt.Errorf("error while loading %v: %v", globalPath, err)
+		return nil, err
 	}
 
-	// initialize customMap as a copy of globalMap
-	customMap := make(map[string]string)
-	for k, v := range globalMap {
-		customMap[k] = v
-	}
+	// copy instead of calling the function twice
+	customMap := utils.CopyEnvMap(globalMap)
 
-	// load custom vars in a map if necessary
+	// Load and merge custom environment variables if applicable
 	envFileName := envVal + utils.DefaultEnvFileSuffix
-	if globalPath != envFileName {
-		completeFilePath, err := utils.CreateFilePath("env/" + envFileName)
+	if globalFilePath := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix; globalFilePath != envFileName {
+		customMap, err = mergeCustomEnvVars(customMap, envFileName)
 		if err != nil {
-			return nil, fmt.Errorf("error while creating %v: %v", envFileName, err)
-		}
-
-		loadedCustomMap, err := LoadEnvVars(completeFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("error while loading %v: %v", completeFilePath, err)
-		}
-
-		// overwrite values in customMap with those from loadedCustomMap
-		for k, v := range loadedCustomMap {
-			customMap[k] = v
+			return nil, err
 		}
 	}
 
 	return customMap, nil
+}
+
+// Helper to load environment variables from a file
+func loadEnvFile(fileName string) (map[string]interface{}, error) {
+	filePath, err := utils.CreateFilePath("env/" + fileName)
+	if err != nil {
+		return nil, utils.ColorError("error while creating file path for "+fileName, err)
+	}
+
+	envVars, err := LoadEnvVars(filePath)
+	if err != nil {
+		return nil, utils.ColorError("error while loading env vars from "+filePath, err)
+	}
+
+	return envVars, nil
+}
+
+// Helper to merge custom environment variables
+func mergeCustomEnvVars(
+	baseMap map[string]interface{},
+	customFileName string,
+) (map[string]interface{}, error) {
+	customVars, err := loadEnvFile(customFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range customVars {
+		baseMap[k] = v
+	}
+
+	return baseMap, nil
 }

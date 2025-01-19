@@ -1,5 +1,4 @@
 ---
-# should result in error 404 Not found
 method: Post
 url: "{{.baseUrl}}"
 urlparams:
@@ -12,3 +11,9 @@ body:
   formdata:
     user: "{{.userName}}"
     product: "{{.product}}"
+    myBool: false
+    other: null
+    myFloat: "{{getValueOf `data.height` `graphql`}}"
+    myAwesomeNumber: "{{.myAwesomeNumber}}"
+    # message: !!bool '{{getValueOf "data.runs" "graphql"}}'
+#   Need double quotes for the gotemplate function argument

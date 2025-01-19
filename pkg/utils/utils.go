@@ -58,13 +58,15 @@ func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} 
 	return loweredMap
 }
 
-// Copies the Environment map[string]string and returns a CopyEnvMap
-// EnvMap is a simple json without any nested properties.
-// Mostly used for go routines
-func CopyEnvMap(original map[string]string) map[string]string {
-	result := map[string]string{}
+// Copies the Environment map[string]interface{} and returns a map[string]string
+// EnvMap is a simple JSON without any nested properties.
+// Mostly used for goroutines.
+// Copies the Environment map[string]interface{} and returns a copy as map[string]interface{}.
+// EnvMap is a simple JSON without any nested properties.
+func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
 	for key, val := range original {
-		result[key] = val
+		result[key] = val // Direct copy
 	}
 	return result
 }

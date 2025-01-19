@@ -20,10 +20,28 @@ const (
 const (
 	UnResolvedVariable = "unresolved variable "
 	EmptyVariables     = "variable string can't be empty"
+	IndexOutOfBounds   = "array index out of bounds: "
+	KeyNotFound        = "key not found: "
 )
 
 // acceptable file patterns
 const (
 	YAML = ".yaml"
 	YML  = ".yml"
+)
+
+// response pattern for files saved
+const (
+	ResponseBase       = "_response"
+	ResponseFileSuffix = ".json"
+	ResponseFileName   = ResponseBase + ResponseFileSuffix
+)
+
+// JSON supported types
+const (
+	JSONString = "string"
+	JSONNumber = "number"
+	JSONInt    = "int"
+	JSONBool   = "bool"
+	JSONNull   = "null"
 )

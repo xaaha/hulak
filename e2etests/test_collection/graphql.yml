@@ -11,7 +11,7 @@ body:
         hello(person: { name: $name, age: $age })
       }
     variables:
-      name: "{{.userName}}"
+      name: "{{.userName}} of age {{.userAge}}"
       age: !!int "{{.userAge}}"
 # String , Int , Float , Boolean , and ID
 # support these types as well

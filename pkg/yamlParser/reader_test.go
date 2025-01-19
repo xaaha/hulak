@@ -19,7 +19,7 @@ func createTempYamlFile(content string) (string, error) {
 }
 
 func TestHandleYamlFile(t *testing.T) {
-	secretsMap := map[string]string{}
+	secretsMap := map[string]interface{}{}
 	tests := []struct {
 		name      string
 		content   string
@@ -63,7 +63,10 @@ KeyTwo: value2
 			if tc.expectErr {
 				// Simulate child process to test os.Exit behavior
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					checkYamlFile(filepath, secretsMap) // Call function that triggers os.Exit
+					_, _ = checkYamlFile(
+						filepath,
+						secretsMap,
+					) // Call function that triggers os.Exit
 					return
 				}
 				// handle the current subprocess
@@ -218,7 +221,7 @@ body:
 		},
 	}
 
-	secretsMap := map[string]string{
+	secretsMap := map[string]interface{}{
 		"sponsor": "mastercard, visa, google",
 		"field2":  "myRandomStringWith19382",
 	}
@@ -233,7 +236,7 @@ body:
 
 			if tc.expectErr {
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					ReadYamlForHttpRequest(filepath, secretsMap)
+					FinalJsonForHttpRequest(filepath, secretsMap)
 					return
 				}
 
@@ -246,7 +249,7 @@ body:
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				result := ReadYamlForHttpRequest(filepath, secretsMap)
+				result := FinalJsonForHttpRequest(filepath, secretsMap)
 				if result == "" {
 					t.Errorf("Expected result but got empty string for test %s", tc.name)
 				}

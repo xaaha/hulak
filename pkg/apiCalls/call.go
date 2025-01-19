@@ -86,9 +86,9 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-// TODO: write the customResponse.Body
-func SendAndSaveApiRequest(envMap map[string]string, path string) {
-	formDataJSONString := yamlParser.ReadYamlForHttpRequest(
+// TODO: Flag to disable and silence the std output and file save
+func SendAndSaveApiRequest(envMap map[string]interface{}, path string) {
+	formDataJSONString := yamlParser.FinalJsonForHttpRequest(
 		path,
 		envMap,
 	)
