@@ -120,7 +120,7 @@ func TestDelimiterLogic(t *testing.T) {
 func TestFindPathFromMap(t *testing.T) {
 	testCases := []struct {
 		beforeMap map[string]interface{}
-		expected  map[ActionType][]string
+		expected  Path
 	}{
 		{
 			beforeMap: map[string]interface{}{
@@ -130,21 +130,28 @@ func TestFindPathFromMap(t *testing.T) {
 				"person": map[string]interface{}{
 					"name":   "Jane Doe",
 					"age":    "{{.Age}}",
-					"height": "{{getValueOf 'key1', 'path2'}}",
+					"height": "{{getValueOf 'key1' 'path2'}}",
 				},
 				"users": []map[string]interface{}{
 					{
 						"person": map[string]interface{}{
 							"name":   "Jane Doe",
 							"age":    "{{.Age}}",
-							"height": "{{getValueOf 'key2', 'path1'}}",
+							"height": "{{getValueOf 'key2' 'path1'}}",
 						},
 					},
 				},
 			},
-			expected: map[ActionType][]string{
-				DotString:  {"miles", "person -> age", "users[0] -> person -> age"},
-				GetValueOf: {"person -> height", "users[0] -> person -> height"},
+			expected: Path{
+				DotStrings: []string{
+					"miles",
+					"person -> age",
+					"users[0] -> person -> age",
+				},
+				GetValueOfs: []EachGetValueofAction{
+					{Path: "person -> height", KeyName: "key1", FileName: "path2"},
+					{Path: "users[0] -> person -> height", KeyName: "key2", FileName: "path1"},
+				},
 			},
 		},
 		{
@@ -155,58 +162,42 @@ func TestFindPathFromMap(t *testing.T) {
 				"person": map[string]interface{}{
 					"name":   "{{.jane}}",
 					"age":    "{{.Age}}",
-					"height": "{{getValueOf 'key1', 'path2'}}",
+					"height": "{{getValueOf 'key1' 'path2'}}",
 				},
 				"users": []map[string]interface{}{
+					{},
 					{
 						"person": map[string]interface{}{
 							"name":   "Jane Doe",
 							"age":    "{{.Age}}",
-							"height": "{{getValueOf 'key2', 'path1'}}",
+							"height": "{{getValueOf 'key2' 'path1'}}",
 						},
 					},
 				},
 			},
-			expected: map[ActionType][]string{
-				DotString:  {"person -> name", "person -> age", "users[0] -> person -> age"},
-				GetValueOf: {"person -> height", "users[0] -> person -> height"},
-			},
-		},
-		{
-			beforeMap: map[string]interface{}{
-				"foo":   "bar",
-				"miles": "{{.get}}",
-				"age":   "28",
-				"person": map[string]interface{}{
-					"name":   "{{.jane}}",
-					"age":    "{{.Age}}",
-					"height": "{{getValueOf 'key1', 'path2'}}",
-				},
-				"users": []map[string]interface{}{
-					{
-						"person": map[string]interface{}{
-							"name":   "Jane Doe",
-							"age":    "{{.Age}}",
-							"height": "{{getValueOf 'key2', 'path1'}}",
-						},
-					},
-				},
-			},
-			expected: map[ActionType][]string{
-				DotString: {
-					"miles",
+			expected: Path{
+				DotStrings: []string{
 					"person -> name",
 					"person -> age",
-					"users[0] -> person -> age",
+					"users[1] -> person -> age",
 				},
-				GetValueOf: {"person -> height", "users[0] -> person -> height"},
+				GetValueOfs: []EachGetValueofAction{
+					{Path: "person -> height", KeyName: "key1", FileName: "path2"},
+					{Path: "users[1] -> person -> height", KeyName: "key2", FileName: "path1"},
+				},
 			},
 		},
 	}
+
 	for _, tc := range testCases {
 		result := findPathFromMap(tc.beforeMap, "")
-		if !compareMaps(tc.expected, result) {
-			t.Errorf("FindPathFromMap error: expected %v got %v", tc.expected, result)
+		if !comparePaths(tc.expected, result) {
+			// printable1, _ := utils.MarshalToJSON(result)
+			// printable2, _ := utils.MarshalToJSON(tc.expected)
+			// fmt.Println("Result 💨", printable1)
+			// fmt.Println("Expected 💨", printable2)
+
+			t.Errorf("FindPathFromMap error: \nexpected \n%+v, \ngot \n%+v", tc.expected, result)
 		}
 	}
 }
@@ -452,39 +443,86 @@ func equal(a, b []string) bool {
 	return true
 }
 
-func compareMaps(expected, actual map[ActionType][]string) bool {
+// Helper function for FindPathFromMap
+func comparePaths(expected, actual Path) bool {
+	// If the slices have different lengths, they cannot be equal
+	if len(expected.DotStrings) != len(actual.DotStrings) ||
+		len(expected.GetValueOfs) != len(actual.GetValueOfs) {
+		return false
+	}
+
+	// Compare DotStrings slices without considering the order
+	if !compareUnorderedStringSlices(expected.DotStrings, actual.DotStrings) {
+		return false
+	}
+
+	// Compare GetValueOfs slices without considering the order
+	if !compareUnorderedGetValueOfs(expected.GetValueOfs, actual.GetValueOfs) {
+		return false
+	}
+
+	return true
+}
+
+func compareUnorderedStringSlices(expected, actual []string) bool {
+	// If the slices have different lengths, they cannot be equal
 	if len(expected) != len(actual) {
 		return false
 	}
-	for key, expectedValues := range expected {
-		actualValues, exists := actual[key]
-		if !exists {
-			return false
-		}
-		if !compareStringSlices(expectedValues, actualValues) {
+
+	// Create maps to count occurrences of each string
+	expectedCounts := make(map[string]int)
+	actualCounts := make(map[string]int)
+
+	// Count occurrences in the expected slice
+	for _, v := range expected {
+		expectedCounts[v]++
+	}
+
+	// Count occurrences in the actual slice
+	for _, v := range actual {
+		actualCounts[v]++
+	}
+
+	// Compare the counts
+	for key, count := range expectedCounts {
+		if actualCounts[key] != count {
 			return false
 		}
 	}
 	return true
 }
 
-func compareStringSlices(a, b []string) bool {
-	if len(a) != len(b) {
+func compareUnorderedGetValueOfs(expected, actual []EachGetValueofAction) bool {
+	// If the slices have different lengths, they cannot be equal
+	if len(expected) != len(actual) {
 		return false
 	}
-	aMap := make(map[string]int)
-	bMap := make(map[string]int)
 
-	for _, val := range a {
-		aMap[val]++
+	// Create maps to count occurrences of each struct
+	expectedCounts := make(map[string]int)
+	actualCounts := make(map[string]int)
+
+	// Count occurrences in the expected slice
+	for _, v := range expected {
+		// Create a unique key for the struct based on its fields
+		structKey := v.Path + v.KeyName + v.FileName
+		expectedCounts[structKey]++
 	}
-	for _, val := range b {
-		bMap[val]++
+
+	// Count occurrences in the actual slice
+	for _, v := range actual {
+		// Create a unique key for the struct based on its fields
+		structKey := v.Path + v.KeyName + v.FileName
+		actualCounts[structKey]++
 	}
-	for key, count := range aMap {
-		if bMap[key] != count {
+
+	// Compare the counts
+	for key, count := range expectedCounts {
+		if actualCounts[key] != count {
 			return false
 		}
 	}
+
 	return true
 }

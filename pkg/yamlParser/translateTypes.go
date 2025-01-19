@@ -87,14 +87,26 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 	return Action{Type: Invalid}
 }
 
+type EachGetValueofAction struct {
+	Path     string
+	KeyName  string
+	FileName string
+}
+
+type Path struct {
+	DotStrings  []string
+	GetValueOfs []EachGetValueofAction
+}
+
 // Recurses through the raw map prior to actions, beforeMap,
 // and finds the key and it's path that needs type conversion.
 // The resulting map helps us determine exact location to replace the values in afterMap
 func findPathFromMap(
 	beforeMap map[string]interface{},
 	parentKey string,
-) map[ActionType][]string {
-	cmprt := make(map[ActionType][]string)
+) Path {
+	cmprt := Path{}
+
 	for bKey, bValue := range beforeMap {
 		currentKey := bKey
 		if parentKey != "" {
@@ -108,23 +120,29 @@ func findPathFromMap(
 				// but this could be a problem on large number of cases
 				switch action.Type {
 				case DotString:
-					cmprt[DotString] = append(cmprt[DotString], currentKey)
+					cmprt.DotStrings = append(cmprt.DotStrings, currentKey)
 				case GetValueOf:
-					cmprt[GetValueOf] = append(cmprt[GetValueOf], currentKey)
+					cmprt.GetValueOfs = append(cmprt.GetValueOfs, struct {
+						Path     string
+						KeyName  string
+						FileName string
+					}{
+						Path:     currentKey,
+						KeyName:  action.GetValueOf[1],
+						FileName: action.GetValueOf[2],
+					})
 				}
 			}
 		case map[string]interface{}:
 			subMap := findPathFromMap(bTypeVal, currentKey)
-			for key, values := range subMap {
-				cmprt[key] = append(cmprt[key], values...)
-			}
+			cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+			cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
 				subMap := findPathFromMap(val, arrayKey)
-				for key, values := range subMap {
-					cmprt[key] = append(cmprt[key], values...)
-				}
+				cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+				cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
 			}
 		default:
 			// No action needed for now. We should keep expanding cases above
