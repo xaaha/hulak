@@ -1,7 +1,6 @@
 package yamlParser
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -342,13 +341,18 @@ func TestParsePath(t *testing.T) {
 func TestTranslateType(t *testing.T) {
 	// Mock implementation of getValueOf function
 	getValueOfMock := func(key, fileName string) interface{} {
-		if key == "bar" {
-			return true
+		mockValues := map[string]interface{}{
+			"bar":         true,
+			"height":      300.2,
+			"isActive":    false,
+			"count":       42,
+			"temperature": 98.6,
+			"multiplier":  1.5,
+			"status":      "active",
+			"nullValue":   nil,
+			"emptyString": "",
 		}
-		if key == "height" {
-			return 300.2
-		}
-		return nil
+		return mockValues[key]
 	}
 	testCases := []struct {
 		name        string
@@ -357,8 +361,11 @@ func TestTranslateType(t *testing.T) {
 		secrets     map[string]interface{}
 		getValueOf  func(key string, fileName string) interface{}
 		modifiedMap map[string]interface{}
+		wantErr     bool
+		errMsg      string
 	}{
 		{
+			name: "Basic Type Conversion",
 			before: map[string]interface{}{
 				"foo":  "{{.foo}}",
 				"bar":  "{{getValueOf 'bar' '/'}}",
@@ -382,8 +389,11 @@ func TestTranslateType(t *testing.T) {
 				"baz":  "22.2292",
 				"name": "Jane",
 			},
+			wantErr: false,
+			errMsg:  "",
 		},
 		{
+			name: "One Nested Map",
 			before: map[string]interface{}{
 				"foo": "{{.foo}}",
 				"baz": "{{.baz}}",
@@ -414,26 +424,41 @@ func TestTranslateType(t *testing.T) {
 					"height": 300.2,
 				},
 			},
+			wantErr: false,
+			errMsg:  "",
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			resultMap, err := TranslateType(tt.before, tt.after, tt.secrets, tt.getValueOf)
+
+			// Error case handling
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf(
+						"TranslateType() expected error containing %q, got no error",
+						tt.errMsg,
+					)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("TranslateType() error = %v, want error containing %q", err, tt.errMsg)
+				}
+				return
+			}
+
+			// Success case handling
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(tt.modifiedMap, resultMap) {
 				mod, _ := utils.MarshalToJSON(tt.modifiedMap)
-				fmt.Println("Expected modifiedMap", mod)
-
 				res, _ := utils.MarshalToJSON(resultMap)
-				fmt.Println("Result Map", res)
-
 				t.Errorf(
-					"TranslateType error: \nExpected \n%v, \ngot \n%v",
-					tt.modifiedMap,
-					resultMap,
+					"TranslateType error:\nExpected:\n%s\nGot:\n%s",
+					mod,
+					res,
 				)
 			}
 		})
