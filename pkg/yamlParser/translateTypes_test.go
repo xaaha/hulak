@@ -340,12 +340,22 @@ func TestParsePath(t *testing.T) {
 }
 
 func TestTranslateType(t *testing.T) {
+	// Mock implementation of getValueOf function
+	getValueOfMock := func(key, fileName string) interface{} {
+		if key == "bar" {
+			return true
+		}
+		if key == "height" {
+			return 300.2
+		}
+		return nil
+	}
 	testCases := []struct {
 		name        string
 		before      map[string]interface{}
 		after       map[string]interface{}
 		secrets     map[string]interface{}
-		getValueOf  interface{}
+		getValueOf  func(key string, fileName string) interface{}
 		modifiedMap map[string]interface{}
 	}{
 		{
@@ -365,7 +375,7 @@ func TestTranslateType(t *testing.T) {
 				"foo": 22,
 				"baz": "22.2292",
 			},
-			getValueOf: true,
+			getValueOf: getValueOfMock,
 			modifiedMap: map[string]interface{}{
 				"foo":  22,
 				"bar":  true,
@@ -395,7 +405,7 @@ func TestTranslateType(t *testing.T) {
 				"baz": "22.2292",
 				"age": 39,
 			},
-			getValueOf: 300.2,
+			getValueOf: getValueOfMock,
 			modifiedMap: map[string]interface{}{
 				"foo": 22,
 				"baz": "22.2292",
