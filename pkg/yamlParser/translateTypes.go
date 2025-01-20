@@ -2,7 +2,6 @@ package yamlParser
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -159,8 +158,43 @@ func TranslateType(
 	beforeMap, afterMap, secretsMap map[string]interface{},
 	getValueOf func(key, fileName string) interface{},
 ) (map[string]interface{}, error) {
-	// Find the paths from beforeMap
 	pathMap := findPathFromMap(beforeMap, "")
+
+	// Helper function to get the current map from path
+	getMapFromPath := func(path []interface{}, baseMap map[string]interface{}) (map[string]interface{}, error) {
+		current := baseMap
+		var parent interface{} = nil
+
+		for i := 0; i < len(path)-1; i++ {
+			key := path[i]
+			switch typedKey := key.(type) {
+			case string:
+				if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
+					parent = current
+					current = nextMap
+				} else if arr, ok := current[typedKey].([]map[string]interface{}); ok {
+					parent = arr
+				} else if arr, ok := current[typedKey].([]interface{}); ok {
+					parent = arr
+				} else {
+					return nil, fmt.Errorf("invalid path: %v", path)
+				}
+			case int:
+				if parentArr, ok := parent.([]map[string]interface{}); ok && typedKey < len(parentArr) {
+					current = parentArr[typedKey]
+				} else if parentArr, ok := parent.([]interface{}); ok && typedKey < len(parentArr) {
+					if mapValue, ok := parentArr[typedKey].(map[string]interface{}); ok {
+						current = mapValue
+					} else {
+						return nil, fmt.Errorf("invalid array element: %v", path)
+					}
+				} else {
+					return nil, fmt.Errorf("invalid array access: %v", path)
+				}
+			}
+		}
+		return current, nil
+	}
 
 	// Process dot strings
 	for _, dotStringPath := range pathMap.DotStrings {
@@ -168,71 +202,30 @@ func TranslateType(
 		if err != nil {
 			return nil, err
 		}
-		current := afterMap
-		var parent interface{}
-		var lastKey interface{} // last item in the path array
-		for i, key := range path {
-			// Stop before the last key to prepare for value update
-			if i == len(path)-1 {
-				lastKey = key
-				break
-			}
 
-			switch typedKey := key.(type) {
-			case string:
-				// Navigate through maps
-				if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
-					parent = current
-					current = nextMap
-				} else if arr, ok := current[typedKey].([]interface{}); ok {
-					parent = arr
-					current = nil // Prepare for array index handling
-				} else {
-					// Key does not exist or is not a map/array, skip
-					current = nil
-				}
-			case int:
-				// Navigate through arrays
-				if parentArr, ok := parent.([]interface{}); ok {
-					if typedKey >= 0 && typedKey < len(parentArr) {
-						parent = current
-						current = parentArr[typedKey].(map[string]interface{})
-					} else {
-						current = nil // Index out of bounds
-					}
-				} else {
-					current = nil
-				}
-			default:
-				current = nil
-			}
-
-			if current == nil {
-				break
-			}
+		if len(path) == 0 {
+			continue
 		}
 
-		// If we successfully navigated to the last key, process the value
-		if current != nil {
-			if lastKeyStr, ok := lastKey.(string); ok {
-				compareVal, ok := secretsMap[lastKeyStr]
-				if !ok {
-					continue // Skip if the key does not exist in secretsMap
-				}
-				// Perform the type conversion if necessary
-				if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
-					convertedVal, err := convertType(current[lastKeyStr], compareVal)
-					if err == nil {
-						current[lastKeyStr] = convertedVal
-					} else {
-						// Try the other way around if the first conversion fails
-						convertedVal, err = convertType(compareVal, current[lastKeyStr])
-						if err == nil {
-							current[lastKeyStr] = convertedVal
-						} else {
-							return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
-						}
-					}
+		current, err := getMapFromPath(path, afterMap)
+		if err != nil {
+			return nil, err
+		}
+
+		lastKey := path[len(path)-1]
+		if lastKeyStr, ok := lastKey.(string); ok {
+			compareVal, exists := secretsMap[lastKeyStr]
+			if !exists {
+				continue
+			}
+
+			currentVal := current[lastKeyStr]
+			if strVal, ok := currentVal.(string); ok {
+				convertedVal, err := convertType(strVal, compareVal)
+				if err == nil {
+					current[lastKeyStr] = convertedVal
+				} else {
+					return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
 				}
 			}
 		}
@@ -240,79 +233,37 @@ func TranslateType(
 
 	// Process getValueOf actions
 	for _, getValueOfActionObj := range pathMap.GetValueOfs {
-		gvoPath := getValueOfActionObj.Path
-		gvoKey := getValueOfActionObj.KeyName
-		gvoFileName := getValueOfActionObj.FileName // Not used in this implementation
-
-		path, err := parsePath(gvoPath)
+		path, err := parsePath(getValueOfActionObj.Path)
 		if err != nil {
 			return nil, err
 		}
-		current := afterMap
-		var parent interface{}
-		var lastKey interface{} // last item in the path array
-		for i, key := range path {
-			// Stop before the last key to prepare for value update
-			if i == len(path)-1 {
-				lastKey = key
-				break
-			}
 
-			switch typedKey := key.(type) {
-			case string:
-				// Navigate through maps
-				if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
-					parent = current
-					current = nextMap
-				} else if arr, ok := current[typedKey].([]interface{}); ok {
-					parent = arr
-					current = nil // Prepare for array index handling
-				} else {
-					// Key does not exist or is not a map/array, skip
-					current = nil
-				}
-			case int:
-				// Navigate through arrays
-				if parentArr, ok := parent.([]interface{}); ok {
-					if typedKey >= 0 && typedKey < len(parentArr) {
-						parent = current
-						current = parentArr[typedKey].(map[string]interface{})
-					} else {
-						current = nil // Index out of bounds
-					}
-				} else {
-					current = nil
-				}
-			default:
-				current = nil
-			}
-
-			if current == nil {
-				break
-			}
+		if len(path) == 0 {
+			continue
 		}
 
-		// If we successfully navigated to the last key, process the value
-		if current != nil {
-			if lastKeyStr, ok := lastKey.(string); ok {
-				compareVal := getValueOf(gvoKey, gvoFileName)
-				if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
-					convertedVal, err := convertType(current[lastKeyStr], compareVal)
+		current, err := getMapFromPath(path, afterMap)
+		if err != nil {
+			return nil, err
+		}
+
+		lastKey := path[len(path)-1]
+		if lastKeyStr, ok := lastKey.(string); ok {
+			compareVal := getValueOf(getValueOfActionObj.KeyName, getValueOfActionObj.FileName)
+			if compareVal != nil {
+				currentVal := current[lastKeyStr]
+				if strVal, ok := currentVal.(string); ok {
+					convertedVal, err := convertType(strVal, compareVal)
 					if err == nil {
 						current[lastKeyStr] = convertedVal
 					} else {
-						// Try the other way around if the first conversion fails
-						convertedVal, err = convertType(compareVal, current[lastKeyStr])
-						if err == nil {
-							current[lastKeyStr] = convertedVal
-						} else {
-							return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
-						}
+						return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
 					}
 				}
 			}
 		}
 	}
+
 	return afterMap, nil
 }
 

@@ -427,6 +427,57 @@ func TestTranslateType(t *testing.T) {
 			wantErr: false,
 			errMsg:  "",
 		},
+		{
+			name: "Nested structure with arrays",
+			before: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []map[string]interface{}{
+						{
+							"id":       "{{.userId}}",
+							"isActive": "{{getValueOf 'isActive' '/'}}",
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": "{{.maxCount}}",
+						"enabled":  "{{.enabled}}",
+					},
+				},
+			},
+			after: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []map[string]interface{}{
+						{
+							"id":       "123",
+							"isActive": "false",
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": "100",
+						"enabled":  "1",
+					},
+				},
+			},
+			modifiedMap: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []map[string]interface{}{
+						{
+							"id":       123,
+							"isActive": false,
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": 100,
+						"enabled":  true,
+					},
+				},
+			},
+			secrets: map[string]interface{}{
+				"userId":   123,
+				"maxCount": 100,
+				"enabled":  true,
+			},
+			getValueOf: getValueOfMock,
+		},
 	}
 
 	for _, tt := range testCases {
