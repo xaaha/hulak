@@ -338,6 +338,227 @@ func TestParsePath(t *testing.T) {
 	}
 }
 
+/**
+testCases := []struct {
+        name        string
+        before      map[string]interface{}
+        after       map[string]interface{}
+        secrets     map[string]interface{}
+        getValueOf  func(key string, fileName string) interface{}
+        modifiedMap map[string]interface{}
+        wantErr     bool
+        errMsg      string
+    }{
+        {
+            name: "Basic type conversions",
+            before: map[string]interface{}{
+                "foo":  "{{.foo}}",
+                "bar":  "{{getValueOf 'bar' '/'}}",
+                "baz":  "{{.baz}}",
+                "name": "Jane",
+            },
+            after: map[string]interface{}{
+                "foo":  "22",
+                "bar":  "true",
+                "baz":  "22.2292",
+                "name": "Jane",
+            },
+            secrets: map[string]interface{}{
+                "foo": 22,
+                "baz": "22.2292",
+            },
+            getValueOf: getValueOfMock,
+            modifiedMap: map[string]interface{}{
+                "foo":  22,
+                "bar":  true,
+                "baz":  "22.2292",
+                "name": "Jane",
+            },
+        },
+        {
+            name: "Nested structures with arrays",
+            before: map[string]interface{}{
+                "settings": map[string]interface{}{
+                    "users": []map[string]interface{}{
+                        {
+                            "id":       "{{.userId}}",
+                            "isActive": "{{getValueOf 'isActive' '/'}}",
+                        },
+                    },
+                    "config": map[string]interface{}{
+                        "maxCount": "{{.maxCount}}",
+                        "enabled":  "{{.enabled}}",
+                    },
+                },
+            },
+            after: map[string]interface{}{
+                "settings": map[string]interface{}{
+                    "users": []map[string]interface{}{
+                        {
+                            "id":       "123",
+                            "isActive": "false",
+                        },
+                    },
+                    "config": map[string]interface{}{
+                        "maxCount": "100",
+                        "enabled":  "1",
+                    },
+                },
+            },
+            secrets: map[string]interface{}{
+                "userId":   123,
+                "maxCount": 100,
+                "enabled":  true,
+            },
+            getValueOf: getValueOfMock,
+            modifiedMap: map[string]interface{}{
+                "settings": map[string]interface{}{
+                    "users": []map[string]interface{}{
+                        {
+                            "id":       123,
+                            "isActive": false,
+                        },
+                    },
+                    "config": map[string]interface{}{
+                        "maxCount": 100,
+                        "enabled":  true,
+                    },
+                },
+            },
+        },
+        {
+            name: "Multiple type conversions",
+            before: map[string]interface{}{
+                "metrics": map[string]interface{}{
+                    "count":       "{{getValueOf 'count' '/'}}",
+                    "temperature": "{{getValueOf 'temperature' '/'}}",
+                    "multiplier":  "{{getValueOf 'multiplier' '/'}}",
+                    "status":      "{{getValueOf 'status' '/'}}",
+                },
+            },
+            after: map[string]interface{}{
+                "metrics": map[string]interface{}{
+                    "count":       "42",
+                    "temperature": "98.6",
+                    "multiplier":  "1.5",
+                    "status":      "active",
+                },
+            },
+            secrets:    map[string]interface{}{},
+            getValueOf: getValueOfMock,
+            modifiedMap: map[string]interface{}{
+                "metrics": map[string]interface{}{
+                    "count":       42,
+                    "temperature": 98.6,
+                    "multiplier":  1.5,
+                    "status":      "active",
+                },
+            },
+        },
+        {
+            name: "Empty and null values",
+            before: map[string]interface{}{
+                "empty":    "{{getValueOf 'emptyString' '/'}}",
+                "nullVal":  "{{getValueOf 'nullValue' '/'}}",
+                "missing":  "{{.missingKey}}",
+                "preserve": "",
+            },
+            after: map[string]interface{}{
+                "empty":    "",
+                "nullVal":  "null",
+                "missing":  "",
+                "preserve": "",
+            },
+            secrets: map[string]interface{}{
+                "missingKey": nil,
+            },
+            getValueOf: getValueOfMock,
+            modifiedMap: map[string]interface{}{
+                "empty":    "",
+                "nullVal":  nil,
+                "missing":  nil,
+                "preserve": "",
+            },
+        },
+        {
+            name: "Complex nested structure with multiple type conversions",
+            before: map[string]interface{}{
+                "data": map[string]interface{}{
+                    "numbers": []map[string]interface{}{
+                        {
+                            "int":    "{{.intValue}}",
+                            "float":  "{{.floatValue}}",
+                            "string": "{{.stringValue}}",
+                        },
+                        {
+                            "bool":   "{{.boolValue}}",
+                            "nested": map[string]interface{}{
+                                "deep": "{{.deepValue}}",
+                            },
+                        },
+                    },
+                },
+            },
+            after: map[string]interface{}{
+                "data": map[string]interface{}{
+                    "numbers": []map[string]interface{}{
+                        {
+                            "int":    "42",
+                            "float":  "3.14",
+                            "string": "hello",
+                        },
+                        {
+                            "bool": "true",
+                            "nested": map[string]interface{}{
+                                "deep": "99.9",
+                            },
+                        },
+                    },
+                },
+            },
+            secrets: map[string]interface{}{
+                "intValue":    42,
+                "floatValue":  3.14,
+                "stringValue": "hello",
+                "boolValue":   true,
+                "deepValue":   99.9,
+            },
+            modifiedMap: map[string]interface{}{
+                "data": map[string]interface{}{
+                    "numbers": []map[string]interface{}{
+                        {
+                            "int":    42,
+                            "float":  3.14,
+                            "string": "hello",
+                        },
+                        {
+                            "bool": true,
+                            "nested": map[string]interface{}{
+                                "deep": 99.9,
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        {
+            name: "Error case - Invalid type conversion",
+            before: map[string]interface{}{
+                "invalid": "{{.invalidValue}}",
+            },
+            after: map[string]interface{}{
+                "invalid": "not-a-number",
+            },
+            secrets: map[string]interface{}{
+                "invalidValue": map[string]string{"foo": "bar"}, // Cannot convert map to string
+            },
+            wantErr: true,
+            errMsg:  "error converting type",
+        },
+    }
+
+*/
+
 func TestTranslateType(t *testing.T) {
 	// Mock implementation of getValueOf function
 	getValueOfMock := func(key, fileName string) interface{} {
