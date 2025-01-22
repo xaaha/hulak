@@ -152,6 +152,28 @@ func findPathFromMap(
 	return cmprt
 }
 
+// Using the path provided, it grabs the value from afterMap
+func retriveValueFromAfterMap(path []interface{}, afterMap map[string]interface{}) interface{} {
+	var current interface{} = afterMap
+	for _, value := range path {
+		switch val := value.(type) {
+		case string:
+			// If current is a map, get the value for the string key
+			if currentMap, ok := current.(map[string]interface{}); ok {
+				current = currentMap[val]
+			}
+		case int:
+			// If current is a slice, get the value at the index
+			if currentSlice, ok := current.([]map[string]interface{}); ok {
+				if val < len(currentSlice) {
+					current = currentSlice[val]
+				}
+			}
+		}
+	}
+	return current
+}
+
 // TranslateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func TranslateType(

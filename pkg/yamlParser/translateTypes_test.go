@@ -559,6 +559,157 @@ testCases := []struct {
 
 */
 
+func getTestData() map[string]interface{} {
+	return map[string]interface{}{
+		"foo":   "bar",
+		"miles": "26.2",
+		"age":   "30",
+		"user": map[string]interface{}{
+			"age":      "33",
+			"name":     "test user",
+			"verified": true,
+			"created": map[string]interface{}{
+				"date": "2025-01-21",
+			},
+		},
+		"person": []map[string]interface{}{
+			{
+				"name": "Jane Doe",
+				"age":  "50",
+				"contact": map[string]interface{}{
+					"email": "jane@example.com",
+				},
+			},
+			{
+				"name": "John Doe",
+				"age":  "45",
+			},
+		},
+		"empty_array": []map[string]interface{}{},
+		"numbers": []map[string]interface{}{
+			{
+				"value": 42,
+			},
+		},
+	}
+}
+
+func TestRetriveValueFromAfterMap(t *testing.T) {
+	// Test cases structure
+	tests := []struct {
+		name     string
+		path     []interface{}
+		expected interface{}
+	}{
+		{
+			name:     "Simple root level string value",
+			path:     []interface{}{"foo"},
+			expected: "bar",
+		},
+		{
+			name:     "Simple root level numeric string value",
+			path:     []interface{}{"age"},
+			expected: "30",
+		},
+		{
+			name:     "Nested map value",
+			path:     []interface{}{"user", "age"},
+			expected: "33",
+		},
+		{
+			name:     "Deeply nested map value",
+			path:     []interface{}{"user", "created", "date"},
+			expected: "2025-01-21",
+		},
+		{
+			name:     "Array access with nested map",
+			path:     []interface{}{"person", 0, "age"},
+			expected: "50",
+		},
+		{
+			name:     "Array access with deeply nested map",
+			path:     []interface{}{"person", 0, "contact", "email"},
+			expected: "jane@example.com",
+		},
+		{
+			name:     "Second array element",
+			path:     []interface{}{"person", 1, "name"},
+			expected: "John Doe",
+		},
+		{
+			name:     "Boolean value in nested map",
+			path:     []interface{}{"user", "verified"},
+			expected: true,
+		},
+		{
+			name:     "Numeric value in nested array",
+			path:     []interface{}{"numbers", 0, "value"},
+			expected: 42,
+		},
+	}
+
+	// Run all test cases
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := getTestData()
+			result := retriveValueFromAfterMap(tt.path, data)
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("getValueFromPath() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGetValueFromPath_EdgeCases tests edge cases and potential error scenarios
+func TestRetriveValueFromAfterMapEdgeCases(t *testing.T) {
+	data := getTestData()
+
+	// Edge case tests
+	t.Run("Empty path", func(t *testing.T) {
+		result := retriveValueFromAfterMap([]interface{}{}, data)
+		if !reflect.DeepEqual(result, data) {
+			t.Errorf("Empty path should return original data")
+		}
+	})
+
+	t.Run("Nil map", func(t *testing.T) {
+		result := retriveValueFromAfterMap([]interface{}{"foo"}, nil)
+		if result != nil {
+			t.Errorf("Nil map should return nil")
+		}
+	})
+
+	t.Run("Empty array access", func(t *testing.T) {
+		path := []interface{}{"empty_array", 0}
+		result := retriveValueFromAfterMap(path, data)
+		if result == nil {
+			t.Errorf("Accessing empty array should return nil")
+		}
+	})
+
+	// TestGetValueFromPath_TypeAssertions tests various type assertions
+	t.Run("Type assertions", func(t *testing.T) {
+		// Test string type
+		result := retriveValueFromAfterMap([]interface{}{"foo"}, data)
+		if _, ok := result.(string); !ok {
+			t.Errorf("Expected string type for 'foo'")
+		}
+
+		// Test boolean type
+		result = retriveValueFromAfterMap([]interface{}{"user", "verified"}, data)
+		if _, ok := result.(bool); !ok {
+			t.Errorf("Expected boolean type for user.verified")
+		}
+
+		// Test numeric type
+		result = retriveValueFromAfterMap([]interface{}{"numbers", 0, "value"}, data)
+		if _, ok := result.(int); !ok {
+			t.Errorf("Expected int type for numbers[0].value")
+		}
+	})
+}
+
 func TestTranslateType(t *testing.T) {
 	// Mock implementation of getValueOf function
 	getValueOfMock := func(key, fileName string) interface{} {
