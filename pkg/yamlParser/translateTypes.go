@@ -153,7 +153,11 @@ func findPathFromMap(
 }
 
 // Using the path provided, it grabs the value from afterMap
-func retriveValueFromAfterMap(path []interface{}, afterMap map[string]interface{}) interface{} {
+// only grabs string value, if it's not string, it throws an error
+func retrieveValueFromAfterMap(
+	path []interface{},
+	afterMap map[string]interface{},
+) (string, error) {
 	var current interface{} = afterMap
 	for _, value := range path {
 		switch val := value.(type) {
@@ -171,7 +175,10 @@ func retriveValueFromAfterMap(path []interface{}, afterMap map[string]interface{
 			}
 		}
 	}
-	return current
+	if finalValue, ok := current.(string); ok {
+		return finalValue, nil
+	}
+	return "", utils.ColorError("values retrieved from afterMap should only be string")
 }
 
 // TranslateType is the function that performs translation on the `afterMap`

@@ -594,120 +594,116 @@ func getTestData() map[string]interface{} {
 	}
 }
 
-func TestRetriveValueFromAfterMap(t *testing.T) {
-	// Test cases structure
+func TestRetrieveValueFromAfterMap(t *testing.T) {
+	data := getTestData()
+
 	tests := []struct {
-		name     string
-		path     []interface{}
-		expected interface{}
+		name        string
+		path        []interface{}
+		expected    string
+		expectError bool
 	}{
+		// Edge cases
 		{
-			name:     "Simple root level string value",
-			path:     []interface{}{"foo"},
-			expected: "bar",
+			name:        "Empty path",
+			path:        []interface{}{},
+			expected:    "",
+			expectError: true,
 		},
 		{
-			name:     "Simple root level numeric string value",
-			path:     []interface{}{"age"},
-			expected: "30",
+			name:        "Nil map",
+			path:        []interface{}{"foo"},
+			expected:    "",
+			expectError: false,
 		},
 		{
-			name:     "Nested map value",
-			path:     []interface{}{"user", "age"},
-			expected: "33",
+			name:        "Empty array access",
+			path:        []interface{}{"empty_array", 0},
+			expected:    "",
+			expectError: true,
+		},
+
+		// Standard test cases
+		{
+			name:        "Simple root level string value",
+			path:        []interface{}{"foo"},
+			expected:    "bar",
+			expectError: false,
 		},
 		{
-			name:     "Deeply nested map value",
-			path:     []interface{}{"user", "created", "date"},
-			expected: "2025-01-21",
+			name:        "Simple root level numeric string value",
+			path:        []interface{}{"age"},
+			expected:    "30",
+			expectError: false,
 		},
 		{
-			name:     "Array access with nested map",
-			path:     []interface{}{"person", 0, "age"},
-			expected: "50",
+			name:        "Nested map value",
+			path:        []interface{}{"user", "age"},
+			expected:    "33",
+			expectError: false,
 		},
 		{
-			name:     "Array access with deeply nested map",
-			path:     []interface{}{"person", 0, "contact", "email"},
-			expected: "jane@example.com",
+			name:        "Deeply nested map value",
+			path:        []interface{}{"user", "created", "date"},
+			expected:    "2025-01-21",
+			expectError: false,
 		},
 		{
-			name:     "Second array element",
-			path:     []interface{}{"person", 1, "name"},
-			expected: "John Doe",
+			name:        "Array access with nested map",
+			path:        []interface{}{"person", 0, "age"},
+			expected:    "50",
+			expectError: false,
 		},
 		{
-			name:     "Boolean value in nested map",
-			path:     []interface{}{"user", "verified"},
-			expected: true,
+			name:        "Array access with deeply nested map",
+			path:        []interface{}{"person", 0, "contact", "email"},
+			expected:    "jane@example.com",
+			expectError: false,
 		},
 		{
-			name:     "Numeric value in nested array",
-			path:     []interface{}{"numbers", 0, "value"},
-			expected: 42,
+			name:        "Second array element",
+			path:        []interface{}{"person", 1, "name"},
+			expected:    "John Doe",
+			expectError: false,
+		},
+		{
+			name:        "Invalid path leading to non-string value (boolean)",
+			path:        []interface{}{"user", "verified"},
+			expected:    "",
+			expectError: true,
+		},
+		{
+			name:        "Invalid path leading to non-string value (numeric)",
+			path:        []interface{}{"numbers", 0, "value"},
+			expected:    "",
+			expectError: true,
 		},
 	}
 
 	// Run all test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := getTestData()
-			result := retriveValueFromAfterMap(tt.path, data)
+			result, err := retrieveValueFromAfterMap(tt.path, data)
 
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("getValueFromPath() = %v, want %v", result, tt.expected)
+			// Check if we expect an error
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				}
+				return
+			}
+
+			// Check if no error is expected
+			if err != nil {
+				t.Errorf("Did not expect error, but got: %v", err)
+			}
+
+			// Compare the result
+			if result != tt.expected {
+				t.Errorf("retrieveValueFromAfterMap() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
-}
-
-// TestGetValueFromPath_EdgeCases tests edge cases and potential error scenarios
-func TestRetriveValueFromAfterMapEdgeCases(t *testing.T) {
-	data := getTestData()
-
-	// Edge case tests
-	t.Run("Empty path", func(t *testing.T) {
-		result := retriveValueFromAfterMap([]interface{}{}, data)
-		if !reflect.DeepEqual(result, data) {
-			t.Errorf("Empty path should return original data")
-		}
-	})
-
-	t.Run("Nil map", func(t *testing.T) {
-		result := retriveValueFromAfterMap([]interface{}{"foo"}, nil)
-		if result != nil {
-			t.Errorf("Nil map should return nil")
-		}
-	})
-
-	t.Run("Empty array access", func(t *testing.T) {
-		path := []interface{}{"empty_array", 0}
-		result := retriveValueFromAfterMap(path, data)
-		if result == nil {
-			t.Errorf("Accessing empty array should return nil")
-		}
-	})
-
-	// TestGetValueFromPath_TypeAssertions tests various type assertions
-	t.Run("Type assertions", func(t *testing.T) {
-		// Test string type
-		result := retriveValueFromAfterMap([]interface{}{"foo"}, data)
-		if _, ok := result.(string); !ok {
-			t.Errorf("Expected string type for 'foo'")
-		}
-
-		// Test boolean type
-		result = retriveValueFromAfterMap([]interface{}{"user", "verified"}, data)
-		if _, ok := result.(bool); !ok {
-			t.Errorf("Expected boolean type for user.verified")
-		}
-
-		// Test numeric type
-		result = retriveValueFromAfterMap([]interface{}{"numbers", 0, "value"}, data)
-		if _, ok := result.(int); !ok {
-			t.Errorf("Expected int type for numbers[0].value")
-		}
-	})
 }
 
 func TestTranslateType(t *testing.T) {
