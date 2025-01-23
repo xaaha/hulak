@@ -181,6 +181,16 @@ func retrieveValueFromAfterMap(
 	return "", utils.ColorError("values retrieved from afterMap should only be string")
 }
 
+// SwapValue swaps val1 with val2 if the string representation of val2 is equal to val1;
+// otherwise, it returns val1.
+func SwapValue(val1 string, val2 interface{}) interface{} {
+	str := fmt.Sprintf("%v", val2)
+	if val1 == str {
+		return val2
+	}
+	return val1
+}
+
 // TranslateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func TranslateType(
