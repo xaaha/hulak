@@ -181,7 +181,7 @@ func retrieveValueFromAfterMap(
 	return "", utils.ColorError("values retrieved from afterMap should only be string")
 }
 
-// SwapValue swaps val1 with val2 if the string representation of val2 is equal to val1;
+// Swaps val1 with val2 if the string representation of val2 is equal to val1;
 // otherwise, it returns val1.
 func SwapValue(val1 string, val2 interface{}) interface{} {
 	str := fmt.Sprintf("%v", val2)
@@ -189,6 +189,42 @@ func SwapValue(val1 string, val2 interface{}) interface{} {
 		return val2
 	}
 	return val1
+}
+
+// since path gurantees that last item exists on map,
+// SetValueOnAfterMap walks the path and replaces the value
+// at the last index
+func SetValueOnAfterMap(
+	path []interface{},
+	afterMap map[string]interface{},
+	replaceWith interface{},
+) map[string]interface{} {
+	var current interface{} = afterMap
+
+	for i, value := range path {
+		switch val := value.(type) {
+		case string:
+			// If this is the last element in the path, set the value
+			if i == len(path)-1 {
+				currentMap := current.(map[string]interface{})
+				currentMap[val] = replaceWith
+			} else {
+				// Traverse deeper into the map
+				current = current.(map[string]interface{})[val]
+			}
+		case int:
+			// If this is the last element in the path, set the value
+			if i == len(path)-1 {
+				currentSlice := current.([]interface{})
+				currentSlice[val] = replaceWith
+			} else {
+				// Traverse deeper into the slice
+				current = current.([]interface{})[val]
+			}
+		}
+	}
+
+	return afterMap
 }
 
 // TranslateType is the function that performs translation on the `afterMap`
