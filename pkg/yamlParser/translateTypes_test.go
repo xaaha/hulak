@@ -930,8 +930,8 @@ func TestTranslateType(t *testing.T) {
 			name: "Nested structure with arrays",
 			before: map[string]interface{}{
 				"settings": map[string]interface{}{
-					"users": []map[string]interface{}{
-						{
+					"users": []interface{}{
+						map[string]interface{}{
 							"id":       "{{.userId}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
@@ -944,22 +944,22 @@ func TestTranslateType(t *testing.T) {
 			},
 			after: map[string]interface{}{
 				"settings": map[string]interface{}{
-					"users": []map[string]interface{}{
-						{
+					"users": []interface{}{
+						map[string]interface{}{
 							"id":       "123",
 							"isActive": "false",
 						},
 					},
 					"config": map[string]interface{}{
 						"maxCount": "100",
-						"enabled":  "1",
+						"enabled":  "true",
 					},
 				},
 			},
 			modifiedMap: map[string]interface{}{
 				"settings": map[string]interface{}{
-					"users": []map[string]interface{}{
-						{
+					"users": []interface{}{
+						map[string]interface{}{
 							"id":       123,
 							"isActive": false,
 						},
@@ -981,7 +981,7 @@ func TestTranslateType(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			resultMap, err := TranslateType(tt.before, tt.after, tt.secrets, tt.getValueOf)
+			resultMap, err := translateType(tt.before, tt.after, tt.secrets, tt.getValueOf)
 
 			// Error case handling
 			if tt.wantErr {

@@ -3,7 +3,6 @@ package yamlParser
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -181,16 +180,6 @@ func retrieveValueFromAfterMap(
 	return "", utils.ColorError("values retrieved from afterMap should only be string")
 }
 
-// Swaps val1 with val2 if the string representation of val2 is equal to val1;
-// otherwise, it returns val1.
-func swapValue(val1 string, val2 interface{}) interface{} {
-	str := fmt.Sprintf("%v", val2)
-	if val1 == str {
-		return val2
-	}
-	return val1
-}
-
 // since path gurantees that last item exists on map,
 // setValueOnAfterMap walks the path and replaces the value at the last index
 func setValueOnAfterMap(
@@ -232,82 +221,31 @@ func setValueOnAfterMap(
 	return afterMap
 }
 
-// TranslateType is the function that performs translation on the `afterMap`
+// translateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
-func TranslateType(
+func translateType(
 	beforeMap, afterMap, secretsMap map[string]interface{},
 	getValueOf func(key, fileName string) interface{},
 ) (map[string]interface{}, error) {
 	pathMap := findPathFromMap(beforeMap, "")
 
-	// Helper function to get the current map from path
-	getMapFromPath := func(path []interface{}, baseMap map[string]interface{}) (map[string]interface{}, error) {
-		current := baseMap
-		var parent interface{} = nil
-
-		for i := 0; i < len(path)-1; i++ {
-			key := path[i]
-			switch typedKey := key.(type) {
-			case string:
-				if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
-					parent = current
-					current = nextMap
-				} else if arr, ok := current[typedKey].([]map[string]interface{}); ok {
-					parent = arr
-				} else if arr, ok := current[typedKey].([]interface{}); ok {
-					parent = arr
-				} else {
-					return nil, fmt.Errorf("invalid path: %v", path)
-				}
-			case int:
-				if parentArr, ok := parent.([]map[string]interface{}); ok && typedKey < len(parentArr) {
-					current = parentArr[typedKey]
-				} else if parentArr, ok := parent.([]interface{}); ok && typedKey < len(parentArr) {
-					if mapValue, ok := parentArr[typedKey].(map[string]interface{}); ok {
-						current = mapValue
-					} else {
-						return nil, fmt.Errorf("invalid array element: %v", path)
-					}
-				} else {
-					return nil, fmt.Errorf("invalid array access: %v", path)
-				}
-			}
-		}
-		return current, nil
-	}
-
 	// Process dot strings
 	for _, dotStringPath := range pathMap.DotStrings {
 		path, err := parsePath(dotStringPath)
 		if err != nil {
-			return nil, err
+			return nil, utils.ColorError("#TranslateType ", err)
 		}
-
 		if len(path) == 0 {
 			continue
 		}
 
-		current, err := getMapFromPath(path, afterMap)
-		if err != nil {
-			return nil, err
-		}
-
 		lastKey := path[len(path)-1]
 		if lastKeyStr, ok := lastKey.(string); ok {
-			compareVal, exists := secretsMap[lastKeyStr]
+			secretVal, exists := secretsMap[lastKeyStr]
 			if !exists {
 				continue
 			}
-
-			currentVal := current[lastKeyStr]
-			if strVal, ok := currentVal.(string); ok {
-				convertedVal, err := convertType(strVal, compareVal)
-				if err == nil {
-					current[lastKeyStr] = convertedVal
-				} else {
-					return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
-				}
-			}
+			afterMap = setValueOnAfterMap(path, afterMap, secretVal)
 		}
 	}
 
@@ -315,88 +253,27 @@ func TranslateType(
 	for _, getValueOfActionObj := range pathMap.GetValueOfs {
 		path, err := parsePath(getValueOfActionObj.Path)
 		if err != nil {
-			return nil, err
+			return nil, utils.ColorError("#TranslateType ", err)
 		}
 
 		if len(path) == 0 {
 			continue
 		}
-
-		current, err := getMapFromPath(path, afterMap)
-		if err != nil {
-			return nil, err
-		}
-
-		lastKey := path[len(path)-1]
-		if lastKeyStr, ok := lastKey.(string); ok {
-			compareVal := getValueOf(getValueOfActionObj.KeyName, getValueOfActionObj.FileName)
-			if compareVal != nil {
-				currentVal := current[lastKeyStr]
-				if strVal, ok := currentVal.(string); ok {
-					convertedVal, err := convertType(strVal, compareVal)
-					if err == nil {
-						current[lastKeyStr] = convertedVal
-					} else {
-						return nil, fmt.Errorf("error converting type for key %s: %v", lastKeyStr, err)
-					}
-				}
-			}
-		}
+		compareVal := getValueOf(getValueOfActionObj.KeyName, getValueOfActionObj.FileName)
+		afterMap = setValueOnAfterMap(path, afterMap, compareVal)
 	}
 
 	return afterMap, nil
 }
 
-// dynamically finds type for other actions
-func convertType(value, targetType interface{}) (interface{}, error) {
-	switch targetType.(type) {
-	case int:
-		switch v := value.(type) {
-		case string:
-			return strconv.Atoi(v)
-		case float64:
-			return int(v), nil
-		case bool:
-			if v {
-				return 1, nil
-			}
-			return 0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert '%T' to int", value))
-		}
-	case string:
-		return fmt.Sprintf("%v", value), nil
-	case float64:
-		switch v := value.(type) {
-		case string:
-			return strconv.ParseFloat(v, 64)
-		case int:
-			return float64(v), nil
-		case bool:
-			if v {
-				return 1.0, nil
-			}
-			return 0.0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to float64", value))
-		}
-	case bool:
-		switch v := value.(type) {
-		case string:
-			// Handle "true" or "false" strings
-			return strconv.ParseBool(v)
-		case int:
-			// Non-zero values are true, zero is false
-			return v != 0, nil
-		case float64:
-			// Non-zero values are true, zero is false
-			return v != 0.0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to bool", value))
-		}
-	default:
-		return nil, utils.ColorError(fmt.Sprintf("unsupported target type %T", targetType))
+// Swaps val1 with val2 if the string representation of val2 is equal to val1;
+// otherwise, it returns val1.
+func swapValue(val1 string, val2 interface{}) interface{} {
+	str := fmt.Sprintf("%v", val2)
+	if val1 == str {
+		return val2
 	}
+	return val1
 }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
