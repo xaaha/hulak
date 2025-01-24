@@ -118,10 +118,12 @@ func TestDelimiterLogic(t *testing.T) {
 
 func TestFindPathFromMap(t *testing.T) {
 	testCases := []struct {
+		name      string
 		beforeMap map[string]interface{}
 		expected  Path
 	}{
 		{
+			name: "Basic nested map with array",
 			beforeMap: map[string]interface{}{
 				"foo":   "bar",
 				"miles": "{{.distance}}",
@@ -154,6 +156,7 @@ func TestFindPathFromMap(t *testing.T) {
 			},
 		},
 		{
+			name: "Map with empty array element",
 			beforeMap: map[string]interface{}{
 				"foo":   "bar",
 				"miles": "{{get}}",
@@ -186,18 +189,43 @@ func TestFindPathFromMap(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Complex nested structure with interface array",
+			beforeMap: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []interface{}{
+						map[string]interface{}{
+							"id":       "{{.userId}}",
+							"isActive": "{{getValueOf 'isActive' '/'}}",
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": "{{.maxCount}}",
+						"enabled":  "{{.enabled}}",
+					},
+				},
+			},
+			expected: Path{
+				DotStrings: []string{
+					"settings -> users[0] -> id",
+					"settings -> config -> maxCount",
+					"settings -> config -> enabled",
+				},
+				GetValueOfs: []EachGetValueofAction{
+					{Path: "settings -> users[0] -> isActive", KeyName: "isActive", FileName: "/"},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
-		result := findPathFromMap(tc.beforeMap, "")
-		if !comparePaths(tc.expected, result) {
-			// printable1, _ := utils.MarshalToJSON(result)
-			// printable2, _ := utils.MarshalToJSON(tc.expected)
-			// fmt.Println("Result 💨", printable1)
-			// fmt.Println("Expected 💨", printable2)
-
-			t.Errorf("FindPathFromMap error: \nexpected \n%+v, \ngot \n%+v", tc.expected, result)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			result := findPathFromMap(tc.beforeMap, "")
+			if !comparePaths(tc.expected, result) {
+				t.Errorf("\nTest case: %s\nFindPathFromMap error: \nexpected \n%+v, \ngot \n%+v",
+					tc.name, tc.expected, result)
+			}
+		})
 	}
 }
 
@@ -558,41 +586,6 @@ testCases := []struct {
     }
 
 */
-
-func getTestData() map[string]interface{} {
-	return map[string]interface{}{
-		"foo":   "bar",
-		"miles": "26.2",
-		"age":   "30",
-		"user": map[string]interface{}{
-			"age":      "33",
-			"name":     "test user",
-			"verified": true,
-			"created": map[string]interface{}{
-				"date": "2025-01-21",
-			},
-		},
-		"person": []map[string]interface{}{
-			{
-				"name": "Jane Doe",
-				"age":  "50",
-				"contact": map[string]interface{}{
-					"email": "jane@example.com",
-				},
-			},
-			{
-				"name": "John Doe",
-				"age":  "45",
-			},
-		},
-		"empty_array": []map[string]interface{}{},
-		"numbers": []map[string]interface{}{
-			{
-				"value": 42,
-			},
-		},
-	}
-}
 
 func TestSetValueOnAfterMap(t *testing.T) {
 	testCases := []struct {

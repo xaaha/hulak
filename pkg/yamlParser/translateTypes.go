@@ -135,6 +135,16 @@ func findPathFromMap(
 			subMap := findPathFromMap(bTypeVal, currentKey)
 			cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
 			cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
+		case []interface{}:
+			for idx, val := range bTypeVal {
+				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
+				if mapVal, ok := val.(map[string]interface{}); ok {
+					subMap := findPathFromMap(mapVal, arrayKey)
+					cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+					cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
+				}
+				// Handle other types in array if needed
+			}
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
