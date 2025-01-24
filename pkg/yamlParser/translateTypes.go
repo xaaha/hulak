@@ -151,35 +151,6 @@ func findPathFromMap(
 	return cmprt
 }
 
-// Using the path provided, it grabs the value from afterMap
-// only grabs string value, if it's not string, it throws an error
-func retrieveValueFromAfterMap(
-	path []interface{},
-	afterMap map[string]interface{},
-) (string, error) {
-	var current interface{} = afterMap
-	for _, value := range path {
-		switch val := value.(type) {
-		case string:
-			// If current is a map, get the value for the string key
-			if currentMap, ok := current.(map[string]interface{}); ok {
-				current = currentMap[val]
-			}
-		case int:
-			// If current is a slice, get the value at the index
-			if currentSlice, ok := current.([]map[string]interface{}); ok {
-				if val < len(currentSlice) {
-					current = currentSlice[val]
-				}
-			}
-		}
-	}
-	if finalValue, ok := current.(string); ok {
-		return finalValue, nil
-	}
-	return "", utils.ColorError("values retrieved from afterMap should only be string")
-}
-
 // since path gurantees that last item exists on map,
 // setValueOnAfterMap walks the path and replaces the value at the last index
 func setValueOnAfterMap(
