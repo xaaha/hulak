@@ -183,7 +183,7 @@ func retrieveValueFromAfterMap(
 
 // Swaps val1 with val2 if the string representation of val2 is equal to val1;
 // otherwise, it returns val1.
-func SwapValue(val1 string, val2 interface{}) interface{} {
+func swapValue(val1 string, val2 interface{}) interface{} {
 	str := fmt.Sprintf("%v", val2)
 	if val1 == str {
 		return val2
@@ -192,9 +192,8 @@ func SwapValue(val1 string, val2 interface{}) interface{} {
 }
 
 // since path gurantees that last item exists on map,
-// SetValueOnAfterMap walks the path and replaces the value
-// at the last index
-func SetValueOnAfterMap(
+// setValueOnAfterMap walks the path and replaces the value at the last index
+func setValueOnAfterMap(
 	path []interface{},
 	afterMap map[string]interface{},
 	replaceWith interface{},
@@ -207,6 +206,9 @@ func SetValueOnAfterMap(
 			// If this is the last element in the path, set the value
 			if i == len(path)-1 {
 				currentMap := current.(map[string]interface{})
+				if val, ok := currentMap[val].(string); ok {
+					replaceWith = swapValue(val, replaceWith)
+				}
 				currentMap[val] = replaceWith
 			} else {
 				// Traverse deeper into the map
@@ -216,6 +218,9 @@ func SetValueOnAfterMap(
 			// If this is the last element in the path, set the value
 			if i == len(path)-1 {
 				currentSlice := current.([]interface{})
+				if val, ok := currentSlice[val].(string); ok {
+					replaceWith = swapValue(val, replaceWith)
+				}
 				currentSlice[val] = replaceWith
 			} else {
 				// Traverse deeper into the slice

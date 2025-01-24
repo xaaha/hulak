@@ -613,7 +613,7 @@ func TestRetrieveValueFromAfterMap(t *testing.T) {
 		{
 			name:        "Nil map",
 			path:        []interface{}{"foo"},
-			expected:    "",
+			expected:    "bar",
 			expectError: false,
 		},
 		{
@@ -703,6 +703,137 @@ func TestRetrieveValueFromAfterMap(t *testing.T) {
 				t.Errorf("retrieveValueFromAfterMap() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestSetValueOnAfterMap(t *testing.T) {
+	testCases := []struct {
+		name        string
+		afterMap    map[string]interface{}
+		path        []interface{}
+		replaceWith interface{}
+		expected    map[string]interface{}
+	}{
+		{
+			name:        "Replace String with Int",
+			afterMap:    map[string]interface{}{"age": "30"},
+			path:        []interface{}{"age"},
+			replaceWith: 30,
+			expected:    map[string]interface{}{"age": 30},
+		},
+		{
+			name:        "Replace String with bool",
+			afterMap:    map[string]interface{}{"deploy": "false"},
+			path:        []interface{}{"deploy"},
+			replaceWith: false,
+			expected:    map[string]interface{}{"deploy": false},
+		},
+		{
+			name:        "Replace String with float",
+			afterMap:    map[string]interface{}{"height": "300.12"},
+			path:        []interface{}{"height"},
+			replaceWith: 300.12,
+			expected:    map[string]interface{}{"height": 300.12},
+		},
+		{
+			name:        "Don't replace string if values don't match",
+			afterMap:    map[string]interface{}{"height": "300.12"},
+			path:        []interface{}{"height"},
+			replaceWith: 300, // since 300 does not match with "300.12" when converted to string
+			expected:    map[string]interface{}{"height": "300.12"},
+		},
+		{
+			name:        "Don't replace string if values mismatch",
+			afterMap:    map[string]interface{}{"height": "300.12"},
+			path:        []interface{}{"height"},
+			replaceWith: false,
+			expected:    map[string]interface{}{"height": "300.12"},
+		},
+		{
+			name: "Complex Map",
+			afterMap: map[string]interface{}{
+				"person": map[string]interface{}{
+					"contact": map[string]interface{}{
+						"phone": "2222222222",
+					},
+				},
+			},
+			path:        []interface{}{"person", "contact", "phone"},
+			replaceWith: 2222222222,
+			expected: map[string]interface{}{
+				"person": map[string]interface{}{
+					"contact": map[string]interface{}{
+						"phone": 2222222222,
+					},
+				},
+			},
+		},
+		{
+			name: "Complex Map with incorrect info should return the same map",
+			afterMap: map[string]interface{}{
+				"person": map[string]interface{}{
+					"contact": map[string]interface{}{
+						"phone": "2222222222",
+					},
+				},
+			},
+			path:        []interface{}{"person", "contact", "phone"},
+			replaceWith: 2333939,
+			expected: map[string]interface{}{
+				"person": map[string]interface{}{
+					"contact": map[string]interface{}{
+						"phone": "2222222222",
+					},
+				},
+			},
+		},
+		{
+			name: "Complex Map with Array",
+			afterMap: map[string]interface{}{
+				"person": []interface{}{
+					map[string]interface{}{
+						"contact": map[string]interface{}{
+							"phone": "2222222222",
+						},
+					},
+					map[string]interface{}{
+						"contact": map[string]interface{}{
+							"phone": "3333333333",
+						},
+					},
+				},
+			},
+			path:        []interface{}{"person", 1, "contact", "phone"},
+			replaceWith: 3333333333,
+			expected: map[string]interface{}{
+				"person": []interface{}{
+					map[string]interface{}{
+						"contact": map[string]interface{}{
+							"phone": "2222222222",
+						},
+					},
+					map[string]interface{}{
+						"contact": map[string]interface{}{
+							"phone": 3333333333,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		result := setValueOnAfterMap(tt.path, tt.afterMap, tt.replaceWith)
+		if !reflect.DeepEqual(result, tt.expected) {
+			expectedStr, _ := utils.MarshalToJSON(tt.expected)
+			resStr, _ := utils.MarshalToJSON(result)
+			t.Errorf(
+				"error in '%s' expected the map \n'%v' \n but got \n'%v'",
+				tt.name,
+				expectedStr,
+				resStr,
+			)
+		}
 	}
 }
 
