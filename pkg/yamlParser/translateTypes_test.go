@@ -379,33 +379,7 @@ testCases := []struct {
         wantErr     bool
         errMsg      string
     }{
-        {
-            name: "Basic type conversions",
-            before: map[string]interface{}{
-                "foo":  "{{.foo}}",
-                "bar":  "{{getValueOf 'bar' '/'}}",
-                "baz":  "{{.baz}}",
-                "name": "Jane",
-            },
-            after: map[string]interface{}{
-                "foo":  "22",
-                "bar":  "true",
-                "baz":  "22.2292",
-                "name": "Jane",
-            },
-            secrets: map[string]interface{}{
-                "foo": 22,
-                "baz": "22.2292",
-            },
-            getValueOf: getValueOfMock,
-            modifiedMap: map[string]interface{}{
-                "foo":  22,
-                "bar":  true,
-                "baz":  "22.2292",
-                "name": "Jane",
-            },
-        },
-        {
+                {
             name: "Nested structures with arrays",
             before: map[string]interface{}{
                 "settings": map[string]interface{}{
@@ -456,60 +430,8 @@ testCases := []struct {
                 },
             },
         },
-        {
-            name: "Multiple type conversions",
-            before: map[string]interface{}{
-                "metrics": map[string]interface{}{
-                    "count":       "{{getValueOf 'count' '/'}}",
-                    "temperature": "{{getValueOf 'temperature' '/'}}",
-                    "multiplier":  "{{getValueOf 'multiplier' '/'}}",
-                    "status":      "{{getValueOf 'status' '/'}}",
-                },
-            },
-            after: map[string]interface{}{
-                "metrics": map[string]interface{}{
-                    "count":       "42",
-                    "temperature": "98.6",
-                    "multiplier":  "1.5",
-                    "status":      "active",
-                },
-            },
-            secrets:    map[string]interface{}{},
-            getValueOf: getValueOfMock,
-            modifiedMap: map[string]interface{}{
-                "metrics": map[string]interface{}{
-                    "count":       42,
-                    "temperature": 98.6,
-                    "multiplier":  1.5,
-                    "status":      "active",
-                },
-            },
-        },
-        {
-            name: "Empty and null values",
-            before: map[string]interface{}{
-                "empty":    "{{getValueOf 'emptyString' '/'}}",
-                "nullVal":  "{{getValueOf 'nullValue' '/'}}",
-                "missing":  "{{.missingKey}}",
-                "preserve": "",
-            },
-            after: map[string]interface{}{
-                "empty":    "",
-                "nullVal":  "null",
-                "missing":  "",
-                "preserve": "",
-            },
-            secrets: map[string]interface{}{
-                "missingKey": nil,
-            },
-            getValueOf: getValueOfMock,
-            modifiedMap: map[string]interface{}{
-                "empty":    "",
-                "nullVal":  nil,
-                "missing":  nil,
-                "preserve": "",
-            },
-        },
+
+
         {
             name: "Complex nested structure with multiple type conversions",
             before: map[string]interface{}{
@@ -859,6 +781,60 @@ func TestTranslateType(t *testing.T) {
 				"enabled":  true,
 			},
 			getValueOf: getValueOfMock,
+		},
+		{
+			name: "Multiple type conversions",
+			before: map[string]interface{}{
+				"metrics": map[string]interface{}{
+					"count":       "{{getValueOf 'count' '/'}}",
+					"temperature": "{{getValueOf 'temperature' '/'}}",
+					"multiplier":  "{{getValueOf 'multiplier' '/'}}",
+					"status":      "{{getValueOf 'status' '/'}}",
+				},
+			},
+			after: map[string]interface{}{
+				"metrics": map[string]interface{}{
+					"count":       "42",
+					"temperature": "98.6",
+					"multiplier":  "1.5",
+					"status":      "active",
+				},
+			},
+			secrets:    map[string]interface{}{},
+			getValueOf: getValueOfMock,
+			modifiedMap: map[string]interface{}{
+				"metrics": map[string]interface{}{
+					"count":       42,
+					"temperature": 98.6,
+					"multiplier":  1.5,
+					"status":      "active",
+				},
+			},
+		},
+		{
+			name: "Empty and null values",
+			before: map[string]interface{}{
+				"empty":    "{{getValueOf 'emptyString' '/'}}",
+				"nullVal":  "{{getValueOf 'nullValue' '/'}}",
+				"missing":  "{{.missingKey}}",
+				"preserve": "",
+			},
+			after: map[string]interface{}{
+				"empty":    "",
+				"nullVal":  "null",
+				"missing":  "",
+				"preserve": "",
+			},
+			secrets: map[string]interface{}{
+				"missingKey": nil,
+			},
+			getValueOf: getValueOfMock,
+			modifiedMap: map[string]interface{}{
+				"empty":    "",
+				"nullVal":  "null",
+				"missing":  "",
+				"preserve": "",
+			},
 		},
 	}
 
