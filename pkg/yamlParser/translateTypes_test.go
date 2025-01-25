@@ -144,10 +144,10 @@ func TestFindPathFromMap(t *testing.T) {
 				},
 			},
 			expected: Path{
-				DotStrings: []string{
-					"miles",
-					"person -> age",
-					"users[0] -> person -> age",
+				DotStrings: []EachDotStringAction{
+					{Path: "miles", KeyName: "distance"},
+					{Path: "person -> age", KeyName: "Age"},
+					{Path: "users[0] -> person -> age", KeyName: "Age"},
 				},
 				GetValueOfs: []EachGetValueofAction{
 					{Path: "person -> height", KeyName: "key1", FileName: "path2"},
@@ -171,17 +171,17 @@ func TestFindPathFromMap(t *testing.T) {
 					{
 						"person": map[string]interface{}{
 							"name":   "Jane Doe",
-							"age":    "{{.Age}}",
+							"age":    "{{.age}}",
 							"height": "{{getValueOf 'key2' 'path1'}}",
 						},
 					},
 				},
 			},
 			expected: Path{
-				DotStrings: []string{
-					"person -> name",
-					"person -> age",
-					"users[1] -> person -> age",
+				DotStrings: []EachDotStringAction{
+					{Path: "person -> name", KeyName: "jane"},
+					{Path: "person -> age", KeyName: "Age"},
+					{Path: "users[1] -> person -> age", KeyName: "age"},
 				},
 				GetValueOfs: []EachGetValueofAction{
 					{Path: "person -> height", KeyName: "key1", FileName: "path2"},
@@ -206,10 +206,10 @@ func TestFindPathFromMap(t *testing.T) {
 				},
 			},
 			expected: Path{
-				DotStrings: []string{
-					"settings -> users[0] -> id",
-					"settings -> config -> maxCount",
-					"settings -> config -> enabled",
+				DotStrings: []EachDotStringAction{
+					{Path: "settings -> users[0] -> id", KeyName: "userId"},
+					{Path: "settings -> config -> maxCount", KeyName: "maxCount"},
+					{Path: "settings -> config -> enabled", KeyName: "enabled"},
 				},
 				GetValueOfs: []EachGetValueofAction{
 					{Path: "settings -> users[0] -> isActive", KeyName: "isActive", FileName: "/"},
@@ -222,8 +222,10 @@ func TestFindPathFromMap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := findPathFromMap(tc.beforeMap, "")
 			if !comparePaths(tc.expected, result) {
+				expected, _ := utils.MarshalToJSON(tc.expected)
+				res, _ := utils.MarshalToJSON(result)
 				t.Errorf("\nTest case: %s\nFindPathFromMap error: \nexpected \n%+v, \ngot \n%+v",
-					tc.name, tc.expected, result)
+					tc.name, expected, res)
 			}
 		})
 	}
@@ -918,7 +920,7 @@ func comparePaths(expected, actual Path) bool {
 	}
 
 	// Compare DotStrings slices without considering the order
-	if !compareUnorderedStringSlices(expected.DotStrings, actual.DotStrings) {
+	if !compareUnorderedDotStrings(expected.DotStrings, actual.DotStrings) {
 		return false
 	}
 
@@ -930,24 +932,28 @@ func comparePaths(expected, actual Path) bool {
 	return true
 }
 
-func compareUnorderedStringSlices(expected, actual []string) bool {
+func compareUnorderedDotStrings(expected, actual []EachDotStringAction) bool {
 	// If the slices have different lengths, they cannot be equal
 	if len(expected) != len(actual) {
 		return false
 	}
 
-	// Create maps to count occurrences of each string
+	// Create maps to count occurrences of each struct
 	expectedCounts := make(map[string]int)
 	actualCounts := make(map[string]int)
 
 	// Count occurrences in the expected slice
 	for _, v := range expected {
-		expectedCounts[v]++
+		// Create a unique key for the struct based on its fields
+		structKey := v.Path + v.KeyName
+		expectedCounts[structKey]++
 	}
 
 	// Count occurrences in the actual slice
 	for _, v := range actual {
-		actualCounts[v]++
+		// Create a unique key for the struct based on its fields
+		structKey := v.Path + v.KeyName
+		actualCounts[structKey]++
 	}
 
 	// Compare the counts
@@ -956,6 +962,7 @@ func compareUnorderedStringSlices(expected, actual []string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 

@@ -91,8 +91,13 @@ type EachGetValueofAction struct {
 	FileName string
 }
 
+type EachDotStringAction struct {
+	Path    string
+	KeyName string
+}
+
 type Path struct {
-	DotStrings  []string
+	DotStrings  []EachDotStringAction
 	GetValueOfs []EachGetValueofAction
 }
 
@@ -118,7 +123,13 @@ func findPathFromMap(
 				// but this could be a problem on large number of cases
 				switch action.Type {
 				case DotString:
-					cmprt.DotStrings = append(cmprt.DotStrings, currentKey)
+					cmprt.DotStrings = append(cmprt.DotStrings, struct {
+						Path    string
+						KeyName string
+					}{
+						Path:    currentKey,
+						KeyName: action.DotString,
+					})
 					// TODO 1: Also, append and  return the dotString
 				case GetValueOf:
 					cmprt.GetValueOfs = append(cmprt.GetValueOfs, struct {
@@ -212,8 +223,8 @@ func translateType(
 	pathMap := findPathFromMap(beforeMap, "")
 
 	// Process dot strings
-	for _, dotStringPath := range pathMap.DotStrings {
-		path, err := parsePath(dotStringPath)
+	for _, dotStringActionObj := range pathMap.DotStrings {
+		path, err := parsePath(dotStringActionObj.Path)
 		if err != nil {
 			return nil, utils.ColorError("#TranslateType ", err)
 		}
@@ -221,15 +232,11 @@ func translateType(
 			continue
 		}
 
-		// TODO 2: In the secretsMap[key], key should be the id in .id
-		lastKey := path[len(path)-1]
-		if lastKeyStr, ok := lastKey.(string); ok {
-			secretVal, exists := secretsMap[lastKeyStr]
-			if !exists {
-				continue
-			}
-			afterMap = setValueOnAfterMap(path, afterMap, secretVal)
+		secretVal, exists := secretsMap[dotStringActionObj.KeyName]
+		if !exists {
+			continue
 		}
+		afterMap = setValueOnAfterMap(path, afterMap, secretVal)
 	}
 
 	// Process getValueOf actions
