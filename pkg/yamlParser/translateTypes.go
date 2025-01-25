@@ -119,6 +119,7 @@ func findPathFromMap(
 				switch action.Type {
 				case DotString:
 					cmprt.DotStrings = append(cmprt.DotStrings, currentKey)
+					// TODO 1: Also, append and  return the dotString
 				case GetValueOf:
 					cmprt.GetValueOfs = append(cmprt.GetValueOfs, struct {
 						Path     string
@@ -220,7 +221,7 @@ func translateType(
 			continue
 		}
 
-		// TODO: In the secretsMap[key], key should be the id in .id
+		// TODO 2: In the secretsMap[key], key should be the id in .id
 		lastKey := path[len(path)-1]
 		if lastKeyStr, ok := lastKey.(string); ok {
 			secretVal, exists := secretsMap[lastKeyStr]
