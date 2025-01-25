@@ -813,7 +813,7 @@ func TestTranslateType(t *testing.T) {
 				"settings": map[string]interface{}{
 					"users": []interface{}{
 						map[string]interface{}{
-							"id":       "{{.userId}}",
+							"id":       "{{.id}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
 					},
@@ -852,7 +852,7 @@ func TestTranslateType(t *testing.T) {
 				},
 			},
 			secrets: map[string]interface{}{
-				"userId":   123,
+				"id":       123,
 				"maxCount": 100,
 				"enabled":  true,
 			},
