@@ -86,23 +86,14 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 
-	// TODO:
-	// if data has key whose value is a template,
-	// && the replacement value's type is either false, float64, int, nil/null
-	// convert these to original values again
-	// or if the key is the same,
-	// and the value are of different type, convert them from string to the one of secretsMap
-
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
+	// TODO:
 	// dataFmt, _ := utils.MarshalToJSON(data)
 	// fmt.Println("this is data", dataFmt)
 	// printPm, _ := utils.MarshalToJSON(parsedMap)
 	// fmt.Println("this is parsed map", printPm)
-
-	// TODO:
-	// parsedMap is always string
 
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)

@@ -118,7 +118,6 @@ func findPathFromMap(
 						Path:    currentKey,
 						KeyName: action.DotString,
 					})
-					// TODO 1: Also, append and  return the dotString
 				case GetValueOf:
 					cmprt.GetValueOfs = append(cmprt.GetValueOfs, struct {
 						Path     string
