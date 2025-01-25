@@ -777,7 +777,7 @@ func TestTranslateType(t *testing.T) {
 		{
 			name: "One Nested Map",
 			before: map[string]interface{}{
-				"foo": "{{.foo}}",
+				"foo": "{{.fii}}",
 				"baz": "{{.baz}}",
 				"person": map[string]interface{}{
 					"age":    "{{.age}}",
@@ -793,7 +793,7 @@ func TestTranslateType(t *testing.T) {
 				},
 			},
 			secrets: map[string]interface{}{
-				"foo": 22,
+				"fii": 22,
 				"baz": "22.2292",
 				"age": 39,
 			},
@@ -815,7 +815,7 @@ func TestTranslateType(t *testing.T) {
 				"settings": map[string]interface{}{
 					"users": []interface{}{
 						map[string]interface{}{
-							"id":       "{{.id}}",
+							"id":       "{{.userId}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
 					},
@@ -854,7 +854,7 @@ func TestTranslateType(t *testing.T) {
 				},
 			},
 			secrets: map[string]interface{}{
-				"id":       123,
+				"userId":   123,
 				"maxCount": 100,
 				"enabled":  true,
 			},
