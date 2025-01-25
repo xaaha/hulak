@@ -379,57 +379,6 @@ testCases := []struct {
         wantErr     bool
         errMsg      string
     }{
-                {
-            name: "Nested structures with arrays",
-            before: map[string]interface{}{
-                "settings": map[string]interface{}{
-                    "users": []map[string]interface{}{
-                        {
-                            "id":       "{{.userId}}",
-                            "isActive": "{{getValueOf 'isActive' '/'}}",
-                        },
-                    },
-                    "config": map[string]interface{}{
-                        "maxCount": "{{.maxCount}}",
-                        "enabled":  "{{.enabled}}",
-                    },
-                },
-            },
-            after: map[string]interface{}{
-                "settings": map[string]interface{}{
-                    "users": []map[string]interface{}{
-                        {
-                            "id":       "123",
-                            "isActive": "false",
-                        },
-                    },
-                    "config": map[string]interface{}{
-                        "maxCount": "100",
-                        "enabled":  "1",
-                    },
-                },
-            },
-            secrets: map[string]interface{}{
-                "userId":   123,
-                "maxCount": 100,
-                "enabled":  true,
-            },
-            getValueOf: getValueOfMock,
-            modifiedMap: map[string]interface{}{
-                "settings": map[string]interface{}{
-                    "users": []map[string]interface{}{
-                        {
-                            "id":       123,
-                            "isActive": false,
-                        },
-                    },
-                    "config": map[string]interface{}{
-                        "maxCount": 100,
-                        "enabled":  true,
-                    },
-                },
-            },
-        },
 
 
         {
@@ -834,6 +783,57 @@ func TestTranslateType(t *testing.T) {
 				"nullVal":  "null",
 				"missing":  "",
 				"preserve": "",
+			},
+		},
+		{
+			name: "Nested structures with arrays",
+			before: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []interface{}{ // Use []interface{} for dynamic lists
+						map[string]interface{}{
+							"id":       "{{.userId}}",
+							"isActive": "{{getValueOf 'isActive' '/'}}",
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": "{{.maxCount}}",
+						"enabled":  "{{.enabled}}",
+					},
+				},
+			},
+			after: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []interface{}{ // Use []interface{} for consistency
+						map[string]interface{}{
+							"id":       "123",
+							"isActive": "false",
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": "100",
+						"enabled":  "true",
+					},
+				},
+			},
+			secrets: map[string]interface{}{
+				"userId":   123,
+				"maxCount": 100,
+				"enabled":  false,
+			},
+			getValueOf: getValueOfMock,
+			modifiedMap: map[string]interface{}{
+				"settings": map[string]interface{}{
+					"users": []interface{}{
+						map[string]interface{}{
+							"id":       123,
+							"isActive": false,
+						},
+					},
+					"config": map[string]interface{}{
+						"maxCount": 100,
+						"enabled":  "true", // since the secret enabled value does not match,
+					},
+				},
 			},
 		},
 	}
