@@ -42,6 +42,8 @@ func GetValueOf(key, fileName string) interface{} {
 	}
 
 	dirPath := filepath.Dir(singlePath)
+
+	// TODO 1: if the fileName contains .json then there is no need to  do following two steps
 	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 

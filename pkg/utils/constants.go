@@ -28,6 +28,7 @@ const (
 const (
 	YAML = ".yaml"
 	YML  = ".yml"
+	JSON = ".json"
 )
 
 // response pattern for files saved

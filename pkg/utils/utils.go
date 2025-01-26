@@ -71,7 +71,7 @@ func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml only)
+// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
@@ -96,7 +96,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		return nil, ColorError("error reading directory "+startPath, err)
 	}
 
-	filePattern := [2]string{YAML, YML}
+	filePattern := [3]string{YAML, YML, JSON}
 
 	for _, val := range dirContents {
 		// Skip hidden directories
@@ -109,8 +109,8 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			lowerName := strings.ToLower(val.Name())
 			for _, ext := range filePattern {
 				if strings.HasSuffix(lowerName, ext) {
-					yamlFile := strings.TrimSuffix(lowerName, ext)
-					if matchFile == yamlFile {
+					ymlOrJsonFile := strings.TrimSuffix(lowerName, ext)
+					if matchFile == ymlOrJsonFile {
 						matchingFp := filepath.Join(startPath, val.Name())
 						result = append(result, matchingFp)
 					}
