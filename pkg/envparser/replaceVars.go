@@ -44,6 +44,9 @@ func GetValueOf(key, fileName string) interface{} {
 	dirPath := filepath.Dir(singlePath)
 
 	// TODO 1: if the fileName contains .json then there is no need to  do following two steps
+	// here I am exclusively looking for test_response.json where test is the original yal file
+	// but, since I have json file in the response, we should check whether the file contains the .json,
+	// if the singlePath contains, .json, then use that instead
 	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
 	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
