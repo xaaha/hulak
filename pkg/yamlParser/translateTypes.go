@@ -2,9 +2,7 @@ package yamlParser
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -24,18 +22,6 @@ type Action struct {
 	Type       ActionType
 	DotString  string
 	GetValueOf []string
-}
-
-type ActionComposition struct {
-	DotString  []string
-	GetValueOf []struct {
-		key      string
-		fileName string
-	}
-}
-
-type PathProvider interface {
-	findPathFromMap() string
 }
 
 // checks whether string matches exactly "{{value}}"
@@ -87,14 +73,31 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 	return Action{Type: Invalid}
 }
 
+type EachGetValueofAction struct {
+	Path     string
+	KeyName  string
+	FileName string
+}
+
+type EachDotStringAction struct {
+	Path    string
+	KeyName string
+}
+
+type Path struct {
+	DotStrings  []EachDotStringAction
+	GetValueOfs []EachGetValueofAction
+}
+
 // Recurses through the raw map prior to actions, beforeMap,
 // and finds the key and it's path that needs type conversion.
 // The resulting map helps us determine exact location to replace the values in afterMap
 func findPathFromMap(
 	beforeMap map[string]interface{},
 	parentKey string,
-) map[ActionType][]string {
-	cmprt := make(map[ActionType][]string)
+) Path {
+	cmprt := Path{}
+
 	for bKey, bValue := range beforeMap {
 		currentKey := bKey
 		if parentKey != "" {
@@ -108,23 +111,45 @@ func findPathFromMap(
 				// but this could be a problem on large number of cases
 				switch action.Type {
 				case DotString:
-					cmprt[DotString] = append(cmprt[DotString], currentKey)
+					cmprt.DotStrings = append(cmprt.DotStrings, struct {
+						Path    string
+						KeyName string
+					}{
+						Path:    currentKey,
+						KeyName: action.DotString,
+					})
 				case GetValueOf:
-					cmprt[GetValueOf] = append(cmprt[GetValueOf], currentKey)
+					cmprt.GetValueOfs = append(cmprt.GetValueOfs, struct {
+						Path     string
+						KeyName  string
+						FileName string
+					}{
+						Path:     currentKey,
+						KeyName:  action.GetValueOf[1],
+						FileName: action.GetValueOf[2],
+					})
 				}
 			}
 		case map[string]interface{}:
 			subMap := findPathFromMap(bTypeVal, currentKey)
-			for key, values := range subMap {
-				cmprt[key] = append(cmprt[key], values...)
+			cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+			cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
+		case []interface{}:
+			for idx, val := range bTypeVal {
+				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
+				if mapVal, ok := val.(map[string]interface{}); ok {
+					subMap := findPathFromMap(mapVal, arrayKey)
+					cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+					cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
+				}
+				// Handle other types in array if needed
 			}
 		case []map[string]interface{}:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
 				subMap := findPathFromMap(val, arrayKey)
-				for key, values := range subMap {
-					cmprt[key] = append(cmprt[key], values...)
-				}
+				cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
+				cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
 			}
 		default:
 			// No action needed for now. We should keep expanding cases above
@@ -135,151 +160,97 @@ func findPathFromMap(
 	return cmprt
 }
 
-// TODO: Fix the logic. GetValueOf takes in the file name.
-// This function should take the file name and then call GetValueOf instead of using interface for getVaue of
-// From delimiterLogicAndCleanup, returns the Acton as map for GetValueOf {getValueOf: [key, path/fileName]}
-// TranslateType is the function that performs translation on the `afterMap`
-// based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
-func TranslateType(
-	beforeMap, afterMap, secretsMap map[string]interface{},
-	getValueOfInterface interface{},
-) (map[string]interface{}, error) {
-	// Find the path map from beforeMap
-	pathMap := findPathFromMap(beforeMap, "")
+// since path gurantees that last item exists on map,
+// setValueOnAfterMap walks the path and replaces the value at the last index
+func setValueOnAfterMap(
+	path []interface{},
+	afterMap map[string]interface{},
+	replaceWith interface{},
+) map[string]interface{} {
+	var current interface{} = afterMap
 
-	// Iterate through the paths grouped by their action type
-	for actionKey, pathArr := range pathMap {
-		for _, str := range pathArr {
-			// Parse the path string into a structured path array
-			path, err := parsePath(str)
-			if err != nil {
-				return nil, err
+	for i, value := range path {
+		switch val := value.(type) {
+		case string:
+			// If this is the last element in the path, set the value
+			if i == len(path)-1 {
+				currentMap := current.(map[string]interface{})
+				if val, ok := currentMap[val].(string); ok {
+					replaceWith = swapValue(val, replaceWith)
+				}
+				currentMap[val] = replaceWith
+			} else {
+				// Traverse deeper into the map
+				current = current.(map[string]interface{})[val]
 			}
-
-			current := afterMap
-			var parent interface{}
-			var lastKey interface{} // last item in the path array
-
-			for i, key := range path {
-				// Stop before the last key to prepare for value update
-				if i == len(path)-1 {
-					lastKey = key
-					break
+		case int:
+			// If this is the last element in the path, set the value
+			if i == len(path)-1 {
+				currentSlice := current.([]interface{})
+				if val, ok := currentSlice[val].(string); ok {
+					replaceWith = swapValue(val, replaceWith)
 				}
-
-				switch typedKey := key.(type) {
-				case string:
-					// Navigate through maps
-					if nextMap, ok := current[typedKey].(map[string]interface{}); ok {
-						parent = current
-						current = nextMap
-					} else if arr, ok := current[typedKey].([]interface{}); ok {
-						parent = arr
-						current = nil // Prepare for array index handling
-					} else {
-						// Key does not exist or is not a map/array, skip
-						current = nil
-					}
-				case int:
-					// Navigate through arrays
-					if parentArr, ok := parent.([]interface{}); ok {
-						if typedKey >= 0 && typedKey < len(parentArr) {
-							parent = current
-							current = parentArr[typedKey].(map[string]interface{})
-						} else {
-							current = nil // Index out of bounds
-						}
-					} else {
-						current = nil
-					}
-				default:
-					current = nil
-				}
-
-				if current == nil {
-					break
-				}
-			}
-
-			// If we successfully navigated to the last key, process the value
-			if current != nil {
-				var compareVal interface{}
-				if lastKeyStr, ok := lastKey.(string); ok {
-					switch actionKey {
-					case DotString:
-						compareVal, ok = secretsMap[lastKeyStr]
-						if !ok {
-							continue // Skip if the key does not exist in secretsMap
-						}
-					case GetValueOf:
-						compareVal = getValueOfInterface
-					}
-					// Perform the type conversion if necessary
-					if reflect.TypeOf(current[lastKeyStr]) != reflect.TypeOf(compareVal) {
-						convertedVal, err := convertType(current[lastKeyStr], compareVal)
-						if err == nil {
-							current[lastKeyStr] = convertedVal
-						} else {
-							return nil, utils.ColorError(fmt.Sprintf("error converting type for key %s: ", lastKeyStr), err)
-						}
-					}
-				}
+				currentSlice[val] = replaceWith
+			} else {
+				// Traverse deeper into the slice
+				current = current.([]interface{})[val]
 			}
 		}
 	}
+
+	return afterMap
+}
+
+// translateType is the function that performs translation on the `afterMap`
+// based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
+func translateType(
+	beforeMap, afterMap, secretsMap map[string]interface{},
+	getValueOf func(key, fileName string) interface{},
+) (map[string]interface{}, error) {
+	pathMap := findPathFromMap(beforeMap, "")
+
+	// Process dot strings
+	for _, dotStringActionObj := range pathMap.DotStrings {
+		path, err := parsePath(dotStringActionObj.Path)
+		if err != nil {
+			return nil, utils.ColorError("#TranslateType ", err)
+		}
+		if len(path) == 0 {
+			continue
+		}
+
+		secretVal, exists := secretsMap[dotStringActionObj.KeyName]
+		if !exists {
+			continue
+		}
+		afterMap = setValueOnAfterMap(path, afterMap, secretVal)
+	}
+
+	// Process getValueOf actions
+	for _, getValueOfActionObj := range pathMap.GetValueOfs {
+		path, err := parsePath(getValueOfActionObj.Path)
+		if err != nil {
+			return nil, utils.ColorError("#TranslateType ", err)
+		}
+
+		if len(path) == 0 {
+			continue
+		}
+		compareVal := getValueOf(getValueOfActionObj.KeyName, getValueOfActionObj.FileName)
+		afterMap = setValueOnAfterMap(path, afterMap, compareVal)
+	}
+
 	return afterMap, nil
 }
 
-// dynamically finds type for other actions
-func convertType(value, targetType interface{}) (interface{}, error) {
-	switch targetType.(type) {
-	case int:
-		switch v := value.(type) {
-		case string:
-			return strconv.Atoi(v)
-		case float64:
-			return int(v), nil
-		case bool:
-			if v {
-				return 1, nil
-			}
-			return 0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert '%T' to int", value))
-		}
-	case string:
-		return fmt.Sprintf("%v", value), nil
-	case float64:
-		switch v := value.(type) {
-		case string:
-			return strconv.ParseFloat(v, 64)
-		case int:
-			return float64(v), nil
-		case bool:
-			if v {
-				return 1.0, nil
-			}
-			return 0.0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to float64", value))
-		}
-	case bool:
-		switch v := value.(type) {
-		case string:
-			// Handle "true" or "false" strings
-			return strconv.ParseBool(v)
-		case int:
-			// Non-zero values are true, zero is false
-			return v != 0, nil
-		case float64:
-			// Non-zero values are true, zero is false
-			return v != 0.0, nil
-		default:
-			return nil, utils.ColorError(fmt.Sprintf("cannot convert %T to bool", value))
-		}
-	default:
-		return nil, utils.ColorError(fmt.Sprintf("unsupported target type %T", targetType))
+// Swaps val1 with val2 if the string representation of val2 is equal to val1;
+// otherwise, it returns val1.
+func swapValue(val1 string, val2 interface{}) interface{} {
+	str := fmt.Sprintf("%v", val2)
+	if val1 == str {
+		return val2
 	}
+	return val1
 }
 
 // Helper function to clean strings of backtick (`), double qoutes(""), and single qoutes (”)
