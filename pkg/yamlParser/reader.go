@@ -89,15 +89,8 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	// parse all the values to with {{.key}} from .env folder
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
-	// TODO:
-	// beforeMap, _ := utils.MarshalToJSON(data)
-	// fmt.Println("this is data", beforeMap)
-	// afterMap, _ := utils.MarshalToJSON(parsedMap)
-	// fmt.Println("this is parsed map", afterMap)
-
+	// translate the types, if acceptable
 	parsedMap, err = translateType(data, parsedMap, secretsMap, envparser.GetValueOf)
-	// parsedMapAfterTranslation, _ := utils.MarshalToJSON(parsedMap)
-	// fmt.Println("this is parsed map afterTranslation", parsedMapAfterTranslation)
 	if err != nil {
 		return nil, utils.ColorError("#reader", err)
 	}
