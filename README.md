@@ -38,6 +38,7 @@ If the `.Key` is defined in both files, `global` is ignored.
 
 `getValueOf` looks for the value of the key inside the `file_name_response.json` file.
 You don't need to provide the full `file_name_response.json` name. Hulak recurces through the directory and uses the first file match.
+It's recommended that you use a unique name for each file.
 
 - `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
 
