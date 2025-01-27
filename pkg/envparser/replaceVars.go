@@ -12,8 +12,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// gets the value of key from a json file
-// looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
+// gets the value of key from a json file. If the file does not have '.json' suffix
+// getValueOf looks for _response.json file automatically. If the file does not exist
 func GetValueOf(key, fileName string) interface{} {
 	if key == "" && fileName == "" {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
