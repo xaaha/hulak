@@ -20,10 +20,11 @@ func GetValueOf(key, fileName string) interface{} {
 
 	yamlPathList, err := utils.ListMatchingFiles(fileName)
 	if err != nil {
-		utils.PrintRed(
-			"replaceVars.go: error occured while grabbing matchingPath for " + fileName + " \n" +
-				err.Error(),
-		)
+		utils.PrintRed(fmt.Sprintf(
+			"replaceVars.go: error occurred while grabbing matching paths for '%s': %s",
+			fileName, err.Error(),
+		))
+		return ""
 	}
 
 	var singlePath string

@@ -14,7 +14,7 @@ body:
     myBool: false
     other: null
     myFloat: "{{getValueOf `data.height` `graphql`}}"
-    myNumber: "{{getValueOf `age` `test`}}"
+    # myNumber: "{{getValueOf `age` `test`}}"
     myAwesomeNumber: "{{.myAwesomeNumber}}"
     # message: !!bool '{{getValueOf "data.runs" "graphql"}}'
 #   Need double quotes for the gotemplate function argument
