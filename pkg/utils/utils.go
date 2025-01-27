@@ -76,29 +76,23 @@ func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
-	filePattern := [3]string{YAML, YML, JSON}
-
 	if matchFile == "" {
 		return nil, ColorError("#utils.go: matchFile can't be empty")
 	}
 
-	for _, val := range filePattern {
-		if strings.HasSuffix(matchFile, val) {
-			matchFile = strings.Replace(matchFile, val, "", 1)
-		}
+	fileExtensions := []string{YAML, YML, JSON}
+	for _, ext := range fileExtensions {
+		matchFile = strings.TrimSuffix(matchFile, ext)
 	}
-
 	matchFile = strings.ToLower(matchFile)
-	var result []string
 
-	initAbsFp, err := CreateFilePath("")
-	if err != nil {
-		return nil, fmt.Errorf("error getting initial file path: %w", err)
-	}
-
-	var startPath string
+	startPath := ""
 	if len(initialPath) == 0 {
-		startPath = initAbsFp
+		var err error
+		startPath, err = CreateFilePath("")
+		if err != nil {
+			return nil, fmt.Errorf("error getting initial file path: %w", err)
+		}
 	} else {
 		startPath = initialPath[0]
 	}
@@ -108,43 +102,45 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		return nil, ColorError("error reading directory "+startPath, err)
 	}
 
-	for _, val := range dirContents {
-		// Skip hidden directories
-		if val.IsDir() && strings.HasPrefix(val.Name(), ".") {
-			continue
-		}
+	var result []string
 
-		// Process files
-		if !val.IsDir() {
-			lowerName := strings.ToLower(val.Name())
-			for _, ext := range filePattern {
-				if strings.HasSuffix(lowerName, ext) {
-					ymlOrJsonFile := strings.TrimSuffix(lowerName, ext)
-					if matchFile == ymlOrJsonFile {
-						matchingFp := filepath.Join(startPath, val.Name())
-						result = append(result, matchingFp)
+	for _, entry := range dirContents {
+		if entry.IsDir() {
+			// Skip hidden directories
+			if strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+
+			// Recursively process subdirectories
+			subDirPath := filepath.Join(startPath, entry.Name())
+			matches, err := ListMatchingFiles(matchFile, subDirPath)
+			if err != nil && !isNoMatchingFileError(err) {
+				PrintRed(
+					"Skipping subdirectory " + entry.Name() + " due to error: \n" + err.Error(),
+				)
+				continue
+			}
+			result = append(result, matches...)
+		} else {
+			// Process files
+			fileName := strings.ToLower(entry.Name())
+			for _, ext := range fileExtensions {
+				if strings.HasSuffix(fileName, ext) {
+					baseName := strings.TrimSuffix(fileName, ext)
+					if matchFile == baseName {
+						result = append(result, filepath.Join(startPath, entry.Name()))
 					}
 				}
 			}
 		}
-
-		// Process subdirectories
-		if val.IsDir() {
-			subDirPath := filepath.Join(startPath, val.Name())
-			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			if err != nil && !isNoMatchingFileError(err) {
-				PrintRed("Skipping subdirectory" + val.Name() + "due to error: \n" + err.Error())
-				continue
-			}
-			result = append(result, matches...)
-		}
 	}
 
 	if len(result) == 0 {
-		return []string{}, ColorError(
-			"no files with matching name " + matchFile + " found in " + initAbsFp,
+		return nil, ColorError(
+			"no files with matching name " + matchFile + " found in " + startPath,
 		)
 	}
+
 	return result, nil
 }
 
