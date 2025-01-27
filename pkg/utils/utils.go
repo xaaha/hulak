@@ -76,6 +76,18 @@ func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
+	filePattern := [3]string{YAML, YML, JSON}
+
+	if matchFile == "" {
+		return nil, ColorError("#utils.go: matchFile can't be empty")
+	}
+
+	for _, val := range filePattern {
+		if strings.HasSuffix(matchFile, val) {
+			matchFile = strings.Replace(matchFile, val, "", 1)
+		}
+	}
+
 	matchFile = strings.ToLower(matchFile)
 	var result []string
 
@@ -95,8 +107,6 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	if err != nil {
 		return nil, ColorError("error reading directory "+startPath, err)
 	}
-
-	filePattern := [3]string{YAML, YML, JSON}
 
 	for _, val := range dirContents {
 		// Skip hidden directories
