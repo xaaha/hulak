@@ -143,3 +143,54 @@ func isWSL() bool {
 //
 // 	fmt.Printf("Response: %s\n", token)
 // }
+
+// to capture the token from the browser, you need to spin up the local server
+/*
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os/exec"
+	"runtime"
+)
+
+const redirectURI = "http://localhost:8080/callback"
+
+func main() {
+	authURL := "https://example.com/oauth2/authorize?client_id=your_client_id&response_type=token&redirect_uri=" + redirectURI
+
+	// Open the authorization URL in the user's browser
+	err := OpenURL(authURL)
+	if err != nil {
+		log.Fatalf("Failed to open URL: %v", err)
+	}
+
+	// Start a simple web server to handle the callback
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		// Extract the token from the query parameters
+		token := r.URL.Query().Get("access_token")
+		if token == "" {
+			fmt.Fprintln(w, "No access token found.")
+			log.Println("Access token not found in the request.")
+			return
+		}
+
+		fmt.Fprintf(w, "Access Token: %s", token)
+		log.Printf("Access Token received: %s\n", token)
+
+		// Close the server after capturing the token
+		go func() {
+			_ = http.DefaultServer.Close()
+		}()
+	})
+
+	log.Println("Listening for the callback...")
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+*/
