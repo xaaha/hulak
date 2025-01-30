@@ -12,6 +12,9 @@ import (
 
 // define types ✅
 // use checkYamlFile to get the buffer content in yaml parser. ✅
+// follow the pattern for ../../pkg/apiCalls/prepare.go
+// take the string coming from  reader.go and prepare the struct like OAuth2Config
+// we also need a boolean value for init file to tell the package to follow 0Auth flow
 // Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody
 // Then Open the URL we just prepared
 // After user authorization, we'll receive a code
