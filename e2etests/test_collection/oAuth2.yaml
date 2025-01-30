@@ -1,5 +1,7 @@
 ---
-# For Auth2.0
+# also support Auth / Authorization / AuthType
+# value as oauth2 auth2 or oauth2.0
+Type: OAuth2.0
 method: POST
 url: "{{.baseUrl}}"
 headers:
@@ -9,10 +11,9 @@ body:
     user: "{{.userName}}"
     product: "{{.product}}"
     client_id: ""
-    response_type: code
+    response_type: code # auto
     scope: ""
     state: ""
-    redirect_uri: ""
+    redirect_uri: "" # auto
     connection: ""
     audience: " "
-    # and any other value required

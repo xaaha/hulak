@@ -10,14 +10,14 @@ import (
 	"strings"
 )
 
-// Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody
 // If the yaml BODY says Auth2.0 // still needs to work out how this will be placed and parsed
+// Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody
 // Then Open the URL we just prepared
 // After user authorization, we'll receive a code
 // Capture the token from the browser, you need to spin up the local server
-// Save the token or not... I am not sure if this
+// Save the token... or not... I am not sure if this
 // Then, finally
-// 	Exchange the code for an access token
+// Exchange the code for an access token
 // API call with POST request
 // 	token, err := GetAccessToken(config, authCode)
 // 	if err != nil {
