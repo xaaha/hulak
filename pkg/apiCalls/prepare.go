@@ -89,12 +89,6 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 	return bytes.NewReader(jsonData), nil
 }
 
-// structure of the result to print in the console as the std output
-type CustomResponse struct {
-	Body           interface{} `json:"Body"`
-	ResponseStatus string      `json:"Response Status"`
-}
-
 // Takes in http response, adds response status code,
 // and returns CustomResponse type string for the StandardCall function below
 func processResponse(response *http.Response) string {
@@ -120,15 +114,6 @@ func processResponse(response *http.Response) string {
 		log.Fatalln(err)
 	}
 	return string(finalJSON)
-}
-
-// struct for StandardCall
-type ApiInfo struct {
-	Body      io.Reader
-	Headers   map[string]string
-	UrlParams map[string]string
-	Method    string
-	Url       string
 }
 
 // Makes an api call and returns the json body string

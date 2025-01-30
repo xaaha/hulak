@@ -21,6 +21,11 @@ const (
 	CONNECT HTTPMethodType = http.MethodConnect
 )
 
+// convert the method to uppercase
+func (h *HTTPMethodType) ToUpperCase() {
+	*h = HTTPMethodType(strings.ToUpper(string(*h)))
+}
+
 // enforce HTTPMethodType
 func (m HTTPMethodType) IsValid() bool {
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(m)))
@@ -34,8 +39,8 @@ func (m HTTPMethodType) IsValid() bool {
 type URL string
 
 // URL should not be missing
-func (u URL) IsValidURL() bool {
-	userProvidedUrl := string(u)
+func (u *URL) IsValidURL() bool {
+	userProvidedUrl := string(*u)
 	_, err := url.ParseRequestURI(userProvidedUrl)
 	return err == nil
 }

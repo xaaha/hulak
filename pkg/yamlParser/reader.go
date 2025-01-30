@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"strings"
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -82,8 +81,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 		utils.PanicRedAndExit("1. error decoding data: %v", err)
 	}
 
-	// case sensitivity keys in yaml file is ignored.
-	// method or Method or METHOD should all be the same
+	// make yaml keys  case insensitive. method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 
 	// parse all the values to with {{.key}} from .env folder
@@ -105,7 +103,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	return &buf, nil
 }
 
-// checks the validity of all the fields in the yaml file
+// checks the validity of all the fields in the yaml file meant for regular api call
 // and returns the json string of the yaml file
 func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
 	buf, err := checkYamlFile(filePath, secretsMap)
@@ -119,9 +117,7 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 		utils.PanicRedAndExit("2. error decoding data: %v", err)
 	}
 
-	// uppercase and type conversion
-	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
-	user.Method = upperCasedMethod
+	user.Method.ToUpperCase()
 
 	// method is required for any http request
 	if !user.Method.IsValid() {
@@ -141,6 +137,44 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 			user.Body,
 		)
 	}
+	val, _ := json.MarshalIndent(user, "", "  ")
+	jsonString := string(val)
+	return jsonString
+}
+
+// checks the validity of all the fields in the yaml file meant OAuth2.0
+// and returns the json string of the yaml
+func FinalJsonForAuthRequest(filePath string, secretsMap map[string]interface{}) string {
+	buf, err := checkYamlFile(filePath, secretsMap)
+	if err != nil {
+		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
+	}
+
+	var user AuthRequestBody
+	dec := yaml.NewDecoder(buf)
+	if err := dec.Decode(&user); err != nil {
+		utils.PanicRedAndExit("2. error decoding data: %v", err)
+	}
+	// uppercase method's value
+	user.Method.ToUpperCase()
+
+	// method is required as each implementation of  Auth2.0 is different
+	if !user.Method.IsValid() {
+		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
+	}
+
+	if user.Auth != nil && !user.Auth.IsValid() {
+		utils.PanicRedAndExit(
+			"Invalid 'auth' section. Make sure file contains valid argument in.\n %v",
+			user.Auth,
+		)
+	}
+
+	// make sure authorize url, that opens up in browser, is required for auth2.0
+	if !user.Url.IsValidURL() {
+		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
+	}
+
 	val, _ := json.MarshalIndent(user, "", "  ")
 	jsonString := string(val)
 	return jsonString

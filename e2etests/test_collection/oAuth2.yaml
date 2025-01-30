@@ -1,19 +1,19 @@
 ---
 # url that opens up in a browser. Usually ends with /authorize
+method: POST
 url: "{{.authorizeUrl}}"
 auth:
   # for type add support to oAuth2.0 or auth2 as well
-  type: oauth2
-  client_id: "{{.clientId}}"
-  scope: "{{.scope}}"
-  audience: "{{.audience}}"
-  connection: ""
-  # auto
-  response_type: code
-  redirect_uri: "{{.redirectUri}}"
-  state: state
+  type: OAuth2.0
+  extras:
+    access_token_url: "{{.access_token_url}}"
+    client_id: "{{.clientId}}"
+    redirect_uri: http://localhost:8080/calback
+    audience: "{{.audience}}"
+    scope: "{{.scope}}"
+    connection: "{{.connection}}"
+    response_type: code
 # now these fields becomes optional as well
-# method: POST
 # headers:
 #   Content-Type: application/x-www-form-urlencoded
 # body:

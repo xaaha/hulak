@@ -10,24 +10,6 @@ import (
 	"strings"
 )
 
-// If the yaml BODY says Auth2.0 // still needs to work out how this will be placed and parsed
-// Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody
-// Then Open the URL we just prepared
-// After user authorization, we'll receive a code
-// Capture the token from the browser, you need to spin up the local server
-// Save the token... or not... I am not sure if this
-// Then, finally
-// Exchange the code for an access token
-// API call with POST request
-// 	token, err := GetAccessToken(config, authCode)
-// 	if err != nil {
-// 		fmt.Printf("Error getting access token: %v\n", err)
-// 		return
-// 	}
-//
-// 	fmt.Printf("Response: %s\n", token)
-// }
-
 // OAuth2Config holds the configuration for OAuth2 flow
 type OAuth2Config struct {
 	AuthURL      string
