@@ -153,9 +153,9 @@ func FinalJsonForAuthRequest(filePath string, secretsMap map[string]interface{})
 	var user AuthRequestBody
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&user); err != nil {
-		utils.PanicRedAndExit("2. error decoding data: %v", err)
+		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
 	}
-	// uppercase method's value
+	// uppercase the method
 	user.Method.ToUpperCase()
 
 	// method is required as each implementation of  Auth2.0 is different
@@ -165,7 +165,7 @@ func FinalJsonForAuthRequest(filePath string, secretsMap map[string]interface{})
 
 	if user.Auth != nil && !user.Auth.IsValid() {
 		utils.PanicRedAndExit(
-			"Invalid 'auth' section. Make sure file contains valid argument in.\n %v",
+			"Invalid 'auth' section. Make sure file contains valid argument.\n %v",
 			user.Auth,
 		)
 	}
