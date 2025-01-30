@@ -1,19 +1,24 @@
 ---
-# also support Auth / Authorization / AuthType
-# value as oauth2 auth2 or oauth2.0
-Type: OAuth2.0
-method: POST
-url: "{{.baseUrl}}"
-headers:
-  Content-Type: application/x-www-form-urlencoded
-body:
-  urlencodedformdata:
-    user: "{{.userName}}"
-    product: "{{.product}}"
-    client_id: ""
-    response_type: code # auto
-    scope: ""
-    state: ""
-    redirect_uri: "" # auto
-    connection: ""
-    audience: " "
+# url that opens up in a browser. Usually ends with /authorize
+url: "{{.authorizeUrl}}"
+auth:
+  # for type add support to oAuth2.0 or auth2 as well
+  type: oauth2
+  client_id: "{{.clientId}}"
+  scope: "{{.scope}}"
+  audience: "{{.audience}}"
+  connection: ""
+  # auto
+  response_type: code
+  redirect_uri: "{{.redirectUri}}"
+  state: state
+# now these fields becomes optional as well
+# method: POST
+# headers:
+#   Content-Type: application/x-www-form-urlencoded
+# body:
+#   urlencodedformdata:
+#     # auto
+#     redirect_uri: ""
+#     response_type: code
+#     state: ""
