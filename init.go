@@ -25,7 +25,7 @@ func InitializeProject(env string) map[string]interface{} {
 	return envMap
 }
 
-func RunTasks(filePathList []string, envMap map[string]interface{}) {
+func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 	var wg sync.WaitGroup
 
 	// Run tasks concurrently
@@ -33,7 +33,7 @@ func RunTasks(filePathList []string, envMap map[string]interface{}) {
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(envMap), path)
+			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
 		}(eachPath)
 	}
 
