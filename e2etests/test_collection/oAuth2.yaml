@@ -1,18 +1,21 @@
 ---
-# url that opens up in a browser. Usually ends with /authorize
+# Depends on Auth2.0 provider. Github expects GET, while Okta expects POST
 method: POST
+# url that opens up in a browser. Usually ends with /authorize
 url: "{{.authorizeUrl}}"
+urlparams:
+  audience: "{{.audience}}"
+  client_id: "{{.clientId}}"
+  scope: "{{.scope}}"
+  connection: "{{.connection}}"
+  # auto generate.
+  redirect_uri: http://localhost:8080/calback
+  response_type: code
 auth:
   # for type add support to oAuth2.0 or auth2 as well
   type: OAuth2.0
   extras:
     access_token_url: "{{.access_token_url}}"
-    client_id: "{{.clientId}}"
-    redirect_uri: http://localhost:8080/calback
-    audience: "{{.audience}}"
-    scope: "{{.scope}}"
-    connection: "{{.connection}}"
-    response_type: code
 # now these fields becomes optional as well
 # headers:
 #   Content-Type: application/x-www-form-urlencoded
