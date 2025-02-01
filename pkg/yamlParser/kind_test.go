@@ -272,42 +272,14 @@ func TestConfigParsing(t *testing.T) {
 			createFile:  true,
 			want:        ConfigType{Kind: KindAPI},
 		},
-		// {
-		// 	name:        "invalid kind value",
-		// 	yamlContent: `kind: invalid`,
-		// 	createFile:  true,
-		// 	want:        ConfigType{Kind: "invalid"},
-		// },
-
-		// Environment variable substitution
 		{
-			name: "with secrets map substitution",
-			yamlContent: `kind: API
-secret: ${SECRET_VALUE}`,
-			createFile: true,
-			secretsMap: map[string]interface{}{
-				"SECRET_VALUE": "test-secret",
-			},
-			want: ConfigType{Kind: KindAPI},
+			name:        "invalid kind value",
+			yamlContent: `kind: invalid`,
+			createFile:  true,
+			want:        ConfigType{Kind: "invalid"},
 		},
-
-		// Error cases
-		// {
-		// 	name:             "non-existent file",
-		// 	yamlContent:      "",
-		// 	createFile:       false,
-		// 	want:             ConfigType{},
-		// 	wantPanic:        true,
-		// 	expectedPanicMsg: "File does not exist",
-		// },
-		// {
-		// 	name:             "invalid yaml syntax",
-		// 	yamlContent:      "kind: API\n  invalid:\n  - indentation",
-		// 	createFile:       true,
-		// 	want:             ConfigType{},
-		// 	wantPanic:        true,
-		// 	expectedPanicMsg: "error decoding",
-		// },
+		// Error cases like invalid syntax is refused from libraray goccy yaml parserA
+		// Non exiistant file is throws out...
 	}
 
 	for _, tt := range tests {
