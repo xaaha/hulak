@@ -11,11 +11,10 @@ import (
 )
 
 /*
- define types ✅
- use checkYamlFile to get the buffer content in yaml parser. ✅
+ Define types for yaml file ✅
+ use checkYamlFile in reader.go and get the  to the defined type above. ✅
  use Auth section to determine if we should follow this flow
  Use Method, Url and parameters for open
- follow the pattern for ../../pkg/apiCalls/prepare.go
  take the string coming from  reader.go and prepare the struct like OAuth2Config
  we also need a boolean value for init file to tell the package to follow 0Auth flow
  Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody OR prepareUrl
