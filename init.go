@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 /*
@@ -28,12 +30,29 @@ func InitializeProject(env string) map[string]interface{} {
 func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 	var wg sync.WaitGroup
 
-	// Run tasks concurrently
+	// Run tasks concurrently based on the kinds in yaml file
 	for _, eachPath := range filePathList {
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-			apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
+
+			// Parse the configuration for each file
+			config := yamlParser.MustParseConfig(path, utils.CopyEnvMap(secretsMap))
+
+			// Handle different kinds
+			switch {
+			case config.IsAuth():
+				// For now, just print hello world for Auth kind
+				fmt.Printf("hello world - processing Auth configuration: %s\n", path)
+
+			case config.IsAPI():
+				// Default API handling (existing functionality)
+				apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
+
+			default:
+				// This shouldn't happen as invalid kinds are caught in MustParseConfig, but just in case...
+				utils.PanicRedAndExit("Unsupported kind in file: %s", path)
+			}
 		}(eachPath)
 	}
 

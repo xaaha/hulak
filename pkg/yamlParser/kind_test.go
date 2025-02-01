@@ -239,7 +239,7 @@ func TestConfigParsing(t *testing.T) {
 			want:        ConfigType{Kind: KindAPI},
 		},
 		{
-			name:        "valid API when kind is missing but file is not",
+			name:        "valid API when kind is missing but file is not empty",
 			yamlContent: `method: Post`,
 			createFile:  true,
 			want:        ConfigType{Kind: KindAPI},
