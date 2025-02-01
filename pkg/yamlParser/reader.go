@@ -144,7 +144,7 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 
 // checks the validity of all the fields in the yaml file meant OAuth2.0
 // and returns the json string of the yaml
-func FinalJsonForAuthRequest(filePath string, secretsMap map[string]interface{}) string {
+func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) AuthRequestBody {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
@@ -175,7 +175,5 @@ func FinalJsonForAuthRequest(filePath string, secretsMap map[string]interface{})
 		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
 	}
 
-	val, _ := json.MarshalIndent(user, "", "  ")
-	jsonString := string(val)
-	return jsonString
+	return user
 }

@@ -16,12 +16,3 @@ auth:
   type: OAuth2.0
   extras:
     access_token_url: "{{.access_token_url}}"
-# now these fields becomes optional as well
-# headers:
-#   Content-Type: application/x-www-form-urlencoded
-# body:
-#   urlencodedformdata:
-#     # auto
-#     redirect_uri: ""
-#     response_type: code
-#     state: ""

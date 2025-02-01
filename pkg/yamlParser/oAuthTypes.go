@@ -10,7 +10,7 @@ const (
 	Oauth2type3 authtype = "oauth2.0"
 )
 
-// Represents how Auth body in the AuthRequestBody looks like
+// Represents how Auth section in the Auth yaml looks like
 type Auth struct {
 	Type   authtype          `json:"type"   yaml:"type"`
 	Extras map[string]string `json:"extras" yaml:"extras"`
@@ -18,9 +18,10 @@ type Auth struct {
 
 // represents how a yaml file for Auth2.0 would look like
 type AuthRequestBody struct {
-	Method HTTPMethodType `json:"method" yaml:"method"`
-	Url    URL            `json:"url"    yaml:"url"`
-	Auth   *Auth          `json:"auth"   yaml:"auth"`
+	Method    HTTPMethodType    `json:"method"              yaml:"method"`
+	Url       URL               `json:"url"                 yaml:"url"`
+	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
+	Auth      *Auth             `json:"auth"                yaml:"auth"`
 }
 
 // check's if auth key contains type and has at least 1 item in Extras

@@ -10,27 +10,31 @@ import (
 	"strings"
 )
 
-// define types ✅
-// use checkYamlFile to get the buffer content in yaml parser. ✅
-// follow the pattern for ../../pkg/apiCalls/prepare.go
-// take the string coming from  reader.go and prepare the struct like OAuth2Config
-// we also need a boolean value for init file to tell the package to follow 0Auth flow
-// Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody OR prepareUrl
-// Then Open the URL we just prepared
-// After user authorization, we'll receive a code
-// Capture the token from the browser, you need to spin up the local server
-// Save the token... or not... I am not sure if this
-// Then, finally
-// Exchange the code for an access token
-// API call with POST request
-// 	token, err := GetAccessToken(config, authCode)
-// 	if err != nil {
-// 		fmt.Printf("Error getting access token: %v\n", err)
-// 		return
-// 	}
-//
-// 	fmt.Printf("Response: %s\n", token)
-// }
+/*
+ define types ✅
+ use checkYamlFile to get the buffer content in yaml parser. ✅
+ use Auth section to determine if we should follow this flow
+ Use Method, Url and parameters for open
+ follow the pattern for ../../pkg/apiCalls/prepare.go
+ take the string coming from  reader.go and prepare the struct like OAuth2Config
+ we also need a boolean value for init file to tell the package to follow 0Auth flow
+ Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody OR prepareUrl
+ Then Open the URL we just prepared
+ After user authorization, we'll receive a code
+ Capture the token from the browser, you need to spin up the local server
+ Save the token... or not... I am not sure if this
+ Then, finally
+ Exchange the code for an access token
+ API call with POST request
+ 	token, err := GetAccessToken(config, authCode)
+ 	if err != nil {
+ 		fmt.Printf("Error getting access token: %v\n", err)
+ 		return
+ 	}
+
+ 	fmt.Printf("Response: %s\n", token)
+ }
+*/
 
 // OAuth2Config holds the configuration for OAuth2 flow
 type OAuth2Config struct {
@@ -94,7 +98,8 @@ func GetAccessToken(config OAuth2Config, code string) (string, error) {
 	return string(body), nil
 }
 
-// copied from: https://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
+// copied from Githubhttps://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
+// Opens the url in the brwoser based on the user's OS
 func OpenURL(url string) error {
 	var cmd string
 	var args []string
