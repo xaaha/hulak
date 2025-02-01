@@ -163,9 +163,10 @@ func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) Au
 		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
 	}
 
-	if user.Auth != nil && !user.Auth.IsValid() {
+	if user.Auth == nil || !user.Auth.IsValid() {
 		utils.PanicRedAndExit(
-			"Invalid 'auth' section. Make sure file contains valid argument.\n %v",
+			"Invalid 'auth' section. Make sure the file '%s' contains valid auth section.\n %v",
+			filePath,
 			user.Auth,
 		)
 	}
