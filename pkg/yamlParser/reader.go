@@ -57,8 +57,7 @@ func replaceVarsWithValues(
 	return changedMap
 }
 
-// Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
-// Right now, the yaml file is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
+// Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
 func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)

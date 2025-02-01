@@ -1,16 +1,109 @@
 package yamlParser
 
-import "strings"
+import (
+	"strings"
 
-// kind field in the yaml file. Depending on the kind, we jump to different flow
-type Kind string
-
-const (
-	KindAuth Kind = "Auth"
-	KindAPI  Kind = "Api"
+	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
-var validKinds = [2]Kind{KindAuth, KindAPI}
+// Kind represents the type of yaml flow hulak should follow
+type Kind string
+
+// Available configuration kinds
+const (
+	KindAuth Kind = "Auth"
+	KindAPI  Kind = "API"
+)
+
+// KindConfig holds configuration for handling different kinds
+type KindConfig struct {
+	// Map of normalized (lowercase) kind names to their canonical forms
+	validKinds map[string]Kind
+	// Default kind to use when none is specified
+	defaultKind Kind
+}
+
+// Global instance of KindConfig
+var kindConfig = newKindConfig()
+
+// newKindConfig initializes the kind configuration
+func newKindConfig() *KindConfig {
+	kc := &KindConfig{
+		validKinds:  make(map[string]Kind),
+		defaultKind: KindAPI, // Set API as default
+	}
+
+	// Register default kinds
+	kc.registerKind(KindAuth)
+	kc.registerKind(KindAPI)
+
+	return kc
+}
+
+// registerKind adds a new kind to the valid kinds map
+func (kc *KindConfig) registerKind(k Kind) {
+	kc.validKinds[strings.ToLower(string(k))] = k
+}
+
+// GetValidKinds returns a slice of all valid kinds
+func (kc *KindConfig) GetValidKinds() []Kind {
+	kinds := make([]Kind, 0, len(kc.validKinds))
+	for _, k := range kc.validKinds {
+		kinds = append(kinds, k)
+	}
+	return kinds
+}
+
+// ConfigType represents the configuration structure
+type ConfigType struct {
+	Kind Kind `json:"kind,omitempty" yaml:"kind,omitempty"`
+}
+
+// normalize standardizes the kind value
+func (k *Kind) normalize() Kind {
+	if k == nil || *k == "" {
+		return kindConfig.defaultKind
+	}
+
+	normalized := strings.ToLower(string(*k))
+	if canonical, exists := kindConfig.validKinds[normalized]; exists {
+		return canonical
+	}
+	return Kind(normalized)
+}
+
+// IsValid checks if the kind is valid according to defined rules
+func (conf *ConfigType) IsValid() bool {
+	// empty mean  API
+	if conf.Kind == "" {
+		return true
+	}
+
+	normalized := strings.ToLower(string(conf.GetKind()))
+	_, exists := kindConfig.validKinds[normalized]
+	return exists
+}
+
+// GetKind returns the normalized kind
+func (conf *ConfigType) GetKind() Kind {
+	return conf.Kind.normalize()
+}
+
+// IsKind checks if the configuration is of a specific kind
+func (conf *ConfigType) IsKind(k Kind) bool {
+	return strings.EqualFold(string(conf.GetKind()), string(k))
+}
+
+// IsAuth checks if the kind is Auth
+func (conf *ConfigType) IsAuth() bool {
+	return conf.IsKind(KindAuth)
+}
+
+// IsAPI checks if the kind is API
+func (conf *ConfigType) IsAPI() bool {
+	return conf.IsKind(KindAPI)
+}
 
 // ValidateKinds checks if all kinds in the slice are valid
 func ValidateKinds(kinds []Kind) ([]string, bool) {
@@ -28,58 +121,27 @@ func ValidateKinds(kinds []Kind) ([]string, bool) {
 	return invalidKinds, isValid
 }
 
-// checks if the lowercased kind equals to provided
-func (k *Kind) normalize() Kind {
-	// if empty, default to API
-	if *k == "" {
-		return KindAPI
-	}
-	strKind := strings.ToLower(string(*k))
-	switch strKind {
-	case strings.ToLower(string(KindAPI)):
-		return KindAPI
-	case strings.ToLower(string(KindAuth)):
-		return KindAuth
-	default:
-		return Kind(strKind)
-	}
-}
-
-// Defines Kind, which represents the purpose of the file
-type ConfigType struct {
-	Kind Kind `json:"kind,omitempty" yaml:"kind,omitempty"`
-}
-
-// checks if the kind is valid according to the defined rules
-func (conf *ConfigType) IsValid() bool {
-	normalizedKind := conf.Kind.normalize()
-
-	// Default to Api even if config has no kind field
-	if conf.Kind == "" {
-		return true
+// parses a YAML file and returns the configuration type
+func ParseConfig(filePath string, secretsMap map[string]interface{}) (*ConfigType, error) {
+	buf, err := checkYamlFile(filePath, secretsMap)
+	if err != nil {
+		return nil, utils.ColorError("error reading YAML file: %w", err)
 	}
 
-	// check agains valid Kinds (case-insensitive)
-	for _, validKind := range validKinds {
-		if strings.EqualFold(string(normalizedKind), string(validKind)) {
-			return true
-		}
+	var config ConfigType
+	dec := yaml.NewDecoder(buf)
+	if err := dec.Decode(&config); err != nil {
+		return nil, utils.ColorError("error decoding YAML: %w", err)
 	}
 
-	return false
+	return &config, nil
 }
 
-// returns the normalized kind, defauling to API if not specified
-func (conf *ConfigType) GetKind() Kind {
-	return conf.Kind.normalize()
-}
-
-// IsAuth checks if the kind is Auth (case-insensitive)
-func (conf *ConfigType) IsAuth() bool {
-	return strings.EqualFold(string(conf.GetKind()), string(KindAuth))
-}
-
-// IsAPI checks if the kind is API (case-insensitive)
-func (conf *ConfigType) IsAPI() bool {
-	return strings.EqualFold(string(conf.GetKind()), string(KindAPI))
+// parses a YAML file and panics on error
+func MustParseConfig(filePath string, secretsMap map[string]interface{}) ConfigType {
+	config, err := ParseConfig(filePath, secretsMap)
+	if err != nil {
+		utils.PanicRedAndExit("#kind.go: %v", err)
+	}
+	return *config
 }
