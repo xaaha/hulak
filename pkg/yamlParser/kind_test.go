@@ -1,7 +1,10 @@
 package yamlParser
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -183,6 +186,186 @@ func TestConfigType_IsAuth_IsAPI(t *testing.T) {
 			}
 			if got := conf.IsAPI(); got != tt.wantAPI {
 				t.Errorf("ConfigType.IsAPI() = %v, want %v", got, tt.wantAPI)
+			}
+		})
+	}
+}
+
+// helper function to create temporary YAML file with content
+func createTempYAMLFile(t *testing.T, content string) string {
+	t.Helper()
+
+	tmpfile, err := os.CreateTemp("", "test-*.yaml")
+	if err != nil {
+		t.Fatalf("could not create temporary file: %v", err)
+	}
+
+	t.Cleanup(func() {
+		os.Remove(tmpfile.Name())
+	})
+
+	if _, err := tmpfile.Write([]byte(content)); err != nil {
+		t.Fatalf("could not write to temporary file: %v", err)
+	}
+
+	if err := tmpfile.Close(); err != nil {
+		t.Fatalf("could not close temporary file: %v", err)
+	}
+
+	return tmpfile.Name()
+}
+
+func TestConfigParsing(t *testing.T) {
+	tests := []struct {
+		name             string
+		yamlContent      string
+		createFile       bool
+		secretsMap       map[string]interface{}
+		want             ConfigType
+		wantPanic        bool
+		expectedPanicMsg string
+	}{
+		// Case insensitive API tests
+		{
+			name:        "valid API lowercase",
+			yamlContent: `kind: api`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAPI},
+		},
+		{
+			name:        "valid API uppercase",
+			yamlContent: `kind: API`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAPI},
+		},
+		{
+			name:        "valid API mixed case",
+			yamlContent: `kind: ApI`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAPI},
+		},
+
+		// Case insensitive Auth tests
+		{
+			name:        "valid Auth lowercase",
+			yamlContent: `kind: auth`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAuth},
+		},
+		{
+			name:        "valid Auth uppercase",
+			yamlContent: `kind: AUTH`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAuth},
+		},
+		{
+			name:        "valid Auth mixed case",
+			yamlContent: `kind: AuTh`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAuth},
+		},
+
+		// Default and special cases
+		{
+			name:        "missing kind field defaults to API",
+			yamlContent: `other_field: value`,
+			createFile:  true,
+			want:        ConfigType{Kind: KindAPI},
+		},
+		// {
+		// 	name:        "invalid kind value",
+		// 	yamlContent: `kind: invalid`,
+		// 	createFile:  true,
+		// 	want:        ConfigType{Kind: "invalid"},
+		// },
+
+		// Environment variable substitution
+		{
+			name: "with secrets map substitution",
+			yamlContent: `kind: API
+secret: ${SECRET_VALUE}`,
+			createFile: true,
+			secretsMap: map[string]interface{}{
+				"SECRET_VALUE": "test-secret",
+			},
+			want: ConfigType{Kind: KindAPI},
+		},
+
+		// Error cases
+		// {
+		// 	name:             "non-existent file",
+		// 	yamlContent:      "",
+		// 	createFile:       false,
+		// 	want:             ConfigType{},
+		// 	wantPanic:        true,
+		// 	expectedPanicMsg: "File does not exist",
+		// },
+		// {
+		// 	name:             "invalid yaml syntax",
+		// 	yamlContent:      "kind: API\n  invalid:\n  - indentation",
+		// 	createFile:       true,
+		// 	want:             ConfigType{},
+		// 	wantPanic:        true,
+		// 	expectedPanicMsg: "error decoding",
+		// },
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var tmpPath string
+			if tt.createFile {
+				tmpPath = createTempYAMLFile(t, tt.yamlContent)
+			} else {
+				tmpPath = filepath.Join(os.TempDir(), "non-existent-file.yaml")
+			}
+
+			defer func() {
+				r := recover()
+				if tt.wantPanic {
+					if r == nil {
+						t.Error("Expected panic did not occur")
+						return
+					}
+					panicMsg, ok := r.(string)
+					if !ok {
+						t.Errorf("Expected panic message to be string, got %T", r)
+						return
+					}
+					if !strings.Contains(panicMsg, tt.expectedPanicMsg) {
+						t.Errorf(
+							"Expected panic message to contain %q, got %q",
+							tt.expectedPanicMsg,
+							panicMsg,
+						)
+					}
+					return
+				}
+				if r != nil {
+					t.Errorf("Unexpected panic: %v", r)
+					return
+				}
+			}()
+
+			// Test both ParseConfig and MustParseConfig
+			got := MustParseConfig(tmpPath, tt.secretsMap)
+
+			// Normalize the kind for comparison
+			got.Kind = got.Kind.normalize()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Config parsing = %v, want %v", got, tt.want)
+			}
+
+			// Also verify ParseConfig returns the same result
+			gotFromParse, err := ParseConfig(tmpPath, tt.secretsMap)
+			if err != nil {
+				t.Errorf("ParseConfig() unexpected error: %v", err)
+				return
+			}
+			if gotFromParse != nil {
+				gotFromParse.Kind = gotFromParse.Kind.normalize()
+				if !reflect.DeepEqual(*gotFromParse, tt.want) {
+					t.Errorf("ParseConfig() = %v, want %v", *gotFromParse, tt.want)
+				}
 			}
 		})
 	}
