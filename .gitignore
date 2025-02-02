@@ -2,3 +2,5 @@ bin/
 collection*
 test.go
 e2etests/**/*.json
+test*
+!test_collection/

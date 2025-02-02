@@ -1,16 +1,18 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
-	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
@@ -133,13 +135,98 @@ func OpenURL(url string) error {
 	return exec.Command(cmd, args...).Start()
 }
 
+// CallbackServer represents our local OAuth callback server
+type CallbackServer struct {
+	server   *http.Server
+	token    string
+	tokenErr error
+	wg       sync.WaitGroup
+}
+
+// handleCallback processes the OAuth callback
+func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
+	// Extract the token from the query parameters
+	token := r.URL.Query().Get("code")
+	if token == "" {
+		cs.tokenErr = fmt.Errorf("no access token found in callback")
+		fmt.Fprintln(w, "No access token found. You can close this window.")
+		cs.shutdown()
+		return
+	}
+
+	fmt.Println("This is my code: ", cs.token)
+	// Store the token and shutdown the server
+	cs.token = token
+	fmt.Fprintln(w, "Authentication successful! You can close this window.")
+	cs.shutdown()
+}
+
+// NewCallbackServer creates a new callback server instance
+func NewCallbackServer(port int) *CallbackServer {
+	cs := &CallbackServer{
+		server: &http.Server{
+			Addr:    fmt.Sprintf(":%d", port),
+			Handler: http.NewServeMux(),
+		},
+	}
+
+	// Setup the callback handler with ServeMux
+	mux := cs.server.Handler.(*http.ServeMux)
+	mux.HandleFunc("/callback", cs.handleCallback)
+	return cs
+}
+
+// shutdown gracefully shuts down the server
+func (cs *CallbackServer) shutdown() {
+	go func() {
+		if err := cs.server.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down server: %v", err)
+		}
+	}()
+	cs.wg.Done()
+}
+
+// Start starts the callback server
+func (cs *CallbackServer) Start() {
+	cs.wg.Add(1)
+	go func() {
+		if err := cs.server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+			cs.tokenErr = err
+			cs.wg.Done()
+		}
+	}()
+}
+
+// WaitForToken waits for the callback to complete and returns the token or error
+func (cs *CallbackServer) WaitForToken() (string, error) {
+	cs.wg.Wait()
+	return cs.token, cs.tokenErr
+}
+
+// OpenBrowser starts the callback server and opens the browser for OAuth flow
 func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
+	// Create and start the callback server
+	callbackServer := NewCallbackServer(8080)
+	callbackServer.Start()
+
+	// Prepare the OAuth URL
 	authReqBody := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
 	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
-	err := OpenURL(urlStr)
-	if err != nil {
-		return utils.ColorError("error opening the url", err)
+
+	// Open the browser
+	log.Println("Opening browser for authentication...")
+	if err := OpenURL(urlStr); err != nil {
+		return fmt.Errorf("error opening browser: %w", err)
 	}
+
+	// Wait for the callback to complete
+	token, err := callbackServer.WaitForToken()
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+
+	log.Printf("Successfully received access token %v", token)
 	return nil
 }
 
@@ -199,7 +286,6 @@ import (
 const redirectURI = "http://localhost:8080/callback"
 
 func main() {
-	authURL := "https://example.com/oauth2/authorize?client_id=your_client_id&response_type=token&redirect_uri=" + redirectURI
 
 	// Open the authorization URL in the user's browser
 	err := OpenURL(authURL)

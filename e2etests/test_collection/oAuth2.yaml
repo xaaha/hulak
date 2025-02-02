@@ -3,15 +3,15 @@ kind: auth
 # Depends on Auth2.0 provider. Github expects GET, while Okta expects POST
 method: POST
 # url that opens up in a browser. Usually ends with /authorize
-url: "{{.authorizeUrl}}"
+url: '{{.authorizeUrl}}'
 urlparams:
-  audience: ny
-  client_id: client
-  scope: myScope
-  connection: immportal
+  # audience: "{{.audience}}"
+  client_id: '{{.client_id}}'
+  connection: '{{.connection}}'
   # auto generate.
-  redirect_uri: http://localhost:8080/calback
-  response_type: code
+  redirect_uri: '{{.redirect_uri}}'
+  response_type: '{{.response_type}}'
+  scope: repo:user
 auth:
   type: OAuth2.0
   extras:

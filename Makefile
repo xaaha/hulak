@@ -9,7 +9,7 @@ graphql:
 	@go run . -fp "e2etests/test_collection/graphql.yml"
 
 auth2:
-	@go run . -f "oAuth2"
+	@go run . -f "oAuth2" -env test
 
 test:
 	@go test ./...
