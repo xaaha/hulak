@@ -8,12 +8,16 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
+	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 /*
  Define types for yaml file ✅
- use checkYamlFile in reader.go and get the  to the defined type above. ✅
- use Auth section to determine if we should follow this flow
+ Use checkYamlFile in reader.go and get the  to the defined type above. ✅
+ Use Auth section to determine if we should follow this flow. ✅
  Use Method, Url and parameters for open
  take the string coming from  reader.go and prepare the struct like OAuth2Config
  we also need a boolean value for init file to tell the package to follow 0Auth flow
@@ -127,6 +131,16 @@ func OpenURL(url string) error {
 		args = append(args[:1], append([]string{""}, args[1:]...)...)
 	}
 	return exec.Command(cmd, args...).Start()
+}
+
+func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
+	authReqBody := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
+	err := OpenURL(urlStr)
+	if err != nil {
+		return utils.ColorError("error opening the url", err)
+	}
+	return nil
 }
 
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux

@@ -13,7 +13,6 @@ urlparams:
   redirect_uri: http://localhost:8080/calback
   response_type: code
 auth:
-  # for type add support to oAuth2.0 or auth2 as well
   type: OAuth2.0
   extras:
     access_token_url: https://www.google.com/login

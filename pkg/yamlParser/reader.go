@@ -141,8 +141,8 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 	return jsonString
 }
 
-// checks the validity of all the fields in the yaml file meant OAuth2.0
-// and returns the json string of the yaml
+// checks the validity of all the fields in the yaml file meant for OAuth2.0.
+// It returns AuthRequestBody struct
 func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) AuthRequestBody {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {

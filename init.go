@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 
+	"github.com/xaaha/hulak/pkg/actions"
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -35,18 +35,17 @@ func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-
 			// Parse the configuration for each file
 			config := yamlParser.MustParseConfig(path, utils.CopyEnvMap(secretsMap))
 
-			// Handle different kinds
+			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
 				// For now, just print hello world for Auth kind
-				fmt.Printf("hello world - processing Auth configuration: %s\n", path)
+				// fmt.Printf("hello world - processing Auth configuration: %s\n", path)
+				_ = actions.OpenBrowser(path, secretsMap)
 
 			case config.IsAPI():
-				// Default API handling (existing functionality)
 				apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
 
 			default:
