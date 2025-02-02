@@ -154,7 +154,7 @@ func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fmt.Println("This is my code: ", cs.token)
+	fmt.Println("This is my code: ", token)
 	// Store the token and shutdown the server
 	cs.token = token
 	fmt.Fprintln(w, "Authentication successful! You can close this window.")
@@ -207,7 +207,7 @@ func (cs *CallbackServer) WaitForToken() (string, error) {
 // OpenBrowser starts the callback server and opens the browser for OAuth flow
 func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
 	// Create and start the callback server
-	callbackServer := NewCallbackServer(8080)
+	callbackServer := NewCallbackServer(2882)
 	callbackServer.Start()
 
 	// Prepare the OAuth URL
