@@ -34,8 +34,10 @@ import (
 */
 
 const (
-	portNum = ":2982"
-	timeout = 60 * time.Second
+	portNum       = ":2982"
+	timeout       = 60 * time.Second
+	redirect_uri  = "http://localhost:2982/callback"
+	response_type = "code"
 )
 
 // OAuth2Config holds the configuration for OAuth2 flow
@@ -150,7 +152,7 @@ func callback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Server() {
+func server() {
 	log.Println("Starting server on port", portNum)
 	http.HandleFunc("/callback", callback)
 	err := http.ListenAndServe(portNum, nil)
@@ -162,9 +164,16 @@ func Server() {
 // OpenBrowser starts the callback server and opens the browser for OAuth flow
 func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
 	// Create and start the callback server
-	go Server()
+	go server()
 	// Prepare the OAuth URL
 	authReqBody := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+
+	// required fields for oAuth web flow. This is true github and Okta.
+	// from my testing, extra field does not do any harm, if this is not the case, I'll revisit
+	reqField := make(map[string]string)
+	reqField["response_type"] = response_type
+	reqField["redirect_uri"] = redirect_uri
+	authReqBody.UrlParams = mergeMaps(authReqBody.UrlParams, reqField)
 	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
 
 	// Open the browser
@@ -190,4 +199,20 @@ func isWSL() bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(string(releaseData)), "microsoft")
+}
+
+// merge the secondary map into the main map.
+// If keys are repeated, values from the secondary map replace those in the main map.
+func mergeMaps(main, sec map[string]string) map[string]string {
+	if main == nil {
+		main = make(map[string]string)
+	}
+	if sec == nil {
+		return main
+	}
+	// Merge sec map into main map
+	for sKey, sVal := range sec {
+		main[sKey] = sVal
+	}
+	return main
 }

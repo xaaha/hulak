@@ -5,9 +5,6 @@ method: POST
 url: "{{.authorizeUrl}}"
 urlparams:
   client_id: "{{.client_id}}"
-  # auto generate.
-  redirect_uri: "{{.redirect_uri}}"
-  response_type: "{{.response_type}}"
   scope: repo:user
 auth:
   type: OAuth2.0
