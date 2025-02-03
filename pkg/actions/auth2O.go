@@ -100,7 +100,7 @@ func GetAccessToken(config OAuth2Config, code string) (string, error) {
 	return string(body), nil
 }
 
-// copied from Githubhttps://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
+// copied from Github https://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
 // Opens the url in the brwoser based on the user's OS
 func OpenURL(url string) error {
 	var cmd string
@@ -132,11 +132,11 @@ func OpenURL(url string) error {
 	return exec.Command(cmd, args...).Start()
 }
 
-// handleCallback processes the OAuth callback
-// Callback handles the /callback endpoint, prints the captured code, lets the user know they can close the window, and shuts down the server.
-var codeChan = make(chan string) // Channel to communicate the received code
+// Channel to communicate the received code
+var codeChan = make(chan string)
 
-func Callback(w http.ResponseWriter, r *http.Request) {
+// handle '/callback' to processes the OAuth server
+func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
 		fmt.Printf("Received code: %s\n", code)
@@ -152,7 +152,7 @@ func Callback(w http.ResponseWriter, r *http.Request) {
 
 func Server() {
 	log.Println("Starting server on port", portNum)
-	http.HandleFunc("/callback", Callback)
+	http.HandleFunc("/callback", callback)
 	err := http.ListenAndServe(portNum, nil)
 	if err != nil {
 		log.Fatal(err)
