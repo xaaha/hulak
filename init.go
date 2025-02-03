@@ -41,8 +41,6 @@ func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				// For now, just print hello world for Auth kind
-				// fmt.Printf("hello world - processing Auth configuration: %s\n", path)
 				_ = actions.OpenBrowser(path, secretsMap)
 
 			case config.IsAPI():

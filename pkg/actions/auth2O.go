@@ -12,6 +12,7 @@ import (
 	"time"
 
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
+	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
@@ -42,27 +43,12 @@ const (
 
 // OAuth2Config holds the configuration for OAuth2 flow
 type OAuth2Config struct {
-	AuthURL      string
 	TokenURL     string
 	ClientID     string
 	ClientSecret string
 	Scope        string
 	State        string
 	RedirectURI  string
-}
-
-func GenerateAuthURL(config OAuth2Config) string {
-	// Build authorization URL with query parameters
-	params := url.Values{}
-	params.Add("client_id", config.ClientID)
-	params.Add("response_type", "code")
-	params.Add("scope", config.Scope)
-	params.Add("state", config.State)
-	params.Add("redirect_uri", config.RedirectURI)
-	params.Add("connection", "connection value") // Your specific connection value
-	params.Add("audience", "audience value")     // Your specific audience value
-
-	return fmt.Sprintf("%s?%s", config.AuthURL, params.Encode())
 }
 
 func GetAccessToken(config OAuth2Config, code string) (string, error) {
@@ -141,7 +127,6 @@ var codeChan = make(chan string)
 func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
-		fmt.Printf("Received code: %s\n", code)
 		fmt.Fprintf(w, "Code received: %s\nYou can now safely close this window.\n", code)
 
 		// Send the code to the channel and close it
@@ -153,7 +138,7 @@ func callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func server() {
-	log.Println("Starting server on port", portNum)
+	// log.Println("Starting server on port", portNum)
 	http.HandleFunc("/callback", callback)
 	err := http.ListenAndServe(portNum, nil)
 	if err != nil {
@@ -184,9 +169,9 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
 	// Wait for the code or a timeout
 	select {
 	case code := <-codeChan:
-		log.Printf("Authentication code received: %s\n", code)
+		utils.PrintGreen(fmt.Sprintf("Authentication code received: %s\n", code))
 	case <-time.After(timeout):
-		log.Println("Timeout waiting for the code.")
+		utils.PrintRed("Timeout waiting for the code.")
 		return fmt.Errorf("timeout waiting for the code")
 	}
 	return nil
