@@ -204,6 +204,77 @@ func (cs *CallbackServer) WaitForToken() (string, error) {
 	return cs.token, cs.tokenErr
 }
 
+// GrabCode starts a minimal HTTP server,
+// grabs the 'code' query parameter, then immediately
+// shuts down the server and the running process.
+// func GrabCode(filePath string, secretsMap map[string]interface{}) {
+// 	var wg sync.WaitGroup
+// 	wg.Add(1)
+//
+// 	// Channel to receive the captured code
+// 	codeCh := make(chan string, 1)
+//
+// 	// simple server
+// 	mux := http.NewServeMux()
+// 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+// 		// Extract the 'code' parameter
+// 		code := r.URL.Query().Get("code")
+// 		if code == "" {
+// 			fmt.Fprintln(w, "No code found. You can close this window.")
+// 		} else {
+// 			fmt.Fprintln(w, "Authentication successful! You can close this window.")
+// 			fmt.Println("Captured code:", code)
+// 			codeCh <- code
+// 		}
+// 		wg.Done()
+// 	})
+//
+// 	server := &http.Server{
+// 		Addr:    fmt.Sprintf(":%d", 2882), // port
+// 		Handler: mux,
+// 	}
+//
+// 	// Listen for manual shutdown signals (Ctrl+C, etc.)
+// 	stopCh := make(chan os.Signal, 1)
+// 	signal.Notify(stopCh, os.Interrupt)
+//
+// 	// Start the server in a new goroutine
+// 	go func() {
+// 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+// 			log.Fatalf("Server error: %v", err)
+// 		}
+// 	}()
+// 	log.Println("Callback server is running on http://localhost:2882/callback")
+//
+// 	// OpenBrowser here
+// 	if err := OpenBrowser(filePath, secretsMap); err != nil {
+// 		log.Fatalf("OpenBrowser error: %v", err)
+// 	}
+//
+// 	// Wait for the callback to complete or a shutdown signal
+// 	go func() {
+// 		wg.Wait()
+// 		// Shut down the server when the callback is done
+// 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// 		defer cancel()
+// 		_ = server.Shutdown(ctx)
+// 		close(codeCh)
+// 	}()
+//
+// 	select {
+// 	case <-stopCh:
+// 		// If someone manually sends an interrupt (Ctrl+C) before the callback
+// 		fmt.Println("Received interrupt signal. Shutting down.")
+// 	case c := <-codeCh:
+// 		// If the code was received successfully
+// 		if c != "" {
+// 			fmt.Println("Code received:", c)
+// 		}
+// 		// Exit the whole process after shutting down the server
+// 		os.Exit(0)
+// 	}
+// }
+
 // OpenBrowser starts the callback server and opens the browser for OAuth flow
 func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
 	// Create and start the callback server
