@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Complete</title>
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f4f4f9;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .checkmark-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+
+      .checkmark {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 8px; /* Space between the checkmark and the text */
+      }
+
+      .circle {
+        fill: none;
+        stroke: #e0e0e0;
+        stroke-width: 4;
+        opacity: 0;
+        animation: circleAnimation 1.5s ease forwards;
+      }
+
+      .check {
+        opacity: 0;
+        stroke-dasharray: 48;
+        stroke-dashoffset: 48;
+        animation: checkmarkAnimation 0.8s 0.3s ease forwards;
+      }
+
+      p {
+        opacity: 0;
+        font-size: 18px;
+        color: #333;
+        margin-top: 20px;
+        line-height: 1.5;
+        font-weight: 400;
+        animation: fadeInText 0.8s 0.8s ease forwards;
+      }
+
+      /* Keyframe for the circle animation */
+      @keyframes circleAnimation {
+        0% {
+          opacity: 0;
+          r: 0;
+        }
+        100% {
+          opacity: 1;
+          r: 25;
+        }
+      }
+
+      /* Keyframe for the checkmark animation */
+      @keyframes checkmarkAnimation {
+        0% {
+          stroke-dashoffset: 48;
+          opacity: 0;
+        }
+        100% {
+          stroke-dashoffset: 0;
+          opacity: 1;
+        }
+      }
+
+      /* Keyframe for text animation */
+      @keyframes fadeInText {
+        0% {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="checkmark-container">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="-1 -1 55 55"
+        class="checkmark"
+      >
+        <circle class="circle" cx="26" cy="26" r="25"></circle>
+        <path
+          class="check"
+          fill="none"
+          stroke="#4caf50"
+          stroke-width="4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M14 26l7 7 14-14"
+        ></path>
+      </svg>
+      <p>You can safely close this window.</p>
+    </div>
+  </body>
+</html>
