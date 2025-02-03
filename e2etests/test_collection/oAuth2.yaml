@@ -8,7 +8,9 @@ urlparams:
   scope: repo:user
 auth:
   type: OAuth2.0
-  # Add more secrets to exchange the browser code for an access token.
+  # secrets to exchange the browser code for an access token.
+  # Usually, these are access_token_url and client_secret
+  # Add other fields as required
   extras:
     access_token_url: "{{.access_token_url}}"
     client_secret: "{{.client_secret}}"
