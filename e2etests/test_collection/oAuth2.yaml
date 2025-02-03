@@ -1,18 +1,15 @@
 ---
 kind: auth
-# Depends on Auth2.0 provider. Github expects GET, while Okta expects POST
 method: POST
 # url that opens up in a browser. Usually ends with /authorize
-url: '{{.authorizeUrl}}'
+url: "{{.authorizeUrl}}"
 urlparams:
-  # audience: "{{.audience}}"
-  client_id: '{{.client_id}}'
-  connection: '{{.connection}}'
+  client_id: "{{.client_id}}"
   # auto generate.
-  redirect_uri: '{{.redirect_uri}}'
-  response_type: '{{.response_type}}'
+  redirect_uri: "{{.redirect_uri}}"
+  response_type: "{{.response_type}}"
   scope: repo:user
 auth:
   type: OAuth2.0
   extras:
-    access_token_url: https://www.google.com/login
+    access_token_url: "{{.access_token_url}}"
