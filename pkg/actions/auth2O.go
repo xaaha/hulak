@@ -20,15 +20,8 @@ import (
  Define types for yaml file ✅
  Use checkYamlFile in reader.go and get the  to the defined type above. ✅
  Use Auth section to determine if we should follow this flow. ✅
- Use Method, Url and parameters for open
- take the string coming from  reader.go and prepare the struct like OAuth2Config
- we also need a boolean value for init file to tell the package to follow 0Auth flow
- Prepare URL with the key value pair... This can be done with EncodeXwwwFormUrlBody OR prepareUrl
- Then Open the URL we just prepared
+ Use Method, Url and parameters for open ✅
  After user authorization, we'll receive a code
- Capture the token from the browser, you need to spin up the local server
- Save the token... or not... I am not sure if this
- Then, finally
  Exchange the code for an access token
  API call with POST request
  	token, err := GetAccessToken(config, authCode)
