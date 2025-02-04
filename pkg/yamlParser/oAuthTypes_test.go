@@ -86,3 +86,46 @@ func TestAuth_IsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestURLPARAMS_IsValid(t *testing.T) {
+	tests := []struct {
+		name      string
+		urlParams URLPARAMS
+		want      bool
+	}{
+		{
+			name: "Valid UrlParams with client_id",
+			urlParams: URLPARAMS{
+				"client_id": "12345",
+				"scope":     "read",
+			},
+			want: true,
+		},
+		{
+			name: "Invalid UrlParams without client_id",
+			urlParams: URLPARAMS{
+				"scope": "read",
+			},
+			want: false,
+		},
+		{
+			name:      "Empty UrlParams",
+			urlParams: URLPARAMS{},
+			want:      false,
+		},
+		{
+			name:      "Nil UrlParams",
+			urlParams: nil,
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.urlParams.IsValid()
+			if got != tt.want {
+				t.Errorf("URLPARAMS.IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

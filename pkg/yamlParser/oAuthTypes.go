@@ -16,11 +16,13 @@ type Auth struct {
 	Extras map[string]string `json:"extras" yaml:"extras"`
 }
 
+type URLPARAMS map[string]string
+
 // represents how a yaml file for Auth2.0 would look like
 type AuthRequestBody struct {
 	Method    HTTPMethodType    `json:"method"              yaml:"method"`
 	Url       URL               `json:"url"                 yaml:"url"`
-	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
+	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
 	Auth      *Auth             `json:"auth"                yaml:"auth"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 }
@@ -37,4 +39,13 @@ func (a *Auth) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+// Checks if the URLPARAMS map contains the required "client_id" key.
+func (u URLPARAMS) IsValid() bool {
+	if u == nil {
+		return false
+	}
+	_, ok := u["client_id"]
+	return ok
 }
