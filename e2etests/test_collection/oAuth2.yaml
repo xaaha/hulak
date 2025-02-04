@@ -1,15 +1,17 @@
 ---
+#  Github OAuth2 Example
+# https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#web-application-flow
 kind: auth
 method: POST
 # url that opens up in a browser. Usually ends with /authorize
-url: "{{.authorizeUrl}}"
+url: https://github.com/login/oauth/authorize
 urlparams:
   client_id: "{{.client_id}}"
   scope: repo:user
 auth:
   type: OAuth2.0
   # url to retrieve access token after broswer authorization
-  access_token_url: "{{.access_token_url}}"
+  access_token_url: https://github.com/login/oauth/access_token
 headers:
   Accept: application/json
 body:
