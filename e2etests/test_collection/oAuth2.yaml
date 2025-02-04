@@ -9,8 +9,10 @@ urlparams:
 auth:
   type: OAuth2.0
   # secrets to exchange the browser code for an access token.
-  # Usually, these are access_token_url and client_secret
-  # Add other fields as required
+  # Usually, these are access_token_url (required) and client_secets
+  # Add other fields as required by oAuth provider
   extras:
     access_token_url: "{{.access_token_url}}"
     client_secret: "{{.client_secret}}"
+headers:
+  Accept: application/json

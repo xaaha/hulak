@@ -54,22 +54,23 @@ type OAuth2Config struct {
 func GetAccessToken(config OAuth2Config, code string) (string, error) {
 	// Prepare token request payload
 	data := url.Values{}
-	data.Set("grant_type", "authorization_code")
+	// loop through the provided extras map
 	data.Set("client_id", config.ClientID)
 	data.Set("client_secret", config.ClientSecret)
 	data.Set("code", code)
-	data.Set("redirect_uri", config.RedirectURI)
 
 	// Create HTTP client
 	client := &http.Client{}
 
 	// Create request
+	// If method is missing, then default is POST
 	req, err := http.NewRequest("POST", config.TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return "", fmt.Errorf("error creating request: %v", err)
 	}
 
-	// Set headers
+	// loop through it and Add all the headers and this should be aded by default
+	// if this already exists in map, only use one
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	// Send request

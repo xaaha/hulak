@@ -11,24 +11,25 @@ func TestAuth_IsValid(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "Valid type Oauth2type1 with extras",
+			name: "Valid type Oauth2type1 with valid extras",
 			auth: Auth{
 				Type: Oauth2type1,
 				Extras: map[string]string{
-					"scope": "read",
+					"access_token_url": "example.com",
+					"scope":            "read",
 				},
 			},
 			want: true,
 		},
 		{
-			name: "Valid type Oauth2type2 with extras",
+			name: "Valid type Oauth2type2 without access_token_url",
 			auth: Auth{
 				Type: Oauth2type2,
 				Extras: map[string]string{
 					"state": "active",
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "Valid type Oauth2type3 with no extras",
@@ -39,11 +40,11 @@ func TestAuth_IsValid(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "Invalid type with extras",
+			name: "Invalid type with access_token_url in extras",
 			auth: Auth{
 				Type: "invalid",
 				Extras: map[string]string{
-					"client_id": "12345",
+					"access_token_url": "example.com",
 				},
 			},
 			want: false,
@@ -63,6 +64,16 @@ func TestAuth_IsValid(t *testing.T) {
 				Extras: nil,
 			},
 			want: false,
+		},
+		{
+			name: "Valid type Oauth2type1 with only access_token_url",
+			auth: Auth{
+				Type: Oauth2type1,
+				Extras: map[string]string{
+					"access_token_url": "example.com",
+				},
+			},
+			want: true,
 		},
 	}
 

@@ -22,6 +22,7 @@ type AuthRequestBody struct {
 	Url       URL               `json:"url"                 yaml:"url"`
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Auth      *Auth             `json:"auth"                yaml:"auth"`
+	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 }
 
 // check's if auth key contains type and has at least 1 item in Extras
@@ -29,6 +30,9 @@ type AuthRequestBody struct {
 func (a *Auth) IsValid() bool {
 	switch a.Type {
 	case Oauth2type1, Oauth2type2, Oauth2type3:
+		if _, ok := a.Extras["access_token_url"]; !ok {
+			return false
+		}
 		return len(a.Extras) > 0
 	default:
 		return false
