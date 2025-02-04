@@ -10,10 +10,10 @@ const (
 	Oauth2type3 authtype = "oauth2.0"
 )
 
-// Represents how Auth section in the Auth yaml looks like
+// Represents how Auth section in yaml looks like
 type Auth struct {
-	Type   authtype          `json:"type"   yaml:"type"`
-	Extras map[string]string `json:"extras" yaml:"extras"`
+	Type           authtype `json:"type"             yaml:"type"`
+	AccessTokenUrl URL      `json:"access_token_url" yaml:"access_token_url"`
 }
 
 type URLPARAMS map[string]string
@@ -30,12 +30,13 @@ type AuthRequestBody struct {
 // check's if auth key contains type and has at least 1 item in Extras
 // we need to extend this validation as we need them
 func (a *Auth) IsValid() bool {
+	if a.AccessTokenUrl == "" { // Ensure AccessTokenUrl is set
+		return false
+	}
+
 	switch a.Type {
 	case Oauth2type1, Oauth2type2, Oauth2type3:
-		if _, ok := a.Extras["access_token_url"]; !ok {
-			return false
-		}
-		return len(a.Extras) > 0
+		return true
 	default:
 		return false
 	}

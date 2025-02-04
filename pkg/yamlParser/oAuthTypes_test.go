@@ -11,69 +11,44 @@ func TestAuth_IsValid(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "Valid type Oauth2type1 with valid extras",
+			name: "Valid type Oauth2type1 with valid AccessTokenUrl",
 			auth: Auth{
-				Type: Oauth2type1,
-				Extras: map[string]string{
-					"access_token_url": "example.com",
-					"scope":            "read",
-				},
+				Type:           Oauth2type1,
+				AccessTokenUrl: "example.com",
 			},
 			want: true,
 		},
 		{
-			name: "Valid type Oauth2type2 without access_token_url",
+			name: "Valid type Oauth2type2 without AccessTokenUrl",
 			auth: Auth{
-				Type: Oauth2type2,
-				Extras: map[string]string{
-					"state": "active",
-				},
+				Type:           Oauth2type2,
+				AccessTokenUrl: "",
 			},
 			want: false,
 		},
 		{
-			name: "Valid type Oauth2type3 with no extras",
+			name: "Valid type Oauth2type3 with empty AccessTokenUrl",
 			auth: Auth{
-				Type:   Oauth2type3,
-				Extras: map[string]string{},
+				Type:           Oauth2type3,
+				AccessTokenUrl: "",
 			},
 			want: false,
 		},
 		{
-			name: "Invalid type with access_token_url in extras",
+			name: "Invalid type with AccessTokenUrl",
 			auth: Auth{
-				Type: "invalid",
-				Extras: map[string]string{
-					"access_token_url": "example.com",
-				},
+				Type:           "invalid",
+				AccessTokenUrl: "example.com",
 			},
 			want: false,
 		},
 		{
-			name: "Empty type with no extras",
+			name: "Empty type with empty AccessTokenUrl",
 			auth: Auth{
-				Type:   "",
-				Extras: map[string]string{},
+				Type:           "",
+				AccessTokenUrl: "",
 			},
 			want: false,
-		},
-		{
-			name: "Valid type with nil extras",
-			auth: Auth{
-				Type:   Oauth2type1,
-				Extras: nil,
-			},
-			want: false,
-		},
-		{
-			name: "Valid type Oauth2type1 with only access_token_url",
-			auth: Auth{
-				Type: Oauth2type1,
-				Extras: map[string]string{
-					"access_token_url": "example.com",
-				},
-			},
-			want: true,
 		},
 	}
 

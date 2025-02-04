@@ -8,11 +8,11 @@ urlparams:
   scope: repo:user
 auth:
   type: OAuth2.0
-  # secrets to exchange the browser code for an access token.
-  # Usually, these are access_token_url (required) and client_secets
-  # Add other fields as required by oAuth provider
-  extras:
-    access_token_url: "{{.access_token_url}}"
-    client_secret: "{{.client_secret}}"
+  # url to retrieve access token after broswer authorization
+  access_token_url: "{{.access_token_url}}"
 headers:
   Accept: application/json
+body:
+  urlencodedformdata:
+    client_secret: "{{.client_secret}}"
+    client_id: "{{.client_id}}"
