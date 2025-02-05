@@ -178,6 +178,10 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 	}
 }
 
+// From call.go
+// Prepare API Info struct for StandardCall. And call StandardCall
+// Then, use the CustomResponse and Save it with PrintAndSaveFinalResp
+
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux
 func isWSL() bool {
 	releaseData, err := exec.Command("uname", "-r").Output()
