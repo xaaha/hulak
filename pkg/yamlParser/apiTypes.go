@@ -105,3 +105,6 @@ type GraphQl struct {
 	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
+
+// helper function to determine the body type
+func (b *Body) BodyType() {}
