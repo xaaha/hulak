@@ -11,7 +11,7 @@ import (
 )
 
 // Makes an api call and returns the json body string
-func StandardCall(apiInfo ApiInfo) string {
+func StandardCall(apiInfo ApiInfo) CustomResponse {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -58,33 +58,20 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 		return
 	}
 	resp := StandardCall(apiInfo)
-	if resp == "" {
-		utils.PrintRed("call.go: StandardCall returned an empty response")
-		return
-	}
-
-	var customResponse CustomResponse
-	if err := json.Unmarshal([]byte(resp), &customResponse); err != nil {
-		utils.PrintWarning("call.go: error while saving the response to a file" + err.Error())
-		return
-	}
-
-	// save the response file
 	var strBody string
-	// by default save the response body
-	// if err, save the entire resp with status code
-	switch body := customResponse.Body.(type) {
+
+	switch body := resp.Body.(type) {
 	case string:
 		strBody = body
 	case map[string]interface{}, []interface{}:
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			strBody = resp
-		} else {
+		if jsonData, err := json.MarshalIndent(body, "", "  "); err == nil {
 			strBody = string(jsonData)
+		} else {
+			utils.PrintWarning("call.go: error serializing response body: " + err.Error())
+			strBody = fmt.Sprintf("%+v", resp) // Fallback to entire response
 		}
 	default:
-		strBody = resp
+		strBody = fmt.Sprintf("%+v", resp) // Fallback for unsupported types
 	}
 
 	err = evalAndWriteRes(strBody, path)
@@ -92,5 +79,5 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 		utils.PrintRed("call.go: " + err.Error())
 	}
 
-	fmt.Println(resp)
+	fmt.Println(strBody)
 }

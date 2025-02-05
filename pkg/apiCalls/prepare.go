@@ -167,7 +167,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 
 // Takes in http response, adds response status code,
 // and returns CustomResponse type string for the StandardCall function below
-func processResponse(response *http.Response) string {
+func processResponse(response *http.Response) CustomResponse {
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response %v", err)
@@ -185,9 +185,5 @@ func processResponse(response *http.Response) string {
 		responseData.Body = string(respBody)
 	}
 
-	finalJSON, err := json.MarshalIndent(responseData, "", "  ")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	return string(finalJSON)
+	return responseData
 }
