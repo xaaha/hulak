@@ -45,7 +45,6 @@ func StandardCall(apiInfo ApiInfo) CustomResponse {
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-// TODO: Flag to disable and silence the std output and file save
 func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 	formDataJSONString := yamlParser.FinalJsonForHttpRequest(
 		path,
@@ -58,8 +57,13 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 		return
 	}
 	resp := StandardCall(apiInfo)
-	var strBody string
+	PrintAndSaveFinalResp(resp, path)
+}
 
+// Prints and Save the custom response
+// TODO: Flag to disable and silence the std output and file save
+func PrintAndSaveFinalResp(resp CustomResponse, path string) {
+	var strBody string
 	switch body := resp.Body.(type) {
 	case string:
 		strBody = body
@@ -74,7 +78,7 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 		strBody = fmt.Sprintf("%+v", resp) // Fallback for unsupported types
 	}
 
-	err = evalAndWriteRes(strBody, path)
+	err := evalAndWriteRes(strBody, path)
 	if err != nil {
 		utils.PrintRed("call.go: " + err.Error())
 	}
