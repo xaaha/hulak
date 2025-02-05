@@ -148,7 +148,7 @@ func server() {
 }
 
 // OpenBrowser starts the callback server and opens the browser for OAuth flow
-func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
+func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, error) {
 	// Create and start the callback server
 	go server()
 	// Prepare the OAuth URL
@@ -165,17 +165,17 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) error {
 	// Open the browser
 	log.Println("Opening browser for authentication...")
 	if err := OpenURL(urlStr); err != nil {
-		return fmt.Errorf("error opening browser: %w", err)
+		return "", fmt.Errorf("error opening browser: %w", err)
 	}
 	// Wait for the code or a timeout
 	select {
 	case code := <-codeChan:
 		utils.PrintGreen(fmt.Sprintf("Authentication code received: %s\n", code))
+		return code, nil
 	case <-time.After(timeout):
 		utils.PrintRed("Timeout waiting for the code.")
-		return fmt.Errorf("timeout waiting for the code")
+		return "", fmt.Errorf("timeout waiting for the code")
 	}
-	return nil
 }
 
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux
