@@ -4,6 +4,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestFullUrl(t *testing.T) {
@@ -124,7 +126,7 @@ func TestEncodeXwwwFormUrlBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader, err := EncodeXwwwFormUrlBody(tt.input)
+			reader, err := utils.EncodeXwwwFormUrlBody(tt.input)
 
 			// Check if an error is expected
 			if tt.expectError {
@@ -201,7 +203,7 @@ func TestEncodeFormData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload, contentType, err := EncodeFormData(tt.input)
+			payload, contentType, err := utils.EncodeFormData(tt.input)
 
 			// Check if an error is expected
 			if tt.expectError {
@@ -285,7 +287,7 @@ func TestEncodeGraphQlBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload, err := EncodeGraphQlBody(tt.query, tt.variables)
+			payload, err := utils.EncodeGraphQlBody(tt.query, tt.variables)
 
 			// Check if an error is expected
 			if tt.expectError {

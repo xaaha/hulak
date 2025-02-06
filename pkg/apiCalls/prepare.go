@@ -1,12 +1,9 @@
 package apicalls
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,64 +31,6 @@ func PrepareUrl(baseUrl string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// Encodes key-value pairs as "application/x-www-form-urlencoded" data.
-// Returns an io.Reader containing the encoded data, or an error if the input is empty.
-func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
-	// Initialize form data
-	formData := url.Values{}
-
-	// Populate form data, using Set to overwrite duplicate keys if any
-	for key, val := range keyValue {
-		if key != "" && val != "" {
-			formData.Set(key, val)
-		}
-	}
-
-	// Return an error if no valid key-value pairs were found
-	if len(formData) == 0 {
-		return nil, fmt.Errorf("no valid key-value pairs to encode")
-	}
-
-	// Encode form data to "x-www-form-urlencoded" format
-	return strings.NewReader(formData.Encode()), nil
-}
-
-// Encodes multipart/form-data other than x-www-form-urlencoded,
-// Returns the payload, Content-Type for the headers and error
-func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
-	if len(keyValue) == 0 {
-		return nil, "", fmt.Errorf("no key-value pairs to encode")
-	}
-
-	payload := &bytes.Buffer{}
-	writer := multipart.NewWriter(payload)
-	defer writer.Close() // Ensure writer is closed
-
-	for key, val := range keyValue {
-		if key != "" && val != "" {
-			if err := writer.WriteField(key, val); err != nil {
-				return nil, "", err
-			}
-		}
-	}
-
-	// Return the payload and the content type for the header
-	return payload, writer.FormDataContentType(), nil
-}
-
-// accepts query string and variables map[string]interface, then returns the payload
-func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reader, error) {
-	payload := map[string]interface{}{
-		"query":     query,
-		"variables": variables,
-	}
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(jsonData), nil
-}
-
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
 func PrepareStruct(jsonString string) (ApiInfo, error) {
@@ -116,7 +55,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	hasGraphQlBody := user.Body != nil && user.Body.Graphql != nil &&
 		len(user.Body.Graphql.Query) > 0
 	if hasGraphQlBody {
-		body, err = EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
+		body, err = utils.EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
 		if err != nil {
 			msg := "call.go: Error encoding GraphQL body of json\n" + jsonString
 			err := utils.ColorError(msg, err)
@@ -126,7 +65,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	var contentType string
 	if user.Body != nil && user.Body.FormData != nil &&
 		len(user.Body.FormData) > 0 {
-		body, contentType, err = EncodeFormData(user.Body.FormData)
+		body, contentType, err = utils.EncodeFormData(user.Body.FormData)
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
@@ -139,7 +78,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 
 	if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
 		len(user.Body.UrlEncodedFormData) > 0 {
-		body, err = EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+		body, err = utils.EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
