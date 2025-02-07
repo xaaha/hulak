@@ -55,7 +55,10 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	hasGraphQlBody := user.Body != nil && user.Body.Graphql != nil &&
 		len(user.Body.Graphql.Query) > 0
 	if hasGraphQlBody {
-		body, err = utils.EncodeGraphQlBody(user.Body.Graphql.Query, user.Body.Graphql.Variables)
+		body, err = yamlParser.EncodeGraphQlBody(
+			user.Body.Graphql.Query,
+			user.Body.Graphql.Variables,
+		)
 		if err != nil {
 			msg := "call.go: Error encoding GraphQL body of json\n" + jsonString
 			err := utils.ColorError(msg, err)
@@ -65,7 +68,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	var contentType string
 	if user.Body != nil && user.Body.FormData != nil &&
 		len(user.Body.FormData) > 0 {
-		body, contentType, err = utils.EncodeFormData(user.Body.FormData)
+		body, contentType, err = yamlParser.EncodeFormData(user.Body.FormData)
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
@@ -78,7 +81,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 
 	if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
 		len(user.Body.UrlEncodedFormData) > 0 {
-		body, err = utils.EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
+		body, err = yamlParser.EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
