@@ -129,7 +129,7 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 	}
 
 	// check if body is valid
-	if user.Body != nil && !user.Body.IsValid() {
+	if !user.Body.IsValid() {
 		utils.PanicRedAndExit(
 			"Invalid Body. Make sure body contains only one valid argument.\n %v",
 			user.Body,

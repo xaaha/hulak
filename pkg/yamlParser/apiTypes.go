@@ -70,13 +70,17 @@ type Body struct {
 	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
-// body is valid if
-// body is not empty ({}),
+// body is valid when,
+// if body is present, it's not nil
 // has only one expected Body type,
 // those body type is not empty,
 // is not nil, and
 // if the body has graphql key, it has at least query on it
 func (b *Body) IsValid() bool {
+	// it's allowed for yaml files to not have any body
+	if b == nil {
+		return true
+	}
 	validFieldCount := 0
 	ln := reflect.ValueOf(*b)
 	for i := 0; i < ln.NumField(); i++ {
