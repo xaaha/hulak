@@ -46,7 +46,7 @@ func StandardCall(apiInfo ApiInfo) CustomResponse {
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
-	formDataJSONString := yamlParser.FinalJsonForHttpRequest(
+	formDataJSONString := yamlParser.FinalStructForApi(
 		path,
 		secretsMap,
 	)

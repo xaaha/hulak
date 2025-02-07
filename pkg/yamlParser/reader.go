@@ -103,8 +103,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 }
 
 // checks the validity of all the fields in the yaml file meant for regular api call
-// and returns the json string of the yaml file
-func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
+func FinalStructForApi(filePath string, secretsMap map[string]interface{}) string {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)

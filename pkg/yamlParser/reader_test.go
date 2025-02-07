@@ -236,7 +236,7 @@ body:
 
 			if tc.expectErr {
 				if os.Getenv("EXPECT_EXIT") == "1" {
-					FinalJsonForHttpRequest(filepath, secretsMap)
+					FinalStructForApi(filepath, secretsMap)
 					return
 				}
 
@@ -249,7 +249,7 @@ body:
 				}
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
-				result := FinalJsonForHttpRequest(filepath, secretsMap)
+				result := FinalStructForApi(filepath, secretsMap)
 				if result == "" {
 					t.Errorf("Expected result but got empty string for test %s", tc.name)
 				}
