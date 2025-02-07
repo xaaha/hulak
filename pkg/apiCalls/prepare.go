@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
@@ -51,50 +50,16 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 
 	var body io.Reader
 
-	// Handle GraphQL body if provided
-	hasGraphQlBody := user.Body != nil && user.Body.Graphql != nil &&
-		len(user.Body.Graphql.Query) > 0
-	if hasGraphQlBody {
-		body, err = yamlParser.EncodeGraphQlBody(
-			user.Body.Graphql.Query,
-			user.Body.Graphql.Variables,
-		)
-		if err != nil {
-			msg := "call.go: Error encoding GraphQL body of json\n" + jsonString
-			err := utils.ColorError(msg, err)
-			return ApiInfo{}, err
-		}
+	body, contentType, err := user.Body.EncodeBody()
+	if err != nil {
+		return ApiInfo{}, utils.ColorError("#prepare.go", err)
 	}
-	var contentType string
-	if user.Body != nil && user.Body.FormData != nil &&
-		len(user.Body.FormData) > 0 {
-		body, contentType, err = yamlParser.EncodeFormData(user.Body.FormData)
+
+	if contentType != "" {
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
 		user.Headers["content-type"] = contentType
-		if err != nil {
-			err := utils.ColorError("call.go: Error encoding multipart form data", err)
-			return ApiInfo{}, err
-		}
-	}
-
-	if user.Body != nil && user.Body.UrlEncodedFormData != nil &&
-		len(user.Body.UrlEncodedFormData) > 0 {
-		body, err = yamlParser.EncodeXwwwFormUrlBody(user.Body.UrlEncodedFormData)
-		if user.Headers == nil {
-			user.Headers = make(map[string]string)
-		}
-		user.Headers["content-type"] = "application/x-www-form-urlencoded"
-		if err != nil {
-			err := utils.ColorError("call.go: Error encoding URL-encoded form data", err)
-			return ApiInfo{}, err
-		}
-	}
-
-	// Handle raw body as a fallback (e.g., JSON, XML, HTML)
-	if body == nil && user.Body != nil && user.Body.Raw != "" {
-		body = strings.NewReader(user.Body.Raw)
 	}
 
 	// Construct and return the ApiInfo object
