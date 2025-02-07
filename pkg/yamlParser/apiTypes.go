@@ -42,6 +42,14 @@ func (m HTTPMethodType) IsValid() bool {
 	return false
 }
 
+type ApiInfo struct {
+	Body      io.Reader
+	Headers   map[string]string
+	UrlParams map[string]string
+	Method    string
+	Url       string
+}
+
 type URL string
 
 // URL should not be missing
@@ -51,13 +59,36 @@ func (u *URL) IsValidURL() bool {
 	return err == nil
 }
 
-// User's yaml file
+// User's yaml file for Api request
 type User struct {
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	Url       URL               `json:"url,omitempty"       yaml:"url"`
+}
+
+// Returns ApiInfo object for the User's API request yaml file
+func (user *User) PrepareStruct() (ApiInfo, error) {
+	body, contentType, err := user.Body.EncodeBody()
+	if err != nil {
+		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
+	}
+
+	if contentType != "" {
+		if user.Headers == nil {
+			user.Headers = make(map[string]string)
+		}
+		user.Headers["content-type"] = contentType
+	}
+
+	return ApiInfo{
+		Method:    string(user.Method),
+		Url:       string(user.Url),
+		UrlParams: user.UrlParams,
+		Headers:   user.Headers,
+		Body:      body,
+	}, nil
 }
 
 // type of Body in a yaml file
