@@ -3,13 +3,14 @@ package yamlParser
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type HTTPMethodType string
@@ -111,8 +112,46 @@ type GraphQl struct {
 	Query     string                 `json:"query,omitempty"     yaml:"query"`
 }
 
-// helper function to determine the body type
-func (b *Body) BodyType() {}
+// Returns body for apiCall, content type header string and error if any
+func (b *Body) EncodeBody() (io.Reader, string, error) {
+	var body io.Reader
+	var contentType string
+
+	if b == nil {
+		return nil, "", nil
+	}
+
+	switch {
+	case b.Graphql != nil && b.Graphql.Query != "":
+		encodedBody, err := EncodeGraphQlBody(b.Graphql.Query, b.Graphql.Variables)
+		if err != nil {
+			return nil, "", utils.ColorError("error encoding GraphQL body", err)
+		}
+		body = encodedBody
+
+	case len(b.FormData) > 0:
+		encodedBody, ct, err := EncodeFormData(b.FormData)
+		if err != nil {
+			return nil, "", utils.ColorError("error encoding multipart form data: %w", err)
+		}
+		body, contentType = encodedBody, ct
+
+	case len(b.UrlEncodedFormData) > 0:
+		encodedBody, err := EncodeXwwwFormUrlBody(b.UrlEncodedFormData)
+		if err != nil {
+			return nil, "", utils.ColorError("error encoding URL-encoded form data: %w", err)
+		}
+		body, contentType = encodedBody, "application/x-www-form-urlencoded"
+
+	case b.Raw != "":
+		body = strings.NewReader(b.Raw)
+
+	default:
+		return nil, "", utils.ColorError("no valid body type provided")
+	}
+
+	return body, contentType, nil
+}
 
 // Encodes key-value pairs as "application/x-www-form-urlencoded" data.
 // Returns an io.Reader containing the encoded data, or an error if the input is empty.
@@ -129,7 +168,7 @@ func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
 
 	// Return an error if no valid key-value pairs were found
 	if len(formData) == 0 {
-		return nil, fmt.Errorf("no valid key-value pairs to encode")
+		return nil, utils.ColorError("no valid key-value pairs to encode")
 	}
 
 	// Encode form data to "x-www-form-urlencoded" format
@@ -140,7 +179,7 @@ func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
 // Returns the payload, Content-Type for the headers and error
 func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	if len(keyValue) == 0 {
-		return nil, "", fmt.Errorf("no key-value pairs to encode")
+		return nil, "", utils.ColorError("no key-value pairs to encode")
 	}
 
 	payload := &bytes.Buffer{}
