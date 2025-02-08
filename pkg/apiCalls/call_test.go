@@ -148,7 +148,7 @@ func TestCombineAndCall(t *testing.T) {
 			expectedError: "",
 		},
 	}
-
+	// TODO: 1 - Remove PrepareStruct of ApiCalls. Use body instead of json and use the one from yamlParser
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			apiInfo, err := PrepareStruct(testCase.json)
