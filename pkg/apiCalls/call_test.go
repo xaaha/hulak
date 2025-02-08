@@ -28,7 +28,8 @@ func TestCombineAndCall(t *testing.T) {
 		{
 			name: "proper json string: with GraphQL body",
 			apiInfo: yamlParser.ApiInfo{
-				Url: "https://example.com/graphql",
+				Method: "POST",
+				Url:    "https://example.com/graphql",
 				UrlParams: map[string]string{
 					"baz": "bin",
 					"foo": "bar",
@@ -36,6 +37,11 @@ func TestCombineAndCall(t *testing.T) {
 				Headers: map[string]string{
 					"content-type": "applicaton/json",
 				},
+				Body: encodeHelper(yamlParser.Body{
+					Graphql: &yamlParser.GraphQl{
+						Query: "query Hello {\n  hello(person: { name: Jane Doe, age: 22 })\n}\n",
+					},
+				}),
 			},
 			json: `
 {
@@ -232,4 +238,9 @@ func readBodyContent(body io.Reader) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func encodeHelper(body yamlParser.Body) io.Reader {
+	encodedBody, _, _ := body.EncodeBody()
+	return encodedBody
 }

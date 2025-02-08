@@ -71,6 +71,7 @@ type User struct {
 
 // Returns ApiInfo object for the User's API request yaml file
 func (user *User) PrepareStruct() (ApiInfo, error) {
+	// TODO-3: Nil check, body is optional
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
 		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
