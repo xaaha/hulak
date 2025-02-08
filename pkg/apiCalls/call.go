@@ -11,7 +11,7 @@ import (
 )
 
 // Makes an api call and returns the json body string
-func StandardCall(apiInfo ApiInfo) CustomResponse {
+func StandardCall(apiInfo yamlParser.ApiInfo) CustomResponse {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -46,11 +46,12 @@ func StandardCall(apiInfo ApiInfo) CustomResponse {
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
-	formDataJSONString := yamlParser.FinalStructForApi(
+	apiConfig := yamlParser.FinalStructForApi(
 		path,
 		secretsMap,
 	)
-	apiInfo, err := PrepareStruct(formDataJSONString)
+	apiInfo, err := apiConfig.PrepareStruct()
+	// apiInfo, err := PrepareStruct(apiConfig)
 	if err != nil {
 		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
 		utils.PrintRed(err.Error())

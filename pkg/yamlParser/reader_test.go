@@ -250,8 +250,8 @@ body:
 				t.Fatalf("Expected process to exit with code 1, but got %v", err)
 			} else {
 				result := FinalStructForApi(filepath, secretsMap)
-				if result == "" {
-					t.Errorf("Expected result but got empty string for test %s", tc.name)
+				if result.Method == "" || result.Url == "" {
+					t.Errorf("Expected valid User struct but got empty fields for test %s", tc.name)
 				}
 			}
 		})

@@ -2,7 +2,6 @@ package yamlParser
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 
 	yaml "github.com/goccy/go-yaml"
@@ -103,7 +102,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 }
 
 // checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForApi(filePath string, secretsMap map[string]interface{}) string {
+func FinalStructForApi(filePath string, secretsMap map[string]interface{}) User {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
@@ -134,9 +133,7 @@ func FinalStructForApi(filePath string, secretsMap map[string]interface{}) strin
 			user.Body,
 		)
 	}
-	val, _ := json.MarshalIndent(user, "", "  ")
-	jsonString := string(val)
-	return jsonString
+	return user
 }
 
 // checks the validity of all the fields in the yaml file meant for OAuth2.0.
