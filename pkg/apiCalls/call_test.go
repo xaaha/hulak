@@ -12,18 +12,31 @@ import (
 func TestCombineAndCall(t *testing.T) {
 	testCases := []struct {
 		name             string
+		apiInfo          yamlParser.ApiInfo
 		json             string
 		expectedResponse yamlParser.ApiInfo
 		expectedError    string
 	}{
 		{
 			name:             "empty json string should result in nil yamlParser.ApiInfo",
+			apiInfo:          yamlParser.ApiInfo{},
 			json:             "",
 			expectedResponse: yamlParser.ApiInfo{},
 			expectedError:    "jsonString constructed from yamlFile is empty",
 		},
+		// TODO-2: Add enoded body using EncodeBody
 		{
 			name: "proper json string: with GraphQL body",
+			apiInfo: yamlParser.ApiInfo{
+				Url: "https://example.com/graphql",
+				UrlParams: map[string]string{
+					"baz": "bin",
+					"foo": "bar",
+				},
+				Headers: map[string]string{
+					"content-type": "applicaton/json",
+				},
+			},
 			json: `
 {
   "urlparams": {
