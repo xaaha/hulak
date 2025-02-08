@@ -32,12 +32,12 @@ func PrepareUrl(baseUrl string, urlParams map[string]string) string {
 
 // Takes in the jsonString from ReadYamlForHttpRequest
 // And prepares the ApiInfo struct for StandardCall function
-func PrepareStruct(jsonString string) (ApiInfo, error) {
+func PrepareStruct(jsonString string) (yamlParser.ApiInfo, error) {
 	// ReadYamlForHttpRequest should not return an empty string
 	// but if it does, return nil struct
 	if len(jsonString) == 0 {
 		err := utils.ColorError("call.go: jsonString constructed from yamlFile is empty")
-		return ApiInfo{}, err
+		return yamlParser.ApiInfo{}, err
 	}
 	// Parse the JSON string into a User struct
 	var user yamlParser.User
@@ -45,14 +45,14 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	if err != nil {
 		msg := "call.go: Error unmarshalling json \n" + jsonString
 		err := utils.ColorError(msg, err)
-		return ApiInfo{}, err // we shouldn't proceed if there is an error on processing jsonString
+		return yamlParser.ApiInfo{}, err // we shouldn't proceed if there is an error on processing jsonString
 	}
 
 	var body io.Reader
 
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
-		return ApiInfo{}, utils.ColorError("#prepare.go", err)
+		return yamlParser.ApiInfo{}, utils.ColorError("#prepare.go", err)
 	}
 
 	if contentType != "" {
@@ -63,7 +63,7 @@ func PrepareStruct(jsonString string) (ApiInfo, error) {
 	}
 
 	// Construct and return the ApiInfo object
-	return ApiInfo{
+	return yamlParser.ApiInfo{
 		Method:    string(user.Method),
 		Url:       string(user.Url),
 		UrlParams: user.UrlParams,

@@ -5,19 +5,21 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 func TestCombineAndCall(t *testing.T) {
 	testCases := []struct {
 		name             string
 		json             string
-		expectedResponse ApiInfo
+		expectedResponse yamlParser.ApiInfo
 		expectedError    string
 	}{
 		{
-			name:             "empty json string should result in nil ApiInfo",
+			name:             "empty json string should result in nil yamlParser.ApiInfo",
 			json:             "",
-			expectedResponse: ApiInfo{},
+			expectedResponse: yamlParser.ApiInfo{},
 			expectedError:    "jsonString constructed from yamlFile is empty",
 		},
 		{
@@ -40,7 +42,7 @@ func TestCombineAndCall(t *testing.T) {
   "url": "https://example.com/graphql"
 }
       `,
-			expectedResponse: ApiInfo{
+			expectedResponse: yamlParser.ApiInfo{
 				Method: "POST",
 				Url:    "https://example.com/graphql",
 				UrlParams: map[string]string{
@@ -69,7 +71,7 @@ func TestCombineAndCall(t *testing.T) {
   "url": "https://example.com/graphql"
 }
       `,
-			expectedResponse: ApiInfo{
+			expectedResponse: yamlParser.ApiInfo{
 				Method: "POST",
 				Url:    "https://example.com/graphql",
 				UrlParams: map[string]string{
@@ -93,7 +95,7 @@ func TestCombineAndCall(t *testing.T) {
   "url": "https://example.com/graphql"
 }
       `,
-			expectedResponse: ApiInfo{
+			expectedResponse: yamlParser.ApiInfo{
 				Method: "POST",
 				Url:    "https://example.com/graphql",
 				UrlParams: map[string]string{
@@ -113,7 +115,7 @@ func TestCombineAndCall(t *testing.T) {
   "url": "https://example.com/graphql"
 }
       `,
-			expectedResponse: ApiInfo{
+			expectedResponse: yamlParser.ApiInfo{
 				Method:    "POST",
 				Url:       "https://example.com/graphql",
 				UrlParams: nil,
@@ -136,7 +138,7 @@ func TestCombineAndCall(t *testing.T) {
   }
 }
       `,
-			expectedResponse: ApiInfo{
+			expectedResponse: yamlParser.ApiInfo{
 				Method:    "POST",
 				Url:       "https://example.com/graphql",
 				UrlParams: nil,
@@ -179,7 +181,7 @@ func TestCombineAndCall(t *testing.T) {
 			actual.Body = nil
 			if !reflect.DeepEqual(actual, expected) {
 				t.Errorf(
-					"Expected ApiInfo (except Body) to be \n%v, but got \n%v",
+					"Expected yamlParser.ApiInfo (except Body) to be \n%v, but got \n%v",
 					expected, actual,
 				)
 			}

@@ -42,6 +42,7 @@ func (m HTTPMethodType) IsValid() bool {
 	return false
 }
 
+// Struct we need to call request api
 type ApiInfo struct {
 	Body      io.Reader
 	Headers   map[string]string
