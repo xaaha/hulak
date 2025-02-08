@@ -51,7 +51,6 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 		secretsMap,
 	)
 	apiInfo, err := apiConfig.PrepareStruct()
-	// apiInfo, err := PrepareStruct(apiConfig)
 	if err != nil {
 		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
 		utils.PrintRed(err.Error())
