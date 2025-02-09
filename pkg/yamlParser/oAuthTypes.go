@@ -112,3 +112,25 @@ func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
 
 	return true, nil
 }
+
+func (auth2Body *AuthRequestBody) PrepareStruct() (ApiInfo, error) {
+	body, contentType, err := auth2Body.Body.EncodeBody()
+	if err != nil {
+		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
+	}
+
+	if contentType != "" {
+		if auth2Body.Headers == nil {
+			auth2Body.Headers = make(map[string]string)
+		}
+		auth2Body.Headers["content-type"] = contentType
+	}
+
+	return ApiInfo{
+		Method:    string(auth2Body.Method),
+		Url:       string(auth2Body.Url),
+		UrlParams: auth2Body.UrlParams,
+		Headers:   auth2Body.Headers,
+		Body:      body,
+	}, nil
+}
