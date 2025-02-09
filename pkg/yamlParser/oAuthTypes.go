@@ -128,7 +128,7 @@ func (auth2Body *AuthRequestBody) PrepareStruct() (ApiInfo, error) {
 
 	return ApiInfo{
 		Method:    string(auth2Body.Method),
-		Url:       string(auth2Body.Url),
+		Url:       string(auth2Body.Auth.AccessTokenUrl),
 		UrlParams: auth2Body.UrlParams,
 		Headers:   auth2Body.Headers,
 		Body:      body,
