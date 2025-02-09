@@ -6,9 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 // if the url has parameters, the function perpares and returns the full url otherwise,
@@ -28,48 +25,6 @@ func PrepareUrl(baseUrl string, urlParams map[string]string) string {
 		u.RawQuery = queryParams.Encode()
 	}
 	return u.String()
-}
-
-// Takes in the jsonString from ReadYamlForHttpRequest
-// And prepares the ApiInfo struct for StandardCall function
-func PrepareStruct(jsonString string) (yamlParser.ApiInfo, error) {
-	// ReadYamlForHttpRequest should not return an empty string
-	// but if it does, return nil struct
-	if len(jsonString) == 0 {
-		err := utils.ColorError("call.go: jsonString constructed from yamlFile is empty")
-		return yamlParser.ApiInfo{}, err
-	}
-	// Parse the JSON string into a User struct
-	var user yamlParser.User
-	err := json.Unmarshal([]byte(jsonString), &user)
-	if err != nil {
-		msg := "call.go: Error unmarshalling json \n" + jsonString
-		err := utils.ColorError(msg, err)
-		return yamlParser.ApiInfo{}, err // we shouldn't proceed if there is an error on processing jsonString
-	}
-
-	var body io.Reader
-
-	body, contentType, err := user.Body.EncodeBody()
-	if err != nil {
-		return yamlParser.ApiInfo{}, utils.ColorError("#prepare.go", err)
-	}
-
-	if contentType != "" {
-		if user.Headers == nil {
-			user.Headers = make(map[string]string)
-		}
-		user.Headers["content-type"] = contentType
-	}
-
-	// Construct and return the ApiInfo object
-	return yamlParser.ApiInfo{
-		Method:    string(user.Method),
-		Url:       string(user.Url),
-		UrlParams: user.UrlParams,
-		Headers:   user.Headers,
-		Body:      body,
-	}, nil
 }
 
 // Takes in http response, adds response status code,
