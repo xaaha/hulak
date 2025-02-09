@@ -70,9 +70,5 @@ func (auth2Body *AuthRequestBody) IsValid() bool {
 		return false
 	}
 
-	// UrlParams are optional, if present, then client_id is required
 	return false
 }
-
-// Headers is optional
-// Body
