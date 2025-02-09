@@ -14,7 +14,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Valid type Oauth2type1 with valid AccessTokenUrl",
 			auth: Auth{
 				Type:           Oauth2type1,
-				AccessTokenUrl: "example.com",
+				AccessTokenUrl: "https://www.example.com/",
 			},
 			want: true,
 		},
@@ -35,7 +35,15 @@ func TestAuth_IsValid(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "Invalid type with AccessTokenUrl",
+			name: "Invalid type with valid AccessTokenUrl",
+			auth: Auth{
+				Type:           "invalid",
+				AccessTokenUrl: "https://www.example.com/",
+			},
+			want: false,
+		},
+		{
+			name: "Invalid type with invalid AccessTokenUrl",
 			auth: Auth{
 				Type:           "invalid",
 				AccessTokenUrl: "example.com",
@@ -47,6 +55,14 @@ func TestAuth_IsValid(t *testing.T) {
 			auth: Auth{
 				Type:           "",
 				AccessTokenUrl: "",
+			},
+			want: false,
+		},
+		{
+			name: "Valid type Oauth2type1 with invalid AccessTokenUrl",
+			auth: Auth{
+				Type:           Oauth2type1,
+				AccessTokenUrl: "invalid-url",
 			},
 			want: false,
 		},

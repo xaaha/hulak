@@ -30,14 +30,19 @@ type AuthRequestBody struct {
 // check's if auth key contains type and has at least 1 item in Extras
 // we need to extend this validation as we need them
 func (a *Auth) IsValid() bool {
-	if a.AccessTokenUrl == "" { // Ensure AccessTokenUrl is set
+	if a == nil {
 		return false
 	}
 
+	// Validate only if the type is one of the OAuth types
 	switch a.Type {
 	case Oauth2type1, Oauth2type2, Oauth2type3:
+		if a.AccessTokenUrl == "" || !a.AccessTokenUrl.IsValidURL() {
+			return false
+		}
 		return true
 	default:
+		// Unsupported type is considered invalid
 		return false
 	}
 }
