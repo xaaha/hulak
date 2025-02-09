@@ -1,7 +1,9 @@
 package yamlParser
 
 import (
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -163,6 +165,100 @@ func TestBodyIsValid(t *testing.T) {
 			result := tt.body.IsValid()
 			if result != tt.expected {
 				t.Errorf("Test %s failed: expected %v, got %v", tt.name, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestEncodeBody(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        *Body
+		expectError bool
+		expectedCT  string
+		expectedStr string
+	}{
+		{
+			name:        "nil Body",
+			body:        nil,
+			expectError: false,
+			expectedCT:  "",
+			expectedStr: "",
+		},
+		{
+			name: "GraphQL Body with Query and Variables",
+			body: &Body{
+				Graphql: &GraphQl{
+					Query:     "query content",
+					Variables: map[string]interface{}{"key": "value"},
+				},
+			},
+			expectError: false,
+			expectedCT:  "",
+			expectedStr: `{"query":"query content","variables":{"key":"value"}}`,
+		},
+		// {
+		// 	name: "Multipart Form Data",
+		// 	body: &Body{
+		// 		FormData: map[string]string{"key": "value"},
+		// 	},
+		// 	expectError: false,
+		// 	expectedCT:  "multipart/form-data",
+		// 	expectedStr: "key=value",
+		// },
+		{
+			name: "URL Encoded Form Data",
+			body: &Body{
+				UrlEncodedFormData: map[string]string{"key": "value"},
+			},
+			expectError: false,
+			expectedCT:  "application/x-www-form-urlencoded",
+			expectedStr: "key=value",
+		},
+		{
+			name: "Raw Body Content",
+			body: &Body{
+				Raw: "raw content",
+			},
+			expectError: false,
+			expectedCT:  "",
+			expectedStr: "raw content",
+		},
+		{
+			name:        "Empty Body Struct",
+			body:        &Body{},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, contentType, err := tt.body.EncodeBody()
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			// Check content type
+			if contentType != tt.expectedCT {
+				t.Errorf("Expected content type %s, got %s", tt.expectedCT, contentType)
+			}
+
+			// Check body content if it exists
+			if body != nil {
+				bodyBytes, _ := io.ReadAll(body)
+				bodyStr := strings.TrimSpace(string(bodyBytes))
+				if bodyStr != tt.expectedStr {
+					t.Errorf("Expected body content %q, got %q", tt.expectedStr, bodyStr)
+				}
 			}
 		})
 	}
