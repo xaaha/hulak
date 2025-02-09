@@ -102,51 +102,55 @@ func TestMethodSet(t *testing.T) {
 	}
 }
 
-// Test body is valid...
 func TestBodyIsValid(t *testing.T) {
 	tests := []struct {
 		name     string
-		body     Body
+		body     *Body
 		expected bool
 	}{
 		{
+			name:     "nil Body",
+			body:     nil,
+			expected: true,
+		},
+		{
 			name:     "all fields empty",
-			body:     Body{},
+			body:     &Body{},
 			expected: false,
 		},
 		{
 			name:     "non-empty FormData",
-			body:     Body{FormData: map[string]string{"key": "value"}},
+			body:     &Body{FormData: map[string]string{"key": "value"}},
 			expected: true,
 		},
 		{
 			name:     "non-empty UrlEncodedFormData",
-			body:     Body{UrlEncodedFormData: map[string]string{"key": "value"}},
+			body:     &Body{UrlEncodedFormData: map[string]string{"key": "value"}},
 			expected: true,
 		},
 		{
 			name:     "non-nil GraphQl with Variables",
-			body:     Body{Graphql: &GraphQl{Variables: map[string]interface{}{"key": "value"}}},
+			body:     &Body{Graphql: &GraphQl{Variables: map[string]interface{}{"key": "value"}}},
 			expected: true,
 		},
 		{
 			name:     "non-nil GraphQl with Query",
-			body:     Body{Graphql: &GraphQl{Query: "query content"}},
+			body:     &Body{Graphql: &GraphQl{Query: "query content"}},
 			expected: true,
 		},
 		{
 			name:     "non-empty Raw field",
-			body:     Body{Raw: "raw content"},
+			body:     &Body{Raw: "raw content"},
 			expected: true,
 		},
 		{
 			name:     "two non-empty fields (FormData and Raw)",
-			body:     Body{FormData: map[string]string{"key": "value"}, Raw: "raw content"},
+			body:     &Body{FormData: map[string]string{"key": "value"}, Raw: "raw content"},
 			expected: false,
 		},
 		{
 			name: "two non-empty fields (Graphql and FormData)",
-			body: Body{
+			body: &Body{
 				Graphql:  &GraphQl{Query: "query content"},
 				FormData: map[string]string{"key": "value"},
 			},
