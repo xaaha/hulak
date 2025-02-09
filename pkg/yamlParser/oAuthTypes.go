@@ -1,5 +1,9 @@
 package yamlParser
 
+import (
+	"github.com/xaaha/hulak/pkg/utils"
+)
+
 // auth type is required as we need to see early which flow to call
 type authtype string
 
@@ -56,30 +60,36 @@ type AuthRequestBody struct {
 	Body      Body
 }
 
-// Checks if Auth2 the YAML body is valid
-func (auth2Body *AuthRequestBody) IsValid() bool {
+func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
 	if auth2Body == nil {
-		return false
+		return false, utils.ColorError("auth request body is nil")
 	}
 
-	// Ensure Auth section and URL are valid
-	if auth2Body.Auth == nil || !auth2Body.Auth.IsValid() {
-		return false
+	// Validate Auth section
+	if auth2Body.Auth == nil {
+		return false, utils.ColorError("auth section is missing")
 	}
 
+	if valid := auth2Body.Auth.IsValid(); !valid {
+		return false, utils.ColorError(
+			"Invalid 'auth' section. Make sure the file '%s' contains valid auth section.",
+		)
+	}
+
+	// Validate URL
 	if !auth2Body.Url.IsValidURL() {
-		return false
+		return false, utils.ColorError("invalid URL in auth request body")
 	}
 
-	// Validate optional URL parameters if provided
+	// Validate optional URL parameters
 	if len(auth2Body.UrlParams) > 0 && !auth2Body.UrlParams.IsValid() {
-		return false
+		return false, utils.ColorError("invalid URL parameters")
 	}
 
 	// Validate Body if it exists
 	if !auth2Body.Body.IsValid() {
-		return false
+		return false, utils.ColorError("invalid body content")
 	}
 
-	return true
+	return true, nil
 }
