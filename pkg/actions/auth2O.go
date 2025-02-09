@@ -148,6 +148,7 @@ func server() {
 }
 
 // OpenBrowser starts the callback server and opens the browser for OAuth flow
+// Returns the code coming from the ur
 func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, error) {
 	// Create and start the callback server
 	go server()
