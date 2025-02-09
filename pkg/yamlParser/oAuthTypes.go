@@ -47,6 +47,11 @@ func (a *Auth) IsValid() bool {
 	}
 }
 
+// If method is absent, it's post by default
+// Url and UrlParams are required
+// Headers is optional
+// Body
+
 // Checks if the URLPARAMS map contains the required "client_id" key.
 func (u URLPARAMS) IsValid() bool {
 	if u == nil {
