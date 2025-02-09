@@ -57,7 +57,7 @@ type AuthRequestBody struct {
 	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
 	Auth      *Auth             `json:"auth"                yaml:"auth"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
-	Body      Body
+	Body      *Body
 }
 
 // AuthRequestBody is valid if

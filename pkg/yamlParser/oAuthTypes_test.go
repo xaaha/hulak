@@ -1,6 +1,7 @@
 package yamlParser
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -116,6 +117,166 @@ func TestURLPARAMS_IsValid(t *testing.T) {
 			got := tt.urlParams.IsValid()
 			if got != tt.want {
 				t.Errorf("URLPARAMS.IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuthRequestBody_IsValid(t *testing.T) {
+	tests := []struct {
+		name         string
+		authRequest  AuthRequestBody
+		expectedBool bool
+		expectedErr  string
+	}{
+		{
+			name: "Valid request: Oauth2type1, valid URL, and valid params, and valid body",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				UrlParams: URLPARAMS{
+					"client_id": "validClientId",
+				},
+				Auth: &Auth{
+					Type:           Oauth2type1,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+				Body: &Body{
+					UrlEncodedFormData: map[string]string{
+						"client_id": "xaaha",
+					},
+				},
+			},
+			expectedBool: true,
+			expectedErr:  "",
+		},
+		{
+			name: "Valid request: Oauth2type1, valid URL, and valid params, and missing body",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				UrlParams: URLPARAMS{
+					"client_id": "validClientId",
+				},
+				Auth: &Auth{
+					Type:           Oauth2type1,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+			},
+			expectedBool: true,
+			expectedErr:  "",
+		},
+		{
+			name: "Missing auth section",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				Auth:   nil,
+			},
+			expectedBool: false,
+			expectedErr:  "auth section is required",
+		},
+		{
+			name: "Invalid auth type with valid AccessTokenUrl",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				Auth: &Auth{
+					Type:           "invalid_type",
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+			},
+			expectedBool: false,
+			expectedErr:  "invalid 'auth' section",
+		},
+		{
+			name: "Invalid AccessTokenUrl in Auth",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				Auth: &Auth{
+					Type:           Oauth2type1,
+					AccessTokenUrl: "invalid-url",
+				},
+			},
+			expectedBool: false,
+			expectedErr:  "invalid 'auth' section",
+		},
+		{
+			name: "Missing URL in auth request body",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Auth: &Auth{
+					Type:           Oauth2type2,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+			},
+			expectedBool: false,
+			expectedErr:  "missing or invalid URL in auth request body",
+		},
+		{
+			name: "Invalid UrlParams without client_id",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				Auth: &Auth{
+					Type:           Oauth2type2,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+				UrlParams: URLPARAMS{
+					"scope": "read",
+				},
+			},
+			expectedBool: false,
+			expectedErr:  "invalid URL parameters",
+		},
+		{
+			name: "Invalid HTTP method",
+			authRequest: AuthRequestBody{
+				Method: "INVALID",
+				Url:    "https://api.example.com",
+				Auth: &Auth{
+					Type:           Oauth2type2,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+			},
+			expectedBool: false,
+			expectedErr:  "invalid HTTP method INVALID",
+		},
+		{
+			name: "Valid request without UrlParams",
+			authRequest: AuthRequestBody{
+				Method: POST,
+				Url:    "https://api.example.com",
+				Auth: &Auth{
+					Type:           Oauth2type1,
+					AccessTokenUrl: "https://auth.example.com/token",
+				},
+			},
+			expectedBool: true,
+			expectedErr:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBool, gotErr := tt.authRequest.IsValid()
+			if gotBool != tt.expectedBool {
+				t.Errorf(
+					"AuthRequestBody.IsValid() bool = %v, expected %v",
+					gotBool,
+					tt.expectedBool,
+				)
+			}
+
+			if (gotErr != nil && tt.expectedErr == "") || (gotErr == nil && tt.expectedErr != "") {
+				t.Errorf(
+					"AuthRequestBody.IsValid() error = %v, expected %v",
+					gotErr,
+					tt.expectedErr,
+				)
+			} else if gotErr != nil && !strings.Contains(strings.TrimSpace(gotErr.Error()), strings.TrimSpace(tt.expectedErr)) {
+				t.Errorf("AuthRequestBody.IsValid() error = %v, expected %v", gotErr.Error(), tt.expectedErr)
 			}
 		})
 	}
