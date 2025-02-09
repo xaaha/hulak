@@ -150,29 +150,8 @@ func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) Au
 		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
 	}
 
-	// By default, method is POST for Auth2.0
-	if user.Method == "" {
-		user.Method = POST
-	}
-	// uppercase the method
-	user.Method.ToUpperCase()
-
-	// method is required as each implementation of  Auth2.0 is different
-	if !user.Method.IsValid() {
-		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
-	}
-
-	if user.Auth == nil || !user.Auth.IsValid() {
-		utils.PanicRedAndExit(
-			"Invalid 'auth' section. Make sure the file '%s' contains valid auth section.\n %v",
-			filePath,
-			user.Auth,
-		)
-	}
-
-	// make sure authorize url, that opens up in browser, is required for auth2.0
-	if !user.Url.IsValidURL() {
-		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
+	if valid, err := user.IsValid(); !valid {
+		utils.PanicRedAndExit("Error on Auth2 Request Body %v", err)
 	}
 
 	return user
