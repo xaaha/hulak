@@ -149,6 +149,11 @@ func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) Au
 	if err := dec.Decode(&user); err != nil {
 		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
 	}
+
+	// By default, method is POST for Auth2.0
+	if user.Method == "" {
+		user.Method = POST
+	}
 	// uppercase the method
 	user.Method.ToUpperCase()
 

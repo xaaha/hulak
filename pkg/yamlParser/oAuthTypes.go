@@ -58,11 +58,15 @@ type AuthRequestBody struct {
 
 // Checks if Auth2 the yaml body is valid
 func (auth2Body *AuthRequestBody) IsValid() bool {
+	// auth section and url is required should be valid
 	if !auth2Body.Auth.IsValid() || !auth2Body.Url.IsValidURL() {
 		return false
 	}
-	// if url params exists, it should be valid
+	// if url params exists (opt by default), it should be valid
 	if auth2Body.UrlParams != nil && !auth2Body.UrlParams.IsValid() {
+		return false
+	}
+	if !auth2Body.Body.IsValid() {
 		return false
 	}
 
@@ -70,7 +74,5 @@ func (auth2Body *AuthRequestBody) IsValid() bool {
 	return false
 }
 
-// If method is absent, it's post by default
-// UrlParams are optional, if present, then client_id is required
 // Headers is optional
 // Body
