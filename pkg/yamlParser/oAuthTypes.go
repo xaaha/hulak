@@ -34,7 +34,6 @@ func (a *Auth) IsValid() bool {
 		return false
 	}
 
-	// Validate only if the type is one of the OAuth types
 	switch a.Type {
 	case Oauth2type1, Oauth2type2, Oauth2type3:
 		if a.AccessTokenUrl == "" || !a.AccessTokenUrl.IsValidURL() {
