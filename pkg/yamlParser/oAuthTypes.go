@@ -16,18 +16,6 @@ type Auth struct {
 	AccessTokenUrl URL      `json:"access_token_url" yaml:"access_token_url"`
 }
 
-type URLPARAMS map[string]string
-
-// represents how a yaml file for Auth2.0 would look like
-type AuthRequestBody struct {
-	Method    HTTPMethodType    `json:"method"              yaml:"method"`
-	Url       URL               `json:"url"                 yaml:"url"`
-	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
-	Auth      *Auth             `json:"auth"                yaml:"auth"`
-	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
-	Body      Body
-}
-
 // check's if auth key contains type and has at least 1 item in Extras
 // we need to extend this validation as we need them
 func (a *Auth) IsValid() bool {
@@ -47,10 +35,7 @@ func (a *Auth) IsValid() bool {
 	}
 }
 
-// If method is absent, it's post by default
-// Url and UrlParams are required
-// Headers is optional
-// Body
+type URLPARAMS map[string]string
 
 // Checks if the URLPARAMS map contains the required "client_id" key.
 func (u URLPARAMS) IsValid() bool {
@@ -60,3 +45,32 @@ func (u URLPARAMS) IsValid() bool {
 	_, ok := u["client_id"]
 	return ok
 }
+
+// represents how a yaml file for Auth2.0 would look like
+type AuthRequestBody struct {
+	Method    HTTPMethodType    `json:"method"              yaml:"method"`
+	Url       URL               `json:"url"                 yaml:"url"`
+	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
+	Auth      *Auth             `json:"auth"                yaml:"auth"`
+	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
+	Body      Body
+}
+
+// Checks if Auth2 the yaml body is valid
+func (auth2Body *AuthRequestBody) IsValid() bool {
+	if !auth2Body.Auth.IsValid() || !auth2Body.Url.IsValidURL() {
+		return false
+	}
+	// if url params exists, it should be valid
+	if auth2Body.UrlParams != nil && !auth2Body.UrlParams.IsValid() {
+		return false
+	}
+
+	// UrlParams are optional, if present, then client_id is required
+	return false
+}
+
+// If method is absent, it's post by default
+// UrlParams are optional, if present, then client_id is required
+// Headers is optional
+// Body
