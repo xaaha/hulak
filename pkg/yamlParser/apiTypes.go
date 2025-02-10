@@ -246,3 +246,19 @@ func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reade
 	}
 	return bytes.NewReader(jsonData), nil
 }
+
+// helper function to dynamically add Key Value pair to FormData
+func (b *Body) AddKeyValueToFormData(key, value string) {
+	if b.FormData == nil {
+		b.FormData = make(map[string]string)
+	}
+	b.FormData[key] = value
+}
+
+// helper function to dynamically add Key Value pair to UrlEncodedFormData
+func (b *Body) AddKeyValueToUrlEncodedFormData(key, value string) {
+	if b.UrlEncodedFormData == nil {
+		b.UrlEncodedFormData = make(map[string]string)
+	}
+	b.UrlEncodedFormData[key] = value
+}

@@ -138,21 +138,23 @@ func FinalStructForApi(filePath string, secretsMap map[string]interface{}) User 
 
 // checks the validity of all the fields in the yaml file meant for OAuth2.0.
 // It returns AuthRequestBody struct
-func FinalStructForOAuth2(filePath string, secretsMap map[string]interface{}) AuthRequestBody {
+func FinalStructForOAuth2(
+	filePath string,
+	secretsMap map[string]interface{},
+) AuthRequestBody {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
 	}
 
-	var user AuthRequestBody
+	var auth2Config AuthRequestBody
 	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&user); err != nil {
+	if err := dec.Decode(&auth2Config); err != nil {
 		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
 	}
 
-	if valid, err := user.IsValid(); !valid {
+	if valid, err := auth2Config.IsValid(); !valid {
 		utils.PanicRedAndExit("Error on Auth2 Request Body %v", err)
 	}
-
-	return user
+	return auth2Config
 }

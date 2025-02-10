@@ -60,8 +60,8 @@ type AuthRequestBody struct {
 	Body      *Body
 }
 
-// AuthRequestBody is valid if
-// Has valid method. Missing method defaults to post
+// AuthRequestBody is valid if,
+// Has valid method, if missing method defaults to post.
 // Has valid auth section with type and access_token_url, for auth2.0
 // Has Required, and valid Url
 // If UrlParams is present, client_id is required

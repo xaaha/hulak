@@ -35,10 +35,10 @@ import (
 */
 
 const (
-	portNum       = ":2982"
-	timeout       = 60 * time.Second
-	redirect_uri  = "http://localhost:2982/callback"
-	response_type = "code"
+	portNum      = ":2982"
+	timeout      = 60 * time.Second
+	redirect_uri = "http://localhost:2982/callback"
+	responseType = utils.ResponseType // for consistency
 )
 
 // OAuth2Config holds the configuration for OAuth2 flow
@@ -158,7 +158,7 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 	// required fields for oAuth web flow. This is true github and Okta.
 	// from my testing, extra field does not do any harm, if this is not the case, I'll revisit
 	reqField := make(map[string]string)
-	reqField["response_type"] = response_type
+	reqField["response_type"] = responseType
 	reqField["redirect_uri"] = redirect_uri
 	authReqBody.UrlParams = mergeMaps(authReqBody.UrlParams, reqField)
 	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
@@ -177,6 +177,20 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 		utils.PrintRed("Timeout waiting for the code.")
 		return "", fmt.Errorf("timeout waiting for the code")
 	}
+}
+
+// Using the provided envMap, this function calls the PrepareStruct,
+// and Makes the Api Call with StandardCall and prints the response in console
+func SendApiRequestForAuth2(secretsMap map[string]interface{}, path string, code string) {
+	authReqConfig := yamlParser.FinalStructForOAuth2(path, secretsMap)
+	apiInfo, err := authReqConfig.PrepareStruct()
+	if err != nil {
+		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
+		utils.PrintRed(err.Error())
+		return
+	}
+	resp := apicalls.StandardCall(apiInfo)
+	apicalls.PrintAndSaveFinalResp(resp, path)
 }
 
 // From call.go
