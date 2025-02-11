@@ -2,10 +2,8 @@ package actions
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -16,78 +14,12 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
-/*
- Define types for yaml file ✅
- Use checkYamlFile in reader.go and get the  to the defined type above. ✅
- Use Auth section to determine if we should follow this flow. ✅
- Use Method, Url and parameters for open ✅
- After user authorization, we'll receive a code  ✅
- Exchange the code for an access token
- API call with POST request
- 	token, err := GetAccessToken(config, authCode)
- 	if err != nil {
- 		fmt.Printf("Error getting access token: %v\n", err)
- 		return
- 	}
-
- 	fmt.Printf("Response: %s\n", token)
- }
-*/
-
 const (
 	portNum      = ":2982"
 	timeout      = 60 * time.Second
 	redirect_uri = "http://localhost:2982/callback"
 	responseType = utils.ResponseType // for consistency
 )
-
-// OAuth2Config holds the configuration for OAuth2 flow
-type OAuth2Config struct {
-	TokenURL     string
-	ClientID     string
-	ClientSecret string
-	Scope        string
-	State        string
-	RedirectURI  string
-}
-
-func GetAccessToken(config OAuth2Config, code string) (string, error) {
-	// Prepare token request payload
-	data := url.Values{}
-	// loop through the provided extras map
-	data.Set("client_id", config.ClientID)
-	data.Set("client_secret", config.ClientSecret)
-	data.Set("code", code)
-
-	// Create HTTP client
-	client := &http.Client{}
-
-	// Create request
-	// If method is missing, then default is POST
-	req, err := http.NewRequest("POST", config.TokenURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("error creating request: %v", err)
-	}
-
-	// loop through it and Add all the headers and this should be aded by default
-	// if this already exists in map, only use one
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	// Send request
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("error sending request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading response: %v", err)
-	}
-
-	return string(body), nil
-}
 
 // copied from Github https://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
 // Opens the url in the brwoser based on the user's OS
