@@ -141,7 +141,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 					Type:           Oauth2type1,
 					AccessTokenUrl: "https://auth.example.com/token",
 				},
-				Body: &Body{
+				Body: &Auth2Body{
 					UrlEncodedFormData: map[string]string{
 						"client_id": "xaaha",
 					},
@@ -163,8 +163,8 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 					AccessTokenUrl: "https://auth.example.com/token",
 				},
 			},
-			expectedBool: true,
-			expectedErr:  "",
+			expectedBool: false, // missing body is not allowed
+			expectedErr:  "invalid body content",
 		},
 		{
 			name: "Missing auth section",
@@ -251,6 +251,12 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 				Auth: &Auth{
 					Type:           Oauth2type1,
 					AccessTokenUrl: "https://auth.example.com/token",
+				},
+				Body: &Auth2Body{
+					UrlEncodedFormData: map[string]string{
+						"client_id":     "my_id",
+						"client_secret": "my_secret",
+					},
 				},
 			},
 			expectedBool: true,

@@ -160,7 +160,7 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 	reqField := make(map[string]string)
 	reqField["response_type"] = responseType
 	reqField["redirect_uri"] = redirect_uri
-	authReqBody.UrlParams = mergeMaps(authReqBody.UrlParams, reqField)
+	authReqBody.UrlParams = utils.MergeMaps(authReqBody.UrlParams, reqField)
 	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
 
 	// Open the browser
@@ -181,12 +181,9 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-// TODO 1: this is not used, need to figure out how to enocde code in body
-// Most like we need to define custom body type, and let the encode body accept
-// additional options
 func SendApiRequestForAuth2(secretsMap map[string]interface{}, path string, code string) {
 	authReqConfig := yamlParser.FinalStructForOAuth2(path, secretsMap)
-	apiInfo, err := authReqConfig.PrepareStruct()
+	apiInfo, err := authReqConfig.PrepareStruct(code)
 	if err != nil {
 		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
 		utils.PrintRed(err.Error())
@@ -207,20 +204,4 @@ func isWSL() bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(string(releaseData)), "microsoft")
-}
-
-// merge the secondary map into the main map.
-// If keys are repeated, values from the secondary map replace those in the main map.
-func mergeMaps(main, sec map[string]string) map[string]string {
-	if main == nil {
-		main = make(map[string]string)
-	}
-	if sec == nil {
-		return main
-	}
-	// Merge sec map into main map
-	for sKey, sVal := range sec {
-		main[sKey] = sVal
-	}
-	return main
 }

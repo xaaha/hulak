@@ -1,6 +1,8 @@
 package yamlParser
 
 import (
+	"io"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -50,6 +52,59 @@ func (u URLPARAMS) IsValid() bool {
 	return ok
 }
 
+// Auth2Body represents the body of an Auth2.0 request, which typically contains
+// URL-encoded form data as a map of string keys and values.
+type Auth2Body struct {
+	UrlEncodedFormData map[string]string `json:"urlencodedformdata" yaml:"urlencodedformdata"`
+}
+
+// IsValid checks if the Auth2Body is valid. A valid Auth2Body meets the following conditions:
+// 1. The body must not be nil.
+// 2. The `UrlEncodedFormData` field must contain at least one item (i.e., it's non-empty).
+//
+// This function assumes that the Auth2.0 request body should mainly contain URL-encoded
+// form data, as this is the expected format for most Auth2.0 implementations. Other formats,
+// such as RawString or GraphQL, are considered invalid in this context (for now).
+func (b *Auth2Body) IsValid() bool {
+	// Ensure that the struct is not nil and has data
+	if b == nil {
+		return false
+	}
+	// Check if the UrlEncodedFormData field has at least one item
+	if len(b.UrlEncodedFormData) > 0 {
+		return true
+	}
+	// If UrlEncodedFormData is empty or missing, it's considered invalid
+	return false
+}
+
+// *Auth2Body
+func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
+	var body io.Reader
+	var contentType string
+
+	if b == nil {
+		return nil, "", nil
+	}
+
+	codeMap := make(map[string]string)
+	codeMap[utils.ResponseType] = code
+	mergedMap := utils.MergeMaps(b.UrlEncodedFormData, codeMap)
+
+	switch {
+	case len(b.UrlEncodedFormData) > 0:
+		encodedBody, err := EncodeXwwwFormUrlBody(mergedMap)
+		if err != nil {
+			return nil, "", utils.ColorError("#oAuthTypes.go", err)
+		}
+		body, contentType = encodedBody, "application/x-www-form-urlencoded"
+	default:
+		return nil, "", utils.ColorError("no valid body type provided")
+
+	}
+	return body, contentType, nil
+}
+
 // represents how a yaml file for Auth2.0 would look like
 type AuthRequestBody struct {
 	Method    HTTPMethodType    `json:"method"              yaml:"method"`
@@ -57,7 +112,7 @@ type AuthRequestBody struct {
 	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
 	Auth      *Auth             `json:"auth"                yaml:"auth"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
-	Body      *Body
+	Body      *Auth2Body
 }
 
 // AuthRequestBody is valid if,
@@ -105,7 +160,7 @@ func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
 		return false, utils.ColorError("invalid URL parameters")
 	}
 
-	// Validate Body if it exists
+	// Validate Body
 	if !auth2Body.Body.IsValid() {
 		return false, utils.ColorError("invalid body content")
 	}
@@ -113,8 +168,8 @@ func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
 	return true, nil
 }
 
-func (auth2Body *AuthRequestBody) PrepareStruct() (ApiInfo, error) {
-	body, contentType, err := auth2Body.Body.EncodeBody()
+func (auth2Body *AuthRequestBody) PrepareStruct(code string) (ApiInfo, error) {
+	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
 		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
 	}

@@ -153,3 +153,19 @@ func isNoMatchingFileError(err error) bool {
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
+
+// merge the secondary map into the main map.
+// If keys are repeated, values from the secondary map replace those in the main map.
+func MergeMaps(main, sec map[string]string) map[string]string {
+	if main == nil {
+		main = make(map[string]string)
+	}
+	if sec == nil {
+		return main
+	}
+	// Merge sec map into main map
+	for sKey, sVal := range sec {
+		main[sKey] = sVal
+	}
+	return main
+}
