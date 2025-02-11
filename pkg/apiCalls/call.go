@@ -63,19 +63,22 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 // Prints and Save the custom response
 // TODO: Flag to disable and silence the std output and file save
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
+	// Create a combined structure to store both body and status
+	combined := struct {
+		Body   interface{} `json:"body"`
+		Status string      `json:"status"`
+	}{
+		Body:   resp.Body,
+		Status: resp.ResponseStatus,
+	}
+
 	var strBody string
-	switch body := resp.Body.(type) {
-	case string:
-		strBody = body
-	case map[string]interface{}, []interface{}:
-		if jsonData, err := json.MarshalIndent(body, "", "  "); err == nil {
-			strBody = string(jsonData)
-		} else {
-			utils.PrintWarning("call.go: error serializing response body: " + err.Error())
-			strBody = fmt.Sprintf("%+v", resp) // Fallback to entire response
-		}
-	default:
-		strBody = fmt.Sprintf("%+v", resp) // Fallback for unsupported types
+	// Marshal the combined structure
+	if jsonData, err := json.MarshalIndent(combined, "", "  "); err == nil {
+		strBody = string(jsonData)
+	} else {
+		utils.PrintWarning("call.go: error serializing response: " + err.Error())
+		strBody = fmt.Sprintf("%+v", resp) // Fallback to entire response
 	}
 
 	err := evalAndWriteRes(strBody, path)

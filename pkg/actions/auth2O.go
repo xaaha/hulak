@@ -60,7 +60,7 @@ var codeChan = make(chan string)
 func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
-		fmt.Fprintf(w, "Code received: %s\nYou can now safely close this window.\n", code)
+		fmt.Fprintf(w, "\nYou can now safely close this window.\n")
 
 		// Send the code to the channel and close it
 		codeChan <- code
@@ -103,7 +103,6 @@ func OpenBrowserAndGetCode(filePath string, secretsMap map[string]interface{}) (
 	// Wait for the code or a timeout
 	select {
 	case code := <-codeChan:
-		utils.PrintGreen(fmt.Sprintf("Authentication code received: %s\n", code))
 		return code, nil
 	case <-time.After(timeout):
 		utils.PrintRed("Timeout waiting for the code.")

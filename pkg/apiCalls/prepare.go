@@ -2,6 +2,7 @@ package apicalls
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,14 +31,18 @@ func PrepareUrl(baseUrl string, urlParams map[string]string) string {
 // Takes in http response, adds response status code,
 // and returns CustomResponse type string for the StandardCall function below
 func processResponse(response *http.Response) CustomResponse {
+	defer response.Body.Close()
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Fatalf("prepare.go: Error while reading response %v", err)
+		log.Fatalf("prepare.go: Error while reading response: %v", err)
 	}
-	defer response.Body.Close()
 
 	responseData := CustomResponse{
-		ResponseStatus: response.Status,
+		ResponseStatus: fmt.Sprintf(
+			"%d %s",
+			response.StatusCode,
+			http.StatusText(response.StatusCode),
+		),
 	}
 	var parsedBody interface{}
 	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
