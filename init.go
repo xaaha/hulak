@@ -41,7 +41,7 @@ func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				_, _ = actions.OpenBrowser(path, secretsMap)
+				actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path)
 
 			case config.IsAPI():
 				apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)

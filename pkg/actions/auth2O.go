@@ -147,9 +147,9 @@ func server() {
 	}
 }
 
-// OpenBrowser starts the callback server and opens the browser for OAuth flow
+// OpenBrowserAndGetCode starts the callback server and opens the browser for OAuth flow
 // Returns the code coming from the ur
-func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, error) {
+func OpenBrowserAndGetCode(filePath string, secretsMap map[string]interface{}) (string, error) {
 	// Create and start the callback server
 	go server()
 	// Prepare the OAuth URL
@@ -181,21 +181,22 @@ func OpenBrowser(filePath string, secretsMap map[string]interface{}) (string, er
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-func SendApiRequestForAuth2(secretsMap map[string]interface{}, path string, code string) {
-	authReqConfig := yamlParser.FinalStructForOAuth2(path, secretsMap)
+func SendApiRequestForAuth2(secretsMap map[string]interface{}, filePath string) {
+	code, err := OpenBrowserAndGetCode(filePath, secretsMap)
+	if err != nil {
+		utils.PrintRed(err.Error())
+		return
+	}
+	authReqConfig := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
 	apiInfo, err := authReqConfig.PrepareStruct(code)
 	if err != nil {
-		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
+		err := utils.ColorError("call.go: error occured while preparing Struct from "+filePath, err)
 		utils.PrintRed(err.Error())
 		return
 	}
 	resp := apicalls.StandardCall(apiInfo)
-	apicalls.PrintAndSaveFinalResp(resp, path)
+	apicalls.PrintAndSaveFinalResp(resp, filePath)
 }
-
-// From call.go
-// Prepare API Info struct for StandardCall. And call StandardCall
-// Then, use the CustomResponse and Save it with PrintAndSaveFinalResp
 
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux
 func isWSL() bool {
