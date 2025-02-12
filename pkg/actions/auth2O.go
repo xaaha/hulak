@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -60,8 +61,8 @@ var codeChan = make(chan string)
 func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
-		fmt.Fprintf(w, "\nYou can now safely close this window.\n")
-
+		authHtml := filepath.Join("assets", "auth.html")
+		http.ServeFile(w, r, authHtml)
 		// Send the code to the channel and close it
 		codeChan <- code
 		close(codeChan)
