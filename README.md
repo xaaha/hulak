@@ -1,8 +1,62 @@
-# Hulak
+# Hulak 📨
 
 File based, user friendly API client for the terminal.
 
 # Construction Work 🏗️
+
+## Installation
+
+- Steps coming soon `SOON`
+
+## Initialize Environment folders
+
+We often need secrets, like passwords, client ids and secrets, and other sensitive information to make an api call. Those secrets are often seperate between your production and test and local environment. Hulak manages those secrets in a folder. The structure of the folder looks like the following.
+
+```bash
+env/
+  global.env # required
+  staging.env
+  prod.env
+api.yaml # api file
+collection/
+  second_api.yaml
+```
+
+As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
+
+Create folder
+
+```bash
+mkdir -p env && touch env/global.env
+```
+
+If hulak does not find the env folder and `global.env` file inside, it asks the user to create one during runtime.
+
+## Getting Started
+
+Hualk is designed to be simple and intuitive.
+
+Then Basic API call looks like `test.yaml`
+
+```yaml
+# test.yaml
+method: Get
+url: https://jsonplaceholder.typicode.com/todos/1
+```
+
+`method` and `url` are case ininsensitive. So, as `Method` values.
+
+Run the file with
+
+```bash
+hulak -f test_fake
+```
+
+or any of the following works
+
+```bash
+hula -fp ./test_fake.yaml
+```
 
 ## Flags
 
@@ -16,7 +70,7 @@ File based, user friendly API client for the terminal.
 
 Actions make it easier to retrieve values from other files.
 
-### `.Key`
+### Retrieving secrets with `.Key`
 
 Grab the key's value from the defined environemnt files in the project's root. Key is case sensitive. So, `.key` and `.Key` are two different values.
 
@@ -50,4 +104,31 @@ OR
 
 ```yaml
 url: '{{getValueOf "key" "file_name"}}'
+```
+
+### Auth2.0 (Beta)
+
+Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Below is the example for [github](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#web-application-flow).
+
+```yaml
+# kind is required field in hulak. For api files, kind is not required
+kind: auth # value can be auth or api.
+method: POST
+# url that opens up in a browser. Usually ends with /authorize
+url: https://github.com/login/oauth/authorize
+urlparams:
+  client_id: "{{.client_id}}"
+  scope: repo:user
+auth:
+  type: OAuth2.0
+  # url to retrieve access token after broswer authorization
+  access_token_url: https://github.com/login/oauth/access_token
+# Use appropriate headers as instructed by the auth2.0 provider, github in this case
+headers:
+  Accept: application/json
+body:
+  urlencodedformdata:
+    client_secret: "{{.client_secret}}"
+    client_id: "{{.client_id}}"
+# code retrieved from browser is automatically inserted
 ```
