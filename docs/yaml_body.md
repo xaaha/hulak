@@ -94,6 +94,7 @@ body:
 - Hulak uses `Go's` template under the hood to replace your secrets. As seen above,
   if you want to replace the string with secrets, entire secret with double quote `" "` in your yaml file.
   - For secrets, use dot/period `.` to reference a secret
+  - Graphql variables that needs `Int!`, `Boolean` or other types are automtically converted based on their original type
 
 ```yaml
 url: "{{.baseUrl}}" # Mandatory "" when we want to reference secret
@@ -110,7 +111,7 @@ body:
         }
       }
     variables:
-      id: "12345"
+      id: "{{.userId}}" # if userId is an Int in secets map, then this id will also be automtically converted to an int
 ```
 
 > [!Note]

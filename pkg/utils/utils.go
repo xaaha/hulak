@@ -71,22 +71,28 @@ func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml only)
+// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
-	matchFile = strings.ToLower(matchFile)
-	var result []string
-
-	initAbsFp, err := CreateFilePath("")
-	if err != nil {
-		return nil, fmt.Errorf("error getting initial file path: %w", err)
+	if matchFile == "" {
+		return nil, ColorError("#utils.go: matchFile can't be empty")
 	}
 
-	var startPath string
+	fileExtensions := []string{YAML, YML, JSON}
+	for _, ext := range fileExtensions {
+		matchFile = strings.TrimSuffix(matchFile, ext)
+	}
+	matchFile = strings.ToLower(matchFile)
+
+	startPath := ""
 	if len(initialPath) == 0 {
-		startPath = initAbsFp
+		var err error
+		startPath, err = CreateFilePath("")
+		if err != nil {
+			return nil, fmt.Errorf("error getting initial file path: %w", err)
+		}
 	} else {
 		startPath = initialPath[0]
 	}
@@ -96,45 +102,45 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		return nil, ColorError("error reading directory "+startPath, err)
 	}
 
-	filePattern := [2]string{YAML, YML}
+	var result []string
 
-	for _, val := range dirContents {
-		// Skip hidden directories
-		if val.IsDir() && strings.HasPrefix(val.Name(), ".") {
-			continue
-		}
+	for _, entry := range dirContents {
+		if entry.IsDir() {
+			// Skip hidden directories
+			if strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
 
-		// Process files
-		if !val.IsDir() {
-			lowerName := strings.ToLower(val.Name())
-			for _, ext := range filePattern {
-				if strings.HasSuffix(lowerName, ext) {
-					yamlFile := strings.TrimSuffix(lowerName, ext)
-					if matchFile == yamlFile {
-						matchingFp := filepath.Join(startPath, val.Name())
-						result = append(result, matchingFp)
+			// Recursively process subdirectories
+			subDirPath := filepath.Join(startPath, entry.Name())
+			matches, err := ListMatchingFiles(matchFile, subDirPath)
+			if err != nil && !isNoMatchingFileError(err) {
+				PrintRed(
+					"Skipping subdirectory " + entry.Name() + " due to error: \n" + err.Error(),
+				)
+				continue
+			}
+			result = append(result, matches...)
+		} else {
+			// Process files
+			fileName := strings.ToLower(entry.Name())
+			for _, ext := range fileExtensions {
+				if strings.HasSuffix(fileName, ext) {
+					baseName := strings.TrimSuffix(fileName, ext)
+					if matchFile == baseName {
+						result = append(result, filepath.Join(startPath, entry.Name()))
 					}
 				}
 			}
 		}
-
-		// Process subdirectories
-		if val.IsDir() {
-			subDirPath := filepath.Join(startPath, val.Name())
-			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			if err != nil && !isNoMatchingFileError(err) {
-				PrintRed("Skipping subdirectory" + val.Name() + "due to error: \n" + err.Error())
-				continue
-			}
-			result = append(result, matches...)
-		}
 	}
 
 	if len(result) == 0 {
-		return []string{}, ColorError(
-			"no files with matching name " + matchFile + " found in " + initAbsFp,
+		return nil, ColorError(
+			"no files with matching name " + matchFile + " found in " + startPath,
 		)
 	}
+
 	return result, nil
 }
 
@@ -146,4 +152,20 @@ func isNoMatchingFileError(err error) bool {
 // takes in filepath and returns the name of the file
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
+// merge the secondary map into the main map.
+// If keys are repeated, values from the secondary map replace those in the main map.
+func MergeMaps(main, sec map[string]string) map[string]string {
+	if main == nil {
+		main = make(map[string]string)
+	}
+	if sec == nil {
+		return main
+	}
+	// Merge sec map into main map
+	for sKey, sVal := range sec {
+		main[sKey] = sVal
+	}
+	return main
 }

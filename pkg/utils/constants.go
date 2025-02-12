@@ -28,6 +28,7 @@ const (
 const (
 	YAML = ".yaml"
 	YML  = ".yml"
+	JSON = ".json"
 )
 
 // response pattern for files saved
@@ -45,3 +46,6 @@ const (
 	JSONBool   = "bool"
 	JSONNull   = "null"
 )
+
+// Auth2.0 ResponseType
+const ResponseType = "code"

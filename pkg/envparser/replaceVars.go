@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// gets the value of key from a json file
-// looks for the json _response file, if the file does not exist, it makes a new call, writes the file and then reads it
+// gets the value of key from a json file. If the file does not have '.json' suffix
+// getValueOf looks for _response.json file automatically. If the file does not exist
 func GetValueOf(key, fileName string) interface{} {
 	if key == "" && fileName == "" {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
@@ -20,19 +21,38 @@ func GetValueOf(key, fileName string) interface{} {
 
 	yamlPathList, err := utils.ListMatchingFiles(fileName)
 	if err != nil {
-		utils.PrintRed(
-			"replaceVars.go: error occured while grabbing matchingPath for " + fileName + " \n" +
-				err.Error(),
-		)
+		utils.PrintRed(fmt.Sprintf(
+			"replaceVars.go: error occurred while grabbing matching paths for '%s': %s",
+			fileName, err.Error(),
+		))
+		return ""
 	}
 
 	var singlePath string
-	if len(yamlPathList) > 0 {
-		// only take the first one
-		singlePath = yamlPathList[0]
+	var jsonResFilePath string
+
+	if strings.HasSuffix(fileName, utils.JSON) {
+		// For .json files, use exact match from the list
+		if len(yamlPathList) > 0 {
+			// Take the first matching .json file
+			singlePath = yamlPathList[0]
+			jsonResFilePath = singlePath
+		} else {
+			utils.PrintRed("could not find matching files " + fileName)
+			return ""
+		}
 	} else {
-		utils.PrintRed("could not find matching files " + fileName)
-		return ""
+		// Default behavior for files without .json name
+		if len(yamlPathList) > 0 {
+			singlePath = yamlPathList[0]
+		} else {
+			utils.PrintRed("could not find matching files " + fileName)
+			return ""
+		}
+
+		dirPath := filepath.Dir(singlePath)
+		jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
+		jsonResFilePath = filepath.Join(dirPath, jsonBaseName)
 	}
 
 	if len(yamlPathList) > 1 {
@@ -40,10 +60,6 @@ func GetValueOf(key, fileName string) interface{} {
 			"Multiple matches for the file " + fileName + " found. Using \n" + singlePath,
 		)
 	}
-
-	dirPath := filepath.Dir(singlePath)
-	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-	jsonResFilePath := filepath.Join(dirPath, jsonBaseName)
 
 	// If the file does not exist
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
@@ -61,8 +77,8 @@ func GetValueOf(key, fileName string) interface{} {
 	if err != nil {
 		utils.PrintRed(
 			fmt.Sprintf(
-				"replaceVars.go: error occured while opening the file '%s': %s",
-				jsonBaseName,
+				"replaceVars.go: error occurred while opening the file '%s': %s",
+				filepath.Base(jsonResFilePath),
 				err.Error(),
 			),
 		)
@@ -74,7 +90,9 @@ func GetValueOf(key, fileName string) interface{} {
 	err = decoder.Decode(&fileContent)
 	if err != nil {
 		utils.PrintRed(
-			"replaceVars.go: make sure " + jsonBaseName + " has proper json content" + err.Error(),
+			"replaceVars.go: make sure " + filepath.Base(
+				jsonResFilePath,
+			) + " has proper json content" + err.Error(),
 		)
 	}
 
@@ -83,7 +101,11 @@ func GetValueOf(key, fileName string) interface{} {
 		utils.PanicRedAndExit(
 			"replaceVars.go: error while looking up the value: '%s'. \nMake sure '%s' exists and has key '%s'",
 			key,
-			filepath.Join("...", utils.FileNameWithoutExtension(dirPath), jsonBaseName),
+			filepath.Join(
+				"...",
+				utils.FileNameWithoutExtension(filepath.Dir(jsonResFilePath)),
+				filepath.Base(jsonResFilePath),
+			),
 			key,
 		)
 	}

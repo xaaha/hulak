@@ -2,9 +2,7 @@ package yamlParser
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
-	"strings"
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -58,8 +56,7 @@ func replaceVarsWithValues(
 	return changedMap
 }
 
-// Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase for http request.
-// Right now, the yaml file is only meant to hold http request as defined in the body struct in "./yamlTypes.go"
+// Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
 func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)
@@ -82,8 +79,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 		utils.PanicRedAndExit("1. error decoding data: %v", err)
 	}
 
-	// case sensitivity keys in yaml file is ignored.
-	// method or Method or METHOD should all be the same
+	// make yaml keys  case insensitive. method or Method or METHOD should all be the same
 	data = utils.ConvertKeysToLowerCase(data)
 
 	// parse all the values to with {{.key}} from .env folder
@@ -105,9 +101,8 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 	return &buf, nil
 }
 
-// checks the validity of all the fields in the yaml file
-// and returns the json string of the yaml file
-func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{}) string {
+// checks the validity of all the fields in the yaml file meant for regular api call
+func FinalStructForApi(filePath string, secretsMap map[string]interface{}) User {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
@@ -119,9 +114,7 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 		utils.PanicRedAndExit("2. error decoding data: %v", err)
 	}
 
-	// uppercase and type conversion
-	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(user.Method)))
-	user.Method = upperCasedMethod
+	user.Method.ToUpperCase()
 
 	// method is required for any http request
 	if !user.Method.IsValid() {
@@ -134,14 +127,34 @@ func FinalJsonForHttpRequest(filePath string, secretsMap map[string]interface{})
 	}
 
 	// check if body is valid
-	// if the body is not present in the body, then the body is nil
-	if user.Body != nil && !user.Body.IsValid() {
+	if !user.Body.IsValid() {
 		utils.PanicRedAndExit(
 			"Invalid Body. Make sure body contains only one valid argument.\n %v",
 			user.Body,
 		)
 	}
-	val, _ := json.MarshalIndent(user, "", "  ")
-	jsonString := string(val)
-	return jsonString
+	return user
+}
+
+// checks the validity of all the fields in the yaml file meant for OAuth2.0.
+// It returns AuthRequestBody struct
+func FinalStructForOAuth2(
+	filePath string,
+	secretsMap map[string]interface{},
+) AuthRequestBody {
+	buf, err := checkYamlFile(filePath, secretsMap)
+	if err != nil {
+		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
+	}
+
+	var auth2Config AuthRequestBody
+	dec := yaml.NewDecoder(buf)
+	if err := dec.Decode(&auth2Config); err != nil {
+		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
+	}
+
+	if valid, err := auth2Config.IsValid(); !valid {
+		utils.PanicRedAndExit("Error on Auth2 Request Body %v", err)
+	}
+	return auth2Config
 }
