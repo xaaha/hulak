@@ -11,6 +11,7 @@ const (
 
 // Environment
 const (
+	EnvironmentFolder    = "env"
 	EnvKey               = "hulakEnv"
 	DefaultEnvVal        = "global"
 	DefaultEnvFileSuffix = ".env"

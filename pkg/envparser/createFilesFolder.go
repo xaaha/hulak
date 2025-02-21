@@ -14,10 +14,13 @@ Creates environment folder and a default global.env file in it.
 Optional: File names as a *string
 */
 func CreateDefaultEnvs(envName *string) error {
-	defaultEnv := utils.DefaultEnvVal
+	defEnv := utils.DefaultEnvVal
+	defEnvDir := utils.EnvironmentFolder
+	defEnvSfx := utils.DefaultEnvFileSuffix
+
 	if envName != nil {
 		lowerCasedEnv := strings.ToLower(*envName)
-		defaultEnv = lowerCasedEnv
+		defEnv = lowerCasedEnv
 	}
 	projectRoot, err := os.Getwd()
 	if err != nil {
@@ -25,8 +28,8 @@ func CreateDefaultEnvs(envName *string) error {
 	}
 
 	// create an env folder in the root of the project
-	envDirpath := filepath.Join(projectRoot, "env")
-	envFilePath := filepath.Join(envDirpath, defaultEnv+".env") // global.env as the default
+	envDirpath := filepath.Join(projectRoot, defEnvDir)
+	envFilePath := filepath.Join(envDirpath, defEnv+defEnvSfx) // global.env as the default
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
 		utils.PrintGreen("Created env directory \u2713")
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
@@ -37,11 +40,11 @@ func CreateDefaultEnvs(envName *string) error {
 	if _, err := os.Stat(envFilePath); os.IsNotExist(err) {
 		file, err := os.Create(envFilePath)
 		if err != nil {
-			utils.PrintRed("Error creating global environment \u2717")
+			utils.PrintRed(fmt.Sprintf("Error creating %s environment \u2717", defEnv))
 			return err
 		}
 		defer file.Close()
-		utils.PrintGreen(fmt.Sprintf("'%s.env' created \u2713", defaultEnv))
+		utils.PrintGreen(fmt.Sprintf("'%s%s' created \u2713", defEnv, defEnvSfx))
 	}
 	return nil
 }
