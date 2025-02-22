@@ -87,7 +87,12 @@ func main() {
 	fmt.Println("Key = ", env.Values[0].Key)
 	fmt.Println("Value \u2713 =", env.Values[0].Value)
 
-	// hulak migrate-pm-env --fp "./globals.json"
+	// hulak migrate "./globals.json"
+  // only accept 1 argument and determine
+  // what is it; if  postman envFile Run env otherwise run postman collection
+  // automatically check whether it' postman file
+  // postman has name that says where it's coming from
+
 
 	// if name is empty ""  or name == "globals" then migrate things to global
 	// otherwise a name in pm json file should create a new env file with the exact name if the env file does not exists
