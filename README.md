@@ -6,9 +6,20 @@ File based, user friendly API client for the terminal.
 
 ## Installation
 
+Any of the following installation step work
+
 #### `go install`
 
-- TODO
+- Run `go install github.com/xaaha/hulak@latest`
+- Ensure the path from `go env GOPATH` is in your shell’s PATH.
+  • If it’s not, add the following to your shell configuration for (~/.bashrc or ~/.zshrc) add
+
+```bash
+export GOPATH=$HOME/go
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
+- Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
 
 #### Build from source
 
