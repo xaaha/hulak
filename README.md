@@ -57,28 +57,32 @@ TODO: with go releaser
 
 ---
 
-## Initialize Environment folders
+## Initialize Environment Folders
 
-We often need secrets, like passwords, client ids and secrets, and other sensitive information to make an api call. Those secrets are often seperate between your production and test and local environment. Hulak manages those secrets in a folder. The structure of the folder looks like the following.
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between local, test, and production environments. The folder structure looks like this:
 
 ```bash
 env/
-  global.env # required
+  global.env  # Required
   staging.env
   prod.env
 collection/
-  second_api.yaml
+  api_file.yaml
 ```
 
 As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
 
-Create folder
+### Setup
+
+Create the env folder and the required `global.env` file in the root of the hulak project.
 
 ```bash
 mkdir -p env && touch env/global.env
 ```
 
-If hulak does not find the env folder and `global.env` file inside, it asks the user to create one during runtime.
+You can store all secrets in `global.env`, but for running tests with different credentials, use additional `<custom_file_name>.env` files like `staging.env` or `prod.env`.
+
+If `env/global.env` is absent, it will prompt you to create one at runtime. For more details read this [environment documentation](./docs/environment.md).
 
 ## Getting Started
 
