@@ -12,6 +12,8 @@
 
 Any of the following installation step work
 
+---
+
 ### Recommended `go install`
 
 - Run
@@ -29,6 +31,8 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
+---
+
 ### Homebrew
 
 Hulak is not yet available as a Homebrew formula due to its early-stage development, see this [section](https://docs.brew.sh/Acceptable-Formulae#niche-or-self-submitted-stuff). A Homebrew tap will be added in the future.
@@ -36,6 +40,8 @@ Hulak is not yet available as a Homebrew formula due to its early-stage developm
 TODO: with go releaser
 
 - Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
+
+---
 
 ### Build from source
 
@@ -54,6 +60,8 @@ TODO: with go releaser
       Click `Environment Variables`.
       Under `System variables`, find the `Path ` variable and click `Edit`.
       Add the path to your folder (e.g., `C:\Go\bin`) and click `OK`.
+
+---
 
 ## Initialize Environment folders
 
