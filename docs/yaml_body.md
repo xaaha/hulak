@@ -24,11 +24,11 @@ Represents the URL for the API endpoint. The url must match go's `net/url` `Pars
 Dynamic query parameters can be included as key-value pairs under urlparams. For, example,
 
 ```yaml
+method: GET
 url: "https://api.example.com/search"
 urlparams:
   foo: "bar"
   check: true
-method: GET
 ```
 
 ### Body

@@ -12,26 +12,26 @@
 
 Any of the following installation step work
 
-#### Recommended `go install`
+### Recommended `go install`
 
 - Run `go install github.com/xaaha/hulak@latest`
-- In order for any utility, installed with `go install`, to be available for use, we need the path from `go env GOPATH` to be in the shell’s PATH.
-  • If it’s not, add the following to your shell configuration for (~/.bashrc or ~/.zshrc) add
+- In order for any utility, installed with `go install`, to be available for use, you need the path from `go env GOPATH` to be in the shell’s PATH.
+  • If it’s not, add the following to your shell configuration. For (~/.bashrc or ~/.zshrc) add
 
 ```bash
 export GOPATH=$HOME/go
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
-#### Homebrew
+### Homebrew
 
-The project is not popular enought at this point to create a formula cookbook as mentioned in this [section](https://docs.brew.sh/Acceptable-Formulae#niche-or-self-submitted-stuff). So, use homebrew tap.
+Hulak is not yet available as a Homebrew formula due to its early-stage development, see this [section](https://docs.brew.sh/Acceptable-Formulae#niche-or-self-submitted-stuff). A Homebrew tap will be added in the future.
 
 TODO: with go releaser
 
 - Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
 
-#### Build from source
+### Build from source
 
 - Clone the repo
 - Install required dependencies: Run `go mod tidy` in the root of the project
@@ -58,7 +58,6 @@ env/
   global.env # required
   staging.env
   prod.env
-api.yaml # api file
 collection/
   second_api.yaml
 ```
@@ -97,6 +96,12 @@ hulak -env global -fp ./test.yaml
 
 Since global is default environemnt, we don't need to specify `-env global`. So, this is the simplest way of running the file.
 
+```bash
+hulak -f test
+```
+
+File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
+
 ```json
 {
   "body": {
@@ -108,12 +113,6 @@ Since global is default environemnt, we don't need to specify `-env global`. So,
   "status": "200 OK"
 }
 ```
-
-```bash
-hulak -f test
-```
-
-File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
 
 ## Flags
 

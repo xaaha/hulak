@@ -1,7 +1,7 @@
 # Environment Secrets
 
-- Environment secrets files, `global.env` (default), or `prod.env` (example) must exist in a folder which is in the root directory.
-- `global.env` is created automatically when running an API (yaml file) or you can create the global.env manually
+- Environment secrets files, `global.env` (default), must exist in a folder `env/` which is in the root directory.
+- Hulak asks user to create `global.env` during runtime, if it's not present already. You can also create the `global.env` manually
 - Directory structure
 
 ```text
@@ -18,24 +18,32 @@ collection2/
   file6.yml
 ```
 
-- `global.env` supports the following type
+- `<name>.env` file supports the following types: `bool`, `float64`, `int`, and `string`
 
-  - `bool`, `float64`, `int`, and `string`
   - Wrap these values in double or single quote if you want to treat them as string
 
+````env
+- `global.env` supports the following types: `bool`, `float64`, `int`, and `string`.
+- To explicitly treat a value as a string, wrap it in double or single quotes.
+
 ```env
-graphqlUrl="https://example.com/graphql" # this is a string
-baseUrl=https://example.com/ # this is also a string
+# Strings (quoted or unquoted)
+graphqlUrl="https://example.com/graphql"
+baseUrl=https://example.com/
 userName=xaaha
 product=hulak
-userAge={{.myAwesomeNumber}} # referenced from the value below
-myAwesomeNumber=22 # treated as int
-myAwesomeNumberString="100.0" # treated as string
-myAwesomeNumberbool=false # this is bool
-myAwesomeNumberboolString="false" # this is a string
-```
 
-- All the values of the environment is treated as a string. If you need to use an environment variable as `int`, `bool`, `float` or `null` use yaml's explicit typing. See the [yaml documentation](https://yaml.org/spec/1.2.2/#chapter-10-recommended-schemas) for more details.
+# Referencing another value
+age={{.userAge}} # Referenced from below
+
+# Numeric and boolean values
+userAge = 18
+userAgeAsString = "100.0"         # string
+hasRunMarathon = false            # bool
+hasRunMarathonAsString = "false"  # string
+````
+
+-
 
 ```yaml
 body:
@@ -46,8 +54,11 @@ body:
       }
     variables:
       name: "{{.userName}}"
-      age: !!int "{{.userAge}}" # userAge is treated as an int with explicit typing
+      age: "{{.userAge}}" # userAge is int in this case.
 ```
+
+> [!Tip]
+> Since YAML does not support double curly braces ({{}}) without quotes, wrap values in backticks (`{{.key}}`), single quotes ('{{.key}}'), or double quotes ("{{.key}}"), to avoid issues.
 
 ## Flags
 
