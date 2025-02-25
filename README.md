@@ -90,14 +90,30 @@ url: https://jsonplaceholder.typicode.com/todos/1
 Run the file with
 
 ```bash
-hulak -f test_fake
+hulak -env global -f test
+# or
+hulak -env global -fp ./test.yaml
 ```
 
-or any of the following works
+Since global is default environemnt, we don't need to specify `-env global`. So, this is the simplest way of running the file.
+
+```json
+{
+  "body": {
+    "completed": false,
+    "id": 1,
+    "title": "delectus aut autem",
+    "userId": 1
+  },
+  "status": "200 OK"
+}
+```
 
 ```bash
-hula -fp ./test_fake.yaml
+hulak -f test
 ```
+
+File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
 
 ## Flags
 
