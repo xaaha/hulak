@@ -1,3 +1,11 @@
+<p align="center">
+  <img alt="Hulak Logo" src="./assets/logo.jpeg" height="140" />
+  <h3 align="center">Hulak</h3>
+  <p align="center">File Based Api Client</p>
+</p>
+
+---
+
 # Hulak 📨
 
 File based, user friendly API client for the terminal.
