@@ -16,7 +16,7 @@ Any of the following installation step work
 
 - Run
 
-```bash
+```shell
 go install github.com/xaaha/hulak@latest
 ```
 
