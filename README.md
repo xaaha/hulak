@@ -8,11 +8,17 @@ File based, user friendly API client for the terminal.
 
 Any of the following installation step work
 
-#### `go install`
+#### Recommended `go install`
 
 - Run `go install github.com/xaaha/hulak@latest`
 - In order for any utility, installed with `go install`, to be available for use, we need the path from `go env GOPATH` to be in the shell’s PATH.
   • If it’s not, add the following to your shell configuration for (~/.bashrc or ~/.zshrc) add
+
+#### Homebrew
+
+The project is not popular enought at this point to create a formula cookbook as mentioned in this [section](https://docs.brew.sh/Acceptable-Formulae#niche-or-self-submitted-stuff). So, use homebrew tap.
+
+TODO: with go releaser
 
 ```bash
 export GOPATH=$HOME/go
