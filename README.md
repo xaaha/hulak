@@ -14,9 +14,15 @@ Any of the following installation step work
 
 ### Recommended `go install`
 
-- Run `go install github.com/xaaha/hulak@latest`
+- Run
+
+```bash
+go install github.com/xaaha/hulak@latest
+```
+
 - In order for any utility, installed with `go install`, to be available for use, you need the path from `go env GOPATH` to be in the shell’s PATH.
-  • If it’s not, add the following to your shell configuration. For (~/.bashrc or ~/.zshrc) add
+
+  • If it’s not, add the following to your shell's configuration file.
 
 ```bash
 export GOPATH=$HOME/go
