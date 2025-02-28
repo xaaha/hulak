@@ -38,7 +38,7 @@ body:
 # code retrieved from browser is automatically inserted
 ```
 
-The response is logged and saved in the same `auth2_response.json` file. To use the `access_token` received in this response use `getValueOf` action.
+The response is logged in the console and `auth2_response.json` file is saved in the same location as the calling file. To use the `access_token` received in this response use `getValueOf` action.
 
 ```yaml
 method: POST
