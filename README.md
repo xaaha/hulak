@@ -128,9 +128,9 @@ File's response is be printed in the console and also saved at the same location
 
 Actions make it easier to retrieve values from other files.
 
-### Retrieving secrets with `.Key`
+### `.Key`
 
-Grab the key's value from the defined environemnt files in the project's root. Key is case sensitive. So, `.key` and `.Key` are two different values.
+`.variable` defines a variable thats present in one of the env file. It grabs the key's value from the defined environemnt files in the project's root and replaces during runtime. Key is case sensitive. So, `.key` and `.Key` are two different variables.
 
 ```bash
 # example directory structure
@@ -142,9 +142,8 @@ collection/
     test.yaml   # file
 ```
 
-If the call is made with `-env prod`, then `.Key` should be defined in either `global` or `prod` file. Similarly, if
-the call is made with `-env staging`, then the `.Key` should be present in either `global` or `staging` file.
-If the `.Key` is defined in both files, `global` is ignored.
+> [!Note]
+> If the call is made with `-env prod`, then `.Key` should be defined in either `global` or `prod` file. Similarly, if the call is made with `-env staging`, then the `.Key` should be present in either `global` or `staging` file. If the `.Key` is defined in both files, `global` is ignored.
 
 ### `getValueOf`:
 
