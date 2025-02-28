@@ -68,12 +68,13 @@ You can store all secrets in `global.env`, but for running tests with different 
 If `env/global.env` is absent, it will prompt you to create one at runtime. For more details read this [environment documentation](./docs/environment.md).
 
 ```bash
+# example directory structure
 env/
-  global.env  # Required
-  staging.env # example, user defined
-  prod.env
+  global.env    # default and required
+  prod.env      # user defined, could be anything
+  staging.env   # user defined
 collection/
-  test.yaml
+    test.yaml   # api file
 ```
 
 As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
@@ -126,42 +127,33 @@ File's response is be printed in the console and also saved at the same location
 
 ## Actions
 
-Actions make it easier to retrieve values from other files.
+Actions make it easier to retrieve values from other files. See, [actions documentation](./docs/body.md) for more detailed explanation.
 
 ### `.Key`
 
 `.Key` is a variable, that is present in one of the `.env` files. It grabs the value from a environemnt file in the `env/` directory in the root of the project [created above](#Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
-`.Key` is case sensitive. So, `.Key` and `.key` are two different variables.
-
-```bash
-# example directory structure
-env/
-  global.env    # default and required
-  prod.env      # user defined, could be anything
-  staging.env   # user defined
-collection/
-    test.yaml   # file
-```
-
-> [!Note]
-> If the call is made with `-env prod`, then `.Key` should be defined in either `global` or `prod` file. Similarly, if the call is made with `-env staging`, then the `.Key` should be present in either `global` or `staging` file. If the `.Key` is defined in both files, `global` is ignored.
 
 ### `getValueOf`:
 
-`getValueOf` looks for the value of the key inside the `file_name_response.json` file.
-You don't need to provide the full `file_name_response.json` name. Hulak recurces through the directory and uses the first file match.
-It's recommended that you use a unique name for each file.
-
-- `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
-
-```yml
-url: `{{getValueOf "key" "file_name"}}`
+```yaml
+# example
+url: `{{getValueOf "key" "file_name" }}`
 ```
 
-OR
+`getValueOf` looks for the value of the `key` inside the `file_name.json` file. Since responses of the api requests are saved in `file_name_response.json` file in the same directory, you don't need to provide `_response.json` suffix when using `getValueOf`.
+If multiple `file_name.json` is found, hulak recurces through the directory and uses the first file match. SO, it's recommended that you use a unique name for each file.
+You can also provide the exact file location instead of `file_name` as `./e2etests/test_collection/graphql_response.json`
+
+- `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
+- `key` you are looking for could in a nested example as well. For example, `user.name` means give me the name inside the user's object. You can esacpe the dot (.) with single curly brace like `{user.name}`. Here, `user.name` is considered a `key`.
 
 ```yaml
-url: '{{getValueOf "key" "file_name"}}'
+# name is inside the user object in the user.json file
+name: '{{getValueOf "user.name" "user.json"}}'
+# providing full path
+name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_response.json"}}'
+# where name is the key in the file
+name: `{{getValueOf "name" "user.json"}}`
 ```
 
 ### Auth2.0 (Beta)

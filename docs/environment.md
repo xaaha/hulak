@@ -18,17 +18,18 @@ collection2/
   file6.yml
 ```
 
-- `<name>.env` file supports the following types: `bool`, `float64`, `int`, and `string`
+- `<name>.env` file supports the following types:
 
-  - Wrap these values in double or single quote if you want to treat them as string
+  - `bool`,
+  - `float64`,
+  - `int`, and
+  - `string`
 
-````env
-- `global.env` supports the following types: `bool`, `float64`, `int`, and `string`.
-- To explicitly treat a value as a string, wrap it in double or single quotes.
+  - To explicitly treat these values as a string, wrap the value in a double or single quote. For example,
 
 ```env
 # Strings (quoted or unquoted)
-graphqlUrl="https://example.com/graphql"
+graphqlUrl = "https://example.com/graphql"
 baseUrl=https://example.com/
 userName=xaaha
 product=hulak
@@ -41,7 +42,7 @@ userAge = 18
 userAgeAsString = "100.0"         # string
 hasRunMarathon = false            # bool
 hasRunMarathonAsString = "false"  # string
-````
+```
 
 -
 
