@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Hulak Logo" src="./assets/logo.png" height="140" />
+  <img alt="Hulak Logo" src="./assets/logo.svg" height="140" />
   <h2 align="center">Hulak</h2>
   <p align="center">User friendly API Client for terminal nerds.</p>
 </p>
