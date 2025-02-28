@@ -159,27 +159,9 @@ name: `{{getValueOf "name" "user.json"}}`
 
 ### Auth2.0 (Beta)
 
-Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Below is the example for [github](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#web-application-flow).
+Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
 
-```yaml
-# kind is required field in hulak. For api files, kind is not required
-kind: auth # value can be auth or api.
-method: POST
-# url that opens up in a browser. Usually ends with /authorize
-url: https://github.com/login/oauth/authorize
-urlparams:
-  client_id: "{{.client_id}}"
-  scope: repo:user
-auth:
-  type: OAuth2.0
-  # url to retrieve access token after broswer authorization
-  access_token_url: https://github.com/login/oauth/access_token
-# Use appropriate headers as instructed by the auth2.0 provider, github in this case
-headers:
-  Accept: application/json
-body:
-  urlencodedformdata:
-    client_secret: "{{.client_secret}}"
-    client_id: "{{.client_id}}"
-# code retrieved from browser is automatically inserted
-```
+## Planned Features
+
+- Sync and Async Directory run with `-d` flag.
+- Silent mode: do not log the output in the console

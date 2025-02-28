@@ -18,7 +18,7 @@ import (
 const (
 	portNum      = ":2982"
 	timeout      = 60 * time.Second
-	redirect_uri = "http://localhost:2982/callback"
+	redirect_uri = "http://localhost" + portNum + "/callback"
 	responseType = utils.ResponseType // for consistency
 )
 

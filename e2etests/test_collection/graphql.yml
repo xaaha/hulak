@@ -3,7 +3,7 @@ method: POST
 url: "{{.graphqlUrl}}"
 headers:
   Content-Type: application/json
-  # Authorization: Bearer {{getValueOf "access_token" "employer_auth"}}
+  Authorization: Bearer {{getValueOf "access_token" "employer_auth"}}
 body:
   graphql:
     query: |
