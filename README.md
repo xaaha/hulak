@@ -122,7 +122,7 @@ File's response is be printed in the console and also saved at the same location
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `-env` | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                       | `-env prod`                      |
 | `-fp`  | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                           | -fp "./collection/getUsers.yaml" |
-| `-f`   | Yaml/yml file to run. Hulak recurses though your directories and subdirectories, excluding hidden, from the root and finds the matching file(s). If multiple matches are found, they run concurrently | `-f graphql`                     |
+| `-f`   | yaml/yml file to run. Hulak recurses though your directories and subdirectories, excluding hidden, from the root and finds the matching file(s). If multiple matches are found, they run concurrently | `-f graphql`                     |
 
 ## Actions
 
@@ -130,7 +130,8 @@ Actions make it easier to retrieve values from other files.
 
 ### `.Key`
 
-`.variable` defines a variable thats present in one of the env file. It grabs the key's value from the defined environemnt files in the project's root and replaces during runtime. Key is case sensitive. So, `.key` and `.Key` are two different variables.
+`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from a environemnt file in the `env/` directory in the root of the project [created above](##Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
+`.Key` is case sensitive. So, `.Key` and `.key` are two different variables.
 
 ```bash
 # example directory structure
