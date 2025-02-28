@@ -124,6 +124,6 @@ body:
 >
 > 1.  URL: Must be a valid, well-formed URI.
 > 2.  Method: Must be one of the supported HTTP methods.
-> 3.  Headers: Key-value pairs for HTTP headers.
+> 3.  Headers: Key-value pairs for HTTP headers. Most of the headers are listed in [headers documentation](./headers.yaml)
 > 4.  Body: Only one body type is allowed, and it must be valid.
 > 5.  Secrets are allowed with `{{.secretName}}` but make sure formatting is right

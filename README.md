@@ -104,6 +104,7 @@ hulak -f test
 ```
 
 File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
+Read more about response in [response documentation](./docs/response.md).
 
 ```json
 {
