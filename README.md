@@ -130,7 +130,7 @@ Actions make it easier to retrieve values from other files.
 
 ### `.Key`
 
-`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from a environemnt file in the `env/` directory in the root of the project [created above](##Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
+`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from a environemnt file in the `env/` directory in the root of the project [created above](#Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
 `.Key` is case sensitive. So, `.Key` and `.key` are two different variables.
 
 ```bash
