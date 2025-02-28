@@ -4,11 +4,7 @@
   <p align="center">User friendly API Client for terminal nerds.</p>
 </p>
 
-# Construction Work 🏗️
-
 ## Installation
-
-Any of the following installation step work
 
 ### 1. Recommended `go install`
 
@@ -57,18 +53,7 @@ TODO: with go releaser
 
 ## Initialize Environment Folders
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between local, test, and production environments. The folder structure looks like this:
-
-```bash
-env/
-  global.env  # Required
-  staging.env
-  prod.env
-collection/
-  api_file.yaml
-```
-
-As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between local, test, and production environments.
 
 ### Setup
 
@@ -82,9 +67,18 @@ You can store all secrets in `global.env`, but for running tests with different 
 
 If `env/global.env` is absent, it will prompt you to create one at runtime. For more details read this [environment documentation](./docs/environment.md).
 
-## Getting Started
+```bash
+env/
+  global.env  # Required
+  staging.env # example, user defined
+  prod.env
+collection/
+  test.yaml
+```
 
-Hualk is designed to be simple and intuitive.
+As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
+
+## Getting Started
 
 Then Basic API call looks like `test.yaml`
 
@@ -93,8 +87,6 @@ Then Basic API call looks like `test.yaml`
 method: Get
 url: https://jsonplaceholder.typicode.com/todos/1
 ```
-
-`method` and `url` are case ininsensitive. So, as `Method` values.
 
 Run the file with
 
