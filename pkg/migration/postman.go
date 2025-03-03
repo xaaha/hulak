@@ -3,6 +3,7 @@ package migration
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -31,6 +32,20 @@ type EnvValues struct {
 type Environment struct {
 	Name   string      `json:"name"`
 	Values []EnvValues `json:"values"`
+}
+
+// collectionInfo object
+type collectionInfo struct {
+	PostmanId      string  `json:"_postman_id"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Schema         url.URL `json:"schema"`
+	CollectionLink url.URL `json:"_collection_link"`
+}
+
+// postman 2.1 collection
+type Collection struct {
+	Info []collectionInfo `json:"info"`
 }
 
 // Reads the env.json postman file
@@ -62,7 +77,8 @@ func MigrateEnv() {
 }
 
 func IsEnv() bool {
-	// true if "values" exists, is an array with EnvValues match exist
+	// true if "values" exists,
+	// values is an array with EnvValues match exist
 	//  _postman_variable_scope exists in json
 
 	return false
