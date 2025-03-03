@@ -45,7 +45,7 @@ type collectionInfo struct {
 
 // postman 2.1 collection
 type Collection struct {
-	Info []collectionInfo `json:"info"`
+	Info collectionInfo `json:"info"`
 }
 
 // Reads the env.json postman file
