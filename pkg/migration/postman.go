@@ -12,11 +12,14 @@ import (
 // if the json has "name": "Globals",and  "_postman_variable_scope": "globals", then it's the env
 // If name is empty ""  or name == "globals" then migrate things to global
 // Otherwise a name in pm json file should create a new env file with the exact name if the env file does not exists
+// If it's globals and  _postman_variable_scope has globals scope on it, then push it to the globals then push this into global.env
 // If the name in json exists in the env folder there is no need to create it, just migrate
 // Existing function to create folder and file for the environment
-// If it's globals and  _postman_variable_scope has globals scope on it, then push it to the globals then push this into global.env
 // Otherwise just create then same environment as the name
 // values array struct
+// Collection:
+// for collection: if the collection has variables and the variables is coming from the variable below add it to the globals
+// but what if there is already a variable that exists with the same name in global? Because,
 
 type EnvValues struct {
 	Key     string `json:"key"`
