@@ -49,6 +49,7 @@ func MigrateEnv() {
 	message.WriteString("hello = there\n")
 	message.WriteString("foo = bar\n")
 	content := message.String()
+	// if !EnvValues.Enabled  then add #
 
 	byteSlice := []byte(content)
 	err := os.WriteFile("test.env", byteSlice, 0644)
