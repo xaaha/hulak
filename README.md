@@ -23,13 +23,13 @@ export GOPATH=$HOME/go
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
+- Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
+
 ### 2. Homebrew
 
 Hulak is not yet available as a Homebrew formula due to its early-stage development, see this [section](https://docs.brew.sh/Acceptable-Formulae#niche-or-self-submitted-stuff). A Homebrew tap will be added in the future.
 
 TODO: with go releaser
-
-- Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
 
 ### 3. Build from source
 
