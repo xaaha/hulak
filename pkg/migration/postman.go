@@ -55,6 +55,15 @@ func ReadPmEnvFile(filePath string) Environment {
 	if err != nil {
 		fmt.Println("error occured while opening the json file", err)
 	}
+
+	// logic to check whether the json is env file or collection
+	var jsonStr Collection
+	err = json.Unmarshal(jsonByteVal, &jsonStr)
+	if err != nil {
+		fmt.Println("error occured while testing unmarshall")
+	}
+	fmt.Println("It's true when info does not exist in json", jsonStr.Info == collectionInfo{})
+	//
 	err = json.Unmarshal(jsonByteVal, &env)
 	if err != nil {
 		fmt.Println("error occured while unmarshalling the file", err)
@@ -84,9 +93,14 @@ func IsEnv() bool {
 	return false
 }
 
-func IsCollection() bool {
-	// true if the struct info.scehma, which is a url has the word collection on it,
-	return false
+func IsCollection(jsonByte []byte) bool {
+	// true if the info object exist in the json
+	var jsonStr Collection
+	err := json.Unmarshal(jsonByte, &jsonStr)
+	if err != nil {
+		fmt.Println("error occured while testing unmarshall")
+	}
+	return jsonStr.Info != collectionInfo{}
 }
 
 /*
