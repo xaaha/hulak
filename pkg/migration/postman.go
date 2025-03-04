@@ -3,7 +3,6 @@ package migration
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 )
@@ -22,92 +21,122 @@ import (
 // for collection: if the collection has variables and the variables is coming from the variable below add it to the globals
 // but what if there is already a variable that exists with the same name in global? Because,
 
+type KeyValuePair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 type EnvValues struct {
 	Key     string `json:"key"`
 	Value   string `json:"value"`
 	Enabled bool   `json:"enabled"`
 }
 
-// json struct for the entire env file
+// Postman's Environment Json file
 type Environment struct {
 	Name   string      `json:"name"`
 	Values []EnvValues `json:"values"`
+	Scope  string      `json:"_postman_variable_scope"`
 }
 
 // collectionInfo object
 type collectionInfo struct {
-	PostmanId      string  `json:"_postman_id"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	Schema         url.URL `json:"schema"`
-	CollectionLink url.URL `json:"_collection_link"`
+	PostmanId      string `json:"_postman_id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Schema         string `json:"schema"`
+	CollectionLink string `json:"_collection_link"`
+}
+
+// type collectionItemBody struct {
+// 	Mode string `json:"mode"`
+// }
+
+type itemRawUrl struct {
+	Raw string `json:"raw"`
+}
+
+type collectionItemRequest struct {
+	Method string         `json:"method"`
+	Header []KeyValuePair `json:"header"`
+	Url    itemRawUrl     `json:"url"`
+}
+
+type collectionItem struct {
+	Name    string                `json:"name"`
+	Request collectionItemRequest `json:"request"`
+	// dis-regard event and response []
 }
 
 // postman 2.1 collection
 type Collection struct {
-	Info collectionInfo `json:"info"`
+	Info     collectionInfo `json:"info"`
+	Item     collectionItem `json:"item"`
+	Variable []KeyValuePair `json:"variable"`
 }
 
-// Reads the env.json postman file
-func ReadPmEnvFile(filePath string) Environment {
-	var env Environment
+// Reads the json file and returns the jsonString
+func ReadPmFile(filePath string) map[string]interface{} {
+	var jsonStrFile map[string]interface{}
 	jsonByteVal, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("error occured while opening the json file", err)
+		return nil
 	}
 
-	// logic to check whether the json is env file or collection
-	var jsonStr Collection
-	err = json.Unmarshal(jsonByteVal, &jsonStr)
-	if err != nil {
-		fmt.Println("error occured while testing unmarshall")
-	}
-	fmt.Println("It's true when info does not exist in json", jsonStr.Info == collectionInfo{})
-	//
-	err = json.Unmarshal(jsonByteVal, &env)
+	err = json.Unmarshal(jsonByteVal, &jsonStrFile)
 	if err != nil {
 		fmt.Println("error occured while unmarshalling the file", err)
+		return nil
 	}
-	return env
+
+	return jsonStrFile
 }
 
-func MigrateEnv() {
+func MigrateEnv(env Environment) {
 	var message strings.Builder
-	message.WriteString("hello = there\n")
-	message.WriteString("foo = bar\n")
+	for _, eachVarItem := range env.Values {
+		keyVal := fmt.Sprintf("%s = %s\n", eachVarItem.Key, eachVarItem.Value)
+		if !eachVarItem.Enabled {
+			keyVal = fmt.Sprintf("# %s = %s\n", eachVarItem.Key, eachVarItem.Value)
+		}
+		message.WriteString(keyVal)
+	}
 	content := message.String()
-	// if !EnvValues.Enabled  then add #
 
 	byteSlice := []byte(content)
+
+	// TODO-1: Use existing function to write file in the env/global.env || env/staging.env
 	err := os.WriteFile("test.env", byteSlice, 0644)
 	if err != nil {
 		fmt.Println("error occured while writing file 'test.env'", err)
 	}
 }
 
-func IsEnv() bool {
-	// true if "values" exists,
-	// values is an array with EnvValues match exist
-	//  _postman_variable_scope exists in json
-
-	return false
+func MigrateCollection(collection Collection) {
 }
 
-func IsCollection(jsonByte []byte) bool {
-	// true if the info object exist in the json
-	var jsonStr Collection
-	err := json.Unmarshal(jsonByte, &jsonStr)
-	if err != nil {
-		fmt.Println("error occured while testing unmarshall")
-	}
-	return jsonStr.Info != collectionInfo{}
+func CompleteMigration(filePath []string) {
+	// loop over the path array
+	// for each path, read the pm file with ReadPmFile function
+	// ReadPmFile function returns jsonString. Use the string, to find out what the json it is
+	// Then marshall the jsonString to the appropriate struct, either Environment or  Collection
+	// If the jsonString is envFile, migrateEnv
+	// If the jsonString is collection, migrateCollection
 }
 
-/*
-func main() {
-	env := ReadPmEnvFile("./globals.json")
-	fmt.Println("Key = ", env.Values[0].Key)
-	fmt.Println("Value \u2713 =", env.Values[0].Value)
-	MigrateEnv()
+// returns true if, the jsonString has "values" and "_postman_variable_scope"
+func IsEnv(jsonString map[string]interface{}) bool {
+	_, valuesExists := jsonString["values"]
+	_, pmVarScopeExists := jsonString["_postman_variable_scope"]
+
+	return valuesExists && pmVarScopeExists
 }
-*/
+
+// returns true, if the jsonString has "info" and "item"
+func IsCollection(jsonString map[string]interface{}) bool {
+	_, infoExists := jsonString["info"]
+	_, itemExists := jsonString["item"]
+
+	return infoExists && itemExists
+}
