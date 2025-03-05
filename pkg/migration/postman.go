@@ -76,8 +76,8 @@ type Collection struct {
 }
 
 // Reads the json file and returns the jsonString
-func ReadPmFile(filePath string) map[string]interface{} {
-	var jsonStrFile map[string]interface{}
+func ReadPmFile(filePath string) map[string]any {
+	var jsonStrFile map[string]any
 	jsonByteVal, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Println("error occured while opening the json file", err)
@@ -126,7 +126,7 @@ func CompleteMigration(filePath []string) {
 }
 
 // returns true if, the jsonString has "values" and "_postman_variable_scope"
-func IsEnv(jsonString map[string]interface{}) bool {
+func IsEnv(jsonString map[string]any) bool {
 	_, valuesExists := jsonString["values"]
 	_, pmVarScopeExists := jsonString["_postman_variable_scope"]
 
@@ -134,7 +134,7 @@ func IsEnv(jsonString map[string]interface{}) bool {
 }
 
 // returns true, if the jsonString has "info" and "item"
-func IsCollection(jsonString map[string]interface{}) bool {
+func IsCollection(jsonString map[string]any) bool {
 	_, infoExists := jsonString["info"]
 	_, itemExists := jsonString["item"]
 
