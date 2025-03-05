@@ -107,6 +107,11 @@ func MigrateEnv(env Environment) {
 	byteSlice := []byte(content)
 
 	// TODO-1: Use existing function to write file in the env/global.env || env/staging.env
+	// if the env folder does not exist create the folder in the root of the project.
+	// working on creating files and folder
+	// if the env folder exists, but it does not have the file "name" (Globals is global), create the file and add the content
+	// if the file exists, append the content at the end of the file (add comment)
+
 	err := os.WriteFile("test.env", byteSlice, 0644)
 	if err != nil {
 		fmt.Println("error occured while writing file 'test.env'", err)
