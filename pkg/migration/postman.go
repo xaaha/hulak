@@ -93,6 +93,7 @@ func ReadPmFile(filePath string) map[string]any {
 	return jsonStrFile
 }
 
+// migrates postman json environment file to key = value pair
 func MigrateEnv(env Environment) {
 	var message strings.Builder
 	for _, eachVarItem := range env.Values {
@@ -106,9 +107,14 @@ func MigrateEnv(env Environment) {
 
 	byteSlice := []byte(content)
 
-	// TODO-1: Use existing function to write file in the env/global.env || env/staging.env
-	// if the env folder does not exist create the folder in the root of the project.
-	// working on creating files and folder: pkg/envparser/createFilesFolder.go
+	// TODO-1:
+	// either create the file or append to an existing one.
+	// global is mandatory. Create proper env/global.env (at least, if it does not exist)
+	// grab name from the json (env.Name)
+	// use CreateEnvDirAndFiles. Create globals or any other env file
+	// working on: return the file path, for the file created or an existing one
+	// then append the content above to the appropriate file
+
 	// if the env folder exists, but it does not have the file "name" (Globals is global), create the file and add the content
 	// if the file exists, append the content at the end of the file (add comment)
 
