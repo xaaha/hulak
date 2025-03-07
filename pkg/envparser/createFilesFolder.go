@@ -9,16 +9,16 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// given the fileName, like global, CreateEnvDirAndFiles creates
-// environment directory and fileName inside it
-func CreateEnvDirAndFiles(fileName string) error {
+// Creates an env directory and a fileName inside it.
+// Returns envfilePath and errors associated with it
+func CreateEnvDirAndFiles(fileName string) (string, error) {
 	defEnvDir := utils.EnvironmentFolder
 	projectRoot, err := os.Getwd()
 	defEnvSfx := utils.DefaultEnvFileSuffix
 
 	if err != nil {
 		utils.PrintRed("Error getting current working directory")
-		return err
+		return "", err
 	}
 
 	envDirpath := filepath.Join(projectRoot, defEnvDir)
@@ -26,7 +26,7 @@ func CreateEnvDirAndFiles(fileName string) error {
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
 			utils.PrintRed("Error creating env directory \u2717")
-			return err
+			return "", err
 		}
 		utils.PrintGreen("Created env directory \u2713")
 	}
@@ -34,13 +34,13 @@ func CreateEnvDirAndFiles(fileName string) error {
 		file, err := os.Create(envFilePath)
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf("Error creating %s environment \u2717", fileName))
-			return err
+			return "", err
 		}
 		defer file.Close()
 		utils.PrintGreen(fmt.Sprintf("'%s%s' created \u2713", fileName, defEnvSfx))
 	}
 
-	return nil
+	return envFilePath, nil
 }
 
 /*
@@ -54,6 +54,6 @@ func CreateDefaultEnvs(envName *string) error {
 		lowerCasedEnv := strings.ToLower(*envName)
 		defEnv = lowerCasedEnv
 	}
-
-	return CreateEnvDirAndFiles(defEnv)
+	_, err := CreateEnvDirAndFiles(defEnv)
+	return err
 }

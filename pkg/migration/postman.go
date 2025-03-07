@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // hulak migrate "./globals.json"
@@ -93,9 +96,11 @@ func ReadPmFile(filePath string) map[string]any {
 	return jsonStrFile
 }
 
-// migrates postman json environment file to key = value pair
+// migrates a postman json environment file to `key = value` pair
+// inside the env dir
 func MigrateEnv(env Environment) {
 	var message strings.Builder
+	message.WriteString("### Postman Env Migration ###\n")
 	for _, eachVarItem := range env.Values {
 		keyVal := fmt.Sprintf("%s = %s\n", eachVarItem.Key, eachVarItem.Value)
 		if !eachVarItem.Enabled {
@@ -107,21 +112,43 @@ func MigrateEnv(env Environment) {
 
 	byteSlice := []byte(content)
 
+	// env name,
+	var envFileName string
+	if env.Name == "" || env.Name == "globals" {
+		envFileName = utils.DefaultEnvVal
+	}
+
+	filePath, err := envparser.CreateEnvDirAndFiles(envFileName)
+	if err != nil {
+		utils.PrintRed("error occured on env migration: " + err.Error())
+		return
+	}
+
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		utils.PrintRed("Error opening or creating file: " + err.Error())
+		return
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(content)
+	if err != nil {
+		fmt.Println("Error writing to file:", err)
+		return
+	}
+
+	utils.PrintGreen("Content appended successfully!")
+
 	// TODO-1:
 	// either create the file or append to an existing one.
 	// global is mandatory. Create proper env/global.env (at least, if it does not exist)
 	// grab name from the json (env.Name)
 	// use CreateEnvDirAndFiles. Create globals or any other env file
-	// working on: return the file path, for the file created or an existing one
 	// then append the content above to the appropriate file
-
 	// if the env folder exists, but it does not have the file "name" (Globals is global), create the file and add the content
 	// if the file exists, append the content at the end of the file (add comment)
 
-	err := os.WriteFile("test.env", byteSlice, 0644)
-	if err != nil {
-		fmt.Println("error occured while writing file 'test.env'", err)
-	}
+	// working on: Test and ensure it works
 }
 
 func MigrateCollection(collection Collection) {
