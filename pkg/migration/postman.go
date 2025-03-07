@@ -137,7 +137,7 @@ func MigrateEnv(env Environment) {
 		return
 	}
 
-	utils.PrintGreen("Content appended successfully!")
+	utils.PrintGreen("Environment migration successful!")
 
 	// TODO-1:
 	// either create the file or append to an existing one.
