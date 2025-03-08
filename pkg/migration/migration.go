@@ -17,12 +17,12 @@ func CompleteMigration(filePaths []string) error {
 		if IsEnv(jsonStr) {
 			env, err := PrepareEnvStruct(jsonStr)
 			if err != nil {
-				return fmt.Errorf("error converting to Environment: %w", err)
+				return utils.ColorError("error converting to Environment: %w", err)
 			}
 
 			err = MigrateEnv(env)
 			if err != nil {
-				return fmt.Errorf("error migrating environment: %w", err)
+				return utils.ColorError("error migrating environment: %w", err)
 			}
 		} else if IsCollection(jsonStr) {
 			// Future implementation for collection migration

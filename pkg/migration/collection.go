@@ -1,6 +1,8 @@
 package migration
 
-import "fmt"
+import (
+	"github.com/xaaha/hulak/pkg/utils"
+)
 
 // KeyValuePair represents a generic key-value pair used in various Postman structures
 type KeyValuePair struct {
@@ -54,5 +56,5 @@ func IsCollection(jsonString map[string]any) bool {
 // To be implemented
 func MigrateCollection(collection Collection) error {
 	// Implementation to come
-	return fmt.Errorf("collection migration not yet implemented")
+	return utils.ColorError("collection migration not yet implemented")
 }
