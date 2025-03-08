@@ -3,6 +3,7 @@ package envparser
 import (
 	"bufio"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strconv"
@@ -85,8 +86,8 @@ func trimQuotes(str string) (string, bool) {
 }
 
 // Given .env file path this func returns map of the key-value pair of the content
-func LoadEnvVars(filePath string) (map[string]interface{}, error) {
-	hulakEnvironmentVariable := make(map[string]interface{})
+func LoadEnvVars(filePath string) (map[string]any, error) {
+	hulakEnvironmentVariable := make(map[string]any)
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -131,7 +132,7 @@ func LoadEnvVars(filePath string) (map[string]interface{}, error) {
 }
 
 // Helper function to infer type of a value
-func inferType(val string, wasTrimmed bool) interface{} {
+func inferType(val string, wasTrimmed bool) any {
 	if !wasTrimmed {
 		if intValue, err := strconv.Atoi(val); err == nil {
 			return intValue
@@ -152,7 +153,7 @@ User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
-func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
+func GenerateSecretsMap(envFromFlag string) (map[string]any, error) {
 	skipped, err := setEnvironment(utils.Utilities{}, envFromFlag)
 	if err != nil {
 		return nil, utils.ColorError("error while setting environment: %w", err)
@@ -190,7 +191,7 @@ func GenerateSecretsMap(envFromFlag string) (map[string]interface{}, error) {
 }
 
 // Helper to load environment variables from a file
-func loadEnvFile(fileName string) (map[string]interface{}, error) {
+func loadEnvFile(fileName string) (map[string]any, error) {
 	filePath, err := utils.CreateFilePath("env/" + fileName)
 	if err != nil {
 		return nil, utils.ColorError("error while creating file path for "+fileName, err)
@@ -206,17 +207,15 @@ func loadEnvFile(fileName string) (map[string]interface{}, error) {
 
 // Helper to merge custom environment variables
 func mergeCustomEnvVars(
-	baseMap map[string]interface{},
+	baseMap map[string]any,
 	customFileName string,
-) (map[string]interface{}, error) {
+) (map[string]any, error) {
 	customVars, err := loadEnvFile(customFileName)
 	if err != nil {
 		return nil, err
 	}
 
-	for k, v := range customVars {
-		baseMap[k] = v
-	}
+	maps.Copy(baseMap, customVars)
 
 	return baseMap, nil
 }
