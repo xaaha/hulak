@@ -43,14 +43,14 @@ func PanicRedAndExit(msg string, args ...any) {
 }
 
 // JSON.stringify equivalent for go
-func MarshalToJSON(value interface{}) (interface{}, error) {
+func MarshalToJSON(value any) (any, error) {
 	switch val := value.(type) {
 	case string, bool, int, float64:
 		return val, nil
 	case nil:
 		return nil, nil
 	default:
-		if arr, ok := value.([]interface{}); ok {
+		if arr, ok := value.([]any); ok {
 			var jsonArray []string
 			for _, item := range arr {
 				jsonStr, err := json.Marshal(item)
