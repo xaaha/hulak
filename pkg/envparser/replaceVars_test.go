@@ -7,7 +7,7 @@ import (
 )
 
 func TestSubstituteVariables(t *testing.T) {
-	varMap := map[string]interface{}{
+	varMap := map[string]any{
 		"varName":       "replacedValue",
 		"secondName":    "John",
 		"thirdName":     "Doe",
@@ -20,8 +20,8 @@ func TestSubstituteVariables(t *testing.T) {
 
 	testCases := []struct {
 		expectedErr    error
-		expectedOutput interface{}
-		varMap         map[string]interface{}
+		expectedOutput any
+		varMap         map[string]any
 		name           string
 		stringToChange string
 	}{
@@ -74,14 +74,14 @@ func TestSubstituteVariables(t *testing.T) {
 			stringToChange: "",
 			expectedOutput: nil,
 			expectedErr:    errors.New("input string is empty"),
-			varMap:         map[string]interface{}{},
+			varMap:         map[string]any{},
 		},
 		{
 			name:           "Empty map with regular string",
 			stringToChange: "just a normal string",
 			expectedOutput: "just a normal string",
 			expectedErr:    nil,
-			varMap:         map[string]interface{}{},
+			varMap:         map[string]any{},
 		},
 		{
 			name:           "Empty map with unresolved template",
@@ -90,7 +90,7 @@ func TestSubstituteVariables(t *testing.T) {
 			expectedErr: errors.New(
 				"map has no entry for key \"unresolvedKey\"",
 			),
-			varMap: map[string]interface{}{},
+			varMap: map[string]any{},
 		},
 		{
 			name:           "Empty map with multiple templates",
@@ -99,7 +99,7 @@ func TestSubstituteVariables(t *testing.T) {
 			expectedErr: errors.New(
 				"map has no entry for key \"varName\"",
 			),
-			varMap: map[string]interface{}{},
+			varMap: map[string]any{},
 		},
 	}
 
