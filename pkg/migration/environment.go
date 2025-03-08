@@ -38,7 +38,7 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 	if name, ok := jsonStr["name"].(string); ok {
 		env.Name = name
 	} else {
-		return env, fmt.Errorf("name field is missing or not a string")
+		return env, utils.ColorError("name field is missing or not a string")
 	}
 
 	if values, ok := jsonStr["values"].([]any); ok {
@@ -49,34 +49,34 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 				if key, ok := valueMap["key"].(string); ok {
 					envValue.Key = key
 				} else {
-					return env, fmt.Errorf("key field is missing or not a string in EnvValues")
+					return env, utils.ColorError("key field is missing or not a string in EnvValues")
 				}
 
 				if value, ok := valueMap["value"].(string); ok {
 					envValue.Value = value
 				} else {
-					return env, fmt.Errorf("value field is missing or not a string in EnvValues")
+					return env, utils.ColorError("value field is missing or not a string in EnvValues")
 				}
 
 				if enabled, ok := valueMap["enabled"].(bool); ok {
 					envValue.Enabled = enabled
 				} else {
-					return env, fmt.Errorf("enabled field is missing or not a boolean in EnvValues")
+					return env, utils.ColorError("enabled field is missing or not a boolean in EnvValues")
 				}
 
 				env.Values = append(env.Values, envValue)
 			} else {
-				return env, fmt.Errorf("value is not a valid map for EnvValues")
+				return env, utils.ColorError("value is not a valid map for EnvValues")
 			}
 		}
 	} else {
-		return env, fmt.Errorf("values field is missing or not an array")
+		return env, utils.ColorError("values field is missing or not an array")
 	}
 
 	if scope, ok := jsonStr["_postman_variable_scope"].(string); ok {
 		env.Scope = scope
 	} else {
-		return env, fmt.Errorf("scope field is missing or not a string")
+		return env, utils.ColorError("scope field is missing or not a string")
 	}
 
 	return env, nil
@@ -106,19 +106,19 @@ func MigrateEnv(env Environment) error {
 
 	filePath, err := envparser.CreateEnvDirAndFiles(envFileName)
 	if err != nil {
-		return fmt.Errorf("error creating env directory or file: %w", err)
+		return utils.ColorError("error creating env directory or file: %w", err)
 	}
 
 	// append the content
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
+		return utils.ColorError("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	_, err = file.WriteString(content)
 	if err != nil {
-		return fmt.Errorf("error writing to file: %w", err)
+		return utils.ColorError("error writing to file: %w", err)
 	}
 
 	utils.PrintGreen("\nEnvironment migration successful!")
