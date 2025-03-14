@@ -1,0 +1,77 @@
+HULAK(1)                    User Commands                   HULAK(1)
+
+NAME
+       hulak - User friendly API Client for terminal nerds
+
+SYNOPSIS
+       hulak [OPTIONS] -f <file>
+       hulak [OPTIONS] -fp <file_path>
+       hulak migrate <json_file>
+
+DESCRIPTION
+       Hulak is a user-friendly API client that supports multiple HTTP methods and allows for easy API testing and integration using YAML configuration files.
+
+OPTIONS
+       -env <environment>
+              Specify the environment file inside the env directory to use for API calls. If not provided, defaults to global.
+
+       -f <file>
+              YAML/YML file to run. Hulak recurses directories to find the matching file and executes it. If multiple matches are found, Hulak runs all concurrently.
+
+       -fp <file_path>
+              Specify the exact file path to run.
+
+       migrate <json_file>
+              Specify the JSON file to migrate to Hulak.
+
+FLAGS
+       -env   Specify the environment file for API calls.
+       -f     YAML/YML file to run.
+       -fp    File path for the file to run.
+
+INSTALLATION
+       Install Hulak via `go install` or build from source.
+
+       go install:
+              go install github.com/xaaha/hulak@latest
+              Add GOPATH to shell’s PATH:
+              export GOPATH=$HOME/go
+              export PATH=$PATH:$(go env GOPATH)/bin
+              source ~/.zshrc or source ~/.bashrc
+Build from source:
+              git clone https://github.com/xaaha/hulak.git
+              cd hulak
+              go mod tidy
+              go build -o hulak
+              sudo mv hulak /usr/local/bin/
+
+ENVIRONMENT SETUP
+       Create `env/` directory and `global.env` file in the root of the project.
+
+       mkdir -p env && touch env/global.env
+
+EXAMPLES
+       Basic API call:
+              # test.yaml
+              method: GET
+              url: https://jsonplaceholder.typicode.com/todos/1
+
+              Run with:
+              hulak -f test
+
+       Using environment variables:
+              # test.yaml
+              method: POST
+              url: "{{.Url}}"
+
+              Run with:
+              hulak -env prod -f test
+
+AUTH 2.0
+       Supports OAuth 2.0 web-application-flow. Refer to the documentation for detailed setup.
+
+SEE ALSO
+       Full documentation: https://github.com/xaaha/hulak
+
+AUTHOR
+       xaaha
