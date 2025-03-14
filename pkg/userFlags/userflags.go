@@ -1,8 +1,9 @@
 package userflags
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // write logic to check if we have enough arguments with
@@ -11,7 +12,7 @@ import (
 
 func UserFalgs() {
 	if len(os.Args) < 2 {
-		fmt.Println("expected 'subcommands' or 'flag'")
+		utils.PrintWarning("expected 'subcommands' or 'flag'")
 		os.Exit(1)
 	}
 }
