@@ -15,7 +15,7 @@ InitializeProject() starts the project by creating envfolder and global.env file
 returns the envMap
 TBC...
 */
-func InitializeProject(env string) map[string]interface{} {
+func InitializeProject(env string) map[string]any {
 	err := envparser.CreateDefaultEnvs(nil)
 	if err != nil {
 		panic(err)
@@ -27,7 +27,7 @@ func InitializeProject(env string) map[string]interface{} {
 	return envMap
 }
 
-func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
+func RunTasks(filePathList []string, secretsMap map[string]any) {
 	var wg sync.WaitGroup
 
 	// Run tasks concurrently based on the kinds in yaml file
