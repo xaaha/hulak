@@ -12,7 +12,9 @@ import (
 
 func UserFalgs() {
 	if len(os.Args) < 2 {
-		utils.PrintWarning("expected 'subcommands' or 'flag'")
+		utils.PrintWarning(
+			"Provide a subcommand or a flag. See docs at https://github.com/xaaha/hulak",
+		)
 		os.Exit(1)
 	}
 }
