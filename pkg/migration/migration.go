@@ -14,7 +14,7 @@ func CompleteMigration(filePaths []string) error {
 	for _, path := range filePaths {
 		jsonStr, err := ReadPmFile(path)
 		if err != nil {
-			return fmt.Errorf("error reading file %s: %w", path, err)
+			return err
 		}
 
 		if IsEnv(jsonStr) {

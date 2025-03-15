@@ -30,12 +30,12 @@ func HandleSubcommands() error {
 	case Migrate:
 		err := migrate.Parse(os.Args[2:])
 		if err != nil {
-			return fmt.Errorf("subcommands.go %v", err)
+			return fmt.Errorf("\n subcommands.go %v", err)
 		}
 		filePaths := migrate.Args()
 		err = migration.CompleteMigration(filePaths)
 		if err != nil {
-			return fmt.Errorf("subcommands.go %v", err)
+			return fmt.Errorf("\n subcommands.go %v", err)
 		}
 		os.Exit(0)
 		// add init, help  and other cases as necessary

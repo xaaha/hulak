@@ -18,7 +18,7 @@ func main() {
 	// create envMap
 	filePathList, err := userflags.GenerateFilePathList(fileName, fp)
 	if err != nil {
-		utils.PanicRedAndExit("main.go %v", err)
+		utils.PanicRedAndExit("\n main.go %v", err)
 	}
 
 	if userflags.HasFlag() {
