@@ -27,7 +27,7 @@ func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 
 	// hulak expects either a subcommand or user flag
 	// Check if the first argument is a flag (starts with '-')
-	if os.Args[1][0] == '-' {
+	if HasFlag() {
 		flag.Parse()
 	} else {
 		err := HandleSubcommands()
@@ -42,4 +42,8 @@ func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 		File:     File(),
 		Migrate:  migrate,
 	}, nil
+}
+
+func HasFlag() bool {
+	return os.Args[1][0] == '-'
 }

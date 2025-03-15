@@ -22,5 +22,7 @@ func main() {
 		utils.PanicRedAndExit("main.go %v", err)
 	}
 
-	RunTasks(filePathList, envMap)
+	if userflags.HasFlag() {
+		RunTasks(filePathList, envMap)
+	}
 }
