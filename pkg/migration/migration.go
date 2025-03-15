@@ -17,7 +17,7 @@ func CompleteMigration(filePaths []string) error {
 		if IsEnv(jsonStr) {
 			env, err := PrepareEnvStruct(jsonStr)
 			if err != nil {
-				return utils.ColorError("error converting to Environment: %w", err)
+				return fmt.Errorf("error converting to Environment: %w", err)
 			}
 
 			err = MigrateEnv(env)

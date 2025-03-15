@@ -9,6 +9,14 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// User subcommands
+const (
+	Migrate = "migrate"
+	// future subcommands
+	Init = "init"
+	Help = "help"
+)
+
 var migrate *flag.FlagSet
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -16,20 +24,23 @@ func init() {
 	migrate = flag.NewFlagSet("migrate", flag.ExitOnError)
 }
 
-// Takes in filePath to a json file that needs migration.
-// Run as: hulak migrate "./filePath.json"
-func Migrate() {
+// Loops through all the subcommands
+func Subcommands() error {
 	switch os.Args[1] {
-	case "migrate":
-		_ = migrate.Parse(os.Args[2:])
-		filePaths := migrate.Args()
-		err := migration.CompleteMigration(filePaths)
+	case Migrate:
+		err := migrate.Parse(os.Args[2:])
 		if err != nil {
-			utils.PrintRed("error on migration: " + err.Error())
-			return
+			return fmt.Errorf("subcommands.go %v", err)
 		}
+		filePaths := migrate.Args()
+		err = migration.CompleteMigration(filePaths)
+		if err != nil {
+			return fmt.Errorf("subcommands.go %v", err)
+		}
+		// add init, help  and other cases as necessary
 	default:
-		fmt.Println("expected 'foo' or 'bar' subcommands")
+		utils.PrintWarning("expected a subcommand")
 		os.Exit(1)
 	}
+	return nil
 }
