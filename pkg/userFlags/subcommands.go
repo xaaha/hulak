@@ -25,7 +25,7 @@ func init() {
 }
 
 // Loops through all the subcommands
-func Subcommands() error {
+func HandleSubcommands() error {
 	switch os.Args[1] {
 	case Migrate:
 		err := migrate.Parse(os.Args[2:])

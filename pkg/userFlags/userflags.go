@@ -7,7 +7,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// list of user flags and subcommands
+// All user flags and subcommands
 type FlagsSubcmds struct {
 	Env      string
 	FilePath string
@@ -15,6 +15,7 @@ type FlagsSubcmds struct {
 	Migrate  *flag.FlagSet
 }
 
+// Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 	if len(os.Args) < 2 {
 		utils.PrintWarning(
@@ -24,14 +25,16 @@ func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 		os.Exit(1)
 	}
 
-	// handle subcommands
-	err := Subcommands()
-	if err != nil {
-		return nil, err
+	// hulak expects either a subcommand or user flag
+	// Check if the first argument is a flag (starts with '-')
+	if os.Args[1][0] == '-' {
+		flag.Parse()
+	} else {
+		err := HandleSubcommands()
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	// parse all flags
-	flag.Parse()
 
 	return &FlagsSubcmds{
 		Env:      Env(),

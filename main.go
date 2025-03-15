@@ -1,19 +1,18 @@
 package main
 
 import (
-	"flag"
-
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func main() {
-	// parse all the necessary flags
-	flag.Parse()
-
-	env := userflags.Env()
-	fp := userflags.FilePath()
-	fileName := userflags.File()
+	flags, err := userflags.ParseFlagsSubcmds()
+	if err != nil {
+		utils.PanicRedAndExit("main.go %v", err)
+	}
+	env := flags.Env
+	fp := flags.FilePath
+	fileName := flags.File
 
 	// create envMap
 	envMap := InitializeProject(env)
