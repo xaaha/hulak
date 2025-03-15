@@ -37,6 +37,7 @@ func HandleSubcommands() error {
 		if err != nil {
 			return fmt.Errorf("subcommands.go %v", err)
 		}
+		os.Exit(0)
 		// add init, help  and other cases as necessary
 	default:
 		utils.PrintWarning("expected a subcommand")
