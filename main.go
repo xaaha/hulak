@@ -11,20 +11,17 @@ func main() {
 		utils.PanicRedAndExit("main.go %v", err)
 	}
 
+	env := flags.Env
+	fp := flags.FilePath
+	fileName := flags.File
+	envMap := InitializeProject(env)
+	// create envMap
+	filePathList, err := userflags.GenerateFilePathList(fileName, fp)
+	if err != nil {
+		utils.PanicRedAndExit("main.go %v", err)
+	}
+
 	if userflags.HasFlag() {
-
-		env := flags.Env
-		fp := flags.FilePath
-		fileName := flags.File
-
-		// create envMap
-		envMap := InitializeProject(env)
-
-		filePathList, err := userflags.GenerateFilePathList(fileName, fp)
-		if err != nil {
-			utils.PanicRedAndExit("main.go %v", err)
-		}
-
 		RunTasks(filePathList, envMap)
 	}
 }
