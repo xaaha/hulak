@@ -243,7 +243,7 @@ func TestEncodeFormData(t *testing.T) {
 
 func TestEncodeGraphQlBody(t *testing.T) {
 	tests := []struct {
-		variables    map[string]interface{}
+		variables    map[string]any
 		name         string
 		query        string
 		expectedBody string
@@ -252,14 +252,14 @@ func TestEncodeGraphQlBody(t *testing.T) {
 		{
 			name:         "valid query and variables",
 			query:        "query Hello($name: String!) { hello(name: $name) }",
-			variables:    map[string]interface{}{"name": "John"},
+			variables:    map[string]any{"name": "John"},
 			expectError:  false,
 			expectedBody: `{"query":"query Hello($name: String!) { hello(name: $name) }","variables":{"name":"John"}}`,
 		},
 		{
 			name:         "no variables",
 			query:        "query Hello { hello }",
-			variables:    map[string]interface{}{},
+			variables:    map[string]any{},
 			expectError:  false,
 			expectedBody: `{"query":"query Hello { hello }","variables":{}}`,
 		},
@@ -273,14 +273,14 @@ func TestEncodeGraphQlBody(t *testing.T) {
 		{
 			name:         "empty query",
 			query:        "",
-			variables:    map[string]interface{}{"name": "John"},
+			variables:    map[string]any{"name": "John"},
 			expectError:  false,
 			expectedBody: `{"query":"","variables":{"name":"John"}}`,
 		},
 		{
 			name:        "invalid JSON in variables",
 			query:       "query Hello { hello }",
-			variables:   map[string]interface{}{"invalid": make(chan int)}, // unsupported type
+			variables:   map[string]any{"invalid": make(chan int)}, // unsupported type
 			expectError: true,
 		},
 	}

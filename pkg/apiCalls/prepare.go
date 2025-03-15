@@ -44,7 +44,7 @@ func processResponse(response *http.Response) CustomResponse {
 			http.StatusText(response.StatusCode),
 		),
 	}
-	var parsedBody interface{}
+	var parsedBody any
 	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
 		responseData.Body = parsedBody
 	} else {
