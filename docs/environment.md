@@ -32,7 +32,7 @@ collection2/
 graphqlUrl = "https://example.com/graphql"
 baseUrl=https://example.com/
 userName=xaaha
-product=hulak
+product = hulak
 
 # Referencing another value
 age={{.userAge}} # Referenced from below
@@ -44,7 +44,20 @@ hasRunMarathon = false            # bool
 hasRunMarathonAsString = "false"  # string
 ```
 
--
+> [!Important]
+> Since Hulak users go's template parsing under the hood, special characters besides underscore is not allowed in key.
+> For example
+>
+> ```env
+> # key should not contain dot (.) or apostrophe ('), or (-) (that I know of)
+> "xaaha.userId" = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
+> `user'sId` = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
+> `client-id` = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
+> # only underscores are allowed
+> client_id = "92n2a-2axaeix-9qnx9285x" ✅ Allowed
+> ```
+
+- Use the secrets above
 
 ```yaml
 body:

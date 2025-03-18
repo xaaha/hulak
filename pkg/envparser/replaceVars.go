@@ -115,8 +115,8 @@ func GetValueOf(key, fileName string) any {
 
 // Processes a given string, strToChange, by substituting template variables with values from the secretsMap.
 // It uses Go’s template package to parse the string, dynamically.
-// Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
+	// Returns the updated string or an error if parsing or execution fails.
 	strToChange string,
 	secretsMap map[string]any,
 ) (string, error) {
@@ -135,7 +135,7 @@ func replaceVariables(
 		Option("missingkey=error").
 		Parse(strToChange)
 	if err != nil {
-		return "", utils.ColorError("template parsing error: %w", err)
+		return "", err
 	}
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, secretsMap)
@@ -156,7 +156,7 @@ func prepareMap(secretsMap map[string]any) (map[string]any, error) {
 		case string:
 			changedValue, err := replaceVariables(v, secretsMap)
 			if err != nil {
-				return nil, utils.ColorError("error while preparing variables in map: %v", err)
+				return nil, err
 			}
 			updatedMap[key] = changedValue
 		case bool, int, float64, nil:

@@ -15,7 +15,6 @@ func main() {
 	fp := flags.FilePath
 	fileName := flags.File
 	envMap := InitializeProject(env)
-	// create envMap
 	filePathList, err := userflags.GenerateFilePathList(fileName, fp)
 	if err != nil {
 		utils.PanicRedAndExit("\n main.go %v", err)
