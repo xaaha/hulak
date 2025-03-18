@@ -49,7 +49,6 @@ hasRunMarathonAsString = "false"  # string
 > For example
 >
 > ```env
-> # key should not contain dot (.) or apostrophe ('), or (-) (that I know of)
 > "xaaha.userId" = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
 > `user'sId` = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
 > `client-id` = "92n2a-2axaeix-9qnx9285x" ❌ Not allowed
