@@ -113,13 +113,13 @@ func GetValueOf(key, fileName string) any {
 
 // Processes a given string, strToChange, by substituting template variables with values from the secretsMap.
 // It uses Go’s template package to parse the string, dynamically.
+// Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
-	// Returns the updated string or an error if parsing or execution fails.
 	strToChange string,
 	secretsMap map[string]any,
 ) (string, error) {
 	if len(strToChange) == 0 {
-		return "", utils.ColorError("input string is empty")
+		return "", nil
 	}
 
 	getValueOf := template.FuncMap{

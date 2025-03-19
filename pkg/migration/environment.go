@@ -3,6 +3,7 @@ package migration
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -87,13 +88,9 @@ func MigrateEnv(env Environment) error {
 	var message strings.Builder
 	message.WriteString("\n### Postman Env Migration ###\n")
 	for _, eachVarItem := range env.Values {
-		// since go template has dot reserved (.) , replace it with _
-		// delete all other special chars. Replace '.' with '_' and delete "'"
-		key := strings.ReplaceAll(eachVarItem.Key, ".", "_")
-		key = strings.ReplaceAll(key, "'", "")
-
+		key := sanitizeKey(eachVarItem.Key)
 		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
-		if !eachVarItem.Enabled {
+		if !eachVarItem.Enabled || eachVarItem.Value == "" {
 			keyVal = fmt.Sprintf("# %s = %s\n", key, eachVarItem.Value)
 		}
 		message.WriteString(keyVal)
@@ -128,4 +125,12 @@ func MigrateEnv(env Environment) error {
 
 	utils.PrintGreen("\nEnvironment migration successful!")
 	return nil
+}
+
+// since go template has dot reserved (.) , replace it with _ and delete all other special chars
+func sanitizeKey(key string) string {
+	key = strings.ReplaceAll(key, ".", "_")
+	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	key = re.ReplaceAllString(key, "")
+	return key
 }
