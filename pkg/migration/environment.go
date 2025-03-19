@@ -87,9 +87,14 @@ func MigrateEnv(env Environment) error {
 	var message strings.Builder
 	message.WriteString("\n### Postman Env Migration ###\n")
 	for _, eachVarItem := range env.Values {
-		keyVal := fmt.Sprintf("%s = %s\n", eachVarItem.Key, eachVarItem.Value)
+		// since go template has dot reserved (.) , replace it with _
+		// delete all other special chars. Replace '.' with '_' and delete "'"
+		key := strings.ReplaceAll(eachVarItem.Key, ".", "_")
+		key = strings.ReplaceAll(key, "'", "")
+
+		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
 		if !eachVarItem.Enabled {
-			keyVal = fmt.Sprintf("# %s = %s\n", eachVarItem.Key, eachVarItem.Value)
+			keyVal = fmt.Sprintf("# %s = %s\n", key, eachVarItem.Value)
 		}
 		message.WriteString(keyVal)
 	}

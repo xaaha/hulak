@@ -56,9 +56,7 @@ func GetValueOf(key, fileName string) any {
 	}
 
 	if len(yamlPathList) > 1 {
-		utils.PrintWarning(
-			"Multiple matches for the file " + fileName + " found. Using \n" + singlePath,
-		)
+		utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
 	}
 
 	// If the file does not exist
