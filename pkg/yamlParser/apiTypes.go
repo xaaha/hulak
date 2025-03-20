@@ -60,8 +60,8 @@ func (u *URL) IsValidURL() bool {
 	return err == nil
 }
 
-// User's yaml file for Api request
-type User struct {
+// ApiCallFile represents user's yaml file for api request
+type ApiCallFile struct {
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
@@ -70,7 +70,7 @@ type User struct {
 }
 
 // Returns ApiInfo object for the User's API request yaml file
-func (user *User) PrepareStruct() (ApiInfo, error) {
+func (user *ApiCallFile) PrepareStruct() (ApiInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
 		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)

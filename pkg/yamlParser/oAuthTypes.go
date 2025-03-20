@@ -106,7 +106,7 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 }
 
 // represents how a yaml file for Auth2.0 would look like
-type AuthRequestBody struct {
+type AuthRequestFile struct {
 	Method    HTTPMethodType    `json:"method"              yaml:"method"`
 	Url       URL               `json:"url"                 yaml:"url"`
 	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
@@ -121,7 +121,7 @@ type AuthRequestBody struct {
 // Has Required, and valid Url
 // If UrlParams is present, client_id is required
 // Valid Body is present
-func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
+func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 	if auth2Body == nil {
 		return false, utils.ColorError("auth request body is nil")
 	}
@@ -168,7 +168,7 @@ func (auth2Body *AuthRequestBody) IsValid() (bool, error) {
 	return true, nil
 }
 
-func (auth2Body *AuthRequestBody) PrepareStruct(code string) (ApiInfo, error) {
+func (auth2Body *AuthRequestFile) PrepareStruct(code string) (ApiInfo, error) {
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
 		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)

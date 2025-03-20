@@ -122,7 +122,7 @@ func ValidateKinds(kinds []Kind) ([]string, bool) {
 }
 
 // parses a YAML file and returns the configuration type
-func ParseConfig(filePath string, secretsMap map[string]interface{}) (*ConfigType, error) {
+func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		return nil, utils.ColorError("error reading YAML file: %w", err)
@@ -138,7 +138,7 @@ func ParseConfig(filePath string, secretsMap map[string]interface{}) (*ConfigTyp
 }
 
 // parses a YAML file and panics on error
-func MustParseConfig(filePath string, secretsMap map[string]interface{}) ConfigType {
+func MustParseConfig(filePath string, secretsMap map[string]any) ConfigType {
 	config, err := ParseConfig(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("#kind.go: %v", err)

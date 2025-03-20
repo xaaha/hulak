@@ -102,13 +102,13 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 }
 
 // checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForApi(filePath string, secretsMap map[string]any) User {
+func FinalStructForApi(filePath string, secretsMap map[string]any) ApiCallFile {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
 	}
 
-	var user User
+	var user ApiCallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&user); err != nil {
 		utils.PanicRedAndExit("2. error decoding data: %v", err)
@@ -118,18 +118,23 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) User {
 
 	// method is required for any http request
 	if !user.Method.IsValid() {
-		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
+		utils.PanicRedAndExit(
+			"missing or invalid HTTP method: %s in file %s",
+			user.Method,
+			filePath,
+		)
 	}
 
 	// url is required for any http request
 	if !user.Url.IsValidURL() {
-		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
+		utils.PanicRedAndExit("missing or invalid URL: %s in file %s", user.Url, filePath)
 	}
 
 	// check if body is valid
 	if !user.Body.IsValid() {
 		utils.PanicRedAndExit(
-			"Invalid Body. Make sure body contains only one valid argument.\n %v",
+			"Invalid Body in file '%s'. Make sure body contains only one valid argument.\n %v",
+			filePath,
 			user.Body,
 		)
 	}
@@ -141,13 +146,13 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) User {
 func FinalStructForOAuth2(
 	filePath string,
 	secretsMap map[string]any,
-) AuthRequestBody {
+) AuthRequestFile {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
 	}
 
-	var auth2Config AuthRequestBody
+	var auth2Config AuthRequestFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&auth2Config); err != nil {
 		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
