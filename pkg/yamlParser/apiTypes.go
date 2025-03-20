@@ -115,7 +115,7 @@ func (b *Body) IsValid() bool {
 	}
 	validFieldCount := 0
 	ln := reflect.ValueOf(*b)
-	for i := 0; i < ln.NumField(); i++ {
+	for i := range ln.NumField() {
 		field := ln.Field(i)
 		switch field.Kind() {
 		case reflect.Ptr:
@@ -144,8 +144,8 @@ func (b *Body) IsValid() bool {
 }
 
 type GraphQl struct {
-	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
-	Query     string                 `json:"query,omitempty"     yaml:"query"`
+	Variables map[string]any `json:"variables,omitempty" yaml:"variables"`
+	Query     string         `json:"query,omitempty"     yaml:"query"`
 }
 
 // Returns body for apiCall, content type header string and error if any
@@ -235,8 +235,8 @@ func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 }
 
 // accepts query string and variables map[string]interface, then returns the payload
-func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reader, error) {
-	payload := map[string]interface{}{
+func EncodeGraphQlBody(query string, variables map[string]any) (io.Reader, error) {
+	payload := map[string]any{
 		"query":     query,
 		"variables": variables,
 	}
