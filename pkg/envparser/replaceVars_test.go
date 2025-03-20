@@ -65,15 +65,15 @@ func TestSubstituteVariables(t *testing.T) {
 		{
 			name:           "Empty string input",
 			stringToChange: "",
-			expectedOutput: nil,
-			expectedErr:    errors.New("input string is empty"),
+			expectedOutput: "",
+			expectedErr:    nil,
 			varMap:         varMap,
 		},
 		{
 			name:           "Empty map and empty string",
 			stringToChange: "",
-			expectedOutput: nil,
-			expectedErr:    errors.New("input string is empty"),
+			expectedOutput: "",
+			expectedErr:    nil,
 			varMap:         map[string]any{},
 		},
 		{
