@@ -12,6 +12,9 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// tracks hwo many times we need to show a message
+var warningTracker = make(map[string]bool)
+
 // gets the value of key from a json file. If the file does not have '.json' suffix
 // getValueOf looks for _response.json file automatically. If the file does not exist
 func GetValueOf(key, fileName string) any {
@@ -56,7 +59,11 @@ func GetValueOf(key, fileName string) any {
 	}
 
 	if len(yamlPathList) > 1 {
-		utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
+		warningKey := fmt.Sprintf("%s_%s", fileName, singlePath)
+		if !warningTracker[warningKey] {
+			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
+			warningTracker[warningKey] = true
+		}
 	}
 
 	// If the file does not exist
