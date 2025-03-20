@@ -1,7 +1,7 @@
-HULAK(1)                    General Commands Manual                   HULAK(1)
+HULAK(1)                                          General Commands Manual                                          HULAK(1)
 
 NAME
-       hulak - User friendly API Client for terminal nerds
+       hulak - User-friendly API client for terminal enthusiasts
 
 SYNOPSIS
        hulak [OPTIONS] -f <file>
@@ -9,36 +9,40 @@ SYNOPSIS
        hulak migrate <json_file>
 
 DESCRIPTION
-       Hulak is a user-friendly API client that supports multiple HTTP methods and allows for easy API testing and integration using YAML configuration files.
+       Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
 
 OPTIONS
        -env <environment>
-              Specify the environment file inside the env directory to use for API calls. If not provided, defaults to global.
+              Specifies an environment file inside the env directory for API calls. If not provided, the default “global” environment is used.
 
        -f <file>
-              YAML/YML file to run. Hulak recurses directories to find the matching file and executes it. If multiple matches are found, Hulak runs all concurrently.
+              Specifies a YAML/YML file to run. Hulak searches recursively through directories to locate matching files and executes all matches concurrently if more than one is found.
 
        -fp <file_path>
-              Specify the exact file path to run.
+              Specifies the exact file path of the file to run.
 
        migrate <json_file>
-              Specify the JSON file to migrate to Hulak.
+              Migrates the specified JSON file(s) to the new Hulak format.
 
 FLAGS
-       -env   Specify the environment file for API calls.
-       -f     YAML/YML file to run.
-       -fp    File path for the file to run.
+       -env   Specifies the environment file for API calls.
+       -f     Designates the YAML/YML file to be executed.
+       -fp    Specifies the direct file path for the file to execute.
 
 INSTALLATION
-       Install Hulak via `go install` or build from source.
+       Hulak can be installed using either `go install` or built from source.
 
-       go install:
+       Using go install:
               go install github.com/xaaha/hulak@latest
-              Add GOPATH to shell’s PATH:
+
+              Ensure that your GOPATH is added to your shell’s PATH:
               export GOPATH=$HOME/go
               export PATH=$PATH:$(go env GOPATH)/bin
-              source ~/.zshrc or source ~/.bashrc
-Build from source:
+
+              Reload your shell configuration:
+              source ~/.zshrc   or   source ~/.bashrc
+
+       Build from source:
               git clone https://github.com/xaaha/hulak.git
               cd hulak
               go mod tidy
@@ -46,12 +50,13 @@ Build from source:
               sudo mv hulak /usr/local/bin/
 
 ENVIRONMENT SETUP
-       Create `env/` directory and `global.env` file in the root of the project.
+       Create an env/ directory with a ‘global.env’ file in the project root:
 
-       mkdir -p env && touch env/global.env
+              mkdir -p env && touch env/global.env
 
 EXAMPLES
        Basic API call:
+
               # test.yaml
               method: GET
               url: https://jsonplaceholder.typicode.com/todos/1
@@ -60,6 +65,7 @@ EXAMPLES
               hulak -f test
 
        Using environment variables:
+
               # test.yaml
               method: POST
               url: "{{.Url}}"
@@ -68,10 +74,16 @@ EXAMPLES
               hulak -env prod -f test
 
 AUTH 2.0
-       Supports OAuth 2.0 web-application-flow. Refer to the documentation for detailed setup.
+       Supports OAuth 2.0 web-application flow. Refer to the documentation for detailed setup instructions:
+       https://github.com/xaaha/hulak/blob/main/docs/auth20.md
 
-SEE ALSO
-       Full documentation: https://github.com/xaaha/hulak
+COPYRIGHT
+       Copyright (c) 2025 Pratik Thapa 
+
+       This software is released under the MIT License. For details, see the LICENSE file in the project repository.
+
+SOURCE CODE
+       https://github.com/xaaha/hulak
 
 AUTHOR
        xaaha
