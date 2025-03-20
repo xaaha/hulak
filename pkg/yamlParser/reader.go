@@ -111,33 +111,13 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) ApiCallFile {
 	var user ApiCallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&user); err != nil {
-		utils.PanicRedAndExit("2. error decoding data: %v", err)
+		utils.PanicRedAndExit("Error decoding data: %v", err)
 	}
 
-	user.Method.ToUpperCase()
-
-	// method is required for any http request
-	if !user.Method.IsValid() {
-		utils.PanicRedAndExit(
-			"missing or invalid HTTP method: %s in file %s",
-			user.Method,
-			filePath,
-		)
+	if valid, err := user.IsValid(filePath); !valid {
+		utils.PanicRedAndExit("Error on Api Request %v", err)
 	}
 
-	// url is required for any http request
-	if !user.Url.IsValidURL() {
-		utils.PanicRedAndExit("missing or invalid URL: %s in file %s", user.Url, filePath)
-	}
-
-	// check if body is valid
-	if !user.Body.IsValid() {
-		utils.PanicRedAndExit(
-			"Invalid Body in file '%s'. Make sure body contains only one valid argument.\n %v",
-			filePath,
-			user.Body,
-		)
-	}
 	return user
 }
 
@@ -149,13 +129,13 @@ func FinalStructForOAuth2(
 ) AuthRequestFile {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
+		utils.PanicRedAndExit("Error after reading yaml file: %v", err)
 	}
 
 	var auth2Config AuthRequestFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&auth2Config); err != nil {
-		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
+		utils.PanicRedAndExit("Error decoding data: %v", err)
 	}
 
 	if valid, err := auth2Config.IsValid(); !valid {

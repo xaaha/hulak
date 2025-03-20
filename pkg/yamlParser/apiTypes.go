@@ -3,6 +3,7 @@ package yamlParser
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -67,6 +68,36 @@ type ApiCallFile struct {
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
 	Url       URL               `json:"url,omitempty"       yaml:"url"`
+}
+
+func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
+	if user == nil {
+		return false, fmt.Errorf("requested api file is not valid")
+	}
+
+	user.Method.ToUpperCase()
+
+	// method is required for any http request
+	if !user.Method.IsValid() {
+		if user.Method == "" {
+			return false, fmt.Errorf("missing or empty HTTP method in '%s'", filePath)
+		}
+		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", user.Method, filePath)
+	}
+
+	// url is required for any http request
+	if !user.Url.IsValidURL() {
+		return false, fmt.Errorf("missing or invalid URL: %s in file %s", user.Url, filePath)
+	}
+
+	if !user.Body.IsValid() {
+		utils.PanicRedAndExit(
+			"Invalid Body in '%s'. Make sure body contains only one valid argument.\n %v",
+			filePath,
+			user.Body,
+		)
+	}
+	return true, nil
 }
 
 // Returns ApiInfo object for the User's API request yaml file
