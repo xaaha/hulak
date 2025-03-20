@@ -126,6 +126,12 @@ Read more about response in [response documentation](./docs/response.md).
 | `-fp`  | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                           | -fp "./collection/getUsers.yaml" |
 | `-f`   | yaml/yml file to run. Hulak recurses though your directories and subdirectories, excluding hidden, from the root and finds the matching file(s). If multiple matches are found, they run concurrently | `-f graphql`                     |
 
+## Subcommands
+
+| Subcommand | Description                                   | Usage                                             |
+| ---------- | --------------------------------------------- | ------------------------------------------------- |
+| migrate    | migrates postman environment files for hulak. | `migrate "path/to/file.json" "path/to/file2.json` |
+
 ## Actions
 
 Actions make it easier to retrieve values from other files. See, [actions documentation](./docs/body.md) for more detailed explanation.

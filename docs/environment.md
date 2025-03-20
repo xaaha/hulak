@@ -78,3 +78,14 @@ body:
 | Flag   | Description                                                                                                     | Usage       |
 | ------ | --------------------------------------------------------------------------------------------------------------- | ----------- |
 | `-env` | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`. | `-env prod` |
+
+## Subcommands
+
+| Subcommand | Description                                   | Usage                                             |
+| ---------- | --------------------------------------------- | ------------------------------------------------- |
+| migrate    | migrates postman environment files for hulak. | `migrate "path/to/file.json" "path/to/file2.json` |
+
+You can provide path to all the files after migrate. `migrate` creates the file, if not present, and appends all the content.
+
+> [!Note]
+> During migration, if any secret's key has any special characters like '/', " ' " and so on, they will be removed. Dot (.) will be replaced with an underscore (\_).
