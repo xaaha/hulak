@@ -61,7 +61,6 @@ func HandleSubcommands() error {
 
 		// Check if -env flag is present
 		if *createEnvs {
-			// Get the environment names that follow after the -env flag
 			envs := initialize.Args()
 			if len(envs) > 0 {
 				for _, env := range envs {
