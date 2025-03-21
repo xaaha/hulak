@@ -41,7 +41,9 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path)
+				if err := actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path); err != nil {
+					utils.PrintRed(err.Error())
+				}
 
 			case config.IsAPI():
 				if err := apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path); err != nil {

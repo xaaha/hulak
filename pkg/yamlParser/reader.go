@@ -115,7 +115,7 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile,
 	}
 
 	if valid, err := file.IsValid(filePath); !valid {
-		return ApiCallFile{}, utils.ColorError("Invalid Schema file", err)
+		return ApiCallFile{}, utils.ColorError("Invalid file schema", err)
 	}
 
 	return file, nil
@@ -126,20 +126,20 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile,
 func FinalStructForOAuth2(
 	filePath string,
 	secretsMap map[string]any,
-) AuthRequestFile {
+) (AuthRequestFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.PanicRedAndExit("Error after reading yaml file: %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error after reading yaml file: %v", err)
 	}
 
 	var auth2Config AuthRequestFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&auth2Config); err != nil {
-		utils.PanicRedAndExit("Error decoding data: %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error decoding data: %v", err)
 	}
 
 	if valid, err := auth2Config.IsValid(); !valid {
-		utils.PanicRedAndExit("Error on Auth2 Request Body %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error on Auth2 Request Body %v", err)
 	}
-	return auth2Config
+	return auth2Config, nil
 }

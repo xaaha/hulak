@@ -82,11 +82,14 @@ func server() {
 
 // OpenBrowserAndGetCode starts the callback server and opens the browser for OAuth flow
 // Returns the code coming from the ur
-func OpenBrowserAndGetCode(filePath string, secretsMap map[string]interface{}) (string, error) {
+func OpenBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, error) {
 	// Create and start the callback server
 	go server()
 	// Prepare the OAuth URL
-	authReqBody := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	authReqBody, err := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	if err != nil {
+		return "", err
+	}
 
 	// required fields for oAuth web flow. This is true github and Okta.
 	// from my testing, extra field does not do any harm, if this is not the case, I'll revisit
@@ -99,35 +102,37 @@ func OpenBrowserAndGetCode(filePath string, secretsMap map[string]interface{}) (
 	// Open the browser
 	log.Println("Opening browser for authentication...")
 	if err := OpenURL(urlStr); err != nil {
-		return "", fmt.Errorf("error opening browser: %w", err)
+		return "", utils.ColorError("error opening browser: %w", err)
 	}
 	// Wait for the code or a timeout
 	select {
 	case code := <-codeChan:
 		return code, nil
 	case <-time.After(timeout):
-		utils.PrintRed("Timeout waiting for the code.")
-		return "", fmt.Errorf("timeout waiting for the code")
+		return "", utils.ColorError("timeout waiting for the code")
 	}
 }
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-func SendApiRequestForAuth2(secretsMap map[string]interface{}, filePath string) {
+func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
 	code, err := OpenBrowserAndGetCode(filePath, secretsMap)
 	if err != nil {
-		utils.PrintRed(err.Error())
-		return
+		return err
 	}
-	authReqConfig := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+
+	authReqConfig, err := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	if err != nil {
+		return err
+	}
+
 	apiInfo, err := authReqConfig.PrepareStruct(code)
 	if err != nil {
-		err := utils.ColorError("call.go: error occured while preparing Struct from "+filePath, err)
-		utils.PrintRed(err.Error())
-		return
+		return err
 	}
 	resp := apicalls.StandardCall(apiInfo)
 	apicalls.PrintAndSaveFinalResp(resp, filePath)
+	return nil
 }
 
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux
