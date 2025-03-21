@@ -57,7 +57,7 @@ Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used i
 
 ### Setup
 
-Create the env folder and the required `global.env` file in the root of the hulak project. You can do it manually or run
+Create the `env/` directory and the required `global.env` file in the root of the hulak project. You can do it manually or run
 
 ```bash
 
@@ -120,6 +120,7 @@ Read more about response in [response documentation](./docs/response.md).
   "status": "200 OK"
 }
 ```
+See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
 ## Flags
 
