@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 )
@@ -23,34 +22,34 @@ func ColorError(errMsg string, errs ...error) error {
 
 // Success Message
 func PrintGreen(msg string) {
-	log.Printf("%s%s%s\n", Green, msg, ColorReset)
+	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
 }
 
 // Inform or Warn the user
 func PrintWarning(msg string) {
-	log.Printf("%s%s%s\n", Yellow, msg, ColorReset)
+	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
 // Used mostly for errors
 func PrintRed(msg string) {
-	log.Printf("%s%s%s\n", Red, msg, ColorReset)
+	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)
 }
 
 // Print message in Red and os.Exit(1)
 func PanicRedAndExit(msg string, args ...any) {
-	log.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
+	fmt.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
 	os.Exit(1)
 }
 
 // JSON.stringify equivalent for go
-func MarshalToJSON(value interface{}) (interface{}, error) {
+func MarshalToJSON(value any) (any, error) {
 	switch val := value.(type) {
 	case string, bool, int, float64:
 		return val, nil
 	case nil:
 		return nil, nil
 	default:
-		if arr, ok := value.([]interface{}); ok {
+		if arr, ok := value.([]any); ok {
 			var jsonArray []string
 			for _, item := range arr {
 				jsonStr, err := json.Marshal(item)

@@ -125,13 +125,13 @@ func TestURLPARAMS_IsValid(t *testing.T) {
 func TestAuthRequestBody_IsValid(t *testing.T) {
 	tests := []struct {
 		name         string
-		authRequest  AuthRequestBody
+		authRequest  AuthRequestFile
 		expectedBool bool
 		expectedErr  string
 	}{
 		{
 			name: "Valid request: Oauth2type1, valid URL, and valid params, and valid body",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				UrlParams: URLPARAMS{
@@ -152,7 +152,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Valid request: Oauth2type1, valid URL, and valid params, and missing body",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				UrlParams: URLPARAMS{
@@ -168,7 +168,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Missing auth section",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				Auth:   nil,
@@ -178,7 +178,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Invalid auth type with valid AccessTokenUrl",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				Auth: &Auth{
@@ -191,7 +191,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Invalid AccessTokenUrl in Auth",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				Auth: &Auth{
@@ -204,7 +204,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Missing URL in auth request body",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Auth: &Auth{
 					Type:           Oauth2type2,
@@ -216,7 +216,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Invalid UrlParams without client_id",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				Auth: &Auth{
@@ -232,7 +232,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Invalid HTTP method",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: "INVALID",
 				Url:    "https://api.example.com",
 				Auth: &Auth{
@@ -245,7 +245,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 		},
 		{
 			name: "Valid request without UrlParams",
-			authRequest: AuthRequestBody{
+			authRequest: AuthRequestFile{
 				Method: POST,
 				Url:    "https://api.example.com",
 				Auth: &Auth{

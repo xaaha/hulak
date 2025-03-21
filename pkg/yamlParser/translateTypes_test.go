@@ -119,23 +119,23 @@ func TestDelimiterLogic(t *testing.T) {
 func TestFindPathFromMap(t *testing.T) {
 	testCases := []struct {
 		name      string
-		beforeMap map[string]interface{}
+		beforeMap map[string]any
 		expected  Path
 	}{
 		{
 			name: "Basic nested map with array",
-			beforeMap: map[string]interface{}{
+			beforeMap: map[string]any{
 				"foo":   "bar",
 				"miles": "{{.distance}}",
 				"age":   "28",
-				"person": map[string]interface{}{
+				"person": map[string]any{
 					"name":   "Jane Doe",
 					"age":    "{{.Age}}",
 					"height": "{{getValueOf 'key1' 'path2'}}",
 				},
-				"users": []map[string]interface{}{
+				"users": []map[string]any{
 					{
-						"person": map[string]interface{}{
+						"person": map[string]any{
 							"name":   "Jane Doe",
 							"age":    "{{.Age}}",
 							"height": "{{getValueOf 'key2' 'path1'}}",
@@ -157,19 +157,19 @@ func TestFindPathFromMap(t *testing.T) {
 		},
 		{
 			name: "Map with empty array element",
-			beforeMap: map[string]interface{}{
+			beforeMap: map[string]any{
 				"foo":   "bar",
 				"miles": "{{get}}",
 				"age":   "28",
-				"person": map[string]interface{}{
+				"person": map[string]any{
 					"name":   "{{.jane}}",
 					"age":    "{{.Age}}",
 					"height": "{{getValueOf 'key1' 'path2'}}",
 				},
-				"users": []map[string]interface{}{
+				"users": []map[string]any{
 					{},
 					{
-						"person": map[string]interface{}{
+						"person": map[string]any{
 							"name":   "Jane Doe",
 							"age":    "{{.age}}",
 							"height": "{{getValueOf 'key2' 'path1'}}",
@@ -191,15 +191,15 @@ func TestFindPathFromMap(t *testing.T) {
 		},
 		{
 			name: "Complex nested structure with interface array",
-			beforeMap: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{
-						map[string]interface{}{
+			beforeMap: map[string]any{
+				"settings": map[string]any{
+					"users": []any{
+						map[string]any{
 							"id":       "{{.userId}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": "{{.maxCount}}",
 						"enabled":  "{{.enabled}}",
 					},
@@ -293,43 +293,43 @@ func TestParsePath(t *testing.T) {
 	testCases := []struct {
 		name   string
 		input  string
-		output []interface{}
+		output []any
 		error  string
 	}{
 		{
 			name:   "empty string",
 			input:  "",
-			output: []interface{}{},
+			output: []any{},
 			error:  "path should not be empty",
 		},
 		{
 			name:   "single key",
 			input:  "key",
-			output: []interface{}{"key"},
+			output: []any{"key"},
 			error:  "",
 		},
 		{
 			name:   "multiple keys with no arrays",
 			input:  "key1 -> key2 -> key3",
-			output: []interface{}{"key1", "key2", "key3"},
+			output: []any{"key1", "key2", "key3"},
 			error:  "",
 		},
 		{
 			name:   "array index in path",
 			input:  "users[0] -> name",
-			output: []interface{}{"users", 0, "name"},
+			output: []any{"users", 0, "name"},
 			error:  "",
 		},
 		{
 			name:   "complex path with arrays",
 			input:  "users[2] -> address -> city",
-			output: []interface{}{"users", 2, "address", "city"},
+			output: []any{"users", 2, "address", "city"},
 			error:  "",
 		},
 		{
 			name:   "leading and trailing whitespace",
 			input:  "  key1  ->   key2 ->   key3  ",
-			output: []interface{}{"key1", "key2", "key3"},
+			output: []any{"key1", "key2", "key3"},
 			error:  "",
 		},
 		{
@@ -341,7 +341,7 @@ func TestParsePath(t *testing.T) {
 		{
 			name:   "array key with invalid format",
 			input:  "users[invalid] -> name",
-			output: []interface{}{"users[invalid]", "name"},
+			output: []any{"users[invalid]", "name"},
 			error:  "",
 		},
 	}
@@ -371,60 +371,60 @@ func TestParsePath(t *testing.T) {
 func TestSetValueOnAfterMap(t *testing.T) {
 	testCases := []struct {
 		name        string
-		afterMap    map[string]interface{}
-		path        []interface{}
-		replaceWith interface{}
-		expected    map[string]interface{}
+		afterMap    map[string]any
+		path        []any
+		replaceWith any
+		expected    map[string]any
 	}{
 		{
 			name:        "Replace String with Int",
-			afterMap:    map[string]interface{}{"age": "30"},
-			path:        []interface{}{"age"},
+			afterMap:    map[string]any{"age": "30"},
+			path:        []any{"age"},
 			replaceWith: 30,
-			expected:    map[string]interface{}{"age": 30},
+			expected:    map[string]any{"age": 30},
 		},
 		{
 			name:        "Replace String with bool",
-			afterMap:    map[string]interface{}{"deploy": "false"},
-			path:        []interface{}{"deploy"},
+			afterMap:    map[string]any{"deploy": "false"},
+			path:        []any{"deploy"},
 			replaceWith: false,
-			expected:    map[string]interface{}{"deploy": false},
+			expected:    map[string]any{"deploy": false},
 		},
 		{
 			name:        "Replace String with float",
-			afterMap:    map[string]interface{}{"height": "300.12"},
-			path:        []interface{}{"height"},
+			afterMap:    map[string]any{"height": "300.12"},
+			path:        []any{"height"},
 			replaceWith: 300.12,
-			expected:    map[string]interface{}{"height": 300.12},
+			expected:    map[string]any{"height": 300.12},
 		},
 		{
 			name:        "Don't replace string if values don't match",
-			afterMap:    map[string]interface{}{"height": "300.12"},
-			path:        []interface{}{"height"},
+			afterMap:    map[string]any{"height": "300.12"},
+			path:        []any{"height"},
 			replaceWith: 300, // since 300 does not match with "300.12" when converted to string
-			expected:    map[string]interface{}{"height": "300.12"},
+			expected:    map[string]any{"height": "300.12"},
 		},
 		{
 			name:        "Don't replace string if values mismatch",
-			afterMap:    map[string]interface{}{"height": "300.12"},
-			path:        []interface{}{"height"},
+			afterMap:    map[string]any{"height": "300.12"},
+			path:        []any{"height"},
 			replaceWith: false,
-			expected:    map[string]interface{}{"height": "300.12"},
+			expected:    map[string]any{"height": "300.12"},
 		},
 		{
 			name: "Complex Map",
-			afterMap: map[string]interface{}{
-				"person": map[string]interface{}{
-					"contact": map[string]interface{}{
+			afterMap: map[string]any{
+				"person": map[string]any{
+					"contact": map[string]any{
 						"phone": "2222222222",
 					},
 				},
 			},
-			path:        []interface{}{"person", "contact", "phone"},
+			path:        []any{"person", "contact", "phone"},
 			replaceWith: 2222222222,
-			expected: map[string]interface{}{
-				"person": map[string]interface{}{
-					"contact": map[string]interface{}{
+			expected: map[string]any{
+				"person": map[string]any{
+					"contact": map[string]any{
 						"phone": 2222222222,
 					},
 				},
@@ -432,18 +432,18 @@ func TestSetValueOnAfterMap(t *testing.T) {
 		},
 		{
 			name: "Complex Map with incorrect info should return the same map",
-			afterMap: map[string]interface{}{
-				"person": map[string]interface{}{
-					"contact": map[string]interface{}{
+			afterMap: map[string]any{
+				"person": map[string]any{
+					"contact": map[string]any{
 						"phone": "2222222222",
 					},
 				},
 			},
-			path:        []interface{}{"person", "contact", "phone"},
+			path:        []any{"person", "contact", "phone"},
 			replaceWith: 2333939,
-			expected: map[string]interface{}{
-				"person": map[string]interface{}{
-					"contact": map[string]interface{}{
+			expected: map[string]any{
+				"person": map[string]any{
+					"contact": map[string]any{
 						"phone": "2222222222",
 					},
 				},
@@ -451,31 +451,31 @@ func TestSetValueOnAfterMap(t *testing.T) {
 		},
 		{
 			name: "Complex Map with Array",
-			afterMap: map[string]interface{}{
-				"person": []interface{}{
-					map[string]interface{}{
-						"contact": map[string]interface{}{
+			afterMap: map[string]any{
+				"person": []any{
+					map[string]any{
+						"contact": map[string]any{
 							"phone": "2222222222",
 						},
 					},
-					map[string]interface{}{
-						"contact": map[string]interface{}{
+					map[string]any{
+						"contact": map[string]any{
 							"phone": "3333333333",
 						},
 					},
 				},
 			},
-			path:        []interface{}{"person", 1, "contact", "phone"},
+			path:        []any{"person", 1, "contact", "phone"},
 			replaceWith: 3333333333,
-			expected: map[string]interface{}{
-				"person": []interface{}{
-					map[string]interface{}{
-						"contact": map[string]interface{}{
+			expected: map[string]any{
+				"person": []any{
+					map[string]any{
+						"contact": map[string]any{
 							"phone": "2222222222",
 						},
 					},
-					map[string]interface{}{
-						"contact": map[string]interface{}{
+					map[string]any{
+						"contact": map[string]any{
 							"phone": 3333333333,
 						},
 					},
@@ -501,8 +501,8 @@ func TestSetValueOnAfterMap(t *testing.T) {
 
 func TestTranslateType(t *testing.T) {
 	// Mock implementation of getValueOf function
-	getValueOfMock := func(key, fileName string) interface{} {
-		mockValues := map[string]interface{}{
+	getValueOfMock := func(key, fileName string) any {
+		mockValues := map[string]any{
 			"bar":         true,
 			"height":      300.2,
 			"isActive":    false,
@@ -517,34 +517,34 @@ func TestTranslateType(t *testing.T) {
 	}
 	testCases := []struct {
 		name        string
-		before      map[string]interface{}
-		after       map[string]interface{}
-		secrets     map[string]interface{}
-		getValueOf  func(key string, fileName string) interface{}
-		modifiedMap map[string]interface{}
+		before      map[string]any
+		after       map[string]any
+		secrets     map[string]any
+		getValueOf  func(key string, fileName string) any
+		modifiedMap map[string]any
 		wantErr     bool
 		errMsg      string
 	}{
 		{
 			name: "Basic Type Conversion",
-			before: map[string]interface{}{
+			before: map[string]any{
 				"foo":  "{{.foo}}",
 				"bar":  "{{getValueOf 'bar' '/'}}",
 				"baz":  "{{.baz}}",
 				"name": "Jane",
 			},
-			after: map[string]interface{}{
+			after: map[string]any{
 				"foo":  "22",      // should be converted to int
 				"bar":  "true",    // should be converted to bool
 				"baz":  "22.2292", // should remain string,
 				"name": "Jane",
 			},
-			secrets: map[string]interface{}{
+			secrets: map[string]any{
 				"foo": 22,
 				"baz": "22.2292",
 			},
 			getValueOf: getValueOfMock,
-			modifiedMap: map[string]interface{}{
+			modifiedMap: map[string]any{
 				"foo":  22,
 				"bar":  true,
 				"baz":  "22.2292",
@@ -555,32 +555,32 @@ func TestTranslateType(t *testing.T) {
 		},
 		{
 			name: "One Nested Map",
-			before: map[string]interface{}{
+			before: map[string]any{
 				"foo": "{{.fii}}",
 				"baz": "{{.baz}}",
-				"person": map[string]interface{}{
+				"person": map[string]any{
 					"age":    "{{.age}}",
 					"height": "{{getValueOf 'height' '/'}}",
 				},
 			},
-			after: map[string]interface{}{
+			after: map[string]any{
 				"foo": "22",
 				"baz": "22.2292",
-				"person": map[string]interface{}{
+				"person": map[string]any{
 					"age":    "39",
 					"height": "300.2",
 				},
 			},
-			secrets: map[string]interface{}{
+			secrets: map[string]any{
 				"fii": 22,
 				"baz": "22.2292",
 				"age": 39,
 			},
 			getValueOf: getValueOfMock,
-			modifiedMap: map[string]interface{}{
+			modifiedMap: map[string]any{
 				"foo": 22,
 				"baz": "22.2292",
-				"person": map[string]interface{}{
+				"person": map[string]any{
 					"age":    39,
 					"height": 300.2,
 				},
@@ -590,49 +590,49 @@ func TestTranslateType(t *testing.T) {
 		},
 		{
 			name: "Nested structure with arrays",
-			before: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{
-						map[string]interface{}{
+			before: map[string]any{
+				"settings": map[string]any{
+					"users": []any{
+						map[string]any{
 							"id":       "{{.userId}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": "{{.maxCount}}",
 						"enabled":  "{{.enabled}}",
 					},
 				},
 			},
-			after: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{
-						map[string]interface{}{
+			after: map[string]any{
+				"settings": map[string]any{
+					"users": []any{
+						map[string]any{
 							"id":       "123",
 							"isActive": "false",
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": "100",
 						"enabled":  "true",
 					},
 				},
 			},
-			modifiedMap: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{
-						map[string]interface{}{
+			modifiedMap: map[string]any{
+				"settings": map[string]any{
+					"users": []any{
+						map[string]any{
 							"id":       123,
 							"isActive": false,
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": 100,
 						"enabled":  true,
 					},
 				},
 			},
-			secrets: map[string]interface{}{
+			secrets: map[string]any{
 				"userId":   123,
 				"maxCount": 100,
 				"enabled":  true,
@@ -641,26 +641,26 @@ func TestTranslateType(t *testing.T) {
 		},
 		{
 			name: "Multiple type conversions",
-			before: map[string]interface{}{
-				"metrics": map[string]interface{}{
+			before: map[string]any{
+				"metrics": map[string]any{
 					"count":       "{{getValueOf 'count' '/'}}",
 					"temperature": "{{getValueOf 'temperature' '/'}}",
 					"multiplier":  "{{getValueOf 'multiplier' '/'}}",
 					"status":      "{{getValueOf 'status' '/'}}",
 				},
 			},
-			after: map[string]interface{}{
-				"metrics": map[string]interface{}{
+			after: map[string]any{
+				"metrics": map[string]any{
 					"count":       "42",
 					"temperature": "98.6",
 					"multiplier":  "1.5",
 					"status":      "active",
 				},
 			},
-			secrets:    map[string]interface{}{},
+			secrets:    map[string]any{},
 			getValueOf: getValueOfMock,
-			modifiedMap: map[string]interface{}{
-				"metrics": map[string]interface{}{
+			modifiedMap: map[string]any{
+				"metrics": map[string]any{
 					"count":       42,
 					"temperature": 98.6,
 					"multiplier":  1.5,
@@ -670,23 +670,23 @@ func TestTranslateType(t *testing.T) {
 		},
 		{
 			name: "Empty and null values",
-			before: map[string]interface{}{
+			before: map[string]any{
 				"empty":    "{{getValueOf 'emptyString' '/'}}",
 				"nullVal":  "{{getValueOf 'nullValue' '/'}}",
 				"missing":  "{{.missingKey}}",
 				"preserve": "",
 			},
-			after: map[string]interface{}{
+			after: map[string]any{
 				"empty":    "",
 				"nullVal":  "null",
 				"missing":  "",
 				"preserve": "",
 			},
-			secrets: map[string]interface{}{
+			secrets: map[string]any{
 				"missingKey": nil,
 			},
 			getValueOf: getValueOfMock,
-			modifiedMap: map[string]interface{}{
+			modifiedMap: map[string]any{
 				"empty":    "",
 				"nullVal":  "null",
 				"missing":  "",
@@ -695,49 +695,49 @@ func TestTranslateType(t *testing.T) {
 		},
 		{
 			name: "Nested structures with arrays",
-			before: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{ // Use []interface{} for dynamic lists
-						map[string]interface{}{
+			before: map[string]any{
+				"settings": map[string]any{
+					"users": []any{ // Use []any for dynamic lists
+						map[string]any{
 							"id":       "{{.userId}}",
 							"isActive": "{{getValueOf 'isActive' '/'}}",
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": "{{.maxCount}}",
 						"enabled":  "{{.enabled}}",
 					},
 				},
 			},
-			after: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{ // Use []interface{} for consistency
-						map[string]interface{}{
+			after: map[string]any{
+				"settings": map[string]any{
+					"users": []any{ // Use []any for consistency
+						map[string]any{
 							"id":       "123",
 							"isActive": "false",
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": "100",
 						"enabled":  "true",
 					},
 				},
 			},
-			secrets: map[string]interface{}{
+			secrets: map[string]any{
 				"userId":   123,
 				"maxCount": 100,
 				"enabled":  false,
 			},
 			getValueOf: getValueOfMock,
-			modifiedMap: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"users": []interface{}{
-						map[string]interface{}{
+			modifiedMap: map[string]any{
+				"settings": map[string]any{
+					"users": []any{
+						map[string]any{
 							"id":       123,
 							"isActive": false,
 						},
 					},
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"maxCount": 100,
 						"enabled":  "true", // since the secret enabled value does not match,
 					},

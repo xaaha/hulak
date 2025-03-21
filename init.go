@@ -15,10 +15,9 @@ InitializeProject() starts the project by creating envfolder and global.env file
 returns the envMap
 TBC...
 */
-func InitializeProject(env string) map[string]interface{} {
-	err := envparser.CreateDefaultEnvs(nil)
-	if err != nil {
-		panic(err)
+func InitializeProject(env string) map[string]any {
+	if err := envparser.CreateDefaultEnvs(nil); err != nil {
+		utils.PanicRedAndExit("%v", err)
 	}
 	envMap, err := envparser.GenerateSecretsMap(env)
 	if err != nil {
@@ -27,7 +26,7 @@ func InitializeProject(env string) map[string]interface{} {
 	return envMap
 }
 
-func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
+func RunTasks(filePathList []string, secretsMap map[string]any) {
 	var wg sync.WaitGroup
 
 	// Run tasks concurrently based on the kinds in yaml file
@@ -41,10 +40,14 @@ func RunTasks(filePathList []string, secretsMap map[string]interface{}) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path)
+				if err := actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path); err != nil {
+					utils.PrintRed(err.Error())
+				}
 
 			case config.IsAPI():
-				apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
+				if err := apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path); err != nil {
+					utils.PrintRed(err.Error())
+				}
 
 			default:
 				// This shouldn't happen as invalid kinds are caught in MustParseConfig, but just in case...

@@ -3,6 +3,7 @@ package yamlParser
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -60,8 +61,8 @@ func (u *URL) IsValidURL() bool {
 	return err == nil
 }
 
-// User's yaml file for Api request
-type User struct {
+// ApiCallFile represents user's yaml file for api request
+type ApiCallFile struct {
 	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
@@ -69,8 +70,38 @@ type User struct {
 	Url       URL               `json:"url,omitempty"       yaml:"url"`
 }
 
+func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
+	if user == nil {
+		return false, fmt.Errorf("requested api file is not valid")
+	}
+
+	user.Method.ToUpperCase()
+
+	// method is required for any http request
+	if !user.Method.IsValid() {
+		if user.Method == "" {
+			return false, fmt.Errorf("missing or empty HTTP method in '%s'", filePath)
+		}
+		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", user.Method, filePath)
+	}
+
+	// url is required for any http request
+	if !user.Url.IsValidURL() {
+		return false, fmt.Errorf("missing or invalid URL: %s in file %s", user.Url, filePath)
+	}
+
+	if !user.Body.IsValid() {
+		utils.PanicRedAndExit(
+			"Invalid Body in '%s'. Make sure body contains only one valid argument.\n %v",
+			filePath,
+			user.Body,
+		)
+	}
+	return true, nil
+}
+
 // Returns ApiInfo object for the User's API request yaml file
-func (user *User) PrepareStruct() (ApiInfo, error) {
+func (user *ApiCallFile) PrepareStruct() (ApiInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
 		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
@@ -115,7 +146,7 @@ func (b *Body) IsValid() bool {
 	}
 	validFieldCount := 0
 	ln := reflect.ValueOf(*b)
-	for i := 0; i < ln.NumField(); i++ {
+	for i := range ln.NumField() {
 		field := ln.Field(i)
 		switch field.Kind() {
 		case reflect.Ptr:
@@ -144,8 +175,8 @@ func (b *Body) IsValid() bool {
 }
 
 type GraphQl struct {
-	Variables map[string]interface{} `json:"variables,omitempty" yaml:"variables"`
-	Query     string                 `json:"query,omitempty"     yaml:"query"`
+	Variables map[string]any `json:"variables,omitempty" yaml:"variables"`
+	Query     string         `json:"query,omitempty"     yaml:"query"`
 }
 
 // Returns body for apiCall, content type header string and error if any
@@ -235,8 +266,8 @@ func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 }
 
 // accepts query string and variables map[string]interface, then returns the payload
-func EncodeGraphQlBody(query string, variables map[string]interface{}) (io.Reader, error) {
-	payload := map[string]interface{}{
+func EncodeGraphQlBody(query string, variables map[string]any) (io.Reader, error) {
+	payload := map[string]any{
 		"query":     query,
 		"variables": variables,
 	}

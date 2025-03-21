@@ -1,5 +1,6 @@
+.DS_Store
 bin/
-collection*
+collection/*
 test.go
 e2etests/**/*.json
 test*

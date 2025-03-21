@@ -16,14 +16,14 @@ import (
 // Then, this function recursively replaces all variables {{.value}} specified in user's yaml values, with values from environment map
 // This is necessary, as the some variables, like URL needs correct string
 func replaceVarsWithValues(
-	dict map[string]interface{},
-	secretsMap map[string]interface{},
-) map[string]interface{} {
-	changedMap := make(map[string]interface{})
+	dict map[string]any,
+	secretsMap map[string]any,
+) map[string]any {
+	changedMap := make(map[string]any)
 
 	for key, val := range dict {
 		switch valTyped := val.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			changedMap[key] = replaceVarsWithValues(valTyped, secretsMap)
 		case string:
 			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
@@ -36,7 +36,7 @@ func replaceVarsWithValues(
 				changedMap[key] = finalChangedValue
 			}
 		case map[string]string:
-			innerMap := make(map[string]interface{})
+			innerMap := make(map[string]any)
 			for k, v := range valTyped {
 				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
@@ -57,7 +57,7 @@ func replaceVarsWithValues(
 }
 
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
-func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.Buffer, error) {
+func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		utils.PanicRedAndExit("File does not exist, %s", filepath)
 	}
@@ -73,7 +73,7 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 		utils.PanicRedAndExit("Empty yaml file")
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
 		utils.PanicRedAndExit("1. error decoding data: %v", err)
@@ -102,59 +102,44 @@ func checkYamlFile(filepath string, secretsMap map[string]interface{}) (*bytes.B
 }
 
 // checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForApi(filePath string, secretsMap map[string]interface{}) User {
+func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
+		return ApiCallFile{}, utils.ColorError("Error occured after reading yaml file", err)
 	}
 
-	var user User
+	var file ApiCallFile
 	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&user); err != nil {
-		utils.PanicRedAndExit("2. error decoding data: %v", err)
+	if err := dec.Decode(&file); err != nil {
+		return ApiCallFile{}, utils.ColorError("Error decoding data", err)
 	}
 
-	user.Method.ToUpperCase()
-
-	// method is required for any http request
-	if !user.Method.IsValid() {
-		utils.PanicRedAndExit("missing or invalid HTTP method: %s", user.Method)
+	if valid, err := file.IsValid(filePath); !valid {
+		return ApiCallFile{}, utils.ColorError("Invalid file schema", err)
 	}
 
-	// url is required for any http request
-	if !user.Url.IsValidURL() {
-		utils.PanicRedAndExit("missing or invalid URL: %s", user.Url)
-	}
-
-	// check if body is valid
-	if !user.Body.IsValid() {
-		utils.PanicRedAndExit(
-			"Invalid Body. Make sure body contains only one valid argument.\n %v",
-			user.Body,
-		)
-	}
-	return user
+	return file, nil
 }
 
 // checks the validity of all the fields in the yaml file meant for OAuth2.0.
 // It returns AuthRequestBody struct
 func FinalStructForOAuth2(
 	filePath string,
-	secretsMap map[string]interface{},
-) AuthRequestBody {
+	secretsMap map[string]any,
+) (AuthRequestFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.PanicRedAndExit("authTypes.go: Error occured after reading yaml file: %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error after reading yaml file: %v", err)
 	}
 
-	var auth2Config AuthRequestBody
+	var auth2Config AuthRequestFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&auth2Config); err != nil {
-		utils.PanicRedAndExit("reader.go: error decoding data: %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error decoding data: %v", err)
 	}
 
 	if valid, err := auth2Config.IsValid(); !valid {
-		utils.PanicRedAndExit("Error on Auth2 Request Body %v", err)
+		return AuthRequestFile{}, utils.ColorError("Error on Auth2 Request Body %v", err)
 	}
-	return auth2Config
+	return auth2Config, nil
 }

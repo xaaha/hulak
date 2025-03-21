@@ -45,19 +45,23 @@ func StandardCall(apiInfo yamlParser.ApiInfo) CustomResponse {
 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
-func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
-	apiConfig := yamlParser.FinalStructForApi(
+func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
+	apiConfig, err := yamlParser.FinalStructForApi(
 		path,
 		secretsMap,
 	)
+	if err != nil {
+		return err
+	}
+
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		err := utils.ColorError("call.go: error occured while preparing Struct from "+path, err)
-		utils.PrintRed(err.Error())
-		return
+		return err
 	}
+
 	resp := StandardCall(apiInfo)
 	PrintAndSaveFinalResp(resp, path)
+	return nil
 }
 
 // Prints and Save the custom response
@@ -65,8 +69,8 @@ func SendAndSaveApiRequest(secretsMap map[string]interface{}, path string) {
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 	// Create a combined structure to store both body and status
 	combined := struct {
-		Body   interface{} `json:"body"`
-		Status string      `json:"status"`
+		Body   any    `json:"body"`
+		Status string `json:"status"`
 	}{
 		Body:   resp.Body,
 		Status: resp.ResponseStatus,

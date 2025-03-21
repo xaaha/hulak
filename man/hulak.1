@@ -1,0 +1,94 @@
+HULAK(1)                                          General Commands Manual                                          HULAK(1)
+
+NAME
+       hulak - File Based API client for terminal nerds 
+
+SYNOPSIS
+       hulak [OPTIONS] -f <file>
+       hulak [OPTIONS] -fp <file_path>
+       hulak migrate <json_file>
+
+DESCRIPTION
+       Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
+
+OPTIONS
+       -env <environment>
+              Specifies an environment file inside the env directory for API calls. If not provided, the default “global” environment is used.
+
+       -f <file>
+              Specifies a YAML/YML file to run. Hulak searches recursively through directories to locate matching files and executes all matches concurrently if more than one is found.
+
+       -fp <file_path>
+              Specifies the exact file path of the file to run.
+
+       migrate <json_file>
+              Migrates the specified JSON file(s) to the new Hulak format.
+       
+       init   Initializes the default environment configuration.
+              When used with -env flag, creates specific environment files.
+          
+       help   Displays command usage information.
+
+FLAGS
+       -env   Specifies the environment file for API calls.
+       -f     Designates the YAML/YML file to be executed.
+       -fp    Specifies the direct file path for the file to execute.
+
+INSTALLATION
+       Hulak can be installed using either `go install` or built from source.
+
+       Using go install:
+              go install github.com/xaaha/hulak@latest
+
+              Ensure that your GOPATH is added to your shell’s PATH:
+              export GOPATH=$HOME/go
+              export PATH=$PATH:$(go env GOPATH)/bin
+
+              Reload your shell configuration:
+              source ~/.zshrc   or   source ~/.bashrc
+
+       Build from source:
+              git clone https://github.com/xaaha/hulak.git
+              cd hulak
+              go mod tidy
+              go build -o hulak
+              sudo mv hulak /usr/local/bin/
+
+ENVIRONMENT SETUP
+       Create an env/ directory with a ‘global.env’ file in the project root:
+
+              mkdir -p env && touch env/global.env
+
+EXAMPLES
+       Basic API call:
+
+              # test.yaml
+              method: GET
+              url: https://jsonplaceholder.typicode.com/todos/1
+
+              Run with:
+              hulak -f test
+
+       Using environment variables:
+
+              # test.yaml
+              method: POST
+              url: "{{.Url}}"
+
+              Run with:
+              hulak -env prod -f test
+
+AUTH 2.0
+       Supports OAuth 2.0 web-application flow. Refer to the documentation for detailed setup instructions:
+       https://github.com/xaaha/hulak/blob/main/docs/auth20.md
+
+COPYRIGHT
+       Copyright (c) 2025 Pratik Thapa 
+
+       This software is released under the MIT License. For details, see the LICENSE file in the project repository.
+
+SOURCE CODE
+       https://github.com/xaaha/hulak
+
+AUTHOR
+       xaaha

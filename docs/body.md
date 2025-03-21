@@ -1,4 +1,6 @@
-# Yaml Body
+# Body
+
+This section includes all the key-value structures that can be passed in api (yaml) file.
 
 ## Data Structures
 
@@ -18,17 +20,21 @@ Supported Methods:
 • TRACE
 • CONNECT
 
+```yaml
+method: GET # case insensitive
+```
+
 ### URL
 
 Represents the URL for the API endpoint. The url must match go's `net/url` `ParseRequestURI`.
 Dynamic query parameters can be included as key-value pairs under urlparams. For, example,
 
 ```yaml
-url: "https://api.example.com/search"
+method: GET
+url: "https://jsonplaceholder.typicode.com/todos/1"
 urlparams:
   foo: "bar"
   check: true
-method: GET
 ```
 
 ### Body
@@ -118,6 +124,6 @@ body:
 >
 > 1.  URL: Must be a valid, well-formed URI.
 > 2.  Method: Must be one of the supported HTTP methods.
-> 3.  Headers: Key-value pairs for HTTP headers.
+> 3.  Headers: Key-value pairs for HTTP headers. Most of the headers are listed in [headers documentation](./headers.yaml)
 > 4.  Body: Only one body type is allowed, and it must be valid.
 > 5.  Secrets are allowed with `{{.secretName}}` but make sure formatting is right

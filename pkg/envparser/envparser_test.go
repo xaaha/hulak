@@ -7,7 +7,7 @@ import (
 
 func TestTrimQuotes(t *testing.T) {
 	testCases := []struct {
-		output     interface{}
+		output     any
 		input      string
 		wasTrimmed bool
 	}{

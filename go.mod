@@ -1,6 +1,6 @@
 module github.com/xaaha/hulak
 
-go 1.23
+go 1.24
 
 require github.com/goccy/go-yaml v1.12.0
 

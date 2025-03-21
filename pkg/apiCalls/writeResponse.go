@@ -17,7 +17,7 @@ func isJson(str string) bool {
 }
 
 func isXML(str string) bool {
-	var v interface{}
+	var v any
 	return xml.Unmarshal([]byte(str), &v) == nil
 }
 

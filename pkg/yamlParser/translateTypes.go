@@ -93,7 +93,7 @@ type Path struct {
 // and finds the key and it's path that needs type conversion.
 // The resulting map helps us determine exact location to replace the values in afterMap
 func findPathFromMap(
-	beforeMap map[string]interface{},
+	beforeMap map[string]any,
 	parentKey string,
 ) Path {
 	cmprt := Path{}
@@ -130,21 +130,21 @@ func findPathFromMap(
 					})
 				}
 			}
-		case map[string]interface{}:
+		case map[string]any:
 			subMap := findPathFromMap(bTypeVal, currentKey)
 			cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
 			cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
-		case []interface{}:
+		case []any:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
-				if mapVal, ok := val.(map[string]interface{}); ok {
+				if mapVal, ok := val.(map[string]any); ok {
 					subMap := findPathFromMap(mapVal, arrayKey)
 					cmprt.DotStrings = append(cmprt.DotStrings, subMap.DotStrings...)
 					cmprt.GetValueOfs = append(cmprt.GetValueOfs, subMap.GetValueOfs...)
 				}
 				// Handle other types in array if needed
 			}
-		case []map[string]interface{}:
+		case []map[string]any:
 			for idx, val := range bTypeVal {
 				arrayKey := fmt.Sprintf("%s[%d]", currentKey, idx)
 				subMap := findPathFromMap(val, arrayKey)
@@ -163,37 +163,37 @@ func findPathFromMap(
 // since path gurantees that last item exists on map,
 // setValueOnAfterMap walks the path and replaces the value at the last index
 func setValueOnAfterMap(
-	path []interface{},
-	afterMap map[string]interface{},
-	replaceWith interface{},
-) map[string]interface{} {
-	var current interface{} = afterMap
+	path []any,
+	afterMap map[string]any,
+	replaceWith any,
+) map[string]any {
+	var current any = afterMap
 
 	for i, value := range path {
 		switch val := value.(type) {
 		case string:
 			// If this is the last element in the path, set the value
 			if i == len(path)-1 {
-				currentMap := current.(map[string]interface{})
+				currentMap := current.(map[string]any)
 				if val, ok := currentMap[val].(string); ok {
 					replaceWith = swapValue(val, replaceWith)
 				}
 				currentMap[val] = replaceWith
 			} else {
 				// Traverse deeper into the map
-				current = current.(map[string]interface{})[val]
+				current = current.(map[string]any)[val]
 			}
 		case int:
 			// If this is the last element in the path, set the value
 			if i == len(path)-1 {
-				currentSlice := current.([]interface{})
+				currentSlice := current.([]any)
 				if val, ok := currentSlice[val].(string); ok {
 					replaceWith = swapValue(val, replaceWith)
 				}
 				currentSlice[val] = replaceWith
 			} else {
 				// Traverse deeper into the slice
-				current = current.([]interface{})[val]
+				current = current.([]any)[val]
 			}
 		}
 	}
@@ -204,9 +204,9 @@ func setValueOnAfterMap(
 // translateType is the function that performs translation on the `afterMap`
 // based on the given `beforeMap`, `secretsMap`, and `getValueOfInterface`.
 func translateType(
-	beforeMap, afterMap, secretsMap map[string]interface{},
-	getValueOf func(key, fileName string) interface{},
-) (map[string]interface{}, error) {
+	beforeMap, afterMap, secretsMap map[string]any,
+	getValueOf func(key, fileName string) any,
+) (map[string]any, error) {
 	pathMap := findPathFromMap(beforeMap, "")
 
 	// Process dot strings
@@ -245,7 +245,7 @@ func translateType(
 
 // Swaps val1 with val2 if the string representation of val2 is equal to val1;
 // otherwise, it returns val1.
-func swapValue(val1 string, val2 interface{}) interface{} {
+func swapValue(val1 string, val2 any) any {
 	str := fmt.Sprintf("%v", val2)
 	if val1 == str {
 		return val2
@@ -264,9 +264,9 @@ func cleanStrings(stringsToClean []string) []string {
 }
 
 // Helper function for the replace in place. Parses the string with -> and array indexed strings
-// Returns an array of []interface{} ["key1", "value", 0]
-func parsePath(path string) ([]interface{}, error) {
-	var keys []interface{}
+// Returns an array of []any ["key1", "value", 0]
+func parsePath(path string) ([]any, error) {
+	var keys []any
 
 	if len(path) == 0 {
 		return keys, utils.ColorError("path should not be empty")

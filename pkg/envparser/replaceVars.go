@@ -12,9 +12,12 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// tracks hwo many times we need to show a message
+var warningTracker = make(map[string]bool)
+
 // gets the value of key from a json file. If the file does not have '.json' suffix
 // getValueOf looks for _response.json file automatically. If the file does not exist
-func GetValueOf(key, fileName string) interface{} {
+func GetValueOf(key, fileName string) any {
 	if key == "" && fileName == "" {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
 	}
@@ -56,9 +59,11 @@ func GetValueOf(key, fileName string) interface{} {
 	}
 
 	if len(yamlPathList) > 1 {
-		utils.PrintWarning(
-			"Multiple matches for the file " + fileName + " found. Using \n" + singlePath,
-		)
+		warningKey := fmt.Sprintf("%s_%s", fileName, singlePath)
+		if !warningTracker[warningKey] {
+			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
+			warningTracker[warningKey] = true
+		}
 	}
 
 	// If the file does not exist
@@ -85,7 +90,7 @@ func GetValueOf(key, fileName string) interface{} {
 	}
 	defer file.Close()
 
-	var fileContent map[string]interface{}
+	var fileContent map[string]any
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&fileContent)
 	if err != nil {
@@ -118,14 +123,14 @@ func GetValueOf(key, fileName string) interface{} {
 // Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
 	strToChange string,
-	secretsMap map[string]interface{},
+	secretsMap map[string]any,
 ) (string, error) {
 	if len(strToChange) == 0 {
-		return "", utils.ColorError("input string is empty")
+		return "", nil
 	}
 
 	getValueOf := template.FuncMap{
-		"getValueOf": func(key, fileName string) interface{} {
+		"getValueOf": func(key, fileName string) any {
 			return GetValueOf(key, fileName)
 		},
 	}
@@ -135,7 +140,7 @@ func replaceVariables(
 		Option("missingkey=error").
 		Parse(strToChange)
 	if err != nil {
-		return "", utils.ColorError("template parsing error: %w", err)
+		return "", err
 	}
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, secretsMap)
@@ -149,14 +154,14 @@ func replaceVariables(
 // containing template variables using the replaceVariables function.
 // It ensures that non-string values (e.g., booleans, integers) are preserved and validates against unsupported types.
 // Returns a new map with resolved values or an error if any resolution fails.
-func prepareMap(secretsMap map[string]interface{}) (map[string]interface{}, error) {
-	updatedMap := make(map[string]interface{})
+func prepareMap(secretsMap map[string]any) (map[string]any, error) {
+	updatedMap := make(map[string]any)
 	for key, val := range secretsMap {
 		switch v := val.(type) {
 		case string:
 			changedValue, err := replaceVariables(v, secretsMap)
 			if err != nil {
-				return nil, utils.ColorError("error while preparing variables in map: %v", err)
+				return nil, err
 			}
 			updatedMap[key] = changedValue
 		case bool, int, float64, nil:
@@ -176,8 +181,8 @@ func prepareMap(secretsMap map[string]interface{}) (map[string]interface{}, erro
 // Returns the final substituted string or an error if any step fails.
 func SubstituteVariables(
 	strToChange string,
-	secretsMap map[string]interface{},
-) (interface{}, error) {
+	secretsMap map[string]any,
+) (any, error) {
 	finalMap, err := prepareMap(secretsMap)
 	if err != nil {
 		return nil, err

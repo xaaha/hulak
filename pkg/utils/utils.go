@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,12 +45,12 @@ func (u *Utilities) GetEnvFiles() ([]string, error) {
 }
 
 // converts all keys in a map to lowercase recursively
-func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} {
-	loweredMap := make(map[string]interface{})
+func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
+	loweredMap := make(map[string]any)
 	for key, val := range dict {
 		lowerKey := strings.ToLower(key)
 		switch almostFinalValue := val.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			loweredMap[lowerKey] = ConvertKeysToLowerCase(almostFinalValue)
 		default:
 			loweredMap[lowerKey] = almostFinalValue
@@ -58,16 +59,14 @@ func ConvertKeysToLowerCase(dict map[string]interface{}) map[string]interface{} 
 	return loweredMap
 }
 
-// Copies the Environment map[string]interface{} and returns a map[string]string
+// Copies the Environment map[string]any and returns a map[string]string
 // EnvMap is a simple JSON without any nested properties.
 // Mostly used for goroutines.
-// Copies the Environment map[string]interface{} and returns a copy as map[string]interface{}.
+// Copies the Environment map[string]any and returns a copy as map[string]any.
 // EnvMap is a simple JSON without any nested properties.
-func CopyEnvMap(original map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for key, val := range original {
-		result[key] = val // Direct copy
-	}
+func CopyEnvMap(original map[string]any) map[string]any {
+	result := make(map[string]any)
+	maps.Copy(result, original)
 	return result
 }
 
@@ -164,8 +163,6 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 		return main
 	}
 	// Merge sec map into main map
-	for sKey, sVal := range sec {
-		main[sKey] = sVal
-	}
+	maps.Copy(main, sec)
 	return main
 }
