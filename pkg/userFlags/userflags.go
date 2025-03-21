@@ -19,9 +19,9 @@ type FlagsSubcmds struct {
 func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 	if len(os.Args) < 2 {
 		utils.PrintWarning(
-			// TODO: Use man
-			"Provide a subcommand or a flag. See docs at https://github.com/xaaha/hulak",
+			"Provide a subcommand or a flag. See full docs at https://github.com/xaaha/hulak",
 		)
+		printHelp()
 		os.Exit(1)
 	}
 

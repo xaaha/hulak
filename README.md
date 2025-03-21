@@ -57,10 +57,13 @@ Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used i
 
 ### Setup
 
-Create the env folder and the required `global.env` file in the root of the hulak project.
+Create the env folder and the required `global.env` file in the root of the hulak project. You can do it manually or run
 
 ```bash
-mkdir -p env && touch env/global.env
+
+hulak init
+# to create multiple .env files in the env directory run
+hulak init -env staging prod
 ```
 
 You can store all secrets in `global.env`, but for running tests with different credentials, use additional `<custom_file_name>.env` files like `staging.env` or `prod.env`.

@@ -100,31 +100,31 @@ func TestGetEnvFiles(t *testing.T) {
 // TestToLowercaseMap tests the ToLowercaseMap function with various cases
 func TestToLowercaseMap(t *testing.T) {
 	testCases := []struct {
-		input    map[string]interface{}
-		expected map[string]interface{}
+		input    map[string]any
+		expected map[string]any
 		name     string
 	}{
 		{
 			name: "Simple keys",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"KeyOne": "value1",
 				"KeyTwo": "value2",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"keyone": "value1",
 				"keytwo": "value2",
 			},
 		},
 		{
 			name: "Nested map",
-			input: map[string]interface{}{
-				"KeyOuter": map[string]interface{}{
+			input: map[string]any{
+				"KeyOuter": map[string]any{
 					"KeyInner": "valueInner",
 				},
 				"AnotherKey": "valueAnother",
 			},
-			expected: map[string]interface{}{
-				"keyouter": map[string]interface{}{
+			expected: map[string]any{
+				"keyouter": map[string]any{
 					"keyinner": "valueInner",
 				},
 				"anotherkey": "valueAnother",
@@ -132,18 +132,18 @@ func TestToLowercaseMap(t *testing.T) {
 		},
 		{
 			name: "Mixed case and nested levels",
-			input: map[string]interface{}{
-				"MiXed": map[string]interface{}{
+			input: map[string]any{
+				"MiXed": map[string]any{
 					"UPPer": "value",
-					"loWer": map[string]interface{}{
+					"loWer": map[string]any{
 						"INNerKey": "innerValue",
 					},
 				},
 			},
-			expected: map[string]interface{}{
-				"mixed": map[string]interface{}{
+			expected: map[string]any{
+				"mixed": map[string]any{
 					"upper": "value",
-					"lower": map[string]interface{}{
+					"lower": map[string]any{
 						"innerkey": "innerValue",
 					},
 				},
@@ -151,50 +151,50 @@ func TestToLowercaseMap(t *testing.T) {
 		},
 		{
 			name:     "Empty map",
-			input:    map[string]interface{}{},
-			expected: map[string]interface{}{},
+			input:    map[string]any{},
+			expected: map[string]any{},
 		},
 		{
 			name: "Already lowercase keys",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key": "value",
-				"nested": map[string]interface{}{
+				"nested": map[string]any{
 					"innerkey": "innervalue",
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"key": "value",
-				"nested": map[string]interface{}{
+				"nested": map[string]any{
 					"innerkey": "innervalue",
 				},
 			},
 		},
 		{
 			name: "Keys with non-string values",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"BoolKey":  true,
 				"IntKey":   123,
 				"FloatKey": 12.34,
-				"SliceKey": []interface{}{"item1", "item2"},
-				"MapKey":   map[string]interface{}{"InnerKey": "innerValue"},
+				"SliceKey": []any{"item1", "item2"},
+				"MapKey":   map[string]any{"InnerKey": "innerValue"},
 				"NilKey":   nil,
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"boolkey":  true,
 				"intkey":   123,
 				"floatkey": 12.34,
-				"slicekey": []interface{}{"item1", "item2"},
-				"mapkey":   map[string]interface{}{"innerkey": "innerValue"},
+				"slicekey": []any{"item1", "item2"},
+				"mapkey":   map[string]any{"innerkey": "innerValue"},
 				"nilkey":   nil,
 			},
 		},
 		{
 			name: "Nested empty map",
-			input: map[string]interface{}{
-				"OuterKey": map[string]interface{}{},
+			input: map[string]any{
+				"OuterKey": map[string]any{},
 			},
-			expected: map[string]interface{}{
-				"outerkey": map[string]interface{}{},
+			expected: map[string]any{
+				"outerkey": map[string]any{},
 			},
 		},
 	}

@@ -16,9 +16,8 @@ returns the envMap
 TBC...
 */
 func InitializeProject(env string) map[string]any {
-	err := envparser.CreateDefaultEnvs(nil)
-	if err != nil {
-		panic(err)
+	if err := envparser.CreateDefaultEnvs(nil); err != nil {
+		utils.PanicRedAndExit("%v", err)
 	}
 	envMap, err := envparser.GenerateSecretsMap(env)
 	if err != nil {

@@ -1,6 +1,8 @@
 package userflags
 
 import (
+	"fmt"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -35,4 +37,25 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 		return nil, utils.ColorError(standardErrMsg)
 	}
 	return filePathList, nil
+}
+
+// Helper function to print command usage
+func printHelp() {
+	utils.PrintWarning("Api Usage:")
+	fmt.Println("  hulak -env prod -f fileName                    - Find and run all 'fileName'")
+	fmt.Println("  hulak -env prod -fp path/tofile/getUser.yaml   - Run specific file")
+
+	printHelpSubCommands()
+}
+
+// helper function to show valid subcommands
+func printHelpSubCommands() {
+	utils.PrintWarning("subcommand:")
+	fmt.Println(
+		"  hulak init                                     - Initializes default environment",
+	)
+	fmt.Println(
+		"  hulak init -env global prod test               - Initializes specific environments",
+	)
+	fmt.Println("  hulak migrate <file1> <file2> ...              - Migrates specified files")
 }
