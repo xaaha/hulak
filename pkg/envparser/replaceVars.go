@@ -12,7 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// tracks hwo many times we need to show a message
+// tracks how many times we need to show a message
 var warningTracker = make(map[string]bool)
 
 // gets the value of key from a json file. If the file does not have '.json' suffix

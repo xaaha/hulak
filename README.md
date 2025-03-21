@@ -100,7 +100,7 @@ hulak -env global -f test
 hulak -env global -fp ./test.yaml
 ```
 
-Since global is default environemnt, we don't need to specify `-env global`. So, this is the simplest way of running the file.
+Since global is default environment, we don't need to specify `-env global`. So, this is the simplest way of running the file.
 
 ```bash
 hulak -f test

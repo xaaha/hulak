@@ -26,7 +26,7 @@ urlparams:
   scope: repo:user
 auth:
   type: OAuth2.0
-  # url to retrieve access token after broswer authorization
+  # url to retrieve access token after browser authorization
   access_token_url: https://github.com/login/oauth/access_token
 # Use appropriate headers as instructed by the auth2.0 provider, github in this case
 headers:

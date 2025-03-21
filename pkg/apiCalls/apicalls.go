@@ -20,7 +20,7 @@ func StandardCall(apiInfo yamlParser.ApiInfo) CustomResponse {
 	body := apiInfo.Body
 	headers := apiInfo.Headers
 	urlParams := map[string]string{}
-	errMessage := "error occured on " + method
+	errMessage := "error occurred on " + method
 
 	preparedUrl := PrepareUrl(url, urlParams)
 
