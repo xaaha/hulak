@@ -102,23 +102,23 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 }
 
 // checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForApi(filePath string, secretsMap map[string]any) ApiCallFile {
+func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		utils.PanicRedAndExit("Error occured after reading yaml file: %v", err)
+		return ApiCallFile{}, utils.ColorError("Error occured after reading yaml file", err)
 	}
 
-	var user ApiCallFile
+	var file ApiCallFile
 	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&user); err != nil {
-		utils.PanicRedAndExit("Error decoding data: %v", err)
+	if err := dec.Decode(&file); err != nil {
+		return ApiCallFile{}, utils.ColorError("Error decoding data", err)
 	}
 
-	if valid, err := user.IsValid(filePath); !valid {
-		utils.PanicRedAndExit("Error on Api Request %v", err)
+	if valid, err := file.IsValid(filePath); !valid {
+		return ApiCallFile{}, utils.ColorError("Invalid Schema file", err)
 	}
 
-	return user
+	return file, nil
 }
 
 // checks the validity of all the fields in the yaml file meant for OAuth2.0.

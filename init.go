@@ -44,7 +44,9 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 				actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path)
 
 			case config.IsAPI():
-				apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path)
+				if err := apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path); err != nil {
+					utils.PrintRed(err.Error())
+				}
 
 			default:
 				// This shouldn't happen as invalid kinds are caught in MustParseConfig, but just in case...
