@@ -13,5 +13,4 @@ body:
     variables:
       name: "{{.userName}} of age {{.userAge}}"
       age: "{{.userAge}}"
-# String , Int , Float , Boolean , and ID
-# support these types as well
+# String , Int , Float , Boolean , and ID are supported for graphql
