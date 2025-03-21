@@ -58,7 +58,6 @@ func HandleSubcommands() error {
 		if err != nil {
 			return fmt.Errorf("\n invalid subcommand %v", err)
 		}
-
 		// Check if -env flag is present
 		if *createEnvs {
 			envs := initialize.Args()
