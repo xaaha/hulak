@@ -7,16 +7,8 @@ import (
 
 // overall json structure for 2.1
 type PmCollection struct {
-	Info Info             `json:"info"`
-	Item PmCollectionItem `json:"name"`
-	// TODO: ADD ITEM Structure after all the minute details are done
-	// ITEM
-}
-
-// when collection contains subfolders folders
-type PmCollectionItem struct {
-	SubDirName string    `json:"name"`
-	Item       []Request `json:"item"`
+	Info Info `json:"info"`
+	Item Item `json:"name"`
 }
 
 // Info represents the info object in a Postman collection
@@ -25,18 +17,37 @@ type Info struct {
 	Description string `json:"description"`
 }
 
-// PMURL represents PMURL information in a request
-type PMURL struct {
+// when collection contains subfolders folders
+type Item struct {
+	Name string    `json:"name"`
+	Item []Request `json:"item"`
+}
+
+// PmUrl represents PmUrl information in a request
+type PmUrl struct {
 	Raw   string         `json:"raw"`
 	Query []KeyValuePair `json:"query"`
+}
+
+// TODO: Add all different type of body mode coming from postman
+// formdata, urlencoded, graphql (query and variable), and more
+type BodyMode struct {
+	Raw string `json:"raw"`
+}
+
+// TODO: Add more as above
+type PmBody struct {
+	Mode BodyMode `json:"mode"`
+	Raw  string   `json:"raw"`
 }
 
 // TODO: This can get big. Test/check all possible cases
 type Request struct {
 	Description string                    `json:"description"`
-	URL         PMURL                     `json:"url"`
+	URL         PmUrl                     `json:"url"`
 	Method      yamlParser.HTTPMethodType `json:"method"`
 	Header      []KeyValuePair            `json:"header"`
+	Body        PmBody                    `json:"body"`
 }
 
 // CollectionItemRequest represents each request
