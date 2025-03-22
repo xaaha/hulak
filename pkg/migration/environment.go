@@ -1,5 +1,6 @@
 package migration
 
+// postman environment
 import (
 	"fmt"
 	"os"

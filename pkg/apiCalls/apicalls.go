@@ -65,7 +65,6 @@ func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
 }
 
 // Prints and Save the custom response
-// TODO: Flag to disable and silence the std output and file save
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 	// Create a combined structure to store both body and status
 	combined := struct {
