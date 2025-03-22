@@ -6,6 +6,12 @@ import (
 	"os"
 )
 
+// KeyValuePair represents a generic key-value pair used in various Postman structures
+type KeyValuePair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // ReadPmFile reads a Postman JSON file and returns the parsed content
 func ReadPmFile(filePath string) (map[string]any, error) {
 	// Check if the file exists and get its info

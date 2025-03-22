@@ -5,22 +5,24 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
-// KeyValuePair represents a generic key-value pair used in various Postman structures
-type KeyValuePair struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-// PMCollectionInfo represents the info object in a Postman collection
-type PMCollectionInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-type PMCOLLECTION struct {
-	Info PMCollectionInfo `json:"info"`
+// overall json structure for 2.1
+type PmCollection struct {
+	Info Info             `json:"info"`
+	Item PmCollectionItem `json:"name"`
 	// TODO: ADD ITEM Structure after all the minute details are done
 	// ITEM
+}
+
+// when collection contains subfolders folders
+type PmCollectionItem struct {
+	SubDirName string    `json:"name"`
+	Item       []Request `json:"item"`
+}
+
+// Info represents the info object in a Postman collection
+type Info struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 // PMURL represents PMURL information in a request
@@ -30,7 +32,7 @@ type PMURL struct {
 }
 
 // TODO: This can get big. Test/check all possible cases
-type PMRequest struct {
+type Request struct {
 	Description string                    `json:"description"`
 	URL         PMURL                     `json:"url"`
 	Method      yamlParser.HTTPMethodType `json:"method"`
@@ -39,8 +41,8 @@ type PMRequest struct {
 
 // CollectionItemRequest represents each request
 type CollectionItemRequest struct {
-	FileName string    `json:"name"`
-	Request  PMRequest `json:"request"`
+	FileName string  `json:"name"`
+	Request  Request `json:"request"`
 }
 
 // CollectionItem represents an item in a Postman collection
@@ -52,9 +54,9 @@ type CollectionItem struct {
 
 // Collection represents a Postman 2.1 collection
 type Collection struct {
-	Info     PMCollectionInfo `json:"info"`
-	Item     CollectionItem   `json:"item"`
-	Variable []KeyValuePair   `json:"variable"`
+	Info     Info           `json:"info"`
+	Item     CollectionItem `json:"item"`
+	Variable []KeyValuePair `json:"variable"`
 }
 
 // IsCollection determines if the JSON contains a Postman collection
