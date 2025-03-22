@@ -1,8 +1,9 @@
 <p align="center">
   <img alt="Hulak Logo" src="./assets/logo.svg" height="140" />
-  <!-- <h2 align="center">Hulak</h2> -->
   <p align="center">User friendly API Client for terminal nerds.</p>
 </p>
+
+# Getting Started
 
 ## Installation
 
@@ -14,6 +15,7 @@
 go install github.com/xaaha/hulak@latest
 ```
 
+- You need to install `go` in your system
 - In order for any utility, installed with `go install`, to be available for use, you need the path from `go env GOPATH` to be in the shell’s PATH.
 
   • If it’s not, add the following to your shell's configuration file.
@@ -51,9 +53,9 @@ brew install xaaha/tap/hulak
 
 ---
 
-## Initialize Environment Folders
+## Initialize environment directory to store secrets
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between local, test, and production environments.
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments.
 
 ### Setup
 
@@ -82,7 +84,7 @@ collection/
 
 As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
 
-## Getting Started
+## Create An API file
 
 Then Basic API call looks like `test.yaml`
 
@@ -123,6 +125,8 @@ Read more about response in [response documentation](./docs/response.md).
 
 See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
+# Flags and Subcommands
+
 ## Flags
 
 | Flag   | Description                                                                                                                                                                                           | Usage                            |
@@ -133,11 +137,13 @@ See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etes
 
 ## Subcommands
 
-| Subcommand | Description                                   | Usage                                             |
-| ---------- | --------------------------------------------- | ------------------------------------------------- |
-| migrate    | migrates postman environment files for hulak. | `migrate "path/to/file.json" "path/to/file2.json` |
+| Subcommand | Description                                      | Usage                                                   |
+| ---------- | ------------------------------------------------ | ------------------------------------------------------- |
+| help       | display help message                             | `hulak help`                                            |
+| init       | Initialize environment directory and files in it | `hulak init` or ` hulak init global prod staging`       |
+| migrate    | migrates postman environment files for hulak.    | `hulak migrate "path/to/file.json" "path/to/file2.json` |
 
-## Actions
+# Actions
 
 Actions make it easier to retrieve values from other files. See, [actions documentation](./docs/body.md) for more detailed explanation.
 
@@ -184,11 +190,11 @@ name: `{{getValueOf "name" "user.json"}}`
 
 Learn more about these actions [here](./docs/actions.md)
 
-### Auth2.0 (Beta)
+# Auth2.0 (Beta)
 
 Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
 
-## Planned Features
+# Planned Features
 
 - Sync and Async Directory run with `-d` flag.
 - Silent mode: do not log the output in the console
