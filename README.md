@@ -140,7 +140,7 @@ See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etes
 | Subcommand | Description                                      | Usage                                                   |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------- |
 | help       | display help message                             | `hulak help`                                            |
-| init       | Initialize environment directory and files in it | `hulak init` or ` hulak init global prod staging`       |
+| init       | Initialize environment directory and files in it | `hulak init` or ` hulak init -env global prod staging`  |
 | migrate    | migrates postman environment files for hulak.    | `hulak migrate "path/to/file.json" "path/to/file2.json` |
 
 # Actions
