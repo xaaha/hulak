@@ -86,7 +86,7 @@ As seen above, in a location of your choice, create a directory called `env` and
 
 ## Create An API file
 
-Then Basic API call looks like `test.yaml`
+Then Basic API call looks like `test.yaml` below. See full documentation on Request Body structure [here](./docs/body.md). More request examples are [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
 ```yaml
 # test.yaml
@@ -122,8 +122,6 @@ Read more about response in [response documentation](./docs/response.md).
   "status": "200 OK"
 }
 ```
-
-See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
 # Flags and Subcommands
 
