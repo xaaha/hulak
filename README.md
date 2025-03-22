@@ -173,11 +173,12 @@ url: `{{getValueOf "key" "file_name" }}`
 ```
 
 `getValueOf` looks for the value of the `key` inside the `file_name.json` file. Since responses of the api requests are saved in `file_name_response.json` file in the same directory, you don't need to provide `_response.json` suffix when using `getValueOf`.
-If multiple `file_name.json` is found, hulak recurces through the directory and uses the first file match. SO, it's recommended that you use a unique name for each file.
+If multiple `file_name.json` is found, hulak recurces through the directory and uses the first file match. So, it's recommended that you use a unique name for each file.
 You can also provide the exact file location instead of `file_name` as `./e2etests/test_collection/graphql_response.json`
 
 - `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
-- `key` you are looking for could in a nested example as well. For example, `user.name` means give me the name inside the user's object. You can esacpe the dot (.) with single curly brace like `{user.name}`. Here, `user.name` is considered a `key`.
+- `key` you are looking for could in a nested object as well. For example, `user.name` means give me the name inside the user's object. You can esacpe the dot (.) with single curly brace like `{user.name}`. Here, `user.name` is considered a `key`.
+- `file_name` could be the only file name or the entire file path from project root. If only name is provided, first match will be used.
 
 ```yaml
 # name is inside the user object in the user.json file
