@@ -57,7 +57,7 @@ Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used i
 
 ### Setup
 
-Create the `env/` directory and the required `global.env` file in the root of the hulak project. You can do it manually or run
+Create the `env/global.env` in the root of the hulak project by running
 
 ```bash
 
@@ -120,6 +120,7 @@ Read more about response in [response documentation](./docs/response.md).
   "status": "200 OK"
 }
 ```
+
 See more request examples [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
 ## Flags
@@ -142,7 +143,21 @@ Actions make it easier to retrieve values from other files. See, [actions docume
 
 ### `.Key`
 
-`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from a environemnt file in the `env/` directory in the root of the project [created above](#Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
+```yaml
+# example section
+body:
+  graphql:
+    query: |
+      query Hello($name: String!, $age: Int) {
+        hello(person: { name: $name, age: $age })
+      }
+    variables:
+      name: "{{.userName}} of age {{.userAge}}"
+      age: "{{.userAge}}"
+```
+
+`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from environemnt files in the `env/` directory in the root of the project [created above](#Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
+In the example above, `.userName` and `.userAge` are examples of retrieving key from secrets stored in `env/`.
 
 ### `getValueOf`:
 
@@ -161,11 +176,13 @@ You can also provide the exact file location instead of `file_name` as `./e2etes
 ```yaml
 # name is inside the user object in the user.json file
 name: '{{getValueOf "user.name" "user.json"}}'
-# providing full path
+# extract the value of name from nested object from provided json file path
 name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_response.json"}}'
 # where name is the key in the file
 name: `{{getValueOf "name" "user.json"}}`
 ```
+
+Learn more about these actions [here](./docs/actions.md)
 
 ### Auth2.0 (Beta)
 
@@ -175,3 +192,5 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 
 - Sync and Async Directory run with `-d` flag.
 - Silent mode: do not log the output in the console
+- Postman Collection Migration
+- Binary File Support
