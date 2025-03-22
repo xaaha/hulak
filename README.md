@@ -195,7 +195,8 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 
 # Planned Features
 
+[See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3)
+
 - Sync and Async Directory run with `-d` flag.
-- Silent mode: do not log the output in the console
 - Postman Collection Migration
-- Binary File Support
+- Binary File Support and being able to reference entire xml, html, json file with `{{getFile filePath}}`
