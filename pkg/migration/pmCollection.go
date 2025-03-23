@@ -108,7 +108,7 @@ func MigrateCollection(collection PmCollection) error {
 	return utils.ColorError("collection migration not yet implemented")
 }
 
-func URLToYAML(pmURL PMURL) (string, error) {
+func UrlToYaml(pmURL PMURL) (string, error) {
 	type YAMLOutput struct {
 		URL       string            `yaml:"url"`
 		URLParams map[string]string `yaml:"urlparams,omitempty"`
@@ -146,10 +146,37 @@ func URLToYAML(pmURL PMURL) (string, error) {
 	return string(yamlBytes), nil
 }
 
+func HeaderToYAML(header []KeyValuePair) (string, error) {
+	if len(header) == 0 {
+		return "", nil
+	}
+
+	type HeaderOutput struct {
+		Headers map[string]string `yaml:"headers"`
+	}
+
+	output := HeaderOutput{
+		Headers: make(map[string]string),
+	}
+
+	for _, h := range header {
+		key := addDotToTemplate(h.Key)
+		value := addDotToTemplate(h.Value)
+
+		output.Headers[key] = value
+	}
+
+	yamlBytes, err := yaml.Marshal(output)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal headers to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
+}
+
 // Sudo Code
-// Construct URL from Raw. Substract query from raw url
+// Construct URL from Raw. Substract query from raw url ✅
 // Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}} // surround with ""  ✅
-// Have a function that encodes the json to yaml
 // Migrate Variables to Global with the name of where it is coming from.
 // First, refactor a create folder function from envparser
 // Then create file with the name from the request name. Get this from envparser
