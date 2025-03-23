@@ -65,6 +65,8 @@ type Request struct {
 // PMURL represents PMURL information in a request
 type PMURL struct {
 	Raw   yamlParser.URL `json:"raw"`
+	Host  []string       `json:"host,omitempty"`
+	Path  []string       `json:"path,omitempty"`
 	Query []KeyValuePair `json:"query,omitempty"`
 }
 
