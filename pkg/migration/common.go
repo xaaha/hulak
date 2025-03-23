@@ -10,6 +10,7 @@ import (
 type KeyValuePair struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+	Type  string `json:"type,omitempty"`
 }
 
 // ReadPmFile reads a Postman JSON file and returns the parsed content
