@@ -1,8 +1,10 @@
 package migration
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -12,7 +14,8 @@ import (
 // PmCollection represents the overall Postman collection
 type PmCollection struct {
 	Info     Info           `json:"info"`
-	Variable []KeyValuePair `            josn:"variable,omitempty"`
+	Variable []KeyValuePair `josn:"variable,omitempty"`
+	Item     []ItemOrReq    `json:"item"`
 }
 
 // Info represents the info object in a Postman collection
@@ -106,6 +109,23 @@ func IsCollection(jsonString map[string]any) bool {
 func MigrateCollection(collection PmCollection) error {
 	// Implementation to come
 	return utils.ColorError("collection migration not yet implemented")
+}
+
+func MethodToYaml(method yamlParser.HTTPMethodType) (string, error) {
+	type YAMLOutput struct {
+		Method string `yaml:"method"`
+	}
+
+	output := YAMLOutput{
+		Method: string(method),
+	}
+
+	yamlBytes, err := yaml.Marshal(output)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal method to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
 }
 
 func UrlToYaml(pmURL PMURL) (string, error) {
@@ -237,6 +257,100 @@ func BodyToYaml(pmbody Body) (string, error) {
 	}
 
 	return strings.TrimSpace(string(yamlBytes)), nil
+}
+
+// ConvertRequestToYAML converts a Postman collection file to YAML format
+func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
+	// Convert the map[string]any to JSON bytes for unmarshaling into PmCollection
+	jsonBytes, err := json.Marshal(jsonStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal content: %w", err)
+	}
+
+	// Parse JSON into PmCollection struct
+	var collection PmCollection
+	if err := json.Unmarshal(jsonBytes, &collection); err != nil {
+		return "", fmt.Errorf("failed to parse collection structure: %w", err)
+	}
+
+	var yamlParts []string
+
+	// Add collection info as a comment
+	collectionInfo := fmt.Sprintf("# Collection: %s\n", collection.Info.Name)
+	if collection.Info.Description != "" {
+		collectionInfo += fmt.Sprintf("# Description: %s\n", collection.Info.Description)
+	}
+	yamlParts = append(yamlParts, collectionInfo)
+
+	// Process each item in the collection
+	for _, item := range collection.Item {
+		if item.Request == nil {
+			continue
+		}
+
+		// Convert method to YAML
+		methodYAML, err := MethodToYaml(item.Request.Method)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
+		}
+
+		// Convert URL to YAML
+		urlYAML, err := UrlToYaml(*item.Request.URL)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
+		}
+
+		// Convert headers to YAML
+		headerYAML, err := HeaderToYAML(item.Request.Header)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
+		}
+
+		// Convert body to YAML if it exists
+		var bodyYAML string
+		if item.Request.Body != nil {
+			var err error
+			bodyYAML, err = BodyToYaml(*item.Request.Body)
+			if err != nil {
+				return "", fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
+			}
+		}
+
+		// Build request YAML
+		requestYAML := fmt.Sprintf("# Request: %s\n", item.Name)
+		if item.Description != "" {
+			requestYAML += fmt.Sprintf("# Description: %s\n", item.Description)
+		}
+
+		// Remove prefixes and clean up the components
+		methodYAML = strings.TrimPrefix(strings.TrimSpace(methodYAML), "method:")
+		urlYAML = strings.TrimSpace(urlYAML)
+		headerYAML = strings.TrimSpace(headerYAML)
+		bodyYAML = strings.TrimSpace(bodyYAML)
+
+		// Combine all parts with proper indentation
+		requestYAML += fmt.Sprintf("method:%s\n", methodYAML)
+		requestYAML += urlYAML + "\n"
+
+		if headerYAML != "" {
+			requestYAML += headerYAML + "\n"
+		}
+
+		if bodyYAML != "" {
+			requestYAML += bodyYAML + "\n"
+		}
+
+		yamlParts = append(yamlParts, requestYAML)
+	}
+
+	// Add metadata as comments
+	metadata := fmt.Sprintf("# Generated: %s\n# User: %s\n",
+		time.Now().UTC().Format("2006-01-02 15:04:05"),
+		"xaaha")
+
+	// Combine everything with separators
+	finalYAML := metadata + strings.Join(yamlParts, "\n---\n\n")
+	return finalYAML, nil
 }
 
 // Sudo Code
