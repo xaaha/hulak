@@ -19,7 +19,7 @@ type Info struct {
 
 // when collection contains subfolders folders
 type Item struct {
-	Item []RequestFile `json:"item"`
+	Item []EachItemObject `json:"item"`
 }
 
 type EachItemObject struct {
