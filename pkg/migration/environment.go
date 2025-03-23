@@ -4,7 +4,6 @@ package migration
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -126,12 +125,4 @@ func MigrateEnv(env Environment) error {
 
 	utils.PrintGreen("\nEnvironment migration successful!")
 	return nil
-}
-
-// since go template has dot reserved (.) , replace it with _ and delete all other special chars
-func sanitizeKey(key string) string {
-	key = strings.ReplaceAll(key, ".", "_")
-	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	key = re.ReplaceAllString(key, "")
-	return key
 }

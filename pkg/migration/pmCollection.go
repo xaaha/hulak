@@ -240,8 +240,6 @@ func BodyToYaml(pmbody Body) (string, error) {
 }
 
 // Sudo Code
-// Construct URL from Raw. Substract query from raw url ✅
-// Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}} // surround with ""  ✅
 // Migrate Variables to Global with the name of where it is coming from.
 // First, refactor a create folder function from envparser
 // Then create file with the name from the request name. Get this from envparser

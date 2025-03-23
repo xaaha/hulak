@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 )
 
 // KeyValuePair represents a generic key-value pair used in various Postman structures
@@ -40,20 +41,29 @@ func ReadPmFile(filePath string) (map[string]any, error) {
 	return jsonStrFile, nil
 }
 
+// since go template has dot reserved (.) , replace it with _ and delete all other special chars
+func sanitizeKey(key string) string {
+	key = strings.ReplaceAll(key, ".", "_")
+	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	key = re.ReplaceAllString(key, "")
+	return key
+}
+
 // addDotToTemplate adds a dot after opening braces in template expressions that don't already have one.
 // Example: {{value}} becomes {{.value}}, but {{.anyV}} remains unchanged
-func addDotToTemplate(s string) string {
-	if s == "" {
-		return s
+func addDotToTemplate(key string) string {
+	if key == "" {
+		return key
 	}
 	// Create a regex to find pattern {{identifier}} where there's no dot after {{
 	// The regex matches {{ followed by anything except a dot or closing braces,
 	// followed by any characters until }}
 	re := regexp.MustCompile(`\{\{([^.\}][^\}]*)\}\}`)
 	// Replace each occurrence with {{. followed by the captured content
-	result := re.ReplaceAllStringFunc(s, func(match string) string {
+	result := re.ReplaceAllStringFunc(key, func(match string) string {
 		// Extract the content inside {{ }}
 		content := match[2 : len(match)-2]
+		content = sanitizeKey(content)
 		return "{{." + content + "}}"
 	})
 
