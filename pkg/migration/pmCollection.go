@@ -12,7 +12,7 @@ import (
 // PmCollection represents the overall Postman collection
 type PmCollection struct {
 	Info     Info           `json:"info"`
-	Variable []KeyValuePair `josn:"variable,omitempty"`
+	Variable []KeyValuePair `            josn:"variable,omitempty"`
 }
 
 // Info represents the info object in a Postman collection
@@ -146,6 +146,7 @@ func UrlToYaml(pmURL PMURL) (string, error) {
 	return string(yamlBytes), nil
 }
 
+// convet pm header from json to yaml for hulak
 func HeaderToYAML(header []KeyValuePair) (string, error) {
 	if len(header) == 0 {
 		return "", nil
@@ -169,6 +170,67 @@ func HeaderToYAML(header []KeyValuePair) (string, error) {
 	yamlBytes, err := yaml.Marshal(output)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal headers to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
+}
+
+// BodyToYaml converts a Postman Body struct to a YAML format that matches yamlParser.Body
+func BodyToYaml(pmbody Body) (string, error) {
+	var yamlOutput yamlParser.Body
+
+	switch pmbody.Mode {
+	case "raw":
+		if pmbody.Raw != "" {
+			yamlOutput = yamlParser.Body{Raw: addDotToTemplate(pmbody.Raw)}
+		}
+
+	case "urlencoded":
+		if len(pmbody.URLEncoded) > 0 {
+			urlEncodedMap := make(map[string]string)
+			for _, pair := range pmbody.URLEncoded {
+				urlEncodedMap[addDotToTemplate(pair.Key)] = addDotToTemplate(pair.Value)
+			}
+			yamlOutput = yamlParser.Body{UrlEncodedFormData: urlEncodedMap}
+		}
+
+	case "formdata":
+		if len(pmbody.FormData) > 0 {
+			formDataMap := make(map[string]string)
+			for _, pair := range pmbody.FormData {
+				formDataMap[addDotToTemplate(pair.Key)] = addDotToTemplate(pair.Value)
+			}
+			yamlOutput = yamlParser.Body{FormData: formDataMap}
+		}
+
+	case "graphql":
+		if pmbody.GraphQL != nil {
+			graphql := yamlParser.GraphQl{
+				Query:     addDotToTemplate(pmbody.GraphQL.Query),
+				Variables: make(map[string]any),
+			}
+
+			for key, value := range pmbody.GraphQL.Variables {
+				if strValue, ok := value.(string); ok {
+					graphql.Variables[key] = addDotToTemplate(strValue)
+				} else {
+					graphql.Variables[key] = value
+				}
+			}
+
+			yamlOutput = yamlParser.Body{Graphql: &graphql}
+		}
+
+	case "none", "":
+		return "", nil
+
+	default:
+		return "", fmt.Errorf("unsupported body mode: %s", pmbody.Mode)
+	}
+
+	yamlBytes, err := yaml.Marshal(yamlOutput)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal body to YAML: %w", err)
 	}
 
 	return string(yamlBytes), nil

@@ -3,6 +3,8 @@ package migration
 import (
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 func TestURLToYAML(t *testing.T) {
@@ -458,6 +460,229 @@ func TestHeaderToYAML(t *testing.T) {
 		}
 		if !strings.Contains(result, "content-type: text/plain") {
 			t.Errorf("YAML doesn't include content-type header: %s", result)
+		}
+	})
+}
+
+func TestBodyToYaml(t *testing.T) {
+	// Helper function to normalize YAML for comparison
+	normalizeYAML := func(yaml string) string {
+		return strings.TrimSpace(yaml)
+	}
+
+	// Helper function to compare expected vs actual
+	compareYAML := func(t *testing.T, expected, actual string) {
+		t.Helper()
+		expectedNorm := normalizeYAML(expected)
+		actualNorm := normalizeYAML(actual)
+
+		if expectedNorm != actualNorm {
+			t.Errorf("YAML mismatch:\nExpected:\n%s\n\nActual:\n%s", expectedNorm, actualNorm)
+		}
+	}
+
+	t.Run("Raw body", func(t *testing.T) {
+		input := Body{
+			Mode: "raw",
+			Raw:  `{"name": "John", "age": 30}`,
+		}
+		expected := `raw: '{"name": "John", "age": 30}'`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("Raw body with template", func(t *testing.T) {
+		input := Body{
+			Mode: "raw",
+			Raw:  `{"name": "{{name}}", "token": "{{token}}"}`,
+		}
+		expected := `raw: '{"name": "{{.name}}", "token": "{{.token}}"}'`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("URLEncoded form data", func(t *testing.T) {
+		input := Body{
+			Mode: "urlencoded",
+			URLEncoded: []KeyValuePair{
+				{Key: "username", Value: "john_doe"},
+				{Key: "password", Value: "secret123"},
+			},
+		}
+		expected := `urlencodedformdata:
+  username: john_doe
+  password: secret123`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("URLEncoded with template variables", func(t *testing.T) {
+		input := Body{
+			Mode: "urlencoded",
+			URLEncoded: []KeyValuePair{
+				{Key: "username", Value: "{{username}}"},
+				{Key: "apiKey", Value: "{{apiKey}}"},
+			},
+		}
+		expected := `urlencodedformdata:
+  username: "{{.username}}"
+  apiKey: "{{.apiKey}}"`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("Form data", func(t *testing.T) {
+		input := Body{
+			Mode: "formdata",
+			FormData: []KeyValuePair{
+				{Key: "file", Value: "@/path/to/file.jpg"},
+				{Key: "description", Value: "Profile picture"},
+			},
+		}
+		expected := `formdata:
+  file: "@/path/to/file.jpg"
+  description: "Profile picture"`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("Form data with template", func(t *testing.T) {
+		input := Body{
+			Mode: "formdata",
+			FormData: []KeyValuePair{
+				{Key: "token", Value: "{{authToken}}"},
+				{Key: "user", Value: "{{userId}}"},
+			},
+		}
+		expected := `formdata:
+  token: "{{.authToken}}"
+  user: "{{.userId}}"`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("GraphQL query", func(t *testing.T) {
+		input := Body{
+			Mode: "graphql",
+			GraphQL: &yamlParser.GraphQl{
+				Query: `query GetUser {
+  user(id: "1") {
+    name
+    email
+  }
+}`,
+				Variables: map[string]any{
+					"id": "1",
+				},
+			},
+		}
+		expected := `graphql:
+  query: 'query GetUser {
+  user(id: "1") {
+    name
+    email
+  }
+}'
+  variables:
+    id: '1'`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("GraphQL with template variables", func(t *testing.T) {
+		input := Body{
+			Mode: "graphql",
+			GraphQL: &yamlParser.GraphQl{
+				Query: `query GetUser {
+  user(id: "{{userId}}") {
+    name
+    email
+  }
+}`,
+				Variables: map[string]any{
+					"id": "{{userId}}",
+				},
+			},
+		}
+		expected := `graphql:
+  query: 'query GetUser {
+  user(id: "{{.userId}}") {
+    name
+    email
+  }
+}'
+  variables:
+    id: '{{.userId}}'`
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("No body (mode: none)", func(t *testing.T) {
+		input := Body{
+			Mode: "none",
+		}
+		expected := ``
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("Empty body (no mode)", func(t *testing.T) {
+		input := Body{
+			Mode: "",
+		}
+		expected := ``
+
+		result, err := BodyToYaml(input)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		compareYAML(t, expected, result)
+	})
+
+	t.Run("Unsupported body mode", func(t *testing.T) {
+		input := Body{
+			Mode: "unsupported",
+		}
+
+		_, err := BodyToYaml(input)
+		if err == nil {
+			t.Fatal("Expected error for unsupported body mode, but got nil")
 		}
 	})
 }
