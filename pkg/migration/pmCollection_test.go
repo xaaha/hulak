@@ -466,8 +466,10 @@ func TestHeaderToYAML(t *testing.T) {
 
 func TestBodyToYaml(t *testing.T) {
 	// Helper function to normalize YAML for comparison
-	normalizeYAML := func(yaml string) string {
-		return strings.TrimSpace(yaml)
+	normalizeYAML := func(yamlStr string) string {
+		yamlStr = strings.TrimSpace(yamlStr)              // Remove extra spaces
+		yamlStr = strings.ReplaceAll(yamlStr, `\n`, "\n") // Convert `\n` to actual newlines
+		return yamlStr
 	}
 
 	// Helper function to compare expected vs actual

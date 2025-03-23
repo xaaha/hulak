@@ -177,12 +177,12 @@ func HeaderToYAML(header []KeyValuePair) (string, error) {
 
 // BodyToYaml converts a Postman Body struct to a YAML format that matches yamlParser.Body
 func BodyToYaml(pmbody Body) (string, error) {
-	var yamlOutput yamlParser.Body
+	yamlOutput := make(map[string]any)
 
 	switch pmbody.Mode {
 	case "raw":
 		if pmbody.Raw != "" {
-			yamlOutput = yamlParser.Body{Raw: addDotToTemplate(pmbody.Raw)}
+			yamlOutput["raw"] = addDotToTemplate(pmbody.Raw)
 		}
 
 	case "urlencoded":
@@ -191,7 +191,7 @@ func BodyToYaml(pmbody Body) (string, error) {
 			for _, pair := range pmbody.URLEncoded {
 				urlEncodedMap[addDotToTemplate(pair.Key)] = addDotToTemplate(pair.Value)
 			}
-			yamlOutput = yamlParser.Body{UrlEncodedFormData: urlEncodedMap}
+			yamlOutput["urlencodedformdata"] = urlEncodedMap
 		}
 
 	case "formdata":
@@ -200,25 +200,27 @@ func BodyToYaml(pmbody Body) (string, error) {
 			for _, pair := range pmbody.FormData {
 				formDataMap[addDotToTemplate(pair.Key)] = addDotToTemplate(pair.Value)
 			}
-			yamlOutput = yamlParser.Body{FormData: formDataMap}
+			yamlOutput["formdata"] = formDataMap
 		}
 
 	case "graphql":
 		if pmbody.GraphQL != nil {
-			graphql := yamlParser.GraphQl{
-				Query:     addDotToTemplate(pmbody.GraphQL.Query),
-				Variables: make(map[string]any),
-			}
+			graphql := make(map[string]any)
+			graphql["query"] = addDotToTemplate(pmbody.GraphQL.Query)
 
-			for key, value := range pmbody.GraphQL.Variables {
-				if strValue, ok := value.(string); ok {
-					graphql.Variables[key] = addDotToTemplate(strValue)
-				} else {
-					graphql.Variables[key] = value
+			if len(pmbody.GraphQL.Variables) > 0 {
+				variables := make(map[string]any)
+				for key, value := range pmbody.GraphQL.Variables {
+					if strValue, ok := value.(string); ok {
+						variables[key] = addDotToTemplate(strValue)
+					} else {
+						variables[key] = value
+					}
 				}
+				graphql["variables"] = variables
 			}
 
-			yamlOutput = yamlParser.Body{Graphql: &graphql}
+			yamlOutput["graphql"] = graphql
 		}
 
 	case "none", "":
@@ -228,12 +230,13 @@ func BodyToYaml(pmbody Body) (string, error) {
 		return "", fmt.Errorf("unsupported body mode: %s", pmbody.Mode)
 	}
 
+	// Marshal to YAML
 	yamlBytes, err := yaml.Marshal(yamlOutput)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal body to YAML: %w", err)
 	}
 
-	return string(yamlBytes), nil
+	return strings.TrimSpace(string(yamlBytes)), nil
 }
 
 // Sudo Code
