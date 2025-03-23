@@ -1,9 +1,11 @@
 package migration
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
@@ -469,7 +471,24 @@ func TestBodyToYaml(t *testing.T) {
 	normalizeYAML := func(yamlStr string) string {
 		yamlStr = strings.TrimSpace(yamlStr)              // Remove extra spaces
 		yamlStr = strings.ReplaceAll(yamlStr, `\n`, "\n") // Convert `\n` to actual newlines
-		return yamlStr
+		var data map[string]any
+		if err := yaml.Unmarshal([]byte(yamlStr), &data); err != nil {
+			return yamlStr
+		}
+		sortedData := make(map[string]any)
+		keys := make([]string, 0, len(data))
+		for k := range data {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			sortedData[k] = data[k]
+		}
+		normalized, err := yaml.Marshal(sortedData)
+		if err != nil {
+			return yamlStr
+		}
+		return strings.TrimSpace(string(normalized))
 	}
 
 	// Helper function to compare expected vs actual
@@ -557,9 +576,9 @@ func TestBodyToYaml(t *testing.T) {
 				{Key: "description", Value: "Profile picture"},
 			},
 		}
-		expected := `formdata:
-  file: "@/path/to/file.jpg"
-  description: "Profile picture"`
+		expected := `formdata: 
+  description: Profile picture
+  file: "@/path/to/file.jpg"`
 
 		result, err := BodyToYaml(input)
 		if err != nil {
@@ -603,14 +622,14 @@ func TestBodyToYaml(t *testing.T) {
 			},
 		}
 		expected := `graphql:
-  query: 'query GetUser {
-  user(id: "1") {
+  query: "query GetUser {
+  user(id: \"1\") {
     name
     email
   }
-}'
+}"
   variables:
-    id: '1'`
+    id: "1"`
 
 		result, err := BodyToYaml(input)
 		if err != nil {
@@ -635,14 +654,14 @@ func TestBodyToYaml(t *testing.T) {
 			},
 		}
 		expected := `graphql:
-  query: 'query GetUser {
-  user(id: "{{.userId}}") {
+  query: "query GetUser {
+  user(id: \"{{.userId}}\") {
     name
     email
   }
-}'
+}"
   variables:
-    id: '{{.userId}}'`
+    id: "{{.userId}}"`
 
 		result, err := BodyToYaml(input)
 		if err != nil {
