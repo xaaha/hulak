@@ -94,3 +94,12 @@ func MigrateCollection(collection PmCollection) error {
 	// Implementation to come
 	return utils.ColorError("collection migration not yet implemented")
 }
+
+// Sudo Code
+// Import all body type, and make struct for it.
+// Have a function that encodes the json to yaml
+// Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}}
+// Migrate Variables to Global with the name of where it is coming from.
+// First, refactor a create folder function from envparser
+// Then create file with the name from the request name. Get this from envparser
+// Then recursively create folder, nested folders and request on the
