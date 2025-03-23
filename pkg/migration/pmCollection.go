@@ -1,6 +1,10 @@
 package migration
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
@@ -104,9 +108,47 @@ func MigrateCollection(collection PmCollection) error {
 	return utils.ColorError("collection migration not yet implemented")
 }
 
+func URLToYAML(pmURL PMURL) (string, error) {
+	type YAMLOutput struct {
+		URL       string            `yaml:"url"`
+		URLParams map[string]string `yaml:"urlparams,omitempty"`
+	}
+	output := YAMLOutput{
+		URLParams: make(map[string]string),
+	}
+
+	rawURL := string(pmURL.Raw)
+	baseURL := rawURL
+
+	if strings.Contains(rawURL, "?") {
+		baseURL = strings.Split(rawURL, "?")[0]
+	}
+
+	baseURL = addDotToTemplate(baseURL)
+	output.URL = baseURL
+
+	// Process query parameters
+	for _, param := range pmURL.Query {
+		output.URLParams[addDotToTemplate(param.Key)] = addDotToTemplate(param.Value)
+	}
+
+	// If no URL params, remove the field
+	if len(output.URLParams) == 0 {
+		output.URLParams = nil
+	}
+
+	// Convert to YAML
+	yamlBytes, err := yaml.Marshal(output)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
+}
+
 // Sudo Code
 // Construct URL from Raw. Substract query from raw url
-// Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}} // surround with ""
+// Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}} // surround with ""  ✅
 // Have a function that encodes the json to yaml
 // Migrate Variables to Global with the name of where it is coming from.
 // First, refactor a create folder function from envparser

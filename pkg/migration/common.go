@@ -40,9 +40,9 @@ func ReadPmFile(filePath string) (map[string]any, error) {
 	return jsonStrFile, nil
 }
 
-// AddDotToTemplate adds a dot after opening braces in template expressions that don't already have one.
+// addDotToTemplate adds a dot after opening braces in template expressions that don't already have one.
 // Example: {{value}} becomes {{.value}}, but {{.anyV}} remains unchanged
-func AddDotToTemplate(s string) string {
+func addDotToTemplate(s string) string {
 	if s == "" {
 		return s
 	}

@@ -80,7 +80,7 @@ func TestAddDotToTemplate(t *testing.T) {
 	// Run test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := AddDotToTemplate(tc.input)
+			result := addDotToTemplate(tc.input)
 			if result != tc.expected {
 				t.Errorf("Test case '%s' failed:\nInput: %q\nExpected: %q\nGot: %q",
 					tc.name, tc.input, tc.expected, result)
@@ -93,6 +93,6 @@ func BenchmarkAddDotToTemplate(b *testing.B) {
 	input := "Template with {{first}}, {{.second}}, and {{third}}"
 
 	for b.Loop() {
-		AddDotToTemplate(input)
+		addDotToTemplate(input)
 	}
 }
