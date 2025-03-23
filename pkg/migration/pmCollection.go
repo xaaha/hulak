@@ -19,8 +19,7 @@ type Info struct {
 
 // when collection contains subfolders folders
 type Item struct {
-	Name string    `json:"name"`
-	Item []Request `json:"item"`
+	Item []RequestFile `json:"item"`
 }
 
 // PmUrl represents PmUrl information in a request
@@ -42,18 +41,22 @@ type PmBody struct {
 }
 
 // TODO: This can get big. Test/check all possible cases
-type Request struct {
+// Represents individual request file but it could also contain sub dir
+type RequestFile struct {
+	Name        string                    `json:"name"`
 	Description string                    `json:"description"`
 	URL         PmUrl                     `json:"url"`
 	Method      yamlParser.HTTPMethodType `json:"method"`
 	Header      []KeyValuePair            `json:"header"`
 	Body        PmBody                    `json:"body"`
+	// if the collection nested subfolders, item is present
+	Item Item `json:"item"`
 }
 
 // CollectionItemRequest represents each request
 type CollectionItemRequest struct {
-	FileName string  `json:"name"`
-	Request  Request `json:"request"`
+	FileName string      `json:"name"`
+	Request  RequestFile `json:"request"`
 }
 
 // CollectionItem represents an item in a Postman collection
