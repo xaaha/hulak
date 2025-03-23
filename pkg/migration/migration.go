@@ -28,8 +28,12 @@ func CompleteMigration(filePaths []string) error {
 				return utils.ColorError("error migrating environment: %w", err)
 			}
 		} else if IsCollection(jsonStr) {
-			// Future implementation for collection migration
-			utils.PrintWarning("Collection migration coming soon for file: " + path)
+			str, err := ConvertRequestToYAML(jsonStr)
+			if err != nil {
+				utils.PrintWarning("Collection migration did not work for: " + path)
+				return err
+			}
+			fmt.Println(str)
 		} else {
 			utils.PrintWarning("Unknown Postman file format: " + path)
 		}
