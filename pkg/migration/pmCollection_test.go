@@ -444,7 +444,7 @@ func TestHeaderToYAML(t *testing.T) {
 				Key:   "content-type",
 				Value: "text/plain",
 				Type:  "text",
-			}, // Duplicate with different case
+			},
 		}
 
 		result, err := HeaderToYAML(input)
