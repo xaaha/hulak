@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 )
 
 // KeyValuePair represents a generic key-value pair used in various Postman structures
@@ -37,4 +38,24 @@ func ReadPmFile(filePath string) (map[string]any, error) {
 	}
 
 	return jsonStrFile, nil
+}
+
+// AddDotToTemplate adds a dot after opening braces in template expressions that don't already have one.
+// Example: {{value}} becomes {{.value}}, but {{.anyV}} remains unchanged
+func AddDotToTemplate(s string) string {
+	if s == "" {
+		return s
+	}
+	// Create a regex to find pattern {{identifier}} where there's no dot after {{
+	// The regex matches {{ followed by anything except a dot or closing braces,
+	// followed by any characters until }}
+	re := regexp.MustCompile(`\{\{([^.\}][^\}]*)\}\}`)
+	// Replace each occurrence with {{. followed by the captured content
+	result := re.ReplaceAllStringFunc(s, func(match string) string {
+		// Extract the content inside {{ }}
+		content := match[2 : len(match)-2]
+		return "{{." + content + "}}"
+	})
+
+	return result
 }

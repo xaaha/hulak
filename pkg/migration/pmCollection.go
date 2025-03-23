@@ -72,15 +72,22 @@ type PMURL struct {
 
 // Body represents request body with different modes
 type Body struct {
-	Mode       string         `json:"mode"`
-	Raw        string         `json:"raw,omitempty"`
-	URLEncoded []KeyValuePair `json:"urlencoded,omitempty"` // TODO: check this
-	FormData   []KeyValuePair `json:"formdata,omitempty"`   // TODO: check this
-	Options    *struct {
-		Raw *struct {
-			Language string `json:"language"`
-		} `json:"raw,omitempty"`
-	} `json:"options,omitempty"`
+	Mode       string              `json:"mode"`
+	Raw        string              `json:"raw,omitempty"`
+	URLEncoded []KeyValuePair      `json:"urlencoded,omitempty"`
+	FormData   []KeyValuePair      `json:"formdata,omitempty"`
+	GraphQL    *yamlParser.GraphQl `json:"graphql,omitempty"`
+	Options    *BodyOptions        `json:"options,omitempty"`
+}
+
+// BodyOptions represents options for different body modes
+type BodyOptions struct {
+	Raw *RawOptions `json:"raw,omitempty"`
+}
+
+// RawOptions represents options specific to raw body mode
+type RawOptions struct {
+	Language string `json:"language"`
 }
 
 // IsCollection determines if the JSON contains a Postman collection
@@ -98,10 +105,9 @@ func MigrateCollection(collection PmCollection) error {
 }
 
 // Sudo Code
-// Import all body type, and make struct for it.
-// Have a function that encodes the json to yaml
 // Construct URL from Raw. Substract query from raw url
 // Change Value of string from {{valueK}} to {{.valueK}} // add dot after {{.}} // surround with ""
+// Have a function that encodes the json to yaml
 // Migrate Variables to Global with the name of where it is coming from.
 // First, refactor a create folder function from envparser
 // Then create file with the name from the request name. Get this from envparser
