@@ -22,6 +22,12 @@ type Item struct {
 	Item []RequestFile `json:"item"`
 }
 
+type EachItemObject struct {
+	Name        string      `json:"name"`
+	Item        Item        `json:"item"` // present if nested directories exists
+	RequestFile RequestFile `json:"request"`
+}
+
 // PmUrl represents PmUrl information in a request
 type PmUrl struct {
 	Raw   string         `json:"raw"`
@@ -41,7 +47,7 @@ type PmBody struct {
 }
 
 // TODO: This can get big. Test/check all possible cases
-// Represents individual request file but it could also contain sub dir
+// Represents individual request file
 type RequestFile struct {
 	Name        string                    `json:"name"`
 	Description string                    `json:"description"`
@@ -49,8 +55,6 @@ type RequestFile struct {
 	Method      yamlParser.HTTPMethodType `json:"method"`
 	Header      []KeyValuePair            `json:"header"`
 	Body        PmBody                    `json:"body"`
-	// if the collection nested subfolders, item is present
-	Item Item `json:"item"`
 }
 
 // CollectionItemRequest represents each request
