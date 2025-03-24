@@ -24,12 +24,12 @@ func CreateFilePath(filePath string) (string, error) {
 // Get a list of environment file names from the env folder
 func (u *Utilities) GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
-	dir, err := os.Getwd()
+	// get a list of envFileName
+	envPath, err := CreateFilePath(EnvironmentFolder)
 	if err != nil {
 		return environmentFiles, err
 	}
-	// get a list of envFileName
-	contents, err := os.ReadDir(dir + "/env")
+	contents, err := os.ReadDir(envPath)
 	if err != nil {
 		panic(err)
 	}
