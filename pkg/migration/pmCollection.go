@@ -49,6 +49,7 @@ type Script struct {
 }
 
 // Response represents saved responses
+// TODO: Save these as a json file filename_example.json
 type Response struct {
 	Name            string         `json:"name"`
 	OriginalRequest Request        `json:"originalRequest"`
@@ -282,9 +283,12 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 	var yamlParts []string
 
 	// Add collection info as a comment
+	// TODO: Make this a folder Name
 	collectionInfo := fmt.Sprintf("# Collection: %s\n", collection.Info.Name)
 	if collection.Info.Description != "" {
-		collectionInfo += fmt.Sprintf("# Description: %s\n", collection.Info.Description)
+		// TODO: Add the description to a description.txt file
+		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
+		collectionInfo += fmt.Sprintf("# Description: %s\n", str)
 	}
 	yamlParts = append(yamlParts, collectionInfo)
 
@@ -325,6 +329,7 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 		// Build request YAML
 		requestYAML := fmt.Sprintf("# Request: %s\n", item.Name)
 		if item.Description != "" {
+			// TODO: Each item description is a description.txt file in the folder
 			requestYAML += fmt.Sprintf("# Description: %s\n", item.Description)
 		}
 
