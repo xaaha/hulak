@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/goccy/go-yaml"
-	"github.com/xaaha/hulak/pkg/yamlParser"
 )
 
 func TestURLToYAML(t *testing.T) {
@@ -609,16 +608,14 @@ func TestBodyToYaml(t *testing.T) {
 	t.Run("GraphQL query", func(t *testing.T) {
 		input := Body{
 			Mode: "graphql",
-			GraphQL: &yamlParser.GraphQl{
+			GraphQL: &GraphQl{
 				Query: `query GetUser {
   user(id: "1") {
     name
     email
   }
 }`,
-				Variables: map[string]any{
-					"id": "1",
-				},
+				Variables: `{"id": "1"}`,
 			},
 		}
 		expected := `graphql:
@@ -641,16 +638,16 @@ func TestBodyToYaml(t *testing.T) {
 	t.Run("GraphQL with template variables", func(t *testing.T) {
 		input := Body{
 			Mode: "graphql",
-			GraphQL: &yamlParser.GraphQl{
+			GraphQL: &GraphQl{
 				Query: `query GetUser {
   user(id: "{{userId}}") {
     name
     email
   }
 }`,
-				Variables: map[string]any{
-					"id": "{{userId}}",
-				},
+				Variables: `{
+                "id": "{{userId}}"
+            }`,
 			},
 		}
 		expected := `graphql:

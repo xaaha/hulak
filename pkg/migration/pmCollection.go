@@ -14,7 +14,7 @@ import (
 // PmCollection represents the overall Postman collection
 type PmCollection struct {
 	Info     Info           `json:"info"`
-	Variable []KeyValuePair `josn:"variable,omitempty"`
+	Variable []KeyValuePair `json:"variable,omitempty"`
 	Item     []ItemOrReq    `json:"item"`
 }
 
@@ -77,14 +77,19 @@ type PMURL struct {
 	Query []KeyValuePair `json:"query,omitempty"`
 }
 
+type GraphQl struct {
+	Variables string `json:"variables,omitempty" yaml:"variables"`
+	Query     string `json:"query,omitempty"     yaml:"query"`
+}
+
 // Body represents request body with different modes
 type Body struct {
-	Mode       string              `json:"mode"`
-	Raw        string              `json:"raw,omitempty"`
-	URLEncoded []KeyValuePair      `json:"urlencoded,omitempty"`
-	FormData   []KeyValuePair      `json:"formdata,omitempty"`
-	GraphQL    *yamlParser.GraphQl `json:"graphql,omitempty"`
-	Options    *BodyOptions        `json:"options,omitempty"`
+	Mode       string         `json:"mode"`
+	Raw        string         `json:"raw,omitempty"`
+	URLEncoded []KeyValuePair `json:"urlencoded,omitempty"`
+	FormData   []KeyValuePair `json:"formdata,omitempty"`
+	GraphQL    *GraphQl       `json:"graphql,omitempty"`
+	Options    *BodyOptions   `json:"options,omitempty"`
 }
 
 // BodyOptions represents options for different body modes
@@ -230,7 +235,8 @@ func BodyToYaml(pmbody Body) (string, error) {
 
 			if len(pmbody.GraphQL.Variables) > 0 {
 				variables := make(map[string]any)
-				for key, value := range pmbody.GraphQL.Variables {
+				gqlVarmap := createMap(pmbody.GraphQL.Variables)
+				for key, value := range gqlVarmap {
 					if strValue, ok := value.(string); ok {
 						variables[key] = addDotToTemplate(strValue)
 					} else {

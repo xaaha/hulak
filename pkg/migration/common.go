@@ -69,3 +69,19 @@ func addDotToTemplate(key string) string {
 
 	return result
 }
+
+// createMap converts a JSON string into a map[string]any
+func createMap(str string) map[string]any {
+	str = strings.ReplaceAll(str, "\n", "")
+	str = strings.ReplaceAll(str, " ", "")
+	str = strings.TrimSpace(str)
+
+	result := make(map[string]any)
+	// Unmarshal the cleaned JSON string into the result map
+	if err := json.Unmarshal([]byte(str), &result); err != nil {
+		fmt.Println("Error unmarshaling JSON:", err)
+		return nil
+	}
+
+	return result
+}
