@@ -27,7 +27,7 @@ func CreateDir(dirPath string) error {
 		if !info.IsDir() {
 			return fmt.Errorf("path '%s' exists but is a file", dirPath)
 		}
-		return nil
+		return nil // Dir already exists
 	}
 	if !os.IsNotExist(err) {
 		return err
