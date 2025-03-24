@@ -15,8 +15,9 @@ type KeyValuePair struct {
 	Type  string `json:"type,omitempty"`
 }
 
-// ReadPmFile reads a Postman JSON file and returns the parsed content
-func ReadPmFile(filePath string) (map[string]any, error) {
+// readJson reads a JSON file and checks whether file exists, is empty,
+// or if an error occurs while reading the file. It returns the parsed content
+func readJson(filePath string) (map[string]any, error) {
 	// Check if the file exists and get its info
 	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {

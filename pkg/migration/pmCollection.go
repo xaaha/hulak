@@ -117,7 +117,8 @@ func MigrateCollection(collection PmCollection) error {
 	return utils.ColorError("collection migration not yet implemented")
 }
 
-func MethodToYaml(method yamlParser.HTTPMethodType) (string, error) {
+// converts method present in pm json file to yaml string
+func methodToYaml(method yamlParser.HTTPMethodType) (string, error) {
 	type YAMLOutput struct {
 		Method string `yaml:"method"`
 	}
@@ -134,7 +135,7 @@ func MethodToYaml(method yamlParser.HTTPMethodType) (string, error) {
 	return string(yamlBytes), nil
 }
 
-func UrlToYaml(pmURL PMURL) (string, error) {
+func urlToYaml(pmURL PMURL) (string, error) {
 	type YAMLOutput struct {
 		URL       string            `yaml:"url"`
 		URLParams map[string]string `yaml:"urlparams,omitempty"`
@@ -173,7 +174,7 @@ func UrlToYaml(pmURL PMURL) (string, error) {
 }
 
 // convet pm header from json to yaml for hulak
-func HeaderToYAML(header []KeyValuePair) (string, error) {
+func headerToYAML(header []KeyValuePair) (string, error) {
 	if len(header) == 0 {
 		return "", nil
 	}
@@ -201,8 +202,8 @@ func HeaderToYAML(header []KeyValuePair) (string, error) {
 	return string(yamlBytes), nil
 }
 
-// BodyToYaml converts a Postman Body struct to a YAML format that matches yamlParser.Body
-func BodyToYaml(pmbody Body) (string, error) {
+// bodyToYaml converts a Postman Body struct to a YAML format that matches yamlParser.Body
+func bodyToYaml(pmbody Body) (string, error) {
 	yamlOutput := make(map[string]any)
 
 	switch pmbody.Mode {
@@ -299,19 +300,19 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 		}
 
 		// Convert method to YAML
-		methodYAML, err := MethodToYaml(item.Request.Method)
+		methodYAML, err := methodToYaml(item.Request.Method)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
 		}
 
 		// Convert URL to YAML
-		urlYAML, err := UrlToYaml(*item.Request.URL)
+		urlYAML, err := urlToYaml(*item.Request.URL)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
 		}
 
 		// Convert headers to YAML
-		headerYAML, err := HeaderToYAML(item.Request.Header)
+		headerYAML, err := headerToYAML(item.Request.Header)
 		if err != nil {
 			return "", fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
 		}
@@ -320,7 +321,7 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 		var bodyYAML string
 		if item.Request.Body != nil {
 			var err error
-			bodyYAML, err = BodyToYaml(*item.Request.Body)
+			bodyYAML, err = bodyToYaml(*item.Request.Body)
 			if err != nil {
 				return "", fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
 			}
