@@ -50,3 +50,14 @@ const (
 
 // Auth2.0 ResponseType
 const ResponseType = "code"
+
+// Permissions for creating directory and files
+const (
+	DirPer  = 0755
+	FilePer = 0644
+)
+
+const (
+	CheckMark = "\u2713"
+	CrossMark = "\u2717"
+)

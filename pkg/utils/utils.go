@@ -19,6 +19,42 @@ func CreateFilePath(filePath string) (string, error) {
 	return finalFilePath, nil
 }
 
+// CreateDir checks for the existence of a directory at the given path,
+// and creates it with permissions 0755 if it does not exist.
+func CreateDir(dirPath string) error {
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		if err := os.Mkdir(dirPath, DirPer); err != nil {
+			PrintRed("Error creating env directory \u2717")
+			return err
+		}
+		PrintGreen("Created env directory \u2713")
+	}
+	return nil
+}
+
+// CreateFile checks for the existence of a file at the given filePath,
+// and creates it if it does not exist.
+func CreateFile(filePath string) error {
+	fileName := filepath.Base(filePath)
+	info, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		file, err := os.Create(filePath)
+		if err != nil {
+			PrintRed(fmt.Sprintf("Error creating '%s': %s", fileName, CrossMark))
+			return err
+		}
+		defer file.Close()
+		PrintGreen(fmt.Sprintf("Created '%s': %s", fileName, CheckMark))
+	} else if err != nil {
+		PrintRed(fmt.Sprintf("Error checking '%s': %v", fileName, err))
+		return err
+	} else if info.Mode().IsRegular() {
+		PrintWarning(fmt.Sprintf("File '%s' already exists.", filePath))
+	}
+
+	return nil
+}
+
 // Get a list of environment file names from the env folder
 func GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
