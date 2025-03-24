@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-type Utilities struct{}
-
 // Creates and returns file path by joining the project root with provided filePath
 func CreateFilePath(filePath string) (string, error) {
 	projectRoot, err := os.Getwd()
@@ -22,7 +20,7 @@ func CreateFilePath(filePath string) (string, error) {
 }
 
 // Get a list of environment file names from the env folder
-func (u *Utilities) GetEnvFiles() ([]string, error) {
+func GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
 	// get a list of envFileName
 	envPath, err := CreateFilePath(EnvironmentFolder)
@@ -31,7 +29,7 @@ func (u *Utilities) GetEnvFiles() ([]string, error) {
 	}
 	contents, err := os.ReadDir(envPath)
 	if err != nil {
-		panic(err)
+		return environmentFiles, err
 	}
 
 	// discard any folder in the env directory

@@ -22,7 +22,6 @@ func TestCreateFilePath(t *testing.T) {
 }
 
 func TestGetEnvFiles(t *testing.T) {
-	var utility Utilities
 	tempDir, err := os.MkdirTemp("", "envTest")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -69,7 +68,7 @@ func TestGetEnvFiles(t *testing.T) {
 		t.Fatalf("Could not change the temp dir: %v", err)
 	}
 
-	resultFiles, err := utility.GetEnvFiles()
+	resultFiles, err := GetEnvFiles()
 	if err != nil {
 		t.Fatalf("Error while running GetEnvFiles(): %v", err)
 	}
