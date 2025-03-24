@@ -112,7 +112,7 @@ func MigrateEnv(env Environment) error {
 	}
 
 	// append the content
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, utils.FilePer)
 	if err != nil {
 		return utils.ColorError("error opening file: %w", err)
 	}

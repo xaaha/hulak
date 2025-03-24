@@ -1,5 +1,7 @@
 package utils
 
+import "io/fs"
+
 // Colors
 const (
 	Red        = "\033[31;1m"
@@ -53,8 +55,8 @@ const ResponseType = "code"
 
 // Permissions for creating directory and files
 const (
-	DirPer  = 0755
-	FilePer = 0644
+	DirPer  fs.FileMode = 0755
+	FilePer fs.FileMode = 0644
 )
 
 const (

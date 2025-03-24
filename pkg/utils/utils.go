@@ -22,13 +22,21 @@ func CreateFilePath(filePath string) (string, error) {
 // CreateDir checks for the existence of a directory at the given path,
 // and creates it with permissions 0755 if it does not exist.
 func CreateDir(dirPath string) error {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		if err := os.Mkdir(dirPath, DirPer); err != nil {
-			PrintRed("Error creating env directory \u2717")
-			return err
+	info, err := os.Stat(dirPath)
+	if err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("path '%s' exists but is a file", dirPath)
 		}
-		PrintGreen("Created env directory \u2713")
+		return nil
 	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Mkdir(dirPath, DirPer); err != nil {
+		PrintRed("Error creating directory " + CrossMark)
+		return err
+	}
+	PrintGreen("Created directory " + CheckMark)
 	return nil
 }
 
@@ -48,8 +56,13 @@ func CreateFile(filePath string) error {
 	} else if err != nil {
 		PrintRed(fmt.Sprintf("Error checking '%s': %v", fileName, err))
 		return err
-	} else if info.Mode().IsRegular() {
-		PrintWarning(fmt.Sprintf("File '%s' already exists.", filePath))
+	} else {
+		if info.IsDir() {
+			return fmt.Errorf("cannot create file '%s': path is a directory", filePath)
+		}
+		if info.Mode().IsRegular() {
+			PrintWarning(fmt.Sprintf("File '%s' already exists.", filePath))
+		}
 	}
 
 	return nil
