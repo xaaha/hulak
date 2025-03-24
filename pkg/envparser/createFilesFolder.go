@@ -13,16 +13,16 @@ import (
 // Returns envfilePath and errors associated with it
 func CreateEnvDirAndFiles(fileName string) (string, error) {
 	defEnvDir := utils.EnvironmentFolder
-	projectRoot, err := os.Getwd()
 	defEnvSfx := utils.DefaultEnvFileSuffix
 
+	envDirpath, err := utils.CreateFilePath(defEnvDir)
 	if err != nil {
-		utils.PrintRed("Error getting current working directory")
+		utils.PrintRed("Error creating filePath")
 		return "", err
 	}
 
-	envDirpath := filepath.Join(projectRoot, defEnvDir)
 	envFilePath := filepath.Join(envDirpath, fileName+defEnvSfx)
+
 	if _, err := os.Stat(envDirpath); os.IsNotExist(err) {
 		if err := os.Mkdir(envDirpath, 0755); err != nil {
 			utils.PrintRed("Error creating env directory \u2717")
