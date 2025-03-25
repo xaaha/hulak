@@ -95,6 +95,7 @@ func GetEnvFiles() ([]string, error) {
 func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
 	loweredMap := make(map[string]any)
 	for key, val := range dict {
+		// for graphql variables are case sensitive
 		if key == "variables" {
 			loweredMap[key] = val
 			continue
