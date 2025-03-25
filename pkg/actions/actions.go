@@ -15,18 +15,43 @@ var warningTracker = make(map[string]bool)
 
 // GetFile gets the entire file content and returns as string
 func GetFile(filePath string) (string, error) {
+	// Convert relative path to absolute path
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path %s: %w", filePath, err)
+	}
+
 	// Check if file path is empty
 	if filePath == "" {
 		return "", fmt.Errorf("file path cannot be empty")
 	}
 
 	// Check if file exists and is readable
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("file does not exist: %s", filePath)
+			// Try relative to working directory if absolute path doesn't exist
+			workingDir, err := os.Getwd()
+			if err != nil {
+				return "", fmt.Errorf("failed to get working directory: %w", err)
+			}
+
+			relPath := filepath.Join(workingDir, filePath)
+			fileInfo, err = os.Stat(relPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return "", fmt.Errorf(
+						"file does not exist at either %s or %s",
+						absPath,
+						relPath,
+					)
+				}
+				return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
+			}
+			absPath = relPath
+		} else {
+			return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
 		}
-		return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
 	}
 
 	// Check if it's a regular file (not a directory)
@@ -34,13 +59,13 @@ func GetFile(filePath string) (string, error) {
 		return "", fmt.Errorf("%s is a directory, not a file", filePath)
 	}
 
-	// Read the entire file content
-	content, err := os.ReadFile(filePath)
+	// Read the file content preserving all formatting
+	content, err := os.ReadFile(absPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
-	// Convert the byte slice to string and return
+	// Return the content as is, preserving all newlines and formatting
 	return string(content), nil
 }
 
