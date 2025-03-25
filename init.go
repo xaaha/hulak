@@ -3,9 +3,9 @@ package main
 import (
 	"sync"
 
-	"github.com/xaaha/hulak/pkg/actions"
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/features"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlParser"
 )
@@ -26,6 +26,7 @@ func InitializeProject(env string) map[string]any {
 	return envMap
 }
 
+// RunTasks manages the go tasks
 func RunTasks(filePathList []string, secretsMap map[string]any) {
 	var wg sync.WaitGroup
 
@@ -40,7 +41,7 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				if err := actions.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path); err != nil {
+				if err := features.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path); err != nil {
 					utils.PrintRed(err.Error())
 				}
 

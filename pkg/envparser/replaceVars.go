@@ -1,126 +1,15 @@
+// Package envparser contains environment parsing and functions around it
 package envparser
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"text/template"
 
+	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// tracks how many times we need to show a message
-var warningTracker = make(map[string]bool)
-
-// gets the value of key from a json file. If the file does not have '.json' suffix
-// getValueOf looks for _response.json file automatically. If the file does not exist
-func GetValueOf(key, fileName string) any {
-	if key == "" && fileName == "" {
-		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
-	}
-
-	yamlPathList, err := utils.ListMatchingFiles(fileName)
-	if err != nil {
-		utils.PrintRed(fmt.Sprintf(
-			"replaceVars.go: error occurred while grabbing matching paths for '%s': %s",
-			fileName, err.Error(),
-		))
-		return ""
-	}
-
-	var singlePath string
-	var jsonResFilePath string
-
-	if strings.HasSuffix(fileName, utils.JSON) {
-		// For .json files, use exact match from the list
-		if len(yamlPathList) > 0 {
-			// Take the first matching .json file
-			singlePath = yamlPathList[0]
-			jsonResFilePath = singlePath
-		} else {
-			utils.PrintRed("could not find matching files " + fileName)
-			return ""
-		}
-	} else {
-		// Default behavior for files without .json name
-		if len(yamlPathList) > 0 {
-			singlePath = yamlPathList[0]
-		} else {
-			utils.PrintRed("could not find matching files " + fileName)
-			return ""
-		}
-
-		dirPath := filepath.Dir(singlePath)
-		jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-		jsonResFilePath = filepath.Join(dirPath, jsonBaseName)
-	}
-
-	if len(yamlPathList) > 1 {
-		warningKey := fmt.Sprintf("%s_%s", fileName, singlePath)
-		if !warningTracker[warningKey] {
-			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
-			warningTracker[warningKey] = true
-		}
-	}
-
-	// If the file does not exist
-	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
-		utils.PrintRed(fmt.Sprintf(
-			"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'. \n",
-			jsonResFilePath,
-			fileName,
-			jsonResFilePath,
-			key,
-		))
-		return ""
-	}
-
-	file, err := os.Open(jsonResFilePath)
-	if err != nil {
-		utils.PrintRed(
-			fmt.Sprintf(
-				"replaceVars.go: error occurred while opening the file '%s': %s",
-				filepath.Base(jsonResFilePath),
-				err.Error(),
-			),
-		)
-	}
-	defer file.Close()
-
-	var fileContent map[string]any
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&fileContent)
-	if err != nil {
-		utils.PrintRed(
-			"replaceVars.go: make sure " + filepath.Base(
-				jsonResFilePath,
-			) + " has proper json content" + err.Error(),
-		)
-	}
-
-	result, err := utils.LookupValue(key, fileContent)
-	if err != nil {
-		utils.PanicRedAndExit(
-			"replaceVars.go: error while looking up the value: '%s'. \nMake sure '%s' exists and has key '%s'",
-			key,
-			filepath.Join(
-				"...",
-				utils.FileNameWithoutExtension(filepath.Dir(jsonResFilePath)),
-				filepath.Base(jsonResFilePath),
-			),
-			key,
-		)
-	}
-
-	return result
-}
-
-// Processes a given string, strToChange, by substituting template variables with values from the secretsMap.
-// It uses Go’s template package to parse the string, dynamically.
-// Returns the updated string or an error if parsing or execution fails.
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]any,
@@ -131,7 +20,7 @@ func replaceVariables(
 
 	getValueOf := template.FuncMap{
 		"getValueOf": func(key, fileName string) any {
-			return GetValueOf(key, fileName)
+			return actions.GetValueOf(key, fileName)
 		},
 	}
 
@@ -175,7 +64,7 @@ func prepareMap(secretsMap map[string]any) (map[string]any, error) {
 	return updatedMap, nil
 }
 
-// Substitutes template variables in a given string strToChange using the secretsMap.
+// SubstituteVariables Substitutes template variables in a given string strToChange using the secretsMap.
 // It first prepares the map by resolving all nested variables using prepareMap
 // and then applies replaceVariables to the input string.
 // Returns the final substituted string or an error if any step fails.

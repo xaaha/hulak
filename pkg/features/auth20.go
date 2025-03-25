@@ -1,4 +1,5 @@
-package actions
+// Package features have all the additional features hulak supports
+package features
 
 import (
 	"fmt"
@@ -18,12 +19,12 @@ import (
 const (
 	portNum      = ":2982"
 	timeout      = 60 * time.Second
-	redirect_uri = "http://localhost" + portNum + "/callback"
+	redirectURI  = "http://localhost" + portNum + "/callback"
 	responseType = utils.ResponseType // for consistency
 )
 
+// OpenURL Opens the url in the brwoser based on the user's OS
 // copied from Github https://gist.github.com/sevkin/9798d67b2cb9d07cb05f89f14ba682f8?permalink_comment_id=5084817#gistcomment-5084817
-// Opens the url in the brwoser based on the user's OS
 func OpenURL(url string) error {
 	var cmd string
 	var args []string
@@ -80,9 +81,9 @@ func server() {
 	}
 }
 
-// OpenBrowserAndGetCode starts the callback server and opens the browser for OAuth flow
+// openBrowserAndGetCode starts the callback server and opens the browser for OAuth flow
 // Returns the code coming from the ur
-func OpenBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, error) {
+func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, error) {
 	// Create and start the callback server
 	go server()
 	// Prepare the OAuth URL
@@ -95,7 +96,7 @@ func OpenBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	// from my testing, extra field does not do any harm, if this is not the case, I'll revisit
 	reqField := make(map[string]string)
 	reqField["response_type"] = responseType
-	reqField["redirect_uri"] = redirect_uri
+	reqField["redirect_uri"] = redirectURI
 	authReqBody.UrlParams = utils.MergeMaps(authReqBody.UrlParams, reqField)
 	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
 
@@ -116,7 +117,7 @@ func OpenBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
-	code, err := OpenBrowserAndGetCode(filePath, secretsMap)
+	code, err := openBrowserAndGetCode(filePath, secretsMap)
 	if err != nil {
 		return err
 	}

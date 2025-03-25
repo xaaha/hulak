@@ -52,7 +52,7 @@ func StandardCall(apiInfo yamlParser.ApiInfo) (CustomResponse, error) {
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
-	apiConfig, err := yamlParser.FinalStructForApi(
+	apiConfig, err := yamlParser.FinalStructForAPI(
 		path,
 		secretsMap,
 	)
