@@ -111,8 +111,8 @@ type RawOptions struct {
 	Language string `json:"language"`
 }
 
-// IsCollection determines if the JSON contains a Postman collection
-func IsCollection(jsonString map[string]any) bool {
+// isCollection determines if the JSON contains a Postman collection
+func isCollection(jsonString map[string]any) bool {
 	_, infoExists := jsonString["info"]
 	_, itemExists := jsonString["item"]
 	return infoExists && itemExists

@@ -27,7 +27,7 @@ func CompleteMigration(filePaths []string) error {
 			if err != nil {
 				return utils.ColorError("error migrating environment: %w", err)
 			}
-		} else if IsCollection(jsonStr) {
+		} else if isCollection(jsonStr) {
 			str, err := ConvertRequestToYAML(jsonStr)
 			if err != nil {
 				utils.PrintWarning("Collection migration did not work for: " + path)
