@@ -138,6 +138,56 @@ func prepareVarStr(collectionVars PmCollection) Environment {
 	return result
 }
 
+// saveResponses saves response examples for a single request item and returns array of JSON strings
+func saveResponses(item ItemOrReq) []string {
+	var responses []string
+
+	// If no responses, return empty array
+	if len(item.Response) == 0 {
+		return responses
+	}
+
+	for _, response := range item.Response {
+		// Create a response object
+		responseData := make(map[string]any)
+		responseData["name"] = item.Name
+		responseData["status"] = response.Status
+		responseData["code"] = response.Code
+
+		// Add headers
+		headers := make(map[string]string)
+		for _, header := range response.Header {
+			headers[header.Key] = header.Value
+		}
+		if len(headers) > 0 {
+			responseData["headers"] = headers
+		}
+
+		// Parse body if it's JSON
+		var bodyData any
+		if err := json.Unmarshal([]byte(response.Body), &bodyData); err == nil {
+			responseData["body"] = bodyData
+		} else {
+			responseData["body"] = response.Body
+		}
+
+		// Add request information
+		requestData := make(map[string]any)
+		requestData["method"] = string(response.OriginalRequest.Method)
+		requestData["url"] = string(response.OriginalRequest.URL.Raw)
+		responseData["request"] = requestData
+
+		jsonBytes, err := json.MarshalIndent(responseData, "", "  ")
+		if err != nil {
+			continue
+		}
+
+		responses = append(responses, string(jsonBytes))
+	}
+
+	return responses
+}
+
 // MigrateCollection migrates a Postman collection to the desired format
 // To be implemented
 func MigrateCollection(collection PmCollection) error {
@@ -309,6 +359,7 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 		return "", fmt.Errorf("failed to parse collection structure: %w", err)
 	}
 
+	// move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
 	if err = migrateEnv(collectionVars, collection.Info.Name); err != nil {
 		utils.PrintRed("Error occured while migrating Collection Variables")
@@ -359,6 +410,15 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
 			}
+		}
+
+		// Save response examples for this request
+		responses := saveResponses(item)
+		for i, response := range responses {
+			// Create filename based on request name and response index
+			sanitizedName := strings.ReplaceAll(strings.ToLower(item.Name), " ", "_")
+			filename := fmt.Sprintf("%s_example_%d.json", sanitizedName, i+1)
+			fmt.Println(filename, ":", response)
 		}
 
 		// Build request YAML
