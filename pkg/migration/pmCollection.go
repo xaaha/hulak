@@ -118,8 +118,8 @@ func IsCollection(jsonString map[string]any) bool {
 	return infoExists && itemExists
 }
 
-// TODO: 1: Use this function to call MigrateEnv from environment.go
-func PrepareVarStr(collectionVars PmCollection) Environment {
+// prepars the collection variables array to be compatible with the environment migration script
+func prepareVarStr(collectionVars PmCollection) Environment {
 	result := Environment{}
 
 	var envValues []EnvValues
@@ -307,6 +307,12 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 	var collection PmCollection
 	if err := json.Unmarshal(jsonBytes, &collection); err != nil {
 		return "", fmt.Errorf("failed to parse collection structure: %w", err)
+	}
+
+	collectionVars := prepareVarStr(collection)
+	if err = migrateEnv(collectionVars, collection.Info.Name); err != nil {
+		utils.PrintRed("Error occured while migrating Collection Variables")
+		return "", err
 	}
 
 	var yamlParts []string

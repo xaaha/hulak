@@ -23,7 +23,7 @@ func CompleteMigration(filePaths []string) error {
 				return fmt.Errorf("error converting to Environment: %w", err)
 			}
 
-			err = MigrateEnv(env)
+			err = migrateEnv(env)
 			if err != nil {
 				return utils.ColorError("error migrating environment: %w", err)
 			}
