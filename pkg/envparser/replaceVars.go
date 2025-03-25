@@ -18,14 +18,17 @@ func replaceVariables(
 		return "", nil
 	}
 
-	getValueOf := template.FuncMap{
+	funcMap := template.FuncMap{
 		"getValueOf": func(key, fileName string) any {
 			return actions.GetValueOf(key, fileName)
+		},
+		"getFile": func(fileName string) (string, error) {
+			return actions.GetFile(fileName)
 		},
 	}
 
 	tmpl, err := template.New("template").
-		Funcs(getValueOf).
+		Funcs(funcMap).
 		Option("missingkey=error").
 		Parse(strToChange)
 	if err != nil {
