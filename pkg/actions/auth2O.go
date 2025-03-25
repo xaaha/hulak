@@ -130,7 +130,10 @@ func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
 	if err != nil {
 		return err
 	}
-	resp := apicalls.StandardCall(apiInfo)
+	resp, err := apicalls.StandardCall(apiInfo)
+	if err != nil {
+		return err
+	}
 	apicalls.PrintAndSaveFinalResp(resp, filePath)
 	return nil
 }

@@ -1,9 +1,10 @@
 package apicalls
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -11,22 +12,27 @@ import (
 )
 
 // Makes an api call and returns the json body string
-func StandardCall(apiInfo yamlParser.ApiInfo) CustomResponse {
+func StandardCall(apiInfo yamlParser.ApiInfo) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
 	method := apiInfo.Method
-	url := apiInfo.Url
-	body := apiInfo.Body
+	urlStr := apiInfo.Url
+	bodyReader := apiInfo.Body
+
+	bodyBytes, err := io.ReadAll(bodyReader)
+	if err != nil {
+		return CustomResponse{}, err
+	}
+
+	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
 	urlParams := map[string]string{}
-	errMessage := "error occurred on " + method
+	preparedUrl := PrepareUrl(urlStr, urlParams)
 
-	preparedUrl := PrepareUrl(url, urlParams)
-
-	req, err := http.NewRequest(method, preparedUrl, body)
+	req, err := http.NewRequest(method, preparedUrl, newBodyReader)
 	if err != nil {
-		log.Fatalln(errMessage, err)
+		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %v", method, err)
 	}
 
 	if len(headers) > 0 {
@@ -38,9 +44,9 @@ func StandardCall(apiInfo yamlParser.ApiInfo) CustomResponse {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.Fatalln(errMessage, err)
+		return CustomResponse{}, err
 	}
-	return processResponse(response)
+	return processResponse(response), nil
 }
 
 // Using the provided envMap, this function calls the PrepareStruct,
@@ -59,7 +65,11 @@ func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
 		return err
 	}
 
-	resp := StandardCall(apiInfo)
+	resp, err := StandardCall(apiInfo)
+	if err != nil {
+		return err
+	}
+
 	PrintAndSaveFinalResp(resp, path)
 	return nil
 }

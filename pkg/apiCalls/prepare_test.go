@@ -257,7 +257,7 @@ func TestEncodeGraphQlBody(t *testing.T) {
 			expectedBody: `{"query":"query Hello($name: String!) { hello(name: $name) }","variables":{"name":"John"}}`,
 		},
 		{
-			name:         "no variables",
+			name:         "no variables (empty map)",
 			query:        "query Hello { hello }",
 			variables:    map[string]any{},
 			expectError:  false,
@@ -268,14 +268,13 @@ func TestEncodeGraphQlBody(t *testing.T) {
 			query:        "query Hello { hello }",
 			variables:    nil,
 			expectError:  false,
-			expectedBody: `{"query":"query Hello { hello }","variables":null}`,
+			expectedBody: `{"query":"query Hello { hello }","variables":{}}`,
 		},
 		{
-			name:         "empty query",
-			query:        "",
-			variables:    map[string]any{"name": "John"},
-			expectError:  false,
-			expectedBody: `{"query":"","variables":{"name":"John"}}`,
+			name:        "empty query",
+			query:       "",
+			variables:   map[string]any{"name": "John"},
+			expectError: true,
 		},
 		{
 			name:        "invalid JSON in variables",
@@ -308,8 +307,9 @@ func TestEncodeGraphQlBody(t *testing.T) {
 				t.Fatalf("failed to read from reader: %v", err)
 			}
 
-			if string(body) != tt.expectedBody {
-				t.Errorf("expected %v, got %v", tt.expectedBody, string(body))
+			actual := string(body)
+			if actual != tt.expectedBody {
+				t.Errorf("expected %v, got %v", tt.expectedBody, actual)
 			}
 		})
 	}

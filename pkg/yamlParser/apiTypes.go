@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -175,8 +176,8 @@ func (b *Body) IsValid() bool {
 }
 
 type GraphQl struct {
-	Variables map[string]any `json:"variables,omitempty" yaml:"variables"`
-	Query     string         `json:"query,omitempty"     yaml:"query"`
+	Query     string `json:"query"     yaml:"query"`
+	Variables any    `json:"variables" yaml:"variables"`
 }
 
 // Returns body for apiCall, content type header string and error if any
@@ -265,16 +266,34 @@ func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	return payload, writer.FormDataContentType(), nil
 }
 
-// accepts query string and variables map[string]interface, then returns the payload
-func EncodeGraphQlBody(query string, variables map[string]any) (io.Reader, error) {
-	payload := map[string]any{
-		"query":     query,
-		"variables": variables,
+// EncodeGraphQlBody accepts a query string and variables of any type,
+// and returns an encoded GraphQL payload as an io.Reader
+func EncodeGraphQlBody(query string, variables any) (io.Reader, error) {
+	// Validate query
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("graphql query cannot be empty")
 	}
+
+	// Create the payload
+	payload := GraphQl{
+		Query: query,
+	}
+
+	// Handle variables if present
+	if variables != nil {
+		processed, err := processVariable(variables)
+		if err != nil {
+			return nil, fmt.Errorf("error processing variables: %w", err)
+		}
+		payload.Variables = processed
+	}
+
+	// Marshal to JSON
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal GraphQL payload: %w", err)
 	}
+
 	return bytes.NewReader(jsonData), nil
 }
 
@@ -292,4 +311,66 @@ func (b *Body) AddKeyValueToUrlEncodedFormData(key, value string) {
 		b.UrlEncodedFormData = make(map[string]string)
 	}
 	b.UrlEncodedFormData[key] = value
+}
+
+// processVariable handles different types of variables and ensures they're properly encoded
+func processVariable(v any) (any, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	switch val := v.(type) {
+	case string, bool, int, int32, int64, float32, float64:
+		// Basic types can be used as-is
+		return val, nil
+
+	case time.Time:
+		// Convert time to ISO 8601 format
+		return val.Format(time.RFC3339), nil
+
+	case []any:
+		// Process array elements
+		processed := make([]any, len(val))
+		for i, item := range val {
+			p, err := processVariable(item)
+			if err != nil {
+				return nil, err
+			}
+			processed[i] = p
+		}
+		return processed, nil
+
+	case map[string]any:
+		// Process nested maps
+		processed := make(map[string]any, len(val))
+		for k, item := range val {
+			p, err := processVariable(item)
+			if err != nil {
+				return nil, err
+			}
+			processed[k] = p
+		}
+		return processed, nil
+
+	case json.RawMessage:
+		// Handle raw JSON
+		var parsed any
+		if err := json.Unmarshal(val, &parsed); err != nil {
+			return nil, fmt.Errorf("invalid JSON in variable: %w", err)
+		}
+		return processVariable(parsed)
+
+	default:
+		// Try to convert other types to JSON and back to ensure they're properly encoded
+		jsonData, err := json.Marshal(val)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported variable type %T: %w", val, err)
+		}
+
+		var processed any
+		if err := json.Unmarshal(jsonData, &processed); err != nil {
+			return nil, fmt.Errorf("failed to process variable type %T: %w", val, err)
+		}
+		return processed, nil
+	}
 }
