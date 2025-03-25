@@ -118,7 +118,7 @@ func IsCollection(jsonString map[string]any) bool {
 	return infoExists && itemExists
 }
 
-// TODO: 1: Fix this and name is lowercase
+// TODO: 1: Use this function to call MigrateEnv from environment.go
 func PrepareVarStr(collectionVars PmCollection) Environment {
 	result := Environment{}
 
