@@ -24,6 +24,14 @@ type Info struct {
 	Description string `json:"description"`
 }
 
+// KeyValuePair represents a generic key-value pair used in various Postman structures
+type KeyValuePair struct {
+	Key      string `json:"key"`
+	Value    string `json:"value"`
+	Type     string `json:"type,omitempty"`
+	Disabled bool   `json:"disabled,omitempty"`
+}
+
 // ItemOrReq can represent either a folder (with sub-items) or a request
 // This handles the recursive nature of the structure
 type ItemOrReq struct {
@@ -108,6 +116,25 @@ func IsCollection(jsonString map[string]any) bool {
 	_, infoExists := jsonString["info"]
 	_, itemExists := jsonString["item"]
 	return infoExists && itemExists
+}
+
+// TODO: 1: Fix this and name is lowercase
+func PrepareVarStr(collectionVars PmCollection) Environment {
+	result := Environment{}
+
+	var envValues []EnvValues
+
+	collVarArr := collectionVars.Variable
+	for _, eachItem := range collVarArr {
+		key := eachItem.Key
+		value := eachItem.Value
+		enabled := !eachItem.Disabled
+		envValues = append(envValues, EnvValues{key, value, enabled})
+	}
+
+	result.Name = "" // since collection name could be long, lets put everyting in global
+	result.Values = envValues
+	return result
 }
 
 // MigrateCollection migrates a Postman collection to the desired format
@@ -285,13 +312,13 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 
 	// Add collection info as a comment
 	// TODO: Make this a folder Name
-	collectionInfo := fmt.Sprintf("# Collection: %s\n", collection.Info.Name)
+	primaryCollectionName := fmt.Sprintf("# Collection: %s\n", collection.Info.Name)
 	if collection.Info.Description != "" {
 		// TODO: Add the description to a description.txt file
 		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
-		collectionInfo += fmt.Sprintf("# Description: %s\n", str)
+		primaryCollectionName += fmt.Sprintf("# Description: %s\n", str)
 	}
-	yamlParts = append(yamlParts, collectionInfo)
+	yamlParts = append(yamlParts, primaryCollectionName)
 
 	// Process each item in the collection
 	for _, item := range collection.Item {

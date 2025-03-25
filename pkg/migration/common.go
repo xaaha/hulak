@@ -8,13 +8,6 @@ import (
 	"strings"
 )
 
-// KeyValuePair represents a generic key-value pair used in various Postman structures
-type KeyValuePair struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-	Type  string `json:"type,omitempty"`
-}
-
 // readJson reads a JSON file and checks whether file exists, is empty,
 // or if an error occurs while reading the file. It returns the parsed content
 func readJson(filePath string) (map[string]any, error) {

@@ -84,9 +84,12 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 }
 
 // MigrateEnv migrates a Postman JSON environment file to `key = value` pairs inside the env dir
-func MigrateEnv(env Environment) error {
+func MigrateEnv(env Environment, comment ...string) error {
 	var message strings.Builder
-	message.WriteString("\n### Postman Env Migration ###\n")
+	if len(comment) == 0 {
+		comment[0] = "\n### Postman Env Migration ###\n"
+	}
+	message.WriteString(comment[0])
 	for _, eachVarItem := range env.Values {
 		key := sanitizeKey(eachVarItem.Key)
 		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
