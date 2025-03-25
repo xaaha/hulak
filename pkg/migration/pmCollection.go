@@ -134,6 +134,7 @@ func PrepareVarStr(collectionVars PmCollection) Environment {
 
 	result.Name = "" // since collection name could be long, lets put everyting in global
 	result.Values = envValues
+	result.Scope = "globals" // since we are copying all collection items to globals
 	return result
 }
 
