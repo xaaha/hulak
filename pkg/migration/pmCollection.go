@@ -342,14 +342,20 @@ func bodyToYaml(pmbody Body) (string, error) {
 }
 
 // forEachRequest converts each postman request to hulak's yaml format
-func forEachRequest(collection PmCollection) (string, error) {
+func forEachRequest(collection PmCollection, parentDirPath string) error {
+	parentDirPath, err := utils.SanitizeDirPath(parentDirPath)
+	if err != nil {
+		return err
+	}
+
 	// first, move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
 	if err := migrateEnv(collectionVars, collection.Info.Name); err != nil {
 		utils.PrintRed("Error occured while migrating Collection Variables")
-		return "", err
+		return err
 	}
 
+	counter := 0
 	var yamlParts []string
 
 	// Process each item in the collection
@@ -361,19 +367,19 @@ func forEachRequest(collection PmCollection) (string, error) {
 		// Convert method to YAML
 		methodYAML, err := methodToYaml(item.Request.Method)
 		if err != nil {
-			return "", fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
+			return fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
 		}
 
 		// Convert URL to YAML
 		urlYAML, err := urlToYaml(*item.Request.URL)
 		if err != nil {
-			return "", fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
+			return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
 		}
 
 		// Convert headers to YAML
 		headerYAML, err := headerToYAML(item.Request.Header)
 		if err != nil {
-			return "", fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
+			return fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
 		}
 
 		// Convert body to YAML if it exists
@@ -382,7 +388,7 @@ func forEachRequest(collection PmCollection) (string, error) {
 			var err error
 			bodyYAML, err = bodyToYaml(*item.Request.Body)
 			if err != nil {
-				return "", fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
+				return fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
 			}
 		}
 
@@ -421,11 +427,23 @@ func forEachRequest(collection PmCollection) (string, error) {
 		}
 
 		yamlParts = append(yamlParts, requestYAML)
+
+		reqFileName := sanitizeKey(item.Name) + utils.YAML
+		if item.Name != "" {
+			counter++
+			reqFileName = fmt.Sprintf("request_%v", counter)
+		}
+		reqFilePath := filepath.Join(parentDirPath, reqFileName)
+
+		// Combine everything with separators
+		finalYAML := strings.Join(yamlParts, "\n---\n\n")
+		if err = os.WriteFile(reqFilePath, []byte(finalYAML), utils.FilePer); err != nil {
+			return err
+		}
+
 	}
 
-	// Combine everything with separators
-	finalYAML := strings.Join(yamlParts, "\n---\n\n")
-	return finalYAML, nil
+	return nil
 }
 
 // Sudo Code
@@ -466,12 +484,8 @@ func migrateCollection(jsonStr map[string]any) error {
 		}
 	}
 
-	str, err := forEachRequest(collection)
-	if err != nil {
+	if err := forEachRequest(collection, primaryDir); err != nil {
 		return err
 	}
-
-	fmt.Println(str)
-
 	return nil
 }

@@ -1,3 +1,5 @@
+// Package migration migrates colelction, variables, responses to hulak
+// Currently it only supports postman collection and variables
 package migration
 
 import (
