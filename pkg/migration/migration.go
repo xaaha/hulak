@@ -13,7 +13,7 @@ func CompleteMigration(filePaths []string) error {
 		return utils.ColorError("please provide a valid json file for migration")
 	}
 	for _, path := range filePaths {
-		jsonStr, err := readJson(path)
+		jsonStr, err := readJSON(path)
 		if err != nil {
 			return err
 		}

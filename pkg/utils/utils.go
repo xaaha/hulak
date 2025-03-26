@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// CreateFilePath creates and returns file path by joining the project root with provided filePath
-func CreateFilePath(filePath string) (string, error) {
+// CreatePath creates and returns file or directory path by joining the project root with provided filePath
+func CreatePath(filePath string) (string, error) {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return "", err
@@ -74,7 +74,7 @@ func CreateFile(filePath string) error {
 func GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
 	// get a list of envFileName
-	envPath, err := CreateFilePath(EnvironmentFolder)
+	envPath, err := CreatePath(EnvironmentFolder)
 	if err != nil {
 		return environmentFiles, err
 	}
@@ -141,7 +141,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	startPath := ""
 	if len(initialPath) == 0 {
 		var err error
-		startPath, err = CreateFilePath("")
+		startPath, err = CreatePath("")
 		if err != nil {
 			return nil, fmt.Errorf("error getting initial file path: %w", err)
 		}

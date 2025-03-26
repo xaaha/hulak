@@ -5,6 +5,8 @@ package migration
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -461,15 +463,24 @@ func migrateCollection(jsonStr map[string]any) error {
 		return fmt.Errorf("failed to parse collection structure: %w", err)
 	}
 
-	// Make this a folder Name
+	// create dir path
 	primaryDir := sanitizeKey(collection.Info.Name)
-	// create dir path j
+	dirPath, err := utils.CreatePath(primaryDir)
+	if err != nil {
+		return err
+	}
 	// create dir
-	// inside the dir create a file called description.txt
+	if err = utils.CreateDir(dirPath); err != nil {
+		return err
+	}
+
+	// inside the dir create a file for collection description
 	if collection.Info.Description != "" {
-		// TODO: Add the description to a description.txt file
+		descFilePath := filepath.Join(dirPath, "description.txt")
 		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
-		primaryDir += fmt.Sprintf("# Description: %s\n", str)
+		if err = os.WriteFile(descFilePath, []byte(str), utils.FilePer); err != nil {
+			return err
+		}
 	}
 
 	str, err := forEachRequest(collection)

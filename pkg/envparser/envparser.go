@@ -193,7 +193,7 @@ func GenerateSecretsMap(envFromFlag string) (map[string]any, error) {
 
 // Helper to load environment variables from a file
 func loadEnvFile(fileName string) (map[string]any, error) {
-	filePath, err := utils.CreateFilePath(filepath.Join(utils.EnvironmentFolder, fileName))
+	filePath, err := utils.CreatePath(filepath.Join(utils.EnvironmentFolder, fileName))
 	if err != nil {
 		return nil, utils.ColorError("error while creating file path for "+fileName, err)
 	}

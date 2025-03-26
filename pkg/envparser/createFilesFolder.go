@@ -14,7 +14,7 @@ func CreateEnvDirAndFiles(fileName string) (string, error) {
 	defEnvDir := utils.EnvironmentFolder
 	defEnvSfx := utils.DefaultEnvFileSuffix
 
-	envDirpath, err := utils.CreateFilePath(defEnvDir)
+	envDirpath, err := utils.CreatePath(defEnvDir)
 	if err != nil {
 		utils.PrintRed("Error creating filePath")
 		return "", err

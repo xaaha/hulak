@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-// readJson reads a JSON file and checks whether file exists, is empty,
+// readJSON reads a JSON file and checks whether file exists, is empty,
 // or if an error occurs while reading the file. It returns the parsed content
-func readJson(filePath string) (map[string]any, error) {
+func readJSON(filePath string) (map[string]any, error) {
 	// Check if the file exists and get its info
 	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -35,7 +35,8 @@ func readJson(filePath string) (map[string]any, error) {
 	return jsonStrFile, nil
 }
 
-// since go template has dot reserved (.) , replace it with _ and delete all other special chars
+// sanitizeKey removes all special character and
+// replaces dot (.) with underscores (_).
 func sanitizeKey(key string) string {
 	key = strings.ReplaceAll(key, ".", "_")
 	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
