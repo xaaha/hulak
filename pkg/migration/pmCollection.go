@@ -441,11 +441,6 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 	return nil
 }
 
-// Sudo Code
-// Create a collection folder with info.name
-// Then for range over item, where each item is ItemOrReq
-// Then recursively create folder, nested folders and request on the
-
 // migrateCollection migrates a Postman collection to the desired format
 func migrateCollection(jsonStr map[string]any) error {
 	// Convert the map[string]any to JSON bytes for unmarshaling into PmCollection
