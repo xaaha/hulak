@@ -189,7 +189,7 @@ name: `{{getValueOf "name" "user.json"}}`
 
 ### `getFile`
 
-Gets the file content as string and dumps it in context. It takes one argument, file path.
+Gets the file content as string and dumps it in context. It takes file path as an argument.
 
 ```yaml
 # example
