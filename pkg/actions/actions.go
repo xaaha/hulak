@@ -13,17 +13,17 @@ import (
 
 var warningTracker = make(map[string]bool)
 
-// GetFile gets the entire file content and returns as string
+// GetFile reads the content of a file given its relative or absolute path
 func GetFile(filePath string) (string, error) {
+	// Check if file path is empty
+	if filePath == "" {
+		return "", fmt.Errorf("file path cannot be empty")
+	}
+
 	// Convert relative path to absolute path
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve path %s: %w", filePath, err)
-	}
-
-	// Check if file path is empty
-	if filePath == "" {
-		return "", fmt.Errorf("file path cannot be empty")
 	}
 
 	// Check if file exists and is readable
