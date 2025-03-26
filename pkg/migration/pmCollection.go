@@ -429,7 +429,8 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 		yamlParts = append(yamlParts, requestYAML)
 
 		reqFileName := sanitizeKey(item.Name) + utils.YAML
-		if item.Name != "" {
+		fmt.Println("This is item name", item.Name)
+		if item.Name == "" {
 			counter++
 			reqFileName = fmt.Sprintf("request_%v", counter) + utils.YAML
 		}
@@ -487,5 +488,7 @@ func migrateCollection(jsonStr map[string]any) error {
 	if err := forEachRequest(collection, dirPath); err != nil {
 		return err
 	}
+
+	utils.PrintGreen("Collection Migration Successful!")
 	return nil
 }
