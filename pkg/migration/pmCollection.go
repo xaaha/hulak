@@ -423,7 +423,7 @@ func processItems(items []ItemOrReq, parentDirPath string) error {
 			}
 
 			// Build request YAML
-			requestYAML := fmt.Sprintf("# Request: %s\n", item.Name)
+			requestYAML := fmt.Sprintf("---\n# Request: %s\n", item.Name)
 			if item.Description != "" {
 				// TODO: Each item description is a description.txt file in the folder
 				descriptionFilePath := filepath.Join(itemDirPath, "description.txt")
