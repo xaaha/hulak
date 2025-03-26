@@ -190,13 +190,6 @@ func saveResponses(item ItemOrReq) []string {
 	return responses
 }
 
-// MigrateCollection migrates a Postman collection to the desired format
-// To be implemented
-func MigrateCollection(collection PmCollection) error {
-	// Implementation to come
-	return utils.ColorError("collection migration not yet implemented")
-}
-
 // converts method present in pm json file to yaml string
 func methodToYaml(method yamlparser.HTTPMethodType) (string, error) {
 	type YAMLOutput struct {
@@ -347,23 +340,11 @@ func bodyToYaml(pmbody Body) (string, error) {
 	return strings.TrimSpace(string(yamlBytes)), nil
 }
 
-// ConvertRequestToYAML converts a Postman collection file to YAML format
-func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
-	// Convert the map[string]any to JSON bytes for unmarshaling into PmCollection
-	jsonBytes, err := json.Marshal(jsonStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal content: %w", err)
-	}
-
-	// Parse JSON into PmCollection struct
-	var collection PmCollection
-	if err := json.Unmarshal(jsonBytes, &collection); err != nil {
-		return "", fmt.Errorf("failed to parse collection structure: %w", err)
-	}
-
+// forEachRequest converts each postman request to hulak's yaml format
+func forEachRequest(collection PmCollection) (string, error) {
 	// move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
-	if err = migrateEnv(collectionVars, collection.Info.Name); err != nil {
+	if err := migrateEnv(collectionVars, collection.Info.Name); err != nil {
 		utils.PrintRed("Error occured while migrating Collection Variables")
 		return "", err
 	}
@@ -462,7 +443,41 @@ func ConvertRequestToYAML(jsonStr map[string]any) (string, error) {
 }
 
 // Sudo Code
-// Migrate Variables to Global with the name of where it is coming from.
-// First, refactor a create folder function from envparser
-// Then create file with the name from the request name. Get this from envparser
+// Create a collection folder with info.name
+// Then for range over item, where each item is ItemOrReq
 // Then recursively create folder, nested folders and request on the
+
+// migrateCollection migrates a Postman collection to the desired format
+func migrateCollection(jsonStr map[string]any) error {
+	// Convert the map[string]any to JSON bytes for unmarshaling into PmCollection
+	jsonBytes, err := json.Marshal(jsonStr)
+	if err != nil {
+		return fmt.Errorf("failed to marshal content: %w", err)
+	}
+
+	// Parse JSON into PmCollection struct
+	var collection PmCollection
+	if err := json.Unmarshal(jsonBytes, &collection); err != nil {
+		return fmt.Errorf("failed to parse collection structure: %w", err)
+	}
+
+	// Make this a folder Name
+	primaryDir := sanitizeKey(collection.Info.Name)
+	// create dir path j
+	// create dir
+	// inside the dir create a file called description.txt
+	if collection.Info.Description != "" {
+		// TODO: Add the description to a description.txt file
+		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
+		primaryDir += fmt.Sprintf("# Description: %s\n", str)
+	}
+
+	str, err := forEachRequest(collection)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(str)
+
+	return nil
+}

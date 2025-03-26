@@ -1,3 +1,5 @@
+// Package utils has all the utils required for hulak, including but not limited to
+// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import (
@@ -8,7 +10,7 @@ import (
 	"strings"
 )
 
-// Creates and returns file path by joining the project root with provided filePath
+// CreateFilePath creates and returns file path by joining the project root with provided filePath
 func CreateFilePath(filePath string) (string, error) {
 	projectRoot, err := os.Getwd()
 	if err != nil {
@@ -68,7 +70,7 @@ func CreateFile(filePath string) error {
 	return nil
 }
 
-// Get a list of environment file names from the env folder
+// GetEnvFiles returns a list of environment file names from the env folder
 func GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
 	// get a list of envFileName
@@ -91,7 +93,8 @@ func GetEnvFiles() ([]string, error) {
 	return environmentFiles, nil
 }
 
-// converts all keys in a map to lowercase recursively
+// ConvertKeysToLowerCase converts all keys in a map to lowercase recursively
+// except "variables" as Graphql variables is case-sensitive
 func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
 	loweredMap := make(map[string]any)
 	for key, val := range dict {
@@ -112,18 +115,15 @@ func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
 	return loweredMap
 }
 
-// Copies the Environment map[string]any and returns a map[string]string
-// EnvMap is a simple JSON without any nested properties.
-// Mostly used for goroutines.
-// Copies the Environment map[string]any and returns a copy as map[string]any.
-// EnvMap is a simple JSON without any nested properties.
+// CopyEnvMap Copies the Environment map[string]any and returns a map[string]string
+// EnvMap is a simple JSON without any nested properties. Mostly used for goroutines.
 func CopyEnvMap(original map[string]any) map[string]any {
 	result := make(map[string]any)
 	maps.Copy(result, original)
 	return result
 }
 
-// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
+// ListMatchingFiles Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
@@ -201,12 +201,12 @@ func isNoMatchingFileError(err error) bool {
 	return strings.Contains(err.Error(), "no files with matching name")
 }
 
-// takes in filepath and returns the name of the file
+// FileNameWithoutExtension takes in filepath and returns the name of the file
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
-// merge the secondary map into the main map.
+// MergeMaps merges the secondary map into the main map.
 // If keys are repeated, values from the secondary map replace those in the main map.
 func MergeMaps(main, sec map[string]string) map[string]string {
 	if main == nil {
