@@ -1,3 +1,5 @@
+// Package utils has all the utils required for hulak, including but not limited to
+// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import (
@@ -7,7 +9,7 @@ import (
 	"strings"
 )
 
-// Creates an error message that optionally includes an additional error.
+// ColorError Creates an error message that optionally includes an additional error.
 // If an error is provided, it formats the message with the error appended.
 // The returned error is colored for console output.
 func ColorError(errMsg string, errs ...error) error {
@@ -20,28 +22,28 @@ func ColorError(errMsg string, errs ...error) error {
 	return fmt.Errorf("\n%sError: %s%s", Red, fullMsg, ColorReset)
 }
 
-// Success Message
+// PrintGreen Prints Success Message
 func PrintGreen(msg string) {
 	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
 }
 
-// Inform or Warn the user
+// PrintWarning Inform or Warn the user
 func PrintWarning(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
-// Used mostly for errors
+// PrintRed is used mostly for errors
 func PrintRed(msg string) {
 	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)
 }
 
-// Print message in Red and os.Exit(1)
+// PanicRedAndExit Print message in Red and os.Exit(1)
 func PanicRedAndExit(msg string, args ...any) {
 	fmt.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
 	os.Exit(1)
 }
 
-// JSON.stringify equivalent for go
+// MarshalToJSON is basically JSON.stringify equivalent for go
 func MarshalToJSON(value any) (any, error) {
 	switch val := value.(type) {
 	case string, bool, int, float64:
