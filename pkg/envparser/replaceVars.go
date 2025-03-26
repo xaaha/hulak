@@ -7,7 +7,6 @@ import (
 	"text/template"
 
 	"github.com/xaaha/hulak/pkg/actions"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func replaceVariables(
@@ -37,7 +36,7 @@ func replaceVariables(
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, secretsMap)
 	if err != nil {
-		return "", utils.ColorError("%v", err)
+		return "", err
 	}
 	return result.String(), nil
 }
@@ -59,9 +58,7 @@ func prepareMap(secretsMap map[string]any) (map[string]any, error) {
 		case bool, int, float64, nil:
 			updatedMap[key] = v
 		default:
-			return nil, utils.ColorError(
-				fmt.Sprintf("unsupported type for key '%s': %T", key, val),
-			)
+			return nil, fmt.Errorf("unsupported type for key '%s': %T", key, val)
 		}
 	}
 	return updatedMap, nil

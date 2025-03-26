@@ -40,11 +40,7 @@ func GetFile(filePath string) (string, error) {
 			fileInfo, err = os.Stat(relPath)
 			if err != nil {
 				if os.IsNotExist(err) {
-					return "", fmt.Errorf(
-						"file does not exist at either %s or %s",
-						absPath,
-						relPath,
-					)
+					return "", fmt.Errorf("file does not exist %s ", absPath)
 				}
 				return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
 			}

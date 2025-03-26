@@ -1,3 +1,4 @@
+// Package yamlParser does everything related to yaml file for hulak, including type translation
 package yamlParser
 
 import (
