@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -424,13 +423,8 @@ func forEachRequest(collection PmCollection) (string, error) {
 		yamlParts = append(yamlParts, requestYAML)
 	}
 
-	// Add metadata as comments
-	metadata := fmt.Sprintf("# Generated: %s\n# User: %s\n",
-		time.Now().UTC().Format("2006-01-02 15:04:05"),
-		"xaaha")
-
 	// Combine everything with separators
-	finalYAML := metadata + strings.Join(yamlParts, "\n---\n\n")
+	finalYAML := strings.Join(yamlParts, "\n---\n\n")
 	return finalYAML, nil
 }
 
