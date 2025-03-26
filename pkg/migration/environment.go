@@ -93,8 +93,11 @@ func migrateEnv(env Environment, comment ...string) error {
 	// format for comment in .env
 	commentText = fmt.Sprintf("\n### %s ###\n", strings.TrimSpace(commentText))
 
-	for _, eachVarItem := range env.Values {
+	if len(env.Values) > 0 {
 		message.WriteString(commentText)
+	}
+
+	for _, eachVarItem := range env.Values {
 		key := sanitizeKey(eachVarItem.Key)
 		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
 		if !eachVarItem.Enabled || eachVarItem.Value == "" {

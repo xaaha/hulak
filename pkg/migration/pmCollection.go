@@ -476,9 +476,8 @@ func migrateCollection(jsonStr map[string]any) error {
 
 	// inside the dir create a file for collection description
 	if collection.Info.Description != "" {
-		descFilePath := filepath.Join(dirPath, "description.txt")
-		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
-		if err = os.WriteFile(descFilePath, []byte(str), utils.FilePer); err != nil {
+		descFilePath := filepath.Join(dirPath, "description.md")
+		if err = os.WriteFile(descFilePath, []byte(collection.Info.Description), utils.FilePer); err != nil {
 			return err
 		}
 	}
