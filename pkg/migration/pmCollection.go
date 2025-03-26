@@ -344,7 +344,7 @@ func bodyToYaml(pmbody Body) (string, error) {
 
 // forEachRequest converts each postman request to hulak's yaml format
 func forEachRequest(collection PmCollection) (string, error) {
-	// move collection variables to global.env
+	// first, move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
 	if err := migrateEnv(collectionVars, collection.Info.Name); err != nil {
 		utils.PrintRed("Error occured while migrating Collection Variables")
@@ -352,16 +352,6 @@ func forEachRequest(collection PmCollection) (string, error) {
 	}
 
 	var yamlParts []string
-
-	// Add collection info as a comment
-	// TODO: Make this a folder Name
-	primaryCollectionName := fmt.Sprintf("# Collection: %s\n", collection.Info.Name)
-	if collection.Info.Description != "" {
-		// TODO: Add the description to a description.txt file
-		str := strings.ReplaceAll(collection.Info.Description, "\n", "")
-		primaryCollectionName += fmt.Sprintf("# Description: %s\n", str)
-	}
-	yamlParts = append(yamlParts, primaryCollectionName)
 
 	// Process each item in the collection
 	for _, item := range collection.Item {
