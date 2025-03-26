@@ -507,6 +507,6 @@ func migrateCollection(jsonStr map[string]any) error {
 		return err
 	}
 
-	utils.PrintGreen("Collection Migration Successful!")
+	utils.PrintGreen("Collection Migration Successful! " + utils.CheckMark)
 	return nil
 }
