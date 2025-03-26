@@ -1,5 +1,5 @@
 // Package migration migrates colelction, variables, responses to hulak
-// Currently it only supports postman collection and variables
+// Currently it only supports postman collection (2.1) and variables
 package migration
 
 import (
@@ -351,97 +351,126 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 	// first, move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
 	if err := migrateEnv(collectionVars, collection.Info.Name); err != nil {
-		utils.PrintRed("Error occured while migrating Collection Variables")
+		utils.PrintRed("Error occurred while migrating Collection Variables")
 		return err
 	}
 
+	return processItems(collection.Item, parentDirPath)
+}
+
+func processItems(items []ItemOrReq, parentDirPath string) error {
 	counter := 0
 
-	// Process each item in the collection
-	for _, item := range collection.Item {
-		if item.Request == nil {
-			continue
-		}
+	// Process each item
+	for _, item := range items {
+		itemDirPath := parentDirPath
 
-		// Convert method to YAML
-		methodYAML, err := methodToYaml(item.Request.Method)
-		if err != nil {
-			return fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
-		}
-
-		// Convert URL to YAML
-		urlYAML, err := urlToYaml(*item.Request.URL)
-		if err != nil {
-			return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
-		}
-
-		// Convert headers to YAML
-		headerYAML, err := headerToYAML(item.Request.Header)
-		if err != nil {
-			return fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
-		}
-
-		// Convert body to YAML if it exists
-		var bodyYAML string
-		if item.Request.Body != nil {
-			var err error
-			bodyYAML, err = bodyToYaml(*item.Request.Body)
-			if err != nil {
-				return fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
+		// If the item contains sub-items, create a directory for the item
+		if len(item.Item) > 0 {
+			itemDirPath = filepath.Join(parentDirPath, sanitizeKey(item.Name))
+			if err := os.MkdirAll(itemDirPath, os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create directory '%s': %w", itemDirPath, err)
+			}
+			// Recursively process sub-items
+			if err := processItems(item.Item, itemDirPath); err != nil {
+				return err
 			}
 		}
 
-		// Save response examples for this request
-		responses := saveResponses(item)
-		for i, response := range responses {
-			// Create filename based on request name and response index
-			sanitizedName := strings.ReplaceAll(strings.ToLower(item.Name), " ", "_")
-			filename := fmt.Sprintf("%s_example_%d.json", sanitizedName, i+1)
-			fmt.Println(filename, ":", response)
-		}
+		if item.Request != nil {
+			// Convert method to YAML
+			methodYAML, err := methodToYaml(item.Request.Method)
+			if err != nil {
+				return fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
+			}
 
-		// Build request YAML
-		requestYAML := fmt.Sprintf("# Request: %s\n", item.Name)
-		if item.Description != "" {
-			// TODO: Each item description is a description.txt file in the folder
-			requestYAML += fmt.Sprintf("# Description: %s\n", item.Description)
-		}
+			// Convert URL to YAML
+			urlYAML, err := urlToYaml(*item.Request.URL)
+			if err != nil {
+				return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
+			}
 
-		// Remove prefixes and clean up the components
-		methodYAML = strings.TrimPrefix(strings.TrimSpace(methodYAML), "method:")
-		urlYAML = strings.TrimSpace(urlYAML)
-		headerYAML = strings.TrimSpace(headerYAML)
-		bodyYAML = strings.TrimSpace(bodyYAML)
+			// Convert headers to YAML
+			headerYAML, err := headerToYAML(item.Request.Header)
+			if err != nil {
+				return fmt.Errorf("failed to convert headers for request '%s': %w", item.Name, err)
+			}
 
-		// Combine all parts with proper indentation
-		requestYAML += fmt.Sprintf("method:%s\n", methodYAML)
-		requestYAML += urlYAML + "\n"
+			// Convert body to YAML if it exists
+			var bodyYAML string
+			if item.Request.Body != nil {
+				var err error
+				bodyYAML, err = bodyToYaml(*item.Request.Body)
+				if err != nil {
+					return fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
+				}
+			}
 
-		if headerYAML != "" {
-			requestYAML += headerYAML + "\n"
-		}
+			// Save response examples for this request
+			responses := saveResponses(item)
+			for i, response := range responses {
+				// Create filename based on request name and response index
+				sanitizedName := strings.ReplaceAll(strings.ToLower(item.Name), " ", "_")
+				filename := fmt.Sprintf("%s_example_%d.json", sanitizedName, i+1)
+				responseFilePath := filepath.Join(itemDirPath, filename)
+				if err := os.WriteFile(responseFilePath, []byte(response), os.ModePerm); err != nil {
+					return fmt.Errorf(
+						"failed to write response file '%s': %w",
+						responseFilePath,
+						err,
+					)
+				}
+			}
 
-		if bodyYAML != "" {
-			requestYAML += bodyYAML + "\n"
-		}
+			// Build request YAML
+			requestYAML := fmt.Sprintf("# Request: %s\n", item.Name)
+			if item.Description != "" {
+				// TODO: Each item description is a description.txt file in the folder
+				descriptionFilePath := filepath.Join(itemDirPath, "description.txt")
+				if err := os.WriteFile(descriptionFilePath, []byte(item.Description), os.ModePerm); err != nil {
+					return fmt.Errorf(
+						"failed to write description file '%s': %w",
+						descriptionFilePath,
+						err,
+					)
+				}
+				requestYAML += fmt.Sprintf("# Description: %s\n", item.Description)
+			}
 
-		// Write each request YAML
-		reqFileName := sanitizeKey(item.Name) + utils.YAML
-		if item.Name == "" {
-			counter++
-			reqFileName = fmt.Sprintf("request_%v", counter) + utils.YAML
-		}
-		reqFilePath := filepath.Join(parentDirPath, reqFileName)
+			// Remove prefixes and clean up the components
+			methodYAML = strings.TrimPrefix(strings.TrimSpace(methodYAML), "method:")
+			urlYAML = strings.TrimSpace(urlYAML)
+			headerYAML = strings.TrimSpace(headerYAML)
+			bodyYAML = strings.TrimSpace(bodyYAML)
 
-		if err = os.WriteFile(reqFilePath, []byte(requestYAML), utils.FilePer); err != nil {
-			return err
+			// Combine all parts with proper indentation
+			requestYAML += fmt.Sprintf("method:%s\n", methodYAML)
+			requestYAML += urlYAML + "\n"
+
+			if headerYAML != "" {
+				requestYAML += headerYAML + "\n"
+			}
+
+			if bodyYAML != "" {
+				requestYAML += bodyYAML + "\n"
+			}
+
+			// Write each request YAML
+			reqFileName := sanitizeKey(item.Name) + utils.YAML
+			if item.Name == "" {
+				counter++
+				reqFileName = fmt.Sprintf("request_%v", counter) + utils.YAML
+			}
+			reqFilePath := filepath.Join(itemDirPath, reqFileName)
+
+			if err = os.WriteFile(reqFilePath, []byte(requestYAML), utils.FilePer); err != nil {
+				return fmt.Errorf("failed to write request file '%s': %w", reqFilePath, err)
+			}
 		}
 	}
 
 	return nil
-}
-
-// migrateCollection migrates a Postman collection to the desired format
+} // migrateCollection migrates a Postman collection to the desired format
 func migrateCollection(jsonStr map[string]any) error {
 	// Convert the map[string]any to JSON bytes for unmarshaling into PmCollection
 	jsonBytes, err := json.Marshal(jsonStr)
