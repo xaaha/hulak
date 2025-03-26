@@ -1,3 +1,4 @@
+// Package migration migrates colelction, variables, responses to hulak Currently it only supports postman collection and variables
 package migration
 
 // postman environment
@@ -92,8 +93,8 @@ func migrateEnv(env Environment, comment ...string) error {
 	// format for comment in .env
 	commentText = fmt.Sprintf("\n### %s ###\n", strings.TrimSpace(commentText))
 
-	message.WriteString(commentText)
 	for _, eachVarItem := range env.Values {
+		message.WriteString(commentText)
 		key := sanitizeKey(eachVarItem.Key)
 		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
 		if !eachVarItem.Enabled || eachVarItem.Value == "" {

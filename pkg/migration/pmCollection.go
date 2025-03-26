@@ -88,7 +88,7 @@ type PMURL struct {
 	Query []KeyValuePair `json:"query,omitempty"`
 }
 
-type GraphQl struct {
+type graphQl struct {
 	Variables string `json:"variables,omitempty" yaml:"variables"`
 	Query     string `json:"query,omitempty"     yaml:"query"`
 }
@@ -99,7 +99,7 @@ type Body struct {
 	Raw        string         `json:"raw,omitempty"`
 	URLEncoded []KeyValuePair `json:"urlencoded,omitempty"`
 	FormData   []KeyValuePair `json:"formdata,omitempty"`
-	GraphQL    *GraphQl       `json:"graphql,omitempty"`
+	GraphQL    *graphQl       `json:"graphql,omitempty"`
 	Options    *BodyOptions   `json:"options,omitempty"`
 }
 
@@ -122,21 +122,21 @@ func isCollection(jsonString map[string]any) bool {
 
 // prepars the collection variables array to be compatible with the environment migration script
 func prepareVarStr(collectionVars PmCollection) Environment {
-	result := Environment{}
-
-	var envValues []EnvValues
-
-	collVarArr := collectionVars.Variable
-	for _, eachItem := range collVarArr {
-		key := eachItem.Key
-		value := eachItem.Value
-		enabled := !eachItem.Disabled
-		envValues = append(envValues, EnvValues{key, value, enabled})
+	result := Environment{
+		Name:   "",
+		Scope:  "globals",
+		Values: make([]EnvValues, 0, len(collectionVars.Variable)),
 	}
 
-	result.Name = "" // since collection name could be long, lets put everyting in global
-	result.Values = envValues
-	result.Scope = "globals" // since we are copying all collection items to globals
+	for _, eachItem := range collectionVars.Variable {
+		envValue := EnvValues{
+			Key:     eachItem.Key,
+			Value:   eachItem.Value,
+			Enabled: !eachItem.Disabled,
+		}
+		result.Values = append(result.Values, envValue)
+	}
+
 	return result
 }
 

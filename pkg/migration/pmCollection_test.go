@@ -608,7 +608,7 @@ func TestBodyToYaml(t *testing.T) {
 	t.Run("GraphQL query", func(t *testing.T) {
 		input := Body{
 			Mode: "graphql",
-			GraphQL: &GraphQl{
+			GraphQL: &graphQl{
 				Query: `query GetUser {
   user(id: "1") {
     name
@@ -638,7 +638,7 @@ func TestBodyToYaml(t *testing.T) {
 	t.Run("GraphQL with template variables", func(t *testing.T) {
 		input := Body{
 			Mode: "graphql",
-			GraphQL: &GraphQl{
+			GraphQL: &graphQl{
 				Query: `query GetUser {
   user(id: "{{userId}}") {
     name
