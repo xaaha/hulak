@@ -356,7 +356,6 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 	}
 
 	counter := 0
-	var yamlParts []string
 
 	// Process each item in the collection
 	for _, item := range collection.Item {
@@ -426,8 +425,7 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 			requestYAML += bodyYAML + "\n"
 		}
 
-		yamlParts = append(yamlParts, requestYAML)
-
+		// Write each request YAML
 		reqFileName := sanitizeKey(item.Name) + utils.YAML
 		if item.Name == "" {
 			counter++
@@ -435,12 +433,9 @@ func forEachRequest(collection PmCollection, parentDirPath string) error {
 		}
 		reqFilePath := filepath.Join(parentDirPath, reqFileName)
 
-		// Combine everything with separators
-		finalYAML := strings.Join(yamlParts, "\n---\n\n")
-		if err = os.WriteFile(reqFilePath, []byte(finalYAML), utils.FilePer); err != nil {
+		if err = os.WriteFile(reqFilePath, []byte(requestYAML), utils.FilePer); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
