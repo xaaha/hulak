@@ -124,7 +124,7 @@ func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile,
 	return file, nil
 }
 
-// checks the validity of all the fields in the yaml file meant for OAuth2.0.
+// FinalStructForOAuth2 checks the validity of all the fields in the yaml file meant for OAuth2.0.
 // It returns AuthRequestBody struct
 func FinalStructForOAuth2(
 	filePath string,
