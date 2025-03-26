@@ -106,3 +106,24 @@ In such case use the path to the file from the root of the project.
 ```yaml
 name: '{{getValueOf "user.name" "./users/profiles.json"}}'
 ```
+
+## 2. Using `getFile`
+
+Gets the file content as string and dumps it in context. It takes one argument, file path. So, provide either the file path from the root of the project
+
+```yaml
+# example
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
+```
+
+OR provide the full path
+
+```yaml
+body:
+  graphql:
+    query: '{{getFile "/Users/yourname/Documents/Projects/hulak/e2etests/test_collection/graphql.yml"}}'
+```
+
+`getFile` gets the entire file content and dumps it in context. For example, in the above example, it dumps the content in the query section of grapqhl

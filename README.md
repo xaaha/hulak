@@ -187,6 +187,17 @@ name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_res
 name: `{{getValueOf "name" "user.json"}}`
 ```
 
+### `getFile`
+
+Gets the file content as string and dumps it in context. It takes one argument, file path.
+
+```yaml
+# example
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
+```
+
 Learn more about these actions [here](./docs/actions.md)
 
 # Auth2.0 (Beta)
