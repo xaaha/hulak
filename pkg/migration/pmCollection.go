@@ -8,7 +8,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlParser"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // PmCollection represents the overall Postman collection
@@ -70,7 +70,7 @@ type Response struct {
 
 // Request represents a Postman request
 type Request struct {
-	Method                  yamlParser.HTTPMethodType `json:"method"`
+	Method                  yamlparser.HTTPMethodType `json:"method"`
 	Header                  []KeyValuePair            `json:"header"`
 	Body                    *Body                     `json:"body,omitempty"`
 	URL                     *PMURL                    `json:"url"`
@@ -80,7 +80,7 @@ type Request struct {
 
 // PMURL represents PMURL information in a request
 type PMURL struct {
-	Raw   yamlParser.URL `json:"raw"`
+	Raw   yamlparser.URL `json:"raw"`
 	Host  []string       `json:"host,omitempty"`
 	Path  []string       `json:"path,omitempty"`
 	Query []KeyValuePair `json:"query,omitempty"`
@@ -196,7 +196,7 @@ func MigrateCollection(collection PmCollection) error {
 }
 
 // converts method present in pm json file to yaml string
-func methodToYaml(method yamlParser.HTTPMethodType) (string, error) {
+func methodToYaml(method yamlparser.HTTPMethodType) (string, error) {
 	type YAMLOutput struct {
 		Method string `yaml:"method"`
 	}

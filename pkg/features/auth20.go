@@ -13,7 +13,7 @@ import (
 
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlParser"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 const (
@@ -87,7 +87,7 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	// Create and start the callback server
 	go server()
 	// Prepare the OAuth URL
-	authReqBody, err := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	authReqBody, err := yamlparser.FinalStructForOAuth2(filePath, secretsMap)
 	if err != nil {
 		return "", err
 	}
@@ -122,7 +122,7 @@ func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
 		return err
 	}
 
-	authReqConfig, err := yamlParser.FinalStructForOAuth2(filePath, secretsMap)
+	authReqConfig, err := yamlparser.FinalStructForOAuth2(filePath, secretsMap)
 	if err != nil {
 		return err
 	}

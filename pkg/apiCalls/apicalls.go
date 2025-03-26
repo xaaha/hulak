@@ -8,11 +8,11 @@ import (
 	"net/http"
 
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlParser"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// Makes an api call and returns the json body string
-func StandardCall(apiInfo yamlParser.ApiInfo) (CustomResponse, error) {
+// StandarCall calls the api and returns the json body string
+func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -52,7 +52,7 @@ func StandardCall(apiInfo yamlParser.ApiInfo) (CustomResponse, error) {
 // Using the provided envMap, this function calls the PrepareStruct,
 // and Makes the Api Call with StandardCall and prints the response in console
 func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
-	apiConfig, err := yamlParser.FinalStructForAPI(
+	apiConfig, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
 	)

@@ -7,7 +7,7 @@ import (
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlParser"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 /*
@@ -36,7 +36,7 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 		go func(path string) {
 			defer wg.Done()
 			// Parse the configuration for each file
-			config := yamlParser.MustParseConfig(path, utils.CopyEnvMap(secretsMap))
+			config := yamlparser.MustParseConfig(path, utils.CopyEnvMap(secretsMap))
 
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {

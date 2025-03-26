@@ -5,34 +5,34 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xaaha/hulak/pkg/yamlParser"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 func TestFullUrl(t *testing.T) {
 	tests := []struct {
 		params   map[string]string
 		name     string
-		baseUrl  string
+		baseURL  string
 		expected string
 	}{
 		// Test with no parameters
 		{
 			name:     "No parameters",
-			baseUrl:  "https://api.example.com/resource",
+			baseURL:  "https://api.example.com/resource",
 			params:   map[string]string{},
 			expected: "https://api.example.com/resource",
 		},
 		// Test with a single parameter
 		{
 			name:     "Single parameter",
-			baseUrl:  "https://api.example.com/resource",
+			baseURL:  "https://api.example.com/resource",
 			params:   map[string]string{"search": "golang"},
 			expected: "https://api.example.com/resource?search=golang",
 		},
 		// Test with multiple parameters
 		{
 			name:    "Multiple parameters",
-			baseUrl: "https://api.example.com/resource",
+			baseURL: "https://api.example.com/resource",
 			params: map[string]string{
 				"search": "golang",
 				"limit":  "10",
@@ -43,7 +43,7 @@ func TestFullUrl(t *testing.T) {
 		// Test with special characters in parameters
 		{
 			name:    "Special characters in parameters",
-			baseUrl: "https://api.example.com/resource",
+			baseURL: "https://api.example.com/resource",
 			params: map[string]string{
 				"search": "go programming",
 				"filter": "name&value",
@@ -53,7 +53,7 @@ func TestFullUrl(t *testing.T) {
 		// Test with empty parameter values
 		{
 			name:    "Empty parameter values",
-			baseUrl: "https://api.example.com/resource",
+			baseURL: "https://api.example.com/resource",
 			params: map[string]string{
 				"search": "",
 				"limit":  "10",
@@ -64,7 +64,7 @@ func TestFullUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fullUrl := PrepareUrl(tt.baseUrl, tt.params)
+			fullUrl := PrepareUrl(tt.baseURL, tt.params)
 			if fullUrl != tt.expected {
 				t.Errorf("FullUrl() = %v, want %v", fullUrl, tt.expected)
 			}
@@ -126,7 +126,7 @@ func TestEncodeXwwwFormUrlBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader, err := yamlParser.EncodeXwwwFormUrlBody(tt.input)
+			reader, err := yamlparser.EncodeXwwwFormUrlBody(tt.input)
 
 			// Check if an error is expected
 			if tt.expectError {
@@ -203,7 +203,7 @@ func TestEncodeFormData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload, contentType, err := yamlParser.EncodeFormData(tt.input)
+			payload, contentType, err := yamlparser.EncodeFormData(tt.input)
 
 			// Check if an error is expected
 			if tt.expectError {
@@ -286,7 +286,7 @@ func TestEncodeGraphQlBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload, err := yamlParser.EncodeGraphQlBody(tt.query, tt.variables)
+			payload, err := yamlparser.EncodeGraphQlBody(tt.query, tt.variables)
 
 			// Check if an error is expected
 			if tt.expectError {

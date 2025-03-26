@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"reflect"
