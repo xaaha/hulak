@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -75,6 +76,22 @@ func HandleSubcommands() error {
 			if err := envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PrintRed(err.Error())
 			}
+
+			apiOptionsCont, err := actions.GetFile("assets/apiOptions.yaml")
+			if err != nil {
+				return err
+			}
+
+			root, err := utils.CreatePath("apiOptions.yaml")
+			if err != nil {
+				return nil
+			}
+
+			if err := os.WriteFile(root, []byte(apiOptionsCont), utils.FilePer); err != nil {
+				return fmt.Errorf("error on writing 'apiOptions' file: %s", err)
+			}
+
+			utils.PrintGreen("apiOptions.yaml file created " + utils.CheckMark)
 			utils.PrintGreen("Done " + utils.CheckMark)
 		}
 		os.Exit(0)
