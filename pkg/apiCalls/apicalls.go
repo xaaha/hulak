@@ -11,7 +11,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// StandarCall calls the api and returns the json body string
+// StandardCall calls the api and returns the json body string
 func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
@@ -28,9 +28,9 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
 	urlParams := map[string]string{}
-	preparedUrl := PrepareUrl(urlStr, urlParams)
+	preparedURL := PrepareUrl(urlStr, urlParams)
 
-	req, err := http.NewRequest(method, preparedUrl, newBodyReader)
+	req, err := http.NewRequest(method, preparedURL, newBodyReader)
 	if err != nil {
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %v", method, err)
 	}
