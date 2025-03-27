@@ -111,7 +111,7 @@ func handleInit() error {
 			return fmt.Errorf("error on writing '%s' file: %s", apiOptionsFile, err)
 		}
 
-		utils.PrintGreen("Api options file created " + utils.CheckMark)
+		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", apiOptionsFile, utils.CheckMark))
 		utils.PrintGreen("Done " + utils.CheckMark)
 	}
 	return nil
