@@ -56,43 +56,8 @@ func HandleSubcommands() error {
 		os.Exit(0)
 
 	case Init:
-		err := initialize.Parse(os.Args[2:])
-		if err != nil {
-			return fmt.Errorf("\n invalid subcommand %v", err)
-		}
-		// Check if -env flag is present
-		if *createEnvs {
-			envs := initialize.Args()
-			if len(envs) > 0 {
-				for _, env := range envs {
-					if err := envparser.CreateDefaultEnvs(&env); err != nil {
-						utils.PrintRed(err.Error())
-					}
-				}
-			} else {
-				utils.PrintWarning("No environment names provided after -env flag")
-			}
-		} else {
-			if err := envparser.CreateDefaultEnvs(nil); err != nil {
-				utils.PrintRed(err.Error())
-			}
-
-			apiOptionsCont, err := actions.GetFile("assets/apiOptions.yaml")
-			if err != nil {
-				return err
-			}
-
-			root, err := utils.CreatePath("apiOptions.yaml")
-			if err != nil {
-				return nil
-			}
-
-			if err := os.WriteFile(root, []byte(apiOptionsCont), utils.FilePer); err != nil {
-				return fmt.Errorf("error on writing 'apiOptions' file: %s", err)
-			}
-
-			utils.PrintGreen("apiOptions.yaml file created " + utils.CheckMark)
-			utils.PrintGreen("Done " + utils.CheckMark)
+		if err := handleInit(); err != nil {
+			return err
 		}
 		os.Exit(0)
 
@@ -104,6 +69,50 @@ func HandleSubcommands() error {
 		utils.PrintRed("Enter a valid subcommand")
 		printHelpSubCommands()
 		os.Exit(1)
+	}
+	return nil
+}
+
+func handleInit() error {
+	apiOptionsFile := "apiOptions.yaml"
+	err := initialize.Parse(os.Args[2:])
+	if err != nil {
+		return fmt.Errorf("\n invalid subcommand %v", err)
+	}
+	// Check if -env flag is present
+	if *createEnvs {
+		envs := initialize.Args()
+		if len(envs) > 0 {
+			for _, env := range envs {
+				if err := envparser.CreateDefaultEnvs(&env); err != nil {
+					utils.PrintRed(err.Error())
+				}
+			}
+		} else {
+			utils.PrintWarning("No environment names provided after -env flag")
+		}
+	} else {
+		if err := envparser.CreateDefaultEnvs(nil); err != nil {
+			utils.PrintRed(err.Error())
+		}
+
+		// This assumes that assets assets/apiOptions.yaml will always be there
+		content, err := actions.GetFile("assets/" + apiOptionsFile)
+		if err != nil {
+			return err
+		}
+
+		root, err := utils.CreatePath(apiOptionsFile)
+		if err != nil {
+			return nil
+		}
+
+		if err := os.WriteFile(root, []byte(content), utils.FilePer); err != nil {
+			return fmt.Errorf("error on writing '%s' file: %s", apiOptionsFile, err)
+		}
+
+		utils.PrintGreen("Api options file created " + utils.CheckMark)
+		utils.PrintGreen("Done " + utils.CheckMark)
 	}
 	return nil
 }

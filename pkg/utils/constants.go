@@ -1,3 +1,5 @@
+// Package utils has all the utils required for hulak, including but not limited to
+// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import "io/fs"
@@ -50,7 +52,7 @@ const (
 	JSONNull   = "null"
 )
 
-// Auth2.0 ResponseType
+// ResponseType is Auth2.0 ResponseType
 const ResponseType = "code"
 
 // Permissions for creating directory and files
@@ -59,6 +61,7 @@ const (
 	FilePer fs.FileMode = 0644
 )
 
+// tick mark and x for success and failure
 const (
 	CheckMark = "\u2713"
 	CrossMark = "\u2717"
