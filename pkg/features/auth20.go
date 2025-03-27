@@ -98,7 +98,7 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	reqField["response_type"] = responseType
 	reqField["redirect_uri"] = redirectURI
 	authReqBody.UrlParams = utils.MergeMaps(authReqBody.UrlParams, reqField)
-	urlStr := apicalls.PrepareUrl(string(authReqBody.Url), authReqBody.UrlParams)
+	urlStr := apicalls.PrepareURL(string(authReqBody.Url), authReqBody.UrlParams)
 
 	// Open the browser
 	log.Println("Opening browser for authentication...")

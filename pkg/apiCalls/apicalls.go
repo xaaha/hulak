@@ -28,7 +28,7 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
 	urlParams := map[string]string{}
-	preparedURL := PrepareUrl(urlStr, urlParams)
+	preparedURL := PrepareURL(urlStr, urlParams)
 
 	req, err := http.NewRequest(method, preparedURL, newBodyReader)
 	if err != nil {
