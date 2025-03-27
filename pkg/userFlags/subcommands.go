@@ -1,3 +1,4 @@
+// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
@@ -38,7 +39,7 @@ func init() {
 	)
 }
 
-// Loops through all the subcommands
+// HandleSubcommands loops through all the subcommands
 func HandleSubcommands() error {
 	switch os.Args[1] {
 	case Migrate:
@@ -74,6 +75,7 @@ func HandleSubcommands() error {
 			if err := envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PrintRed(err.Error())
 			}
+			utils.PrintGreen("Done " + utils.CheckMark)
 		}
 		os.Exit(0)
 

@@ -247,7 +247,7 @@ body:
 					t.Errorf("Expected no error for test %s, but got: %v", tc.name, err)
 				}
 
-				if result.Method == "" || result.Url == "" {
+				if result.Method == "" || result.URL == "" {
 					t.Errorf("Expected valid ApiCallFile struct but got empty fields for test %s", tc.name)
 				}
 			}

@@ -126,7 +126,7 @@ func TestEncodeXwwwFormUrlBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader, err := yamlparser.EncodeXwwwFormUrlBody(tt.input)
+			reader, err := yamlparser.EncodeXwwwFormURLBody(tt.input)
 
 			// Check if an error is expected
 			if tt.expectError {

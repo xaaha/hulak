@@ -127,7 +127,7 @@ func TestBodyIsValid(t *testing.T) {
 		},
 		{
 			name:     "non-empty UrlEncodedFormData",
-			body:     &Body{UrlEncodedFormData: map[string]string{"key": "value"}},
+			body:     &Body{URLEncodedFormData: map[string]string{"key": "value"}},
 			expected: true,
 		},
 		{
@@ -209,7 +209,7 @@ func TestEncodeBody(t *testing.T) {
 		{
 			name: "URL Encoded Form Data",
 			body: &Body{
-				UrlEncodedFormData: map[string]string{"key": "value"},
+				URLEncodedFormData: map[string]string{"key": "value"},
 			},
 			expectError: false,
 			expectedCT:  "application/x-www-form-urlencoded",
