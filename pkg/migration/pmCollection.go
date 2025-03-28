@@ -384,10 +384,15 @@ func processItems(items []ItemOrReq, parentDirPath string) error {
 				return fmt.Errorf("failed to convert method for request '%s': %w", item.Name, err)
 			}
 
+			var urlYAML string
 			// Convert URL to YAML
-			urlYAML, err := urlToYaml(*item.Request.URL)
-			if err != nil {
-				return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
+			if item.Request.URL != nil {
+				urlYAML, err = urlToYaml(*item.Request.URL)
+				if err != nil {
+					return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
+				}
+			} else {
+				return fmt.Errorf("URL is nil for request '%s'", item.Name)
 			}
 
 			// Convert headers to YAML
