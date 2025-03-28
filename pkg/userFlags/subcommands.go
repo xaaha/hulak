@@ -2,15 +2,18 @@
 package userflags
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"os"
 
-	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+//go:embed apiOptions.yaml
+var embeddedFiles embed.FS
 
 // User subcommands
 const (
@@ -96,8 +99,7 @@ func handleInit() error {
 			utils.PrintRed(err.Error())
 		}
 
-		// This assumes that assets assets/apiOptions.yaml will always be there
-		content, err := actions.GetFile("assets/" + apiOptionsFile)
+		content, err := embeddedFiles.ReadFile(apiOptionsFile)
 		if err != nil {
 			return err
 		}
@@ -107,7 +109,7 @@ func handleInit() error {
 			return nil
 		}
 
-		if err := os.WriteFile(root, []byte(content), utils.FilePer); err != nil {
+		if err := os.WriteFile(root, content, utils.FilePer); err != nil {
 			return fmt.Errorf("error on writing '%s' file: %s", apiOptionsFile, err)
 		}
 
