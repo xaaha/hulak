@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"fmt"
@@ -8,18 +8,18 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type ActionType string
+type actionType string
 
 // These consts represent functions users can take in a yaml file
 // except Invalid, which represents error
 const (
-	DotString  ActionType = "DotString"
-	GetValueOf ActionType = "GetValueOf"
-	Invalid    ActionType = "Invalid"
+	DotString  actionType = "DotString"
+	GetValueOf actionType = "GetValueOf"
+	Invalid    actionType = "Invalid"
 )
 
-type Action struct {
-	Type       ActionType
+type action struct {
+	Type       actionType
 	DotString  string
 	GetValueOf []string
 }
@@ -48,10 +48,10 @@ func stringHasDelimiter(value string) (bool, string) {
 // navigate to the appropriate dictionary for value replacement.
 // Additionally, it removes double quotes, single quotes, dots (.),
 // and backticks (`) from the action.
-func delimiterLogicAndCleanup(delimiterString string) Action {
+func delimiterLogicAndCleanup(delimiterString string) action {
 	strHasDelimiter, innerStr := stringHasDelimiter(delimiterString)
 	if !strHasDelimiter {
-		return Action{Type: Invalid}
+		return action{Type: Invalid}
 	}
 
 	innerStrChunks := strings.Split(innerStr, " ")
@@ -59,18 +59,18 @@ func delimiterLogicAndCleanup(delimiterString string) Action {
 	// Check for DotString action
 	if len(innerStrChunks) == 1 && strings.HasPrefix(innerStrChunks[0], ".") {
 		dotStr := strings.TrimPrefix(innerStrChunks[0], ".")
-		return Action{Type: DotString, DotString: dotStr}
+		return action{Type: DotString, DotString: dotStr}
 	}
 
 	if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
 		cleanedChunks := cleanStrings(innerStrChunks[1:])
-		return Action{
+		return action{
 			Type:       GetValueOf,
 			GetValueOf: append([]string{innerStrChunks[0]}, cleanedChunks...),
 		}
 	}
 
-	return Action{Type: Invalid}
+	return action{Type: Invalid}
 }
 
 type EachGetValueofAction struct {

@@ -1,3 +1,4 @@
+// Package apicalls has all things related to api call
 package apicalls
 
 import (
@@ -9,13 +10,13 @@ import (
 	"net/url"
 )
 
-// if the url has parameters, the function perpares and returns the full url otherwise,
-// the function returns the provided baseUrl
-func PrepareUrl(baseUrl string, urlParams map[string]string) string {
-	u, err := url.Parse(baseUrl)
+// PrepareURL perpares and returns the full url.
+// If the url has parameters, then the function returns the provided baseUrl
+func PrepareURL(baseURL string, urlParams map[string]string) string {
+	u, err := url.Parse(baseURL)
 	if err != nil {
 		// If parsing fails, return the base URL as is
-		return baseUrl
+		return baseURL
 	}
 	// Prepare URL query parameters if params are provided
 	if urlParams != nil {

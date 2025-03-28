@@ -12,7 +12,7 @@ func TestCreateFilePath(t *testing.T) {
 	// Test case with a known relative file path
 	expected, _ := os.Getwd()
 	expected = filepath.Join(expected, "testfile.txt")
-	result, err := CreateFilePath("testfile.txt")
+	result, err := CreatePath("testfile.txt")
 	if err != nil {
 		t.Errorf("CreateFilePath returned an error: %v", err)
 	}
@@ -22,7 +22,6 @@ func TestCreateFilePath(t *testing.T) {
 }
 
 func TestGetEnvFiles(t *testing.T) {
-	var utility Utilities
 	tempDir, err := os.MkdirTemp("", "envTest")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -69,7 +68,7 @@ func TestGetEnvFiles(t *testing.T) {
 		t.Fatalf("Could not change the temp dir: %v", err)
 	}
 
-	resultFiles, err := utility.GetEnvFiles()
+	resultFiles, err := GetEnvFiles()
 	if err != nil {
 		t.Fatalf("Error while running GetEnvFiles(): %v", err)
 	}
@@ -208,4 +207,171 @@ func TestToLowercaseMap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateDir(t *testing.T) {
+	t.Run("DirDoesNotExist_CreatesDirectory", func(t *testing.T) {
+		// Use t.TempDir() as a temporary base directory.
+		baseDir := t.TempDir()
+		newDirPath := filepath.Join(baseDir, "newdir")
+
+		// Ensure newDirPath doesn't exist.
+		if _, err := os.Stat(newDirPath); err == nil {
+			t.Fatalf("Directory %s should not exist", newDirPath)
+		}
+
+		// Call CreateDir; expect it to succeed.
+		if err := CreateDir(newDirPath); err != nil {
+			t.Fatalf("CreateDir returned an unexpected error: %v", err)
+		}
+
+		// Verify that the directory now exists and has the expected permissions.
+		info, err := os.Stat(newDirPath)
+		if err != nil {
+			t.Fatalf("Expected directory %s to exist, got error: %v", newDirPath, err)
+		}
+		if !info.IsDir() {
+			t.Fatalf("%s is not a directory", newDirPath)
+		}
+
+		if info.Mode().Perm() != DirPer {
+			t.Errorf("Expected permissions %o, got %o", DirPer, info.Mode().Perm())
+		}
+	})
+
+	t.Run("AlreadyExists_NoError", func(t *testing.T) {
+		// Use t.TempDir() for an already existing directory.
+		existingDir := t.TempDir()
+
+		// Call CreateDir on the existing directory; should not error.
+		if err := CreateDir(existingDir); err != nil {
+			t.Fatalf("CreateDir returned an error when directory already exists: %v", err)
+		}
+	})
+
+	t.Run("PathExistsButIsFile_ReturnsError", func(t *testing.T) {
+		// Use t.TempDir() as a base directory.
+		baseDir := t.TempDir()
+		filePath := filepath.Join(baseDir, "afile")
+
+		// Create a file at filePath.
+		f, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("Error creating file: %v", err)
+		}
+		f.Close()
+
+		// Verify that filePath exists and is a file.
+		info, err := os.Stat(filePath)
+		if err != nil {
+			t.Fatalf("Expected file %s to exist, got error: %v", filePath, err)
+		}
+		if info.IsDir() {
+			t.Fatalf("%s should be a file", filePath)
+		}
+
+		// Call CreateDir with the file path; expect an error.
+		err = CreateDir(filePath)
+		if err == nil {
+			t.Errorf("Expected error when CreateDir is called on a file path, got nil")
+		}
+	})
+}
+
+func TestCreateFile(t *testing.T) {
+	// Helper function to check if a path exists and is a regular file
+	checkFileExists := func(t *testing.T, path string) bool {
+		t.Helper()
+		info, err := os.Stat(path)
+		if err != nil {
+			return false
+		}
+		return info.Mode().IsRegular()
+	}
+
+	t.Run("CreateNewFile_Success", func(t *testing.T) {
+		// Use t.TempDir() for a clean test environment
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "newfile.txt")
+
+		err := CreateFile(filePath)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+
+		if !checkFileExists(t, filePath) {
+			t.Errorf("Expected file %s to exist", filePath)
+		}
+	})
+
+	t.Run("CreateFile_AlreadyExists", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "existing.txt")
+
+		// Create the file first
+		f, err := os.Create(filePath)
+		if err != nil {
+			t.Fatalf("Setup failed: %v", err)
+		}
+		f.Close()
+
+		// Try to create the same file
+		err = CreateFile(filePath)
+		if err != nil {
+			t.Errorf("Expected no error for existing file, got %v", err)
+		}
+
+		// Verify file still exists
+		if !checkFileExists(t, filePath) {
+			t.Errorf("Expected file %s to still exist", filePath)
+		}
+	})
+
+	t.Run("CreateFile_InNonexistentDirectory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		nonExistentDir := filepath.Join(tempDir, "nonexistent")
+		filePath := filepath.Join(nonExistentDir, "file.txt")
+
+		err := CreateFile(filePath)
+		if err == nil {
+			t.Error("Expected error when creating file in nonexistent directory, got nil")
+		}
+	})
+
+	t.Run("CreateFile_NoPermission", func(t *testing.T) {
+		if os.Getuid() == 0 { // Skip if running as root
+			t.Skip("Test skipped when running as root")
+		}
+
+		tempDir := t.TempDir()
+		// Remove all permissions from the directory
+		err := os.Chmod(tempDir, 0o000)
+		if err != nil {
+			t.Fatalf("Failed to change directory permissions: %v", err)
+		}
+		defer os.Chmod(tempDir, 0o700) // Restore permissions for cleanup
+
+		filePath := filepath.Join(tempDir, "noperm.txt")
+		err = CreateFile(filePath)
+		if err == nil {
+			t.Error("Expected error when creating file without permissions, got nil")
+		}
+	})
+
+	t.Run("CreateFile_PathIsDirectory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		subDir := filepath.Join(tempDir, "subdir")
+
+		// Create a directory
+		err := os.Mkdir(subDir, 0o755)
+		if err != nil {
+			t.Fatalf("Setup failed: %v", err)
+		}
+
+		// Try to create a file with the same path as directory
+		err = CreateFile(subDir)
+		if err == nil {
+			t.Error("Expected error when creating file at directory path, got nil")
+		}
+	})
 }

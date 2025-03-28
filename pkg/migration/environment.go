@@ -1,9 +1,10 @@
+// Package migration migrates colelction, variables, responses to hulak Currently it only supports postman collection and variables
 package migration
 
+// postman environment
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -83,10 +84,19 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 	return env, nil
 }
 
-// MigrateEnv migrates a Postman JSON environment file to `key = value` pairs inside the env dir
-func MigrateEnv(env Environment) error {
+func migrateEnv(env Environment, comment ...string) error {
 	var message strings.Builder
-	message.WriteString("\n### Postman Env Migration ###\n")
+	commentText := "Postman Env Migration"
+	if len(comment) > 0 && comment[0] != "" {
+		commentText = comment[0]
+	}
+	// format for comment in .env
+	commentText = fmt.Sprintf("\n### %s ###\n", strings.TrimSpace(commentText))
+
+	if len(env.Values) > 0 {
+		message.WriteString(commentText)
+	}
+
 	for _, eachVarItem := range env.Values {
 		key := sanitizeKey(eachVarItem.Key)
 		keyVal := fmt.Sprintf("%s = %s\n", key, eachVarItem.Value)
@@ -96,8 +106,6 @@ func MigrateEnv(env Environment) error {
 		message.WriteString(keyVal)
 	}
 	content := message.String()
-
-	// env fileName
 	var envFileName string
 	lowerCased := strings.ToLower(env.Name)
 	if env.Name == "" || lowerCased == "globals" {
@@ -112,7 +120,7 @@ func MigrateEnv(env Environment) error {
 	}
 
 	// append the content
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, utils.FilePer)
 	if err != nil {
 		return utils.ColorError("error opening file: %w", err)
 	}
@@ -123,14 +131,6 @@ func MigrateEnv(env Environment) error {
 		return utils.ColorError("error writing to file: %w", err)
 	}
 
-	utils.PrintGreen("\nEnvironment migration successful!")
+	utils.PrintGreen("\nEnvironment migration successful! " + utils.CheckMark)
 	return nil
-}
-
-// since go template has dot reserved (.) , replace it with _ and delete all other special chars
-func sanitizeKey(key string) string {
-	key = strings.ReplaceAll(key, ".", "_")
-	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	key = re.ReplaceAllString(key, "")
-	return key
 }

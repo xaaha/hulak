@@ -1,0 +1,3 @@
+query Hello($name: String!, $age: Int) {
+  hello(person: { name: $name, age: $age })
+}

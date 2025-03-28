@@ -1,3 +1,4 @@
+// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
@@ -7,16 +8,15 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// All user flags and subcommands
-type FlagsSubcmds struct {
+// AllFlags  All user flags and subcommands
+type AllFlags struct {
 	Env      string
 	FilePath string
 	File     string
-	Migrate  *flag.FlagSet
 }
 
-// Exports necessary flags and subcommands for main runner
-func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
+// ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
+func ParseFlagsSubcmds() (*AllFlags, error) {
 	if len(os.Args) < 2 {
 		utils.PrintWarning(
 			"Provide a subcommand or a flag. See full docs at https://github.com/xaaha/hulak",
@@ -36,14 +36,14 @@ func ParseFlagsSubcmds() (*FlagsSubcmds, error) {
 		}
 	}
 
-	return &FlagsSubcmds{
+	return &AllFlags{
 		Env:      Env(),
 		FilePath: FilePath(),
 		File:     File(),
-		Migrate:  migrate,
 	}, nil
 }
 
+// HasFlag checks if user passed in a flag with -
 func HasFlag() bool {
 	return os.Args[1][0] == '-'
 }

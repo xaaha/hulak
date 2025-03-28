@@ -1,13 +1,18 @@
+// Package migration migrates colelction, variables, responses to hulak
+// Currently it only supports postman collection and variables
 package migration
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 )
 
-// ReadPmFile reads a Postman JSON file and returns the parsed content
-func ReadPmFile(filePath string) (map[string]any, error) {
+// readJSON reads a JSON file and checks whether file exists, is empty,
+// or if an error occurs while reading the file. It returns the parsed content
+func readJSON(filePath string) (map[string]any, error) {
 	// Check if the file exists and get its info
 	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -30,4 +35,50 @@ func ReadPmFile(filePath string) (map[string]any, error) {
 	}
 
 	return jsonStrFile, nil
+}
+
+// sanitizeKey removes all special character and
+// replaces dot (.) with underscores (_).
+func sanitizeKey(key string) string {
+	key = strings.ReplaceAll(key, ".", "_")
+	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	key = re.ReplaceAllString(key, "")
+	return key
+}
+
+// addDotToTemplate adds a dot after opening braces in template expressions that don't already have one.
+// Example: {{value}} becomes {{.value}}, but {{.anyV}} remains unchanged
+func addDotToTemplate(key string) string {
+	if key == "" {
+		return key
+	}
+	// Create a regex to find pattern {{identifier}} where there's no dot after {{
+	// The regex matches {{ followed by anything except a dot or closing braces,
+	// followed by any characters until }}
+	re := regexp.MustCompile(`\{\{([^.\}][^\}]*)\}\}`)
+	// Replace each occurrence with {{. followed by the captured content
+	result := re.ReplaceAllStringFunc(key, func(match string) string {
+		// Extract the content inside {{ }}
+		content := match[2 : len(match)-2]
+		content = sanitizeKey(content)
+		return "{{." + content + "}}"
+	})
+
+	return result
+}
+
+// createMap converts a JSON string into a map[string]any
+func createMap(str string) map[string]any {
+	str = strings.ReplaceAll(str, "\n", "")
+	str = strings.ReplaceAll(str, " ", "")
+	str = strings.TrimSpace(str)
+
+	result := make(map[string]any)
+	// Unmarshal the cleaned JSON string into the result map
+	if err := json.Unmarshal([]byte(str), &result); err != nil {
+		fmt.Println("Error unmarshaling JSON:", err)
+		return nil
+	}
+
+	return result
 }

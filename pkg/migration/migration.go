@@ -1,3 +1,4 @@
+// Package migration migrates colelction, variables, responses to hulak Currently it only supports postman collection and variablespackage migration
 package migration
 
 import (
@@ -12,7 +13,7 @@ func CompleteMigration(filePaths []string) error {
 		return utils.ColorError("please provide a valid json file for migration")
 	}
 	for _, path := range filePaths {
-		jsonStr, err := ReadPmFile(path)
+		jsonStr, err := readJSON(path)
 		if err != nil {
 			return err
 		}
@@ -23,13 +24,16 @@ func CompleteMigration(filePaths []string) error {
 				return fmt.Errorf("error converting to Environment: %w", err)
 			}
 
-			err = MigrateEnv(env)
+			err = migrateEnv(env)
 			if err != nil {
 				return utils.ColorError("error migrating environment: %w", err)
 			}
-		} else if IsCollection(jsonStr) {
-			// Future implementation for collection migration
-			utils.PrintWarning("Collection migration coming soon for file: " + path)
+		} else if isCollection(jsonStr) {
+			err := migrateCollection(jsonStr)
+			if err != nil {
+				utils.PrintWarning("Collection migration did not work for: " + path)
+				return err
+			}
 		} else {
 			utils.PrintWarning("Unknown Postman file format: " + path)
 		}

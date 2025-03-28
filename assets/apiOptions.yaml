@@ -1,0 +1,51 @@
+---
+# Example API Call File with all available options
+#
+# Supported Methods: GET POST PUT PATCH DELETE HEAD OPTIONS TRACE CONNECT
+#
+method: POST
+#
+# use key to access url stored in env folder {{.url}}
+#
+url: https://api.example.com/resource
+#
+# optional url params.
+# Url does not need trailing forward '/'
+#
+urlparams:
+  param1: value1
+  param2: value2
+headers:
+  Authorization: Bearer <token>
+  Accept: application/json
+  #
+  # Content-Type: multipart/form-data # not needed when body has formdata
+  # Content-Type: application/x-www-form-urlencoded not needed when body has urlencodedformdata
+body:
+  #
+  # Pick only one. Either raw, formdata, urlencodedformdata, graphql
+  # graphql requires query, but variable is optional
+  #
+  raw: '{"key5": "value5", "key6": "value6"}'
+  formdata:
+    key1: value1
+    key2: value2
+  urlencodedformdata:
+    key3: value3
+    key4: value4
+  graphql:
+    #
+    # It's hard to format graphql query within yaml.
+    # It's recommended that you use getFile '{{getFile "collection/users.gql"}}'
+    # where users.gql is a graphql file
+    # query: '{{getFile "collection/users.gql"}}'
+    #
+    query: |
+      query GetResource($id: ID!) {
+        resource(id: $id) {
+          name
+          description
+        }
+      }
+    variables:
+      id: "12345"

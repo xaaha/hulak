@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"reflect"
@@ -71,25 +71,25 @@ func TestStringHasDelimiter(t *testing.T) {
 func TestDelimiterLogic(t *testing.T) {
 	testCases := []struct {
 		input    string
-		expected Action
+		expected action
 	}{
-		{input: "", expected: Action{Type: Invalid}},
-		{input: "{{.Value}}", expected: Action{Type: DotString, DotString: "Value"}},
+		{input: "", expected: action{Type: Invalid}},
+		{input: "{{.Value}}", expected: action{Type: DotString, DotString: "Value"}},
 		{
 			input:    `{{getValueOf "key" "value"}}`,
-			expected: Action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+			expected: action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
 		},
 		{
 			input:    `{{getvalueof "key" "value"}}`,
-			expected: Action{Type: Invalid, GetValueOf: []string{}},
+			expected: action{Type: Invalid, GetValueOf: []string{}},
 		},
 		{
 			input:    `{{getValueOf key "value}}`,
-			expected: Action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+			expected: action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
 		},
 		{
 			input:    `{{getValueOf}}`,
-			expected: Action{Type: Invalid, GetValueOf: []string{"getValueOf", "key", "value"}},
+			expected: action{Type: Invalid, GetValueOf: []string{"getValueOf", "key", "value"}},
 		},
 	}
 

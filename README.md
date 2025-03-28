@@ -127,11 +127,11 @@ Read more about response in [response documentation](./docs/response.md).
 
 ## Flags
 
-| Flag   | Description                                                                                                                                                                                           | Usage                            |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `-env` | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                       | `-env prod`                      |
-| `-fp`  | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                           | -fp "./collection/getUsers.yaml" |
-| `-f`   | yaml/yml file to run. Hulak recurses though your directories and subdirectories, excluding hidden, from the root and finds the matching file(s). If multiple matches are found, they run concurrently | `-f graphql`                     |
+| Flag   | Description                                                                                                                                                                                                | Usage                            |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `-env` | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                            | `-env prod`                      |
+| `-fp`  | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                                | -fp "./collection/getUsers.yaml" |
+| `-f`   | yaml/yml file to run. Hulak recurses though your directories and subdirectories, excluding hidden, from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently | `-f graphql`                     |
 
 ## Subcommands
 
@@ -187,6 +187,17 @@ name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_res
 name: `{{getValueOf "name" "user.json"}}`
 ```
 
+### `getFile`
+
+Gets the file content as string and dumps it in context. It takes file path as an argument.
+
+```yaml
+# example
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
+```
+
 Learn more about these actions [here](./docs/actions.md)
 
 # Auth2.0 (Beta)
@@ -198,5 +209,4 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 [See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3)
 
 - Sync and Async Directory run with `-d` flag.
-- Postman Collection Migration
-- Binary File Support and being able to reference entire xml, html, json file with `{{getFile filePath}}`
+- Binary File Support

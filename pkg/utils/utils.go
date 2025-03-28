@@ -1,3 +1,5 @@
+// Package utils has all the utils required for hulak, including but not limited to
+// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import (
@@ -8,10 +10,8 @@ import (
 	"strings"
 )
 
-type Utilities struct{}
-
-// Creates and returns file path by joining the project root with provided filePath
-func CreateFilePath(filePath string) (string, error) {
+// CreatePath creates and returns file or directory path by joining the project root with provided filePath
+func CreatePath(filePath string) (string, error) {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return "", err
@@ -21,17 +21,91 @@ func CreateFilePath(filePath string) (string, error) {
 	return finalFilePath, nil
 }
 
-// Get a list of environment file names from the env folder
-func (u *Utilities) GetEnvFiles() ([]string, error) {
+// SanitizeDirPath cleans up the directory path to avoid traversals
+func SanitizeDirPath(dirPath string) (string, error) {
+	cleanPath := filepath.Clean(dirPath)
+	if !filepath.IsAbs(cleanPath) {
+		return "", fmt.Errorf("invalid directory path: %s", dirPath)
+	}
+	return cleanPath, nil
+}
+
+// SanitizeFilePath cleans and ensures that the file is within the dir
+func SanitizeFilePath(dirPath, filePath string) (string, error) {
+	cleanDirPath, err := SanitizeDirPath(dirPath)
+	if err != nil {
+		return "", err
+	}
+
+	// Clean the file path and ensure it's within the directory
+	cleanFilePath := filepath.Join(cleanDirPath, filepath.Clean(filePath))
+	if !strings.HasPrefix(cleanFilePath, cleanDirPath) {
+		return "", fmt.Errorf("file path %s is outside of the directory %s", filePath, dirPath)
+	}
+
+	return cleanFilePath, nil
+}
+
+// CreateDir checks for the existence of a directory at the given path,
+// and creates it with permissions 0755 if it does not exist.
+func CreateDir(dirPath string) error {
+	info, err := os.Stat(dirPath)
+	if err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("path '%s' exists but is a file", dirPath)
+		}
+		return nil // Dir already exists
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Mkdir(dirPath, DirPer); err != nil {
+		PrintRed("Error creating directory " + CrossMark)
+		return err
+	}
+	PrintGreen("Created directory " + CheckMark)
+	return nil
+}
+
+// CreateFile checks for the existence of a file at the given filePath,
+// and creates it if it does not exist.
+func CreateFile(filePath string) error {
+	fileName := filepath.Base(filePath)
+	info, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		file, err := os.Create(filePath)
+		if err != nil {
+			PrintRed(fmt.Sprintf("Error creating '%s': %s", fileName, CrossMark))
+			return err
+		}
+		defer file.Close()
+		PrintGreen(fmt.Sprintf("Created '%s': %s", fileName, CheckMark))
+	} else if err != nil {
+		PrintRed(fmt.Sprintf("Error checking '%s': %v", fileName, err))
+		return err
+	} else {
+		if info.IsDir() {
+			return fmt.Errorf("cannot create file '%s': path is a directory", filePath)
+		}
+		if info.Mode().IsRegular() {
+			PrintWarning(fmt.Sprintf("File '%s' already exists.", filePath))
+		}
+	}
+
+	return nil
+}
+
+// GetEnvFiles returns a list of environment file names from the env folder
+func GetEnvFiles() ([]string, error) {
 	var environmentFiles []string
-	dir, err := os.Getwd()
+	// get a list of envFileName
+	envPath, err := CreatePath(EnvironmentFolder)
 	if err != nil {
 		return environmentFiles, err
 	}
-	// get a list of envFileName
-	contents, err := os.ReadDir(dir + "/env")
+	contents, err := os.ReadDir(envPath)
 	if err != nil {
-		panic(err)
+		return environmentFiles, err
 	}
 
 	// discard any folder in the env directory
@@ -44,11 +118,18 @@ func (u *Utilities) GetEnvFiles() ([]string, error) {
 	return environmentFiles, nil
 }
 
-// converts all keys in a map to lowercase recursively
+// ConvertKeysToLowerCase converts all keys in a map to lowercase recursively
+// except "variables" as Graphql variables is case-sensitive
 func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
 	loweredMap := make(map[string]any)
 	for key, val := range dict {
+		// for graphql variables are case sensitive
+		if key == "variables" {
+			loweredMap[key] = val
+			continue
+		}
 		lowerKey := strings.ToLower(key)
+		// If val is a map and the key isn't "variables", process it recursively.
 		switch almostFinalValue := val.(type) {
 		case map[string]any:
 			loweredMap[lowerKey] = ConvertKeysToLowerCase(almostFinalValue)
@@ -59,18 +140,15 @@ func ConvertKeysToLowerCase(dict map[string]any) map[string]any {
 	return loweredMap
 }
 
-// Copies the Environment map[string]any and returns a map[string]string
-// EnvMap is a simple JSON without any nested properties.
-// Mostly used for goroutines.
-// Copies the Environment map[string]any and returns a copy as map[string]any.
-// EnvMap is a simple JSON without any nested properties.
+// CopyEnvMap Copies the Environment map[string]any and returns a map[string]string
+// EnvMap is a simple JSON without any nested properties. Mostly used for goroutines.
 func CopyEnvMap(original map[string]any) map[string]any {
 	result := make(map[string]any)
 	maps.Copy(result, original)
 	return result
 }
 
-// Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
+// ListMatchingFiles Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
 // Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
 // Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
@@ -88,7 +166,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	startPath := ""
 	if len(initialPath) == 0 {
 		var err error
-		startPath, err = CreateFilePath("")
+		startPath, err = CreatePath("")
 		if err != nil {
 			return nil, fmt.Errorf("error getting initial file path: %w", err)
 		}
@@ -148,12 +226,12 @@ func isNoMatchingFileError(err error) bool {
 	return strings.Contains(err.Error(), "no files with matching name")
 }
 
-// takes in filepath and returns the name of the file
+// FileNameWithoutExtension takes in filepath and returns the name of the file
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
-// merge the secondary map into the main map.
+// MergeMaps merges the secondary map into the main map.
 // If keys are repeated, values from the secondary map replace those in the main map.
 func MergeMaps(main, sec map[string]string) map[string]string {
 	if main == nil {

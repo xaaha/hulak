@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"bytes"
@@ -10,12 +10,14 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type HTTPMethodType string
 
+// All supported methos
 const (
 	GET     HTTPMethodType = http.MethodGet
 	POST    HTTPMethodType = http.MethodPost
@@ -28,12 +30,12 @@ const (
 	CONNECT HTTPMethodType = http.MethodConnect
 )
 
-// convert the method to uppercase
+// ToUpperCase convert the method to uppercase
 func (h *HTTPMethodType) ToUpperCase() {
 	*h = HTTPMethodType(strings.ToUpper(string(*h)))
 }
 
-// enforce HTTPMethodType
+// IsValid enforce HTTPMethodType
 func (m HTTPMethodType) IsValid() bool {
 	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(m)))
 	switch upperCasedMethod {
@@ -54,22 +56,23 @@ type ApiInfo struct {
 
 type URL string
 
-// URL should not be missing
+// IsValidURL URL should not be missing
 func (u *URL) IsValidURL() bool {
-	userProvidedUrl := string(*u)
-	_, err := url.ParseRequestURI(userProvidedUrl)
+	userProvidedURL := string(*u)
+	_, err := url.ParseRequestURI(userProvidedURL)
 	return err == nil
 }
 
 // ApiCallFile represents user's yaml file for api request
 type ApiCallFile struct {
-	UrlParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
+	URLParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
 	Method    HTTPMethodType    `json:"method,omitempty"    yaml:"method"`
-	Url       URL               `json:"url,omitempty"       yaml:"url"`
+	URL       URL               `json:"url,omitempty"       yaml:"url"`
 }
 
+// IsValid checks whether the user has valid file
 func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
 	if user == nil {
 		return false, fmt.Errorf("requested api file is not valid")
@@ -86,8 +89,8 @@ func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
 	}
 
 	// url is required for any http request
-	if !user.Url.IsValidURL() {
-		return false, fmt.Errorf("missing or invalid URL: %s in file %s", user.Url, filePath)
+	if !user.URL.IsValidURL() {
+		return false, fmt.Errorf("missing or invalid URL: %s in file %s", user.URL, filePath)
 	}
 
 	if !user.Body.IsValid() {
@@ -116,24 +119,24 @@ func (user *ApiCallFile) PrepareStruct() (ApiInfo, error) {
 
 	return ApiInfo{
 		Method:    string(user.Method),
-		Url:       string(user.Url),
-		UrlParams: user.UrlParams,
+		Url:       string(user.URL),
+		UrlParams: user.URLParams,
 		Headers:   user.Headers,
 		Body:      body,
 	}, nil
 }
 
-// type of Body in a yaml file
+// Body represents Body in a yaml file
 // binary type is not yet configured
 // Only one is possible that could be passed
 type Body struct {
 	FormData           map[string]string `json:"formdata,omitempty"           yaml:"formdata"`
-	UrlEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
+	URLEncodedFormData map[string]string `json:"urlencodedformdata,omitempty" yaml:"urlencodedformdata"`
 	Graphql            *GraphQl          `json:"graphql,omitempty"            yaml:"graphql"`
 	Raw                string            `json:"raw,omitempty"                yaml:"raw"`
 }
 
-// body is valid when,
+// IsValid checks whether body is valid when,
 // if body is present, it's not nil
 // has only one expected Body type,
 // those body type is not empty,
@@ -174,12 +177,13 @@ func (b *Body) IsValid() bool {
 	return validFieldCount == 1
 }
 
+// GraphQl inside body
 type GraphQl struct {
-	Variables map[string]any `json:"variables,omitempty" yaml:"variables"`
-	Query     string         `json:"query,omitempty"     yaml:"query"`
+	Query     string `json:"query"     yaml:"query"`
+	Variables any    `json:"variables" yaml:"variables"`
 }
 
-// Returns body for apiCall, content type header string and error if any
+// EncodeBody returns body for apiCall, content type header string and error if any
 func (b *Body) EncodeBody() (io.Reader, string, error) {
 	var body io.Reader
 	var contentType string
@@ -203,8 +207,8 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 		}
 		body, contentType = encodedBody, ct
 
-	case len(b.UrlEncodedFormData) > 0:
-		encodedBody, err := EncodeXwwwFormUrlBody(b.UrlEncodedFormData)
+	case len(b.URLEncodedFormData) > 0:
+		encodedBody, err := EncodeXwwwFormURLBody(b.URLEncodedFormData)
 		if err != nil {
 			return nil, "", utils.ColorError("error encoding URL-encoded form data: %w", err)
 		}
@@ -220,9 +224,9 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 	return body, contentType, nil
 }
 
-// Encodes key-value pairs as "application/x-www-form-urlencoded" data.
+// EncodeXwwwFormURLBody encodes key-value pairs as "application/x-www-form-urlencoded" data.
 // Returns an io.Reader containing the encoded data, or an error if the input is empty.
-func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
+func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	// Initialize form data
 	formData := url.Values{}
 
@@ -242,7 +246,7 @@ func EncodeXwwwFormUrlBody(keyValue map[string]string) (io.Reader, error) {
 	return strings.NewReader(formData.Encode()), nil
 }
 
-// Encodes multipart/form-data other than x-www-form-urlencoded,
+// EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded,
 // Returns the payload, Content-Type for the headers and error
 func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	if len(keyValue) == 0 {
@@ -265,20 +269,38 @@ func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	return payload, writer.FormDataContentType(), nil
 }
 
-// accepts query string and variables map[string]interface, then returns the payload
-func EncodeGraphQlBody(query string, variables map[string]any) (io.Reader, error) {
-	payload := map[string]any{
-		"query":     query,
-		"variables": variables,
+// EncodeGraphQlBody accepts a query string and variables of any type,
+// and returns an encoded GraphQL payload as an io.Reader
+func EncodeGraphQlBody(query string, variables any) (io.Reader, error) {
+	// Validate query
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("graphql query cannot be empty")
 	}
+
+	// Create the payload
+	payload := GraphQl{
+		Query: query,
+	}
+
+	// Handle variables if present
+	if variables != nil {
+		processed, err := processVariable(variables)
+		if err != nil {
+			return nil, fmt.Errorf("error processing variables: %w", err)
+		}
+		payload.Variables = processed
+	}
+
+	// Marshal to JSON
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal GraphQL payload: %w", err)
 	}
+
 	return bytes.NewReader(jsonData), nil
 }
 
-// helper function to dynamically add Key Value pair to FormData
+// AddKeyValueToFormData is a helper function to dynamically add Key Value pair to FormData
 func (b *Body) AddKeyValueToFormData(key, value string) {
 	if b.FormData == nil {
 		b.FormData = make(map[string]string)
@@ -286,10 +308,72 @@ func (b *Body) AddKeyValueToFormData(key, value string) {
 	b.FormData[key] = value
 }
 
-// helper function to dynamically add Key Value pair to UrlEncodedFormData
-func (b *Body) AddKeyValueToUrlEncodedFormData(key, value string) {
-	if b.UrlEncodedFormData == nil {
-		b.UrlEncodedFormData = make(map[string]string)
+// AddKeyValueToURLEncodedFormData helper function to dynamically add Key Value pair to UrlEncodedFormData
+func (b *Body) AddKeyValueToURLEncodedFormData(key, value string) {
+	if b.URLEncodedFormData == nil {
+		b.URLEncodedFormData = make(map[string]string)
 	}
-	b.UrlEncodedFormData[key] = value
+	b.URLEncodedFormData[key] = value
+}
+
+// processVariable handles different types of variables and ensures they're properly encoded
+func processVariable(v any) (any, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	switch val := v.(type) {
+	case string, bool, int, int32, int64, float32, float64:
+		// Basic types can be used as-is
+		return val, nil
+
+	case time.Time:
+		// Convert time to ISO 8601 format
+		return val.Format(time.RFC3339), nil
+
+	case []any:
+		// Process array elements
+		processed := make([]any, len(val))
+		for i, item := range val {
+			p, err := processVariable(item)
+			if err != nil {
+				return nil, err
+			}
+			processed[i] = p
+		}
+		return processed, nil
+
+	case map[string]any:
+		// Process nested maps
+		processed := make(map[string]any, len(val))
+		for k, item := range val {
+			p, err := processVariable(item)
+			if err != nil {
+				return nil, err
+			}
+			processed[k] = p
+		}
+		return processed, nil
+
+	case json.RawMessage:
+		// Handle raw JSON
+		var parsed any
+		if err := json.Unmarshal(val, &parsed); err != nil {
+			return nil, fmt.Errorf("invalid JSON in variable: %w", err)
+		}
+		return processVariable(parsed)
+
+	default:
+		// Try to convert other types to JSON and back to ensure they're properly encoded
+		jsonData, err := json.Marshal(val)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported variable type %T: %w", val, err)
+		}
+
+		var processed any
+		if err := json.Unmarshal(jsonData, &processed); err != nil {
+			return nil, fmt.Errorf("failed to process variable type %T: %w", val, err)
+		}
+		return processed, nil
+	}
 }

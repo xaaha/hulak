@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"io"
@@ -93,7 +93,7 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 
 	switch {
 	case len(b.UrlEncodedFormData) > 0:
-		encodedBody, err := EncodeXwwwFormUrlBody(mergedMap)
+		encodedBody, err := EncodeXwwwFormURLBody(mergedMap)
 		if err != nil {
 			return nil, "", utils.ColorError("#oAuthTypes.go", err)
 		}

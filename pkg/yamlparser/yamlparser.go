@@ -1,10 +1,12 @@
-package yamlParser
+// Package yamlparser does everything related to yaml file for hulak, including type translation
+package yamlparser
 
 import (
 	"bytes"
 	"os"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -86,7 +88,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	parsedMap := replaceVarsWithValues(data, secretsMap)
 
 	// translate the types, if acceptable
-	parsedMap, err = translateType(data, parsedMap, secretsMap, envparser.GetValueOf)
+	parsedMap, err = translateType(data, parsedMap, secretsMap, actions.GetValueOf)
 	if err != nil {
 		return nil, utils.ColorError("#reader", err)
 	}
@@ -101,8 +103,9 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	return &buf, nil
 }
 
-// checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile, error) {
+// FinalStructForAPI builds a final struct for the api call.
+// It  checks the validity of all the fields in the yaml file meant for regular api call
+func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		return ApiCallFile{}, utils.ColorError("Error occured after reading yaml file", err)
@@ -121,7 +124,7 @@ func FinalStructForApi(filePath string, secretsMap map[string]any) (ApiCallFile,
 	return file, nil
 }
 
-// checks the validity of all the fields in the yaml file meant for OAuth2.0.
+// FinalStructForOAuth2 checks the validity of all the fields in the yaml file meant for OAuth2.0.
 // It returns AuthRequestBody struct
 func FinalStructForOAuth2(
 	filePath string,

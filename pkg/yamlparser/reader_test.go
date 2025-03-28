@@ -1,4 +1,4 @@
-package yamlParser
+package yamlparser
 
 import (
 	"os"
@@ -236,7 +236,7 @@ body:
 			}
 			defer os.Remove(filepath)
 
-			result, err := FinalStructForApi(filepath, secretsMap)
+			result, err := FinalStructForAPI(filepath, secretsMap)
 
 			if tc.expectErr {
 				if err == nil {
@@ -247,7 +247,7 @@ body:
 					t.Errorf("Expected no error for test %s, but got: %v", tc.name, err)
 				}
 
-				if result.Method == "" || result.Url == "" {
+				if result.Method == "" || result.URL == "" {
 					t.Errorf("Expected valid ApiCallFile struct but got empty fields for test %s", tc.name)
 				}
 			}
