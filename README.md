@@ -7,7 +7,13 @@
 
 ## Installation
 
-### 1. Recommended `go install`
+### 1. Homebrew
+
+```bash
+brew install xaaha/tap/hulak
+```
+
+### 2. `go install`
 
 - Run
 
@@ -26,12 +32,6 @@ export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
 - Then source your shell configuration file `source ~/.zshrc` or `source ~/.bashrc`
-
-### 2. Homebrew
-
-```bash
-brew install xaaha/tap/hulak
-```
 
 ### 3. Build from source
 
