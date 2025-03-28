@@ -332,8 +332,9 @@ func bodyToYaml(pmbody Body) (string, error) {
 		return "", fmt.Errorf("unsupported body mode: %s", pmbody.Mode)
 	}
 
+	finalOutput := map[string]any{"body": yamlOutput}
 	// Marshal to YAML
-	yamlBytes, err := yaml.Marshal(yamlOutput)
+	yamlBytes, err := yaml.Marshal(finalOutput)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal body to YAML: %w", err)
 	}
