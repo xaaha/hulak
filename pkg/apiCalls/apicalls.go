@@ -46,7 +46,7 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	if err != nil {
 		return CustomResponse{}, err
 	}
-	return processResponse(response), nil
+	return processResponse(req, response), nil
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
@@ -74,20 +74,12 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string) error {
 	return nil
 }
 
-// PrintAndSaveFinalResp prints and Save the custom response
+// PrintAndSaveFinalResp prints and saves the CustomResponse
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
-	// Create a combined structure to store both body and status
-	combined := struct {
-		Body   any    `json:"body"`
-		Status string `json:"status"`
-	}{
-		Body:   resp.Body,
-		Status: resp.ResponseStatus,
-	}
-
 	var strBody string
-	// Marshal the combined structure
-	if jsonData, err := json.MarshalIndent(combined, "", "  "); err == nil {
+
+	// Marshal the CustomResponse structure
+	if jsonData, err := json.MarshalIndent(resp, "", "  "); err == nil {
 		strBody = string(jsonData)
 	} else {
 		utils.PrintWarning("call.go: error serializing response: " + err.Error())

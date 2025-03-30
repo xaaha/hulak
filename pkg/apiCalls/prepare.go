@@ -3,7 +3,6 @@ package apicalls
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -29,28 +28,69 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// Takes in http response, adds response status code,
-// and returns CustomResponse type string for the StandardCall function below
-func processResponse(response *http.Response) CustomResponse {
-	defer response.Body.Close()
-	respBody, err := io.ReadAll(response.Body)
+// processResponse takes in http response and returns CustomResponse type string for debugging purposes
+// TODO 1: Need to fine-tune this. Basic info like status code, request time,
+// should be printed by default. Everythig else should default to false and,
+// --debug should set this true.
+// Then fix tests
+func processResponse(req *http.Request, resp *http.Response) CustomResponse {
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response: %v", err)
 	}
 
-	responseData := CustomResponse{
-		ResponseStatus: fmt.Sprintf(
-			"%d %s",
-			response.StatusCode,
-			http.StatusText(response.StatusCode),
-		),
+	// Reading Response Headers
+	responseHeaders := make(map[string]string)
+	for name, values := range resp.Header {
+		responseHeaders[name] = values[0]
 	}
+
+	// Reading Request Headers
+	requestHeaders := make(map[string]string)
+	for name, values := range req.Header {
+		requestHeaders[name] = values[0]
+	}
+
+	// Preparing TLS Info
+	var tlsInfo HTTPInfo
+	if resp.TLS != nil {
+		tlsInfo = HTTPInfo{
+			Protocol:    resp.Proto,
+			TLSVersion:  resp.TLS.NegotiatedProtocol,
+			CipherSuite: resp.TLS.CipherSuite,
+			ServerCertInfo: &CertInfo{
+				Issuer:  resp.TLS.PeerCertificates[0].Issuer.String(),
+				Subject: resp.TLS.PeerCertificates[0].Subject.String(),
+			},
+		}
+	} else {
+		tlsInfo = HTTPInfo{
+			Protocol: resp.Proto,
+		}
+	}
+
+	responseData := CustomResponse{
+		Request: RequestInfo{
+			URL:     req.URL.String(),
+			Method:  req.Method,
+			Headers: requestHeaders,
+			Body:    "",
+		},
+		Response: ResponseInfo{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			Headers:    responseHeaders,
+		},
+		HTTPInfo: tlsInfo,
+	}
+
 	var parsedBody any
 	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
-		responseData.Body = parsedBody
+		responseData.Response.Body = parsedBody
 	} else {
 		// If the body isn't valid JSON, include it as a string
-		responseData.Body = string(respBody)
+		responseData.Response.Body = string(respBody)
 	}
 
 	return responseData
