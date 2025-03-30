@@ -5,7 +5,7 @@
 
 # Elevator Pitch
 
-If you’ve ever wanted to treat your API workflows like a regular code repository, Hulak is the tool for you. It’s a fast, lightweight, file-based API client for the terminal that lets you call, and manage API requests and responses using YAML files.
+If you’ve ever wanted to treat your API workflows like a regular code repository, Hulak is the tool for you. It’s a fast, lightweight, file-based API client that lets you call, manage API requests and responses using YAML files.
 
 # Getting Started
 
