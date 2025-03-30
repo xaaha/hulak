@@ -11,20 +11,26 @@
 If you’ve ever wanted to manage your API workflows like a code repository — easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
 
 ```yaml
+# ────────────────────────────────────────────────────
 # Example: test_gql.yaml
+# ────────────────────────────────────────────────────
 ---
 method: POST
-# keep secrets separate
+
+# 🚨 Keep secrets separate! Avoid hardcoding credentials.
 url: "{{.graphqlUrl}}"
 headers:
   Content-Type: application/json
-  # dynamically acess nested values from another file using getValueOf action
+  # 🔍 Dynamically access nested values from another file
+  # using the `getValueOf` action.
   Authorization: Bearer {{getValueOf "data.access_token" "employer_auth.json"}}
 body:
   graphql:
-    # keep large json, gql, xml, html  files separate and access with getFile action
+    # 📂 Store large JSON, GraphQL, XML, or HTML files separately
+    # and access them using the `getFile` action.
     query: '{{getFile "e2etests/test_collection/test.graphql"}}'
     variables:
+      # 🏷️ Use templating to dynamically construct values.
       name: "{{.userName}} of age {{.userAge}}"
       age: "{{.userAge}}"
 ```
