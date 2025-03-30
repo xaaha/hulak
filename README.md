@@ -1,7 +1,11 @@
 <p align="center">
   <img alt="Hulak Logo" src="./assets/logo.svg" height="140" />
-  <p align="center">User friendly API Client for terminal nerds.</p>
+  <p align="center">File based API client for terminal nerds.</p>
 </p>
+
+# Elevator Pitch
+
+If you’ve ever wanted to treat your API workflows like a regular code repository, Hulak is the tool for you. It’s a fast, lightweight, file-based API client for the terminal that lets you call, and manage API requests and responses using YAML files.
 
 # Getting Started
 
@@ -189,7 +193,7 @@ name: `{{getValueOf "name" "user.json"}}`
 
 ### `getFile`
 
-Gets the file content as string and dumps it in context. It takes file path as an argument.
+Gets the file content as string and dumps the entire file content in context. It takes file path as an argument. Do not use `getFile` action to pass token in auth header.
 
 ```yaml
 # example
@@ -206,7 +210,4 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 
 # Planned Features
 
-[See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3)
-
-- Sync and Async Directory run with `-d` flag.
-- Binary File Support
+[See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
