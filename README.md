@@ -7,6 +7,27 @@
 
 If you’ve ever wanted to treat your API workflows like a regular code repository, Hulak is the tool for you. It’s a fast, lightweight, file-based API client that lets you call, manage API requests and responses using YAML files.
 
+```yaml
+# Example: test_gql.yaml
+---
+method: POST
+url: "{{.graphqlUrl}}" # keep secrets separate
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{getValueOf "data.access_token" "employer_auth.json"}} # dynamically acess values from another file
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}' # store entire file separate
+    variables:
+      name: "{{.userName}} of age {{.userAge}}"
+      age: "{{.userAge}}"
+```
+
+```bash
+# easily run the file with
+hulak -env staging -f test_gql # Run the file using secrets from staging.env file
+```
+
 # Getting Started
 
 ## Installation
