@@ -45,7 +45,7 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 				}
 
 			case config.IsAPI():
-				if err := apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path); err != nil {
+				if err := apicalls.SendAndSaveAPIRequest(utils.CopyEnvMap(secretsMap), path); err != nil {
 					utils.PrintRed(err.Error())
 				}
 
