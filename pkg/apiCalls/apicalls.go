@@ -74,7 +74,7 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string) error {
 	return nil
 }
 
-// Prints and Save the custom response
+// PrintAndSaveFinalResp prints and Save the custom response
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 	// Create a combined structure to store both body and status
 	combined := struct {
