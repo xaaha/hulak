@@ -3,6 +3,9 @@
   <p align="center">File based API client for terminal nerds.</p>
 </p>
 
+> [!Warning]
+> ⚠️ This project is actively in development and testing. Expect rapid changes and plenty of bugs! 🚧
+
 # Elevator Pitch
 
 If you’ve ever wanted to manage your API workflows like a code repository — easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
