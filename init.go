@@ -1,3 +1,4 @@
+// Package main initializes the project and runs the query
 package main
 
 import (
@@ -11,9 +12,7 @@ import (
 )
 
 /*
-InitializeProject() starts the project by creating envfolder and global.env file in it.
-returns the envMap
-TBC...
+InitializeProject starts the project by creating envfolder and global.env file in it.
 */
 func InitializeProject(env string) map[string]any {
 	if err := envparser.CreateDefaultEnvs(nil); err != nil {
