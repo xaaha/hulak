@@ -88,6 +88,12 @@ export PATH=$PATH:$(go env GOPATH)/bin
       Under `System variables`, find the `Path ` variable and click `Edit`.
       Add the path to your folder (e.g., `C:\Go\bin`) and click `OK`.
 
+## Verify Installation with
+
+```bash
+hulak help
+```
+
 ---
 
 ## Initialize environment directory to store secrets
