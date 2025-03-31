@@ -1,11 +1,12 @@
 // Package apicalls has all things related to api call
 package apicalls
 
-// CustomResponse is structure of the result to print in the console as the std output
+// CustomResponse is structure of the result to print and save
 type CustomResponse struct {
 	Request  RequestInfo  `json:"request"`
 	Response ResponseInfo `json:"response"`
 	HTTPInfo HTTPInfo     `json:"http_info"`
+	Duration string       `json:"duration"`
 }
 
 // RequestInfo has all the information about the  request body
