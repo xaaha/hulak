@@ -32,7 +32,7 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 }
 
 // TODO: 1 Then fix tests
-// processResponse takes in http request, response and returns CustomResponse type string for debugging purposes
+// processResponse takes in http request, response and returns a CustomResponse struct for debugging purposes
 func processResponse(
 	req *http.Request,
 	resp *http.Response,
