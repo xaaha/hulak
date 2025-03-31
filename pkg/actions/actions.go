@@ -74,11 +74,13 @@ func GetValueOf(key, fileName string) any {
 		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
 	}
 
-	yamlPathList, err := utils.ListMatchingFiles(fileName)
+	cleanFileName := filepath.Clean(fileName)
+
+	yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
 	if err != nil {
 		utils.PrintRed(fmt.Sprintf(
 			"replaceVars.go: error occurred while grabbing matching paths for '%s': %s",
-			fileName, err.Error(),
+			cleanFileName, err.Error(),
 		))
 		return ""
 	}
@@ -86,14 +88,14 @@ func GetValueOf(key, fileName string) any {
 	var singlePath string
 	var jsonResFilePath string
 
-	if strings.HasSuffix(fileName, utils.JSON) {
+	if strings.HasSuffix(cleanFileName, utils.JSON) {
 		// For .json files, use exact match from the list
 		if len(yamlPathList) > 0 {
 			// Take the first matching .json file
 			singlePath = yamlPathList[0]
 			jsonResFilePath = singlePath
 		} else {
-			utils.PrintRed("could not find matching files " + fileName)
+			utils.PrintRed("could not find matching files " + cleanFileName)
 			return ""
 		}
 	} else {
@@ -101,7 +103,7 @@ func GetValueOf(key, fileName string) any {
 		if len(yamlPathList) > 0 {
 			singlePath = yamlPathList[0]
 		} else {
-			utils.PrintRed("could not find matching files " + fileName)
+			utils.PrintRed("could not find matching files " + cleanFileName)
 			return ""
 		}
 
@@ -111,9 +113,9 @@ func GetValueOf(key, fileName string) any {
 	}
 
 	if len(yamlPathList) > 1 {
-		warningKey := fmt.Sprintf("%s_%s", fileName, singlePath)
+		warningKey := fmt.Sprintf("%s_%s", cleanFileName, singlePath)
 		if !warningTracker[warningKey] {
-			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", fileName, singlePath))
+			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, singlePath))
 			warningTracker[warningKey] = true
 		}
 	}
@@ -123,7 +125,7 @@ func GetValueOf(key, fileName string) any {
 		utils.PrintRed(fmt.Sprintf(
 			"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'. \n",
 			jsonResFilePath,
-			fileName,
+			cleanFileName,
 			jsonResFilePath,
 			key,
 		))
@@ -139,6 +141,7 @@ func GetValueOf(key, fileName string) any {
 				err.Error(),
 			),
 		)
+		return ""
 	}
 	defer file.Close()
 
@@ -149,8 +152,9 @@ func GetValueOf(key, fileName string) any {
 		utils.PrintRed(
 			"replaceVars.go: make sure " + filepath.Base(
 				jsonResFilePath,
-			) + " has proper json content" + err.Error(),
+			) + " has proper json content: " + err.Error(),
 		)
+		return ""
 	}
 
 	result, err := utils.LookupValue(key, fileContent)
