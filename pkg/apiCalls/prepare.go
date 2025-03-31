@@ -50,19 +50,26 @@ func processResponse(req *http.Request, resp *http.Response) CustomResponse {
 	// Reading Request Headers
 	requestHeaders := make(map[string]string)
 	for name, values := range req.Header {
-		requestHeaders[name] = values[0]
+		requestHeaders[name] = strings.Join(values, ", ")
 	}
 
 	// Preparing TLS Info
 	var tlsInfo HTTPInfo
 	if resp.TLS != nil {
+		var issuers []string
+		var subjects []string
+		for _, cert := range resp.TLS.PeerCertificates {
+			issuers = append(issuers, cert.Issuer.String())
+			subjects = append(subjects, cert.Subject.String())
+		}
+
 		tlsInfo = HTTPInfo{
 			Protocol:    resp.Proto,
 			TLSVersion:  resp.TLS.NegotiatedProtocol,
 			CipherSuite: resp.TLS.CipherSuite,
 			ServerCertInfo: &CertInfo{
-				Issuer:  resp.TLS.PeerCertificates[0].Issuer.String(),
-				Subject: resp.TLS.PeerCertificates[0].Subject.String(),
+				Issuer:  strings.Join(issuers, ", "),
+				Subject: strings.Join(subjects, ", "),
 			},
 		}
 	} else {
@@ -70,7 +77,6 @@ func processResponse(req *http.Request, resp *http.Response) CustomResponse {
 			Protocol: resp.Proto,
 		}
 	}
-
 	responseData := CustomResponse{
 		Request: RequestInfo{
 			URL:     req.URL.String(),
