@@ -20,10 +20,12 @@ func GetFile(filePath string) (string, error) {
 		return "", fmt.Errorf("file path cannot be empty")
 	}
 
+	cleanPath := filepath.Clean(filePath)
+
 	// Convert relative path to absolute path
-	absPath, err := filepath.Abs(filePath)
+	absPath, err := filepath.Abs(cleanPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path %s: %w", filePath, err)
+		return "", fmt.Errorf("failed to resolve path %s: %w", cleanPath, err)
 	}
 
 	// Check if file exists and is readable
@@ -36,11 +38,11 @@ func GetFile(filePath string) (string, error) {
 				return "", fmt.Errorf("failed to get working directory: %w", err)
 			}
 
-			relPath := filepath.Join(workingDir, filePath)
+			relPath := filepath.Join(workingDir, cleanPath)
 			fileInfo, err = os.Stat(relPath)
 			if err != nil {
 				if os.IsNotExist(err) {
-					return "", fmt.Errorf("file does not exist %s ", absPath)
+					return "", fmt.Errorf("file does not exist %s", absPath)
 				}
 				return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
 			}
