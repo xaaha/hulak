@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -43,7 +44,7 @@ func processResponse(req *http.Request, resp *http.Response) CustomResponse {
 	// Reading Response Headers
 	responseHeaders := make(map[string]string)
 	for name, values := range resp.Header {
-		responseHeaders[name] = values[0]
+		responseHeaders[name] = strings.Join(values, ", ")
 	}
 
 	// Reading Request Headers
