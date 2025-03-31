@@ -111,9 +111,6 @@ urlparams:
 			!strings.Contains(result, "{{.searchTerm}}") {
 			t.Errorf("YAML does not contain expected values: %s", result)
 		}
-
-		// Print both values for debugging
-		t.Logf("Result YAML:\n%s", result)
 	})
 
 	t.Run("URL with encoded characters", func(t *testing.T) {

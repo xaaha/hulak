@@ -3,6 +3,7 @@ package apicalls
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,21 +31,40 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// processResponse takes in http response and returns CustomResponse type string for debugging purposes
-// TODO 1: Need to fine-tune this. Basic info like status code, request time,
-// should be printed by default. Everythig else should default to false and,
-// --debug should set this true.
-// Then fix tests
+// TODO: 1 Then fix tests
 // processResponse takes in http request, response and returns CustomResponse type string for debugging purposes
 func processResponse(
 	req *http.Request,
 	resp *http.Response,
 	duration time.Duration,
+	debug bool,
 ) CustomResponse {
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response: %v", err)
+	}
+
+	// Formatting the duration to two decimal points
+	durationFormatted := fmt.Sprintf(
+		"%.2fms",
+		float64(duration.Milliseconds())+float64(duration.Microseconds()%1000)/1000.0,
+	)
+
+	var responseBody any
+	if err := json.Unmarshal(respBody, &responseBody); err != nil {
+		responseBody = string(respBody)
+	}
+
+	if !debug {
+		// Return minimal set of data
+		return CustomResponse{
+			Response: &ResponseInfo{
+				StatusCode: resp.StatusCode,
+				Body:       responseBody,
+			},
+			Duration: durationFormatted,
+		}
 	}
 
 	// Reading Response Headers
@@ -83,29 +103,19 @@ func processResponse(
 			Protocol: resp.Proto,
 		}
 	}
-	responseData := CustomResponse{
-		Request: RequestInfo{
+	return CustomResponse{
+		Request: &RequestInfo{
 			URL:     req.URL.String(),
 			Method:  req.Method,
 			Headers: requestHeaders,
-			Body:    "",
 		},
-		Response: ResponseInfo{
+		Response: &ResponseInfo{
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
 			Headers:    responseHeaders,
+			Body:       responseBody,
 		},
-		HTTPInfo: tlsInfo,
-		Duration: duration.String(),
+		HTTPInfo: &tlsInfo,
+		Duration: durationFormatted,
 	}
-
-	var parsedBody any
-	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
-		responseData.Response.Body = parsedBody
-	} else {
-		// If the body isn't valid JSON, include it as a string
-		responseData.Response.Body = string(respBody)
-	}
-
-	return responseData
 }

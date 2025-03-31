@@ -14,7 +14,7 @@ import (
 )
 
 // StandardCall calls the api and returns the json body string
-func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
+func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -61,12 +61,12 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration), nil
+	return processResponse(req, response, duration, debug), nil
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
 // and makes the Api Call with StandardCall and prints the response in console
-func SendAndSaveAPIRequest(secretsMap map[string]any, path string) error {
+func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) error {
 	apiConfig, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
@@ -80,7 +80,7 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string) error {
 		return err
 	}
 
-	resp, err := StandardCall(apiInfo)
+	resp, err := StandardCall(apiInfo, debug)
 	if err != nil {
 		return err
 	}

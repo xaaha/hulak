@@ -30,12 +30,13 @@ OPTIONS
        help   Displays command usage information.
 
 FLAGS
-       -env   Specifies the environment file for API calls.
-       -f     Designates the YAML/YML file to be executed.
-       -fp    Specifies the direct file path for the file to execute.
+       -env    Specifies the environment file for API calls.
+       -f      Designates the YAML/YML file to be executed.
+       -fp     Specifies the direct file path for the file to execute.
+       -debug  Get the entire request, response, headers, and TLS info about the request 
 
 INSTALLATION
-       Hulak can be installed using either `go install` or built from source.
+       Hulak can be installed using either `go install` or built from source or using homebrew
 
        Using go install:
               go install github.com/xaaha/hulak@latest
@@ -53,6 +54,9 @@ INSTALLATION
               go mod tidy
               go build -o hulak
               sudo mv hulak /usr/local/bin/
+
+       Using Homebrew:
+              `brew install xaaha/tap/hulak`
 
 ENVIRONMENT SETUP
        Create an env/ directory with a ‘global.env’ file in the project root:
