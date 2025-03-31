@@ -150,7 +150,7 @@ func inferType(val string, wasTrimmed bool) any {
 }
 
 /*
-GenerateSecretsMap creates final map of environemnt variables and it's values
+GenerateSecretsMap creates final map of environment variables and it's values
 User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
