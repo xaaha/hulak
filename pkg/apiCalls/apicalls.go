@@ -21,9 +21,15 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	urlStr := apiInfo.Url
 	bodyReader := apiInfo.Body
 
-	bodyBytes, err := io.ReadAll(bodyReader)
-	if err != nil {
-		return CustomResponse{}, err
+	var bodyBytes []byte
+	var err error
+	if bodyReader != nil {
+		bodyBytes, err = io.ReadAll(bodyReader)
+		if err != nil {
+			return CustomResponse{}, err
+		}
+	} else {
+		bodyBytes = []byte{}
 	}
 
 	newBodyReader := bytes.NewReader(bodyBytes)
