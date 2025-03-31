@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -34,7 +35,12 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 // should be printed by default. Everythig else should default to false and,
 // --debug should set this true.
 // Then fix tests
-func processResponse(req *http.Request, resp *http.Response) CustomResponse {
+// processResponse takes in http request, response and returns CustomResponse type string for debugging purposes
+func processResponse(
+	req *http.Request,
+	resp *http.Response,
+	duration time.Duration,
+) CustomResponse {
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -90,6 +96,7 @@ func processResponse(req *http.Request, resp *http.Response) CustomResponse {
 			Headers:    responseHeaders,
 		},
 		HTTPInfo: tlsInfo,
+		Duration: duration.String(),
 	}
 
 	var parsedBody any

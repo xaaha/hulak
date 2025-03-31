@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
@@ -49,11 +50,18 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	}
 
 	client := &http.Client{}
+
+	start := time.Now()
+
 	response, err := client.Do(req)
 	if err != nil {
 		return CustomResponse{}, err
 	}
-	return processResponse(req, response), nil
+	end := time.Now()
+
+	duration := end.Sub(start)
+
+	return processResponse(req, response, duration), nil
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
