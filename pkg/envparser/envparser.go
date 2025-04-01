@@ -1,3 +1,4 @@
+// Package envparser contains environment parsing and functions around it
 package envparser
 
 import (
@@ -75,7 +76,7 @@ func setEnvironment(envFromFlag string) (bool, error) {
 	return fileCreationSkipped, nil
 }
 
-// trimQuotes Removes doube quotes " " or single quotes ' from env secrets
+// trimQuotes removes double quotes " " or single quotes ' from env secrets
 // and returns true if the quotes were trimmed
 func trimQuotes(str string) (string, bool) {
 	if len(str) >= 2 {
@@ -86,7 +87,7 @@ func trimQuotes(str string) (string, bool) {
 	return str, false
 }
 
-// Given .env file path this func returns map of the key-value pair of the content
+// LoadEnvVars returns map of the key-value pair from the provided .env filepath
 func LoadEnvVars(filePath string) (map[string]any, error) {
 	hulakEnvironmentVariable := make(map[string]any)
 	file, err := os.Open(filePath)
@@ -149,7 +150,7 @@ func inferType(val string, wasTrimmed bool) any {
 }
 
 /*
-Generate final map of environemnt variables and it's values
+GenerateSecretsMap creates final map of environment variables and it's values
 User's Choice > Global.
 When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat

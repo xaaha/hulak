@@ -1,3 +1,4 @@
+// Package main initializes the project and runs the query
 package main
 
 import (
@@ -14,6 +15,7 @@ func main() {
 	env := flags.Env
 	fp := flags.FilePath
 	fileName := flags.File
+	debug := flags.Debug
 	envMap := InitializeProject(env)
 	filePathList, err := userflags.GenerateFilePathList(fileName, fp)
 	if err != nil {
@@ -21,6 +23,6 @@ func main() {
 	}
 
 	if userflags.HasFlag() {
-		RunTasks(filePathList, envMap)
+		RunTasks(filePathList, envMap, debug)
 	}
 }

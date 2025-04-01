@@ -13,6 +13,7 @@ type AllFlags struct {
 	Env      string
 	FilePath string
 	File     string
+	Debug    bool
 }
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
@@ -40,6 +41,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		Env:      Env(),
 		FilePath: FilePath(),
 		File:     File(),
+		Debug:    Debug(),
 	}, nil
 }
 

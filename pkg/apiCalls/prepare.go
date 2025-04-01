@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -29,29 +31,91 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// Takes in http response, adds response status code,
-// and returns CustomResponse type string for the StandardCall function below
-func processResponse(response *http.Response) CustomResponse {
-	defer response.Body.Close()
-	respBody, err := io.ReadAll(response.Body)
+// TODO: 1 Then fix tests
+// processResponse takes in http request, response and returns a CustomResponse struct for debugging purposes
+func processResponse(
+	req *http.Request,
+	resp *http.Response,
+	duration time.Duration,
+	debug bool,
+) CustomResponse {
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response: %v", err)
 	}
 
-	responseData := CustomResponse{
-		ResponseStatus: fmt.Sprintf(
-			"%d %s",
-			response.StatusCode,
-			http.StatusText(response.StatusCode),
-		),
-	}
-	var parsedBody any
-	if err := json.Unmarshal(respBody, &parsedBody); err == nil {
-		responseData.Body = parsedBody
-	} else {
-		// If the body isn't valid JSON, include it as a string
-		responseData.Body = string(respBody)
+	// Formatting the duration to two decimal points
+	durationFormatted := fmt.Sprintf(
+		"%.2fms",
+		float64(duration.Milliseconds())+float64(duration.Microseconds()%1000)/1000.0,
+	)
+
+	var responseBody any
+	if err := json.Unmarshal(respBody, &responseBody); err != nil {
+		responseBody = string(respBody)
 	}
 
-	return responseData
+	if !debug {
+		// Return minimal set of data
+		return CustomResponse{
+			Response: &ResponseInfo{
+				StatusCode: resp.StatusCode,
+				Body:       responseBody,
+			},
+			Duration: durationFormatted,
+		}
+	}
+
+	// Reading Response Headers
+	responseHeaders := make(map[string]string)
+	for name, values := range resp.Header {
+		responseHeaders[name] = strings.Join(values, ", ")
+	}
+
+	// Reading Request Headers
+	requestHeaders := make(map[string]string)
+	for name, values := range req.Header {
+		requestHeaders[name] = strings.Join(values, ", ")
+	}
+
+	// Preparing TLS Info
+	var tlsInfo HTTPInfo
+	if resp.TLS != nil {
+		var issuers []string
+		var subjects []string
+		for _, cert := range resp.TLS.PeerCertificates {
+			issuers = append(issuers, cert.Issuer.String())
+			subjects = append(subjects, cert.Subject.String())
+		}
+
+		tlsInfo = HTTPInfo{
+			Protocol:    resp.Proto,
+			TLSVersion:  resp.TLS.NegotiatedProtocol,
+			CipherSuite: resp.TLS.CipherSuite,
+			ServerCertInfo: &CertInfo{
+				Issuer:  strings.Join(issuers, ", "),
+				Subject: strings.Join(subjects, ", "),
+			},
+		}
+	} else {
+		tlsInfo = HTTPInfo{
+			Protocol: resp.Proto,
+		}
+	}
+	return CustomResponse{
+		Request: &RequestInfo{
+			URL:     req.URL.String(),
+			Method:  req.Method,
+			Headers: requestHeaders,
+		},
+		Response: &ResponseInfo{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			Headers:    responseHeaders,
+			Body:       responseBody,
+		},
+		HTTPInfo: &tlsInfo,
+		Duration: durationFormatted,
+	}
 }

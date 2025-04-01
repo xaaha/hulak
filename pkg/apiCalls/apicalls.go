@@ -1,3 +1,4 @@
+// Package apicalls has all things related to api call
 package apicalls
 
 import (
@@ -6,13 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // StandardCall calls the api and returns the json body string
-func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
+func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -20,9 +22,15 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	urlStr := apiInfo.Url
 	bodyReader := apiInfo.Body
 
-	bodyBytes, err := io.ReadAll(bodyReader)
-	if err != nil {
-		return CustomResponse{}, err
+	var bodyBytes []byte
+	var err error
+	if bodyReader != nil {
+		bodyBytes, err = io.ReadAll(bodyReader)
+		if err != nil {
+			return CustomResponse{}, err
+		}
+	} else {
+		bodyBytes = []byte{}
 	}
 
 	newBodyReader := bytes.NewReader(bodyBytes)
@@ -42,16 +50,23 @@ func StandardCall(apiInfo yamlparser.ApiInfo) (CustomResponse, error) {
 	}
 
 	client := &http.Client{}
+
+	start := time.Now()
+
 	response, err := client.Do(req)
 	if err != nil {
 		return CustomResponse{}, err
 	}
-	return processResponse(response), nil
+	end := time.Now()
+
+	duration := end.Sub(start)
+
+	return processResponse(req, response, duration, debug), nil
 }
 
-// Using the provided envMap, this function calls the PrepareStruct,
-// and Makes the Api Call with StandardCall and prints the response in console
-func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
+// SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
+// and makes the Api Call with StandardCall and prints the response in console
+func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) error {
 	apiConfig, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
@@ -65,7 +80,7 @@ func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
 		return err
 	}
 
-	resp, err := StandardCall(apiInfo)
+	resp, err := StandardCall(apiInfo, debug)
 	if err != nil {
 		return err
 	}
@@ -74,20 +89,12 @@ func SendAndSaveApiRequest(secretsMap map[string]any, path string) error {
 	return nil
 }
 
-// Prints and Save the custom response
+// PrintAndSaveFinalResp prints and saves the CustomResponse
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
-	// Create a combined structure to store both body and status
-	combined := struct {
-		Body   any    `json:"body"`
-		Status string `json:"status"`
-	}{
-		Body:   resp.Body,
-		Status: resp.ResponseStatus,
-	}
-
 	var strBody string
-	// Marshal the combined structure
-	if jsonData, err := json.MarshalIndent(combined, "", "  "); err == nil {
+
+	// Marshal the CustomResponse structure
+	if jsonData, err := json.MarshalIndent(resp, "", "  "); err == nil {
 		strBody = string(jsonData)
 	} else {
 		utils.PrintWarning("call.go: error serializing response: " + err.Error())

@@ -1,3 +1,4 @@
+// Package main initializes the project and runs the query
 package main
 
 import (
@@ -11,9 +12,7 @@ import (
 )
 
 /*
-InitializeProject() starts the project by creating envfolder and global.env file in it.
-returns the envMap
-TBC...
+InitializeProject starts the project by creating envfolder and global.env file in it.
 */
 func InitializeProject(env string) map[string]any {
 	if err := envparser.CreateDefaultEnvs(nil); err != nil {
@@ -27,7 +26,7 @@ func InitializeProject(env string) map[string]any {
 }
 
 // RunTasks manages the go tasks
-func RunTasks(filePathList []string, secretsMap map[string]any) {
+func RunTasks(filePathList []string, secretsMap map[string]any, debug bool) {
 	var wg sync.WaitGroup
 
 	// Run tasks concurrently based on the kinds in yaml file
@@ -41,12 +40,12 @@ func RunTasks(filePathList []string, secretsMap map[string]any) {
 			// Handle different kinds based on the yaml 'kind' we get.
 			switch {
 			case config.IsAuth():
-				if err := features.SendApiRequestForAuth2(utils.CopyEnvMap(secretsMap), path); err != nil {
+				if err := features.SendAPIRequestForAuth2(utils.CopyEnvMap(secretsMap), path, debug); err != nil {
 					utils.PrintRed(err.Error())
 				}
 
 			case config.IsAPI():
-				if err := apicalls.SendAndSaveApiRequest(utils.CopyEnvMap(secretsMap), path); err != nil {
+				if err := apicalls.SendAndSaveAPIRequest(utils.CopyEnvMap(secretsMap), path, debug); err != nil {
 					utils.PrintRed(err.Error())
 				}
 

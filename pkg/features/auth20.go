@@ -114,9 +114,9 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	}
 }
 
-// Using the provided envMap, this function calls the PrepareStruct,
-// and Makes the Api Call with StandardCall and prints the response in console
-func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
+// SendAPIRequestForAuth2  calls the PrepareStruct using the provided envMap
+// and makes the Api Call with StandardCall and prints the response in console
+func SendAPIRequestForAuth2(secretsMap map[string]any, filePath string, debug bool) error {
 	code, err := openBrowserAndGetCode(filePath, secretsMap)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func SendApiRequestForAuth2(secretsMap map[string]any, filePath string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := apicalls.StandardCall(apiInfo)
+	resp, err := apicalls.StandardCall(apiInfo, debug)
 	if err != nil {
 		return err
 	}

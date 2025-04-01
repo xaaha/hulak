@@ -111,9 +111,6 @@ urlparams:
 			!strings.Contains(result, "{{.searchTerm}}") {
 			t.Errorf("YAML does not contain expected values: %s", result)
 		}
-
-		// Print both values for debugging
-		t.Logf("Result YAML:\n%s", result)
 	})
 
 	t.Run("URL with encoded characters", func(t *testing.T) {
@@ -506,7 +503,8 @@ func TestBodyToYaml(t *testing.T) {
 			Mode: "raw",
 			Raw:  `{"name": "John", "age": 30}`,
 		}
-		expected := `raw: '{"name": "John", "age": 30}'`
+		expected := `body:
+  raw: '{"name": "John", "age": 30}'`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -520,7 +518,8 @@ func TestBodyToYaml(t *testing.T) {
 			Mode: "raw",
 			Raw:  `{"name": "{{name}}", "token": "{{token}}"}`,
 		}
-		expected := `raw: '{"name": "{{.name}}", "token": "{{.token}}"}'`
+		expected := `body:
+  raw: '{"name": "{{.name}}", "token": "{{.token}}"}'`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -537,9 +536,10 @@ func TestBodyToYaml(t *testing.T) {
 				{Key: "password", Value: "secret123"},
 			},
 		}
-		expected := `urlencodedformdata:
-  username: john_doe
-  password: secret123`
+		expected := `body:
+  urlencodedformdata:
+    username: john_doe
+    password: secret123`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -556,9 +556,10 @@ func TestBodyToYaml(t *testing.T) {
 				{Key: "apiKey", Value: "{{apiKey}}"},
 			},
 		}
-		expected := `urlencodedformdata:
-  username: "{{.username}}"
-  apiKey: "{{.apiKey}}"`
+		expected := `body:
+  urlencodedformdata:
+    username: "{{.username}}"
+    apiKey: "{{.apiKey}}"`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -575,9 +576,10 @@ func TestBodyToYaml(t *testing.T) {
 				{Key: "description", Value: "Profile picture"},
 			},
 		}
-		expected := `formdata: 
-  description: Profile picture
-  file: "@/path/to/file.jpg"`
+		expected := `body:
+  formdata:
+    description: Profile picture
+    file: "@/path/to/file.jpg"`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -594,9 +596,10 @@ func TestBodyToYaml(t *testing.T) {
 				{Key: "user", Value: "{{userId}}"},
 			},
 		}
-		expected := `formdata:
-  token: "{{.authToken}}"
-  user: "{{.userId}}"`
+		expected := `body:
+  formdata:
+    token: "{{.authToken}}"
+    user: "{{.userId}}"`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -618,15 +621,16 @@ func TestBodyToYaml(t *testing.T) {
 				Variables: `{"id": "1"}`,
 			},
 		}
-		expected := `graphql:
-  query: "query GetUser {
+		expected := `body:
+  graphql:
+    query: "query GetUser {
   user(id: \"1\") {
     name
     email
   }
 }"
-  variables:
-    id: "1"`
+    variables:
+      id: "1"`
 
 		result, err := bodyToYaml(input)
 		if err != nil {
@@ -650,15 +654,16 @@ func TestBodyToYaml(t *testing.T) {
             }`,
 			},
 		}
-		expected := `graphql:
-  query: "query GetUser {
+		expected := `body:
+  graphql:
+    query: "query GetUser {
   user(id: \"{{.userId}}\") {
     name
     email
   }
 }"
-  variables:
-    id: "{{.userId}}"`
+    variables:
+      id: "{{.userId}}"`
 
 		result, err := bodyToYaml(input)
 		if err != nil {

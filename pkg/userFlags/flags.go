@@ -1,3 +1,4 @@
+// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
@@ -7,9 +8,10 @@ import (
 )
 
 var (
-	fp  *string
-	env *string
-	f   *string
+	fp    *string
+	env   *string
+	f     *string
+	debug *bool
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -25,6 +27,12 @@ func init() {
 		"",
 		"File name for making an api request. File name is case-insensitive",
 	)
+
+	debug = flag.Bool(
+		"debug",
+		false,
+		"enable debug mode to get the entire request, response, headers, and other info for the API call",
+	)
 }
 
 // FilePath returns the parsed value of the file path "fp" flag -fp
@@ -37,7 +45,12 @@ func File() string {
 	return *f
 }
 
-// defines the env for the call
+// Env defines the env for the call, global by default
 func Env() string {
 	return *env
+}
+
+// Debug represents if the user wants the entire statement
+func Debug() bool {
+	return *debug
 }

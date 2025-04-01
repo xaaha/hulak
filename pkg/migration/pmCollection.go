@@ -60,7 +60,6 @@ type Script struct {
 }
 
 // Response represents saved responses
-// TODO: Save these as a json file filename_example.json
 type Response struct {
 	Name            string         `json:"name"`
 	OriginalRequest Request        `json:"originalRequest"`
