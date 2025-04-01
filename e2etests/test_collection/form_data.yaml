@@ -14,6 +14,6 @@ body:
     myBool: false
     other: null
     # myFloat: "{{getValueOf `data.height` `graphql`}}"
-    myNumber: "{{getValueOf `users[0].info.age` `test.json`}}"
+    myNumber: "{{getValueOf `users[0].info.age` `formdata.json`}}"
     myAwesomeNumber: "{{.myAwesomeNumber}}"
 #   Need double quotes for the gotemplate function argument
