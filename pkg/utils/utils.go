@@ -149,10 +149,10 @@ func CopyEnvMap(original map[string]any) map[string]any {
 	return result
 }
 
-// ListMatchingFiles Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
+// ListMatchingFiles searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
-// Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
-// Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
+// Includes all directories in traversal, including hidden ones.
+// Returns slice of matched file paths and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	if matchFile == "" {
 		return nil, ColorError("#utils.go: matchFile can't be empty")
@@ -175,30 +175,23 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		startPath = initialPath[0]
 	}
 
+	allFiles, err := ListFiles(startPath)
+	if err != nil {
+		return nil, err
+	}
+
 	var result []string
-
-	err := filepath.WalkDir(startPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Process files
-		if !d.IsDir() {
-			fileName := strings.ToLower(d.Name())
-			for _, ext := range fileExtensions {
-				if strings.HasSuffix(fileName, ext) {
-					baseName := strings.TrimSuffix(fileName, ext)
-					if matchFile == baseName {
-						result = append(result, path)
-						break
-					}
+	for _, filePath := range allFiles {
+		fileName := strings.ToLower(filepath.Base(filePath))
+		for _, ext := range fileExtensions {
+			if strings.HasSuffix(fileName, ext) {
+				baseName := strings.TrimSuffix(fileName, ext)
+				if matchFile == baseName {
+					result = append(result, filePath)
+					break
 				}
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, ColorError("error walking directory "+startPath, err)
 	}
 
 	if len(result) == 0 {
@@ -206,6 +199,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			"no files with matching name " + matchFile + " found in " + startPath,
 		)
 	}
+
 	return result, nil
 }
 
