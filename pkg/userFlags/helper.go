@@ -45,7 +45,7 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 // Helper function to print command usage
 func printHelp() {
 	utils.PrintWarning("Api Usage:")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 	writeCommandHelp(w, []*CommandHelp{
 		{"hulak -env prod -f fileName", "Find and run all 'fileName'"},
 		{"hulak -env prod -fp path/tofile/getUser.yaml", "Run specific file"},
@@ -60,7 +60,7 @@ func printHelp() {
 // helper function to show valid subcommands
 func printHelpSubCommands() {
 	utils.PrintWarning("Subcommands:")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 	writeCommandHelp(w, []*CommandHelp{
 		{"hulak init", "Initializes default environment"},
 		{"hulak init -env global prod test", "Initializes specific environments"},
