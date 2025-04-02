@@ -375,3 +375,190 @@ func TestCreateFile(t *testing.T) {
 		}
 	})
 }
+
+func TestListMatchingFiles(t *testing.T) {
+	// Create temporary test directory
+	tempDir, err := os.MkdirTemp("", "list_matching_files_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Setup test directory structure
+	setupTestDirectories := []string{
+		"regular_dir",
+		".hidden_dir",
+		"regular_dir/nested_dir",
+	}
+
+	for _, dir := range setupTestDirectories {
+		dirPath := filepath.Join(tempDir, dir)
+		if err := os.MkdirAll(dirPath, DirPer.Perm()); err != nil {
+			t.Fatalf("Failed to create directory: %s, error: %v", dirPath, err)
+		}
+	}
+
+	// Create test files
+	testFiles := []struct {
+		path     string
+		contents string
+	}{
+		{filepath.Join(tempDir, "config.json"), "json content"},
+		{filepath.Join(tempDir, "config.yaml"), "yaml content"},
+		{filepath.Join(tempDir, "config.yml"), "yml content"},
+		{filepath.Join(tempDir, "other.txt"), "txt content"},
+		{filepath.Join(tempDir, "regular_dir", "config.json"), "nested json"},
+		{filepath.Join(tempDir, "regular_dir", "different.yaml"), "nested yaml"},
+		{filepath.Join(tempDir, "regular_dir", "nested_dir", "config.yml"), "deeply nested yml"},
+		{filepath.Join(tempDir, ".hidden_dir", "config.json"), "hidden json"},
+		{filepath.Join(tempDir, ".config.json"), "hidden json file"},
+	}
+
+	for _, tf := range testFiles {
+		if err := os.WriteFile(tf.path, []byte(tf.contents), 0644); err != nil {
+			t.Fatalf("Failed to create file: %s, error: %v", tf.path, err)
+		}
+	}
+
+	// Test cases
+	tests := []struct {
+		name           string
+		matchFile      string
+		initialPath    string
+		expectedCount  int
+		expectedError  bool
+		checkFilePaths func(t *testing.T, paths []string)
+	}{
+		{
+			name:          "Match config files",
+			matchFile:     "config",
+			initialPath:   tempDir,
+			expectedCount: 5, // 3 in root, 1 in regular_dir, 1 in nested_dir (not counting hidden dir)
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				// Verify all paths are for config files and not from hidden directories
+				for _, path := range paths {
+					if !strings.Contains(path, "config") {
+						t.Errorf("Found non-config file: %s", path)
+					}
+					if strings.Contains(path, ".hidden_dir") {
+						t.Errorf("Found file in hidden directory: %s", path)
+					}
+				}
+			},
+		},
+		{
+			name:          "Match different files",
+			matchFile:     "different",
+			initialPath:   tempDir,
+			expectedCount: 1,
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if !strings.Contains(paths[0], "different.yaml") {
+					t.Errorf("Found wrong file: %s", paths[0])
+				}
+			},
+		},
+		{
+			name:          "Match non-existent file",
+			matchFile:     "nonexistent",
+			initialPath:   tempDir,
+			expectedCount: 0,
+			expectedError: true,
+			checkFilePaths: func(_ *testing.T, _ []string) {
+				// Should not be called due to expected error
+			},
+		},
+		{
+			name:          "Empty matchFile",
+			matchFile:     "",
+			initialPath:   tempDir,
+			expectedCount: 0,
+			expectedError: true,
+			checkFilePaths: func(_ *testing.T, _ []string) {
+				// Should not be called due to expected error
+			},
+		},
+		{
+			name:          "Match with extension included",
+			matchFile:     "config.json",
+			initialPath:   tempDir,
+			expectedCount: 5, // Should strip extension and match all config files
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				for _, path := range paths {
+					if !strings.Contains(path, "config") {
+						t.Errorf("Found non-config file: %s", path)
+					}
+				}
+			},
+		},
+		{
+			name:          "Match in subdirectory",
+			matchFile:     "config",
+			initialPath:   filepath.Join(tempDir, "regular_dir"),
+			expectedCount: 2, // 1 in regular_dir, 1 in nested_dir
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				for _, path := range paths {
+					if !strings.Contains(path, "regular_dir") {
+						t.Errorf("Found file outside of regular_dir: %s", path)
+					}
+				}
+			},
+		},
+		{
+			name:          "Match in hidden directory",
+			matchFile:     "config",
+			initialPath:   filepath.Join(tempDir, ".hidden_dir"),
+			expectedCount: 1, // Only if explicitly navigating to hidden dir
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if !strings.Contains(paths[0], ".hidden_dir") {
+					t.Errorf("Found file outside of .hidden_dir: %s", paths[0])
+				}
+			},
+		},
+	}
+
+	// Run test cases
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var initialPath []string
+			if tc.initialPath != "" {
+				initialPath = []string{tc.initialPath}
+			}
+
+			paths, err := ListMatchingFiles(tc.matchFile, initialPath...)
+
+			// Check error condition
+			if tc.expectedError {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Check number of files found
+			if len(paths) != tc.expectedCount {
+				t.Errorf("Expected %d files, got %d: %v", tc.expectedCount, len(paths), paths)
+			}
+
+			// Run custom path checks
+			tc.checkFilePaths(t, paths)
+		})
+	}
+
+	// Test non-existent directory
+	t.Run("Non-existent directory", func(t *testing.T) {
+		nonExistentPath := filepath.Join(tempDir, "does_not_exist")
+		_, err := ListMatchingFiles("config", nonExistentPath)
+		if err == nil {
+			t.Errorf("Expected error for non-existent directory, got nil")
+		}
+	})
+}

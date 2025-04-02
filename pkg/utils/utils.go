@@ -4,6 +4,7 @@ package utils
 
 import (
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -174,42 +175,38 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		startPath = initialPath[0]
 	}
 
-	dirContents, err := os.ReadDir(startPath)
-	if err != nil {
-		return nil, ColorError("error reading directory "+startPath, err)
-	}
-
 	var result []string
 
-	for _, entry := range dirContents {
-		if entry.IsDir() {
-			// Skip hidden directories
-			if strings.HasPrefix(entry.Name(), ".") {
-				continue
-			}
+	// check if we are explicitly starting in a hidden dir
+	explicitlyHidden := string(filepath.Base(startPath)[0]) == "."
 
-			// Recursively process subdirectories
-			subDirPath := filepath.Join(startPath, entry.Name())
-			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			if err != nil && !isNoMatchingFileError(err) {
-				PrintRed(
-					"Skipping subdirectory " + entry.Name() + " due to error: \n" + err.Error(),
-				)
-				continue
-			}
-			result = append(result, matches...)
-		} else {
-			// Process files
-			fileName := strings.ToLower(entry.Name())
+	err := filepath.WalkDir(startPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip hidden directories only if we're not explicitly starting in one
+		// And only skip directories that aren't the explicitly specified one
+		if d.IsDir() && strings.HasPrefix(d.Name(), ".") && !explicitlyHidden && path != startPath {
+			return filepath.SkipDir
+		}
+
+		// Process files
+		if !d.IsDir() {
+			fileName := strings.ToLower(d.Name())
 			for _, ext := range fileExtensions {
 				if strings.HasSuffix(fileName, ext) {
 					baseName := strings.TrimSuffix(fileName, ext)
 					if matchFile == baseName {
-						result = append(result, filepath.Join(startPath, entry.Name()))
+						result = append(result, path)
 					}
 				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, ColorError("error walking directory "+startPath, err)
 	}
 
 	if len(result) == 0 {
@@ -217,13 +214,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			"no files with matching name " + matchFile + " found in " + startPath,
 		)
 	}
-
 	return result, nil
-}
-
-// isNoMatchingFileError determines if the error is related to no matching files found.
-func isNoMatchingFileError(err error) bool {
-	return strings.Contains(err.Error(), "no files with matching name")
 }
 
 // FileNameWithoutExtension takes in filepath and returns the name of the file

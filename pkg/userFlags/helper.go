@@ -1,3 +1,4 @@
+// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
@@ -8,7 +9,7 @@ import (
 
 // TODO: need to add -d for directory. -d-seq for running things in ascending order
 
-// Returns a slice of file paths based on the flags -f and -fp.
+// GenerateFilePathList returns a slice of file paths based on the flags -f and -fp.
 func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 	standardErrMsg := "to send api request(s), please provide a valid file name with \n'-f fileName' flag or  \n'-fp file/path/' "
 
