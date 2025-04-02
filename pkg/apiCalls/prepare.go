@@ -31,7 +31,6 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// TODO: 1 Then fix tests
 // processResponse takes in http request, response and returns a CustomResponse struct for debugging purposes
 func processResponse(
 	req *http.Request,

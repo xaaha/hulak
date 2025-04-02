@@ -9,8 +9,6 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// TODO: need to add -d for directory. -d-seq for running things in ascending order
-
 // GenerateFilePathList returns a slice of file paths based on the flags -f and -fp.
 func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 	standardErrMsg := "to send api request(s), please provide a valid file name with \n'-f fileName' flag or  \n'-fp file/path/' "
@@ -41,6 +39,13 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 	}
 	return filePathList, nil
 }
+
+// TODO1: need to add -d for directory. -d-seq for running things in ascending order
+
+// GenerateFilesFromDir returns all the valid yaml, yml or json file from the provided dir
+// file's validity is checked with yamlparser pkg
+// func GenerateFilesFromDir(dirPath string) ([]string, error) {
+// }
 
 // Helper function to print command usage
 func printHelp() {
