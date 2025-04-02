@@ -177,18 +177,9 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 
 	var result []string
 
-	// check if we are explicitly starting in a hidden dir
-	explicitlyHidden := string(filepath.Base(startPath)[0]) == "."
-
 	err := filepath.WalkDir(startPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
-		}
-
-		// Skip hidden directories only if we're not explicitly starting in one
-		// And only skip directories that aren't the explicitly specified one
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") && !explicitlyHidden && path != startPath {
-			return filepath.SkipDir
 		}
 
 		// Process files
@@ -199,6 +190,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 					baseName := strings.TrimSuffix(fileName, ext)
 					if matchFile == baseName {
 						result = append(result, path)
+						break
 					}
 				}
 			}
@@ -234,4 +226,43 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 	// Merge sec map into main map
 	maps.Copy(main, sec)
 	return main
+}
+
+// ListFiles list all the files in a directory
+func ListFiles(dirPath string) ([]string, error) {
+	result := make([]string, 0)
+	if dirPath == "" {
+		dirPath = "."
+	}
+
+	cleanedDirPath, err := SanitizeDirPath(dirPath)
+	if err != nil {
+		return result, err
+	}
+
+	err = filepath.WalkDir(cleanedDirPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// skip the root dir itself
+		if path == cleanedDirPath {
+			return nil
+		}
+
+		if !d.IsDir() {
+			result = append(result, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return result, fmt.Errorf("error walking dir '%s': %w", cleanedDirPath, err)
+	}
+
+	if len(result) == 0 {
+		return result, fmt.Errorf("no files found in directory %s", cleanedDirPath)
+	}
+
+	return result, nil
 }

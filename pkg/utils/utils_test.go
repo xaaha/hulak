@@ -433,17 +433,45 @@ func TestListMatchingFiles(t *testing.T) {
 			name:          "Match config files",
 			matchFile:     "config",
 			initialPath:   tempDir,
-			expectedCount: 5, // 3 in root, 1 in regular_dir, 1 in nested_dir (not counting hidden dir)
+			expectedCount: 6, // 3 in root, 1 in regular_dir, 1 in nested_dir, 1 in hidden dir (not .config.json)
 			expectedError: false,
 			checkFilePaths: func(t *testing.T, paths []string) {
-				// Verify all paths are for config files and not from hidden directories
+				// Verify all paths are for config files
 				for _, path := range paths {
 					if !strings.Contains(path, "config") {
 						t.Errorf("Found non-config file: %s", path)
 					}
-					if strings.Contains(path, ".hidden_dir") {
-						t.Errorf("Found file in hidden directory: %s", path)
+				}
+
+				// Verify no .config.json files are found
+				for _, path := range paths {
+					if strings.HasSuffix(path, ".config.json") {
+						t.Errorf("Found hidden file that should not match: %s", path)
 					}
+				}
+
+				// Verify we do find files in hidden directories
+				foundHiddenDir := false
+				for _, path := range paths {
+					if strings.Contains(path, ".hidden_dir") {
+						foundHiddenDir = true
+						break
+					}
+				}
+				if !foundHiddenDir {
+					t.Errorf("Missing file from hidden directory")
+				}
+			},
+		},
+		{
+			name:          "Match hidden config files",
+			matchFile:     ".config",
+			initialPath:   tempDir,
+			expectedCount: 1, // Just the .config.json file
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if !strings.HasSuffix(paths[0], ".config.json") {
+					t.Errorf("Expected .config.json, got: %s", paths[0])
 				}
 			},
 		},
@@ -483,12 +511,15 @@ func TestListMatchingFiles(t *testing.T) {
 			name:          "Match with extension included",
 			matchFile:     "config.json",
 			initialPath:   tempDir,
-			expectedCount: 5, // Should strip extension and match all config files
+			expectedCount: 6,
 			expectedError: false,
 			checkFilePaths: func(t *testing.T, paths []string) {
 				for _, path := range paths {
 					if !strings.Contains(path, "config") {
 						t.Errorf("Found non-config file: %s", path)
+					}
+					if strings.HasSuffix(path, ".config.json") {
+						t.Errorf("Found hidden file that should not match: %s", path)
 					}
 				}
 			},
@@ -511,7 +542,7 @@ func TestListMatchingFiles(t *testing.T) {
 			name:          "Match in hidden directory",
 			matchFile:     "config",
 			initialPath:   filepath.Join(tempDir, ".hidden_dir"),
-			expectedCount: 1, // Only if explicitly navigating to hidden dir
+			expectedCount: 1,
 			expectedError: false,
 			checkFilePaths: func(t *testing.T, paths []string) {
 				if !strings.Contains(paths[0], ".hidden_dir") {
