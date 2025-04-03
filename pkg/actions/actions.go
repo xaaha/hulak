@@ -22,7 +22,13 @@ func GetFile(filePath string) (string, error) {
 
 	cleanPath := filepath.Clean(filePath)
 
-	// Convert relative path to absolute path
+	// Get current working directory as the base allowed directory
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Try to resolve as absolute path first
 	absPath, err := filepath.Abs(cleanPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve path %s: %w", cleanPath, err)
@@ -33,11 +39,6 @@ func GetFile(filePath string) (string, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Try relative to working directory if absolute path doesn't exist
-			workingDir, err := os.Getwd()
-			if err != nil {
-				return "", fmt.Errorf("failed to get working directory: %w", err)
-			}
-
 			relPath := filepath.Join(workingDir, cleanPath)
 			fileInfo, err = os.Stat(relPath)
 			if err != nil {
@@ -50,6 +51,16 @@ func GetFile(filePath string) (string, error) {
 		} else {
 			return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
 		}
+	}
+
+	// ensure the file is within the working directory or explicitly allowed directories
+	if !strings.HasPrefix(absPath, workingDir) {
+		// If you want to allow specific directories outside the working dir, add checks here
+		// For example, checking if it's in an allowed config directory
+		return "", fmt.Errorf(
+			"access denied: file path %s is outside the allowed directory",
+			filePath,
+		)
 	}
 
 	// Check if it's a regular file (not a directory)

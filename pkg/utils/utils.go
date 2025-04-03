@@ -25,10 +25,21 @@ func CreatePath(filePath string) (string, error) {
 // SanitizeDirPath cleans up the directory path to avoid traversals
 func SanitizeDirPath(dirPath string) (string, error) {
 	cleanPath := filepath.Clean(dirPath)
-	if !filepath.IsAbs(cleanPath) {
-		return "", fmt.Errorf("invalid directory path: %s", dirPath)
+	if cleanPath == "" {
+		cleanPath = "."
 	}
-	return cleanPath, nil
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("error converting to absolute path: %w", err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", fmt.Errorf("error accessing path %s: %w", dirPath, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", dirPath)
+	}
+	return absPath, nil
 }
 
 // SanitizeFilePath cleans and ensures that the file is within the dir
