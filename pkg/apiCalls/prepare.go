@@ -37,6 +37,7 @@ func processResponse(
 	resp *http.Response,
 	duration time.Duration,
 	debug bool,
+	reqBody []byte,
 ) CustomResponse {
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
@@ -107,6 +108,7 @@ func processResponse(
 			URL:     req.URL.String(),
 			Method:  req.Method,
 			Headers: requestHeaders,
+			Body:    string(reqBody),
 		},
 		Response: &ResponseInfo{
 			StatusCode: resp.StatusCode,
