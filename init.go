@@ -142,3 +142,11 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
 		return fmt.Errorf("unsupported kind in file: %s", path)
 	}
 }
+
+/*
+ things we could optiize for but is probably too much here
+ Rate limiting an API.
+ Priority Queues: For mixed task types with different priorities
+ Result Collection: Add a results channel to collect success/failure statistics.
+ Graceful Shutdown: Add signal handling to cancel in-progress tasks if the program is terminated.
+*/
