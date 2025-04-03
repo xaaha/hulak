@@ -42,22 +42,6 @@ func SanitizeDirPath(dirPath string) (string, error) {
 	return absPath, nil
 }
 
-// SanitizeFilePath cleans and ensures that the file is within the dir
-func SanitizeFilePath(dirPath, filePath string) (string, error) {
-	cleanDirPath, err := SanitizeDirPath(dirPath)
-	if err != nil {
-		return "", err
-	}
-
-	// Clean the file path and ensure it's within the directory
-	cleanFilePath := filepath.Join(cleanDirPath, filepath.Clean(filePath))
-	if !strings.HasPrefix(cleanFilePath, cleanDirPath) {
-		return "", fmt.Errorf("file path %s is outside of the directory %s", filePath, dirPath)
-	}
-
-	return cleanFilePath, nil
-}
-
 // CreateDir checks for the existence of a directory at the given path,
 // and creates it with permissions 0755 if it does not exist.
 func CreateDir(dirPath string) error {
