@@ -4,7 +4,6 @@ package utils
 
 import (
 	"fmt"
-	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -215,43 +214,4 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 	// Merge sec map into main map
 	maps.Copy(main, sec)
 	return main
-}
-
-// ListFiles list all the files in a directory
-func ListFiles(dirPath string) ([]string, error) {
-	result := make([]string, 0)
-	if dirPath == "" {
-		dirPath = "."
-	}
-
-	cleanedDirPath, err := SanitizeDirPath(dirPath)
-	if err != nil {
-		return result, err
-	}
-
-	err = filepath.WalkDir(cleanedDirPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// skip the root dir itself
-		if path == cleanedDirPath {
-			return nil
-		}
-
-		if !d.IsDir() {
-			result = append(result, path)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return result, fmt.Errorf("error walking dir '%s': %w", cleanedDirPath, err)
-	}
-
-	if len(result) == 0 {
-		return result, fmt.Errorf("no files found in directory %s", cleanedDirPath)
-	}
-
-	return result, nil
 }
