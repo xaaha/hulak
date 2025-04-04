@@ -12,8 +12,6 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-var warningTracker = make(map[string]bool)
-
 // Cache structure to store both results and handle warnings
 type valueCache struct {
 	result any
@@ -139,7 +137,7 @@ func getFileMutex(filePath string) *sync.Mutex {
 // If a relative/absolute path is provided (e.g., "../../test.json"), it uses that exact path.
 // Otherwise, it searches for matching files and uses _response.json suffix for non-JSON files.
 func processValueOf(key, fileName string) any {
-	if key == "" && fileName == "" {
+	if key == "" || fileName == "" {
 		if key == "" {
 			utils.PrintRed("Privide key for getValueOf action")
 		} else {
