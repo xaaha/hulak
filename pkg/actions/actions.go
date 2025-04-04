@@ -78,100 +78,126 @@ func GetFile(filePath string) (string, error) {
 	return string(content), nil
 }
 
-// GetValueOf gets the value of key from a json file. If the file does not have '.json' suffix
-// getValueOf looks for _response.json file automatically. If the file does not exist
+// GetValueOf gets the value of key from a json file.
+// If a relative/absolute path is provided (e.g., "../../test.json"), it uses that exact path.
+// Otherwise, it searches for matching files and uses _response.json suffix for non-JSON files.
 func GetValueOf(key, fileName string) any {
-	if key == "" && fileName == "" {
-		utils.PanicRedAndExit("replaceVars.go: key and fileName can't be empty")
+	if key == "" || fileName == "" {
+		if key == "" {
+			utils.PrintRed("provide 'key' for getValueOf action")
+		} else {
+			utils.PrintRed("provide 'fileName' for getValueOf action")
+		}
+		return ""
 	}
 
 	cleanFileName := filepath.Clean(fileName)
-
-	yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
-	if err != nil {
-		utils.PrintRed(fmt.Sprintf(
-			"replaceVars.go: error occurred while grabbing matching paths for '%s': %s",
-			cleanFileName, err.Error(),
-		))
-		return ""
-	}
-
-	var singlePath string
 	var jsonResFilePath string
 
-	if strings.HasSuffix(cleanFileName, utils.JSON) {
-		// For .json files, use exact match from the list
-		if len(yamlPathList) > 0 {
-			// Take the first matching .json file
-			singlePath = yamlPathList[0]
-			jsonResFilePath = singlePath
-		} else {
-			utils.PrintRed("could not find matching files " + cleanFileName)
+	// Check if the fileName contains path separators or starts with ".."
+	isPath := strings.Contains(cleanFileName, string(filepath.Separator)) ||
+		strings.HasPrefix(cleanFileName, "..")
+
+	if isPath {
+		// Handle as a direct file path
+		absPath, err := filepath.Abs(cleanFileName)
+		if err != nil {
+			utils.PrintRed(fmt.Sprintf(
+				"error resolving absolute path for '%s': %s",
+				fileName, err.Error(),
+			))
 			return ""
+		}
+
+		// If it's a JSON file, use it directly
+		if strings.HasSuffix(cleanFileName, utils.JSON) {
+			jsonResFilePath = absPath
+		} else {
+			// For non-JSON files, look for _response.json
+			dirPath := filepath.Dir(absPath)
+			baseFileName := utils.FileNameWithoutExtension(absPath)
+			jsonResFilePath = filepath.Join(dirPath, baseFileName+utils.ResponseFileName)
 		}
 	} else {
-		// Default behavior for files without .json name
-		if len(yamlPathList) > 0 {
-			singlePath = yamlPathList[0]
-		} else {
+		yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
+		if err != nil {
+			utils.PrintRed(fmt.Sprintf(
+				"error occurred while grabbing matching paths for '%s': %s",
+				cleanFileName, err.Error(),
+			))
+			return ""
+		}
+
+		if len(yamlPathList) == 0 {
 			utils.PrintRed("could not find matching files " + cleanFileName)
 			return ""
 		}
 
-		dirPath := filepath.Dir(singlePath)
-		jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-		jsonResFilePath = filepath.Join(dirPath, jsonBaseName)
-	}
+		// Handle multiple matches warning
+		if len(yamlPathList) > 1 {
+			warningKey := fmt.Sprintf("%s_%s", cleanFileName, yamlPathList[0])
+			if !warningTracker[warningKey] {
+				utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
+				warningTracker[warningKey] = true
+			}
+		}
 
-	if len(yamlPathList) > 1 {
-		warningKey := fmt.Sprintf("%s_%s", cleanFileName, singlePath)
-		if !warningTracker[warningKey] {
-			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, singlePath))
-			warningTracker[warningKey] = true
+		singlePath := yamlPathList[0]
+		if strings.HasSuffix(cleanFileName, utils.JSON) {
+			jsonResFilePath = singlePath
+		} else {
+			dirPath := filepath.Dir(singlePath)
+			jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
+			jsonResFilePath = filepath.Join(dirPath, jsonBaseName)
 		}
 	}
 
-	// If the file does not exist
+	// Check if the JSON file exists
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
-		utils.PrintRed(fmt.Sprintf(
-			"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'. \n",
-			jsonResFilePath,
-			cleanFileName,
-			jsonResFilePath,
-			key,
-		))
+		if isPath {
+			utils.PrintRed(fmt.Sprintf(
+				"File '%s' does not exist",
+				jsonResFilePath,
+			))
+		} else {
+			utils.PrintRed(fmt.Sprintf(
+				"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'.\n",
+				jsonResFilePath,
+				cleanFileName,
+				jsonResFilePath,
+				key,
+			))
+		}
 		return ""
 	}
 
+	// Read and parse the JSON file
 	file, err := os.Open(jsonResFilePath)
 	if err != nil {
-		utils.PrintRed(
-			fmt.Sprintf(
-				"replaceVars.go: error occurred while opening the file '%s': %s",
-				filepath.Base(jsonResFilePath),
-				err.Error(),
-			),
-		)
+		utils.PrintRed(fmt.Sprintf(
+			"error occurred while opening the file '%s': %s",
+			filepath.Base(jsonResFilePath),
+			err.Error(),
+		))
 		return ""
 	}
 	defer file.Close()
 
 	var fileContent map[string]any
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&fileContent)
-	if err != nil {
+	if err := decoder.Decode(&fileContent); err != nil {
 		utils.PrintRed(
-			"replaceVars.go: make sure " + filepath.Base(
-				jsonResFilePath,
-			) + " has proper json content: " + err.Error(),
+			"make sure " + filepath.Base(jsonResFilePath) +
+				" has proper json content: " + err.Error(),
 		)
 		return ""
 	}
 
+	// Look up the value in the JSON content
 	result, err := utils.LookupValue(key, fileContent)
 	if err != nil {
 		utils.PanicRedAndExit(
-			"replaceVars.go: error while looking up the value: '%s'. \nMake sure '%s' exists and has key '%s'",
+			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
 				"...",
