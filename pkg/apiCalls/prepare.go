@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -119,4 +121,56 @@ func processResponse(
 		HTTPInfo: &tlsInfo,
 		Duration: durationFormatted,
 	}
+}
+
+// when the flag is -dir run all the requests concurrently
+// this is the current behavior. All we need to do is pass all the dir content to filePaths array
+// When the flag is dirseq, we need to run one at a time as they appear in an array
+// We could create a function that handles dir and dirseq without repeating what functions in this file is doing
+// this function could take in functions as well
+
+// DirPath is the paths for Concurrent or Sequential file run
+type DirPath struct {
+	Concurrent []string
+	Sequential []string
+}
+
+// processDirectory sanitizes a directory path and returns all valid files
+func processDirectory(dirPath string, isFileValid bool) ([]string, error) {
+	cleanDir, err := utils.SanitizeDirPath(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := utils.ListFiles(cleanDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isFileValid {
+		return nil, nil
+	}
+
+	return files, nil
+}
+
+// ListDirPaths lists directory paths for dir and dirseq flags
+func ListDirPaths(dir, dirseq string, isFileValid bool) (DirPath, error) {
+	var result DirPath
+
+	// Process concurrent directory
+	concurrentFiles, err := processDirectory(dir, isFileValid)
+	if err != nil {
+		return result, fmt.Errorf("error processing concurrent directory: %w", err)
+	}
+	result.Concurrent = concurrentFiles
+
+	// Process sequential directory
+	sequentialFiles, err := processDirectory(dirseq, isFileValid)
+	if err != nil {
+		return result, fmt.Errorf("error processing sequential directory: %w", err)
+	}
+	result.Sequential = sequentialFiles
+
+	return result, nil
 }

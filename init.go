@@ -30,8 +30,8 @@ func InitializeProject(env string) map[string]any {
 	return envMap
 }
 
-// RunTasks manages the go tasks with a limited worker pool
-func RunTasks(filePathList []string, secretsMap map[string]any, debug bool) {
+// runTasks manages the go tasks with a limited worker pool
+func runTasks(filePathList []string, secretsMap map[string]any, debug bool) {
 	// Configuration parameters
 	maxWorkers := calculateOptimalWorkerCount() // Dynamically determine worker count
 	maxRetries := 3                             // Number of retries for failed tasks
@@ -150,3 +150,78 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
  Result Collection: Add a results channel to collect success/failure statistics.
  Graceful Shutdown: Add signal handling to cancel in-progress tasks if the program is terminated.
 */
+
+// HandleAPIRequests processes API requests, and runs taks from individual files and directories
+// It also includes Auth2.0 call
+// Handling both concurrent (-dir) and sequential (-dirseq) processing
+func HandleAPIRequests(
+	secretsMap map[string]any,
+	debug bool,
+	filePathList []string,
+	dir, dirseq string,
+) {
+	var allFiles []string
+	var sequentialFiles []string
+
+	// Add existing file paths to the concurrent processing list
+	if len(filePathList) > 0 {
+		allFiles = append(allFiles, filePathList...)
+	}
+
+	// Process directory paths if provided
+	if dir != "" || dirseq != "" {
+		// TODO: BUG BUG BUG
+		dirPaths, err := apicalls.ListDirPaths(dir, dirseq, false)
+		if err != nil {
+			utils.PrintRed(fmt.Sprintf("Error processing directories: %v", err))
+		} else {
+			// Add concurrent directory files to the main processing list
+			if len(dirPaths.Concurrent) > 0 {
+				allFiles = append(allFiles, dirPaths.Concurrent...)
+				utils.PrintInfo(fmt.Sprintf("Found %d files for concurrent processing", len(dirPaths.Concurrent)))
+			}
+
+			// Keep sequential files separate
+			if len(dirPaths.Sequential) > 0 {
+				sequentialFiles = append(sequentialFiles, dirPaths.Sequential...)
+				utils.PrintInfo(fmt.Sprintf("Found %d files for sequential processing", len(dirPaths.Sequential)))
+			}
+		}
+	}
+
+	// Process concurrent files if any
+	if len(allFiles) > 0 {
+		// utils.PrintInfo(fmt.Sprintf("Processing %d files concurrently...", len(allFiles)))
+		runTasks(allFiles, secretsMap, debug)
+	}
+
+	// Process sequential files one by one
+	if len(sequentialFiles) > 0 {
+		utils.PrintInfo(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
+		processFilesSequentially(sequentialFiles, secretsMap, debug)
+	}
+
+	totalFiles := len(allFiles) + len(sequentialFiles)
+	if totalFiles < 0 {
+		utils.PrintWarning(
+			"No files were processed. Please check your path or directory arguments.",
+		)
+	}
+}
+
+// processFilesSequentially handles files one by one in a sequential manner
+func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool) {
+	for _, path := range filePaths {
+		utils.PrintInfo(fmt.Sprintf("Processing %s...", path))
+
+		// Create a fresh copy of the environment for each file
+		fileEnv := utils.CopyEnvMap(secretsMap)
+
+		err := processTask(path, fileEnv, debug)
+		if err != nil {
+			utils.PrintRed(fmt.Sprintf("Error processing %s: %v", path, err))
+		} else if debug {
+			utils.PrintInfo(fmt.Sprintf("Successfully processed %s", path))
+		}
+	}
+}
