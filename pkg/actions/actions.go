@@ -7,11 +7,62 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 var warningTracker = make(map[string]bool)
+
+// Cache structure to store both results and handle warnings
+type valueCache struct {
+	result any
+	warned bool
+	exists bool
+}
+
+// Global cache map with thread-safe access
+var (
+	valuesCacheMutex sync.RWMutex
+	valuesCache      = make(map[string]valueCache)
+
+	// Add file operation mutex
+	fileOpsMutex sync.Map
+)
+
+// GetValueOf gets the value of key from a json file with caching
+func GetValueOf(key, fileName string) any {
+	// Create cache key combining file and key
+	cacheKey := fmt.Sprintf("%s:%s", fileName, key)
+
+	// Check cache first
+	valuesCacheMutex.RLock()
+	if cache, exists := valuesCache[cacheKey]; exists {
+		valuesCacheMutex.RUnlock()
+		return cache.result
+	}
+	valuesCacheMutex.RUnlock()
+
+	// If not in cache, acquire write lock and process
+	valuesCacheMutex.Lock()
+	defer valuesCacheMutex.Unlock()
+
+	// Double-check pattern in case another goroutine cached while we waited
+	if cache, exists := valuesCache[cacheKey]; exists {
+		return cache.result
+	}
+
+	// Process the file and get result
+	result := processValueOf(key, fileName)
+
+	// Cache the result
+	valuesCache[cacheKey] = valueCache{
+		result: result,
+		exists: true,
+	}
+
+	return result
+}
 
 // GetFile reads the content of a file given its relative or absolute path
 func GetFile(filePath string) (string, error) {
@@ -78,15 +129,21 @@ func GetFile(filePath string) (string, error) {
 	return string(content), nil
 }
 
-// GetValueOf gets the value of key from a json file.
+func getFileMutex(filePath string) *sync.Mutex {
+	mutex, _ := fileOpsMutex.LoadOrStore(filePath, &sync.Mutex{})
+	return mutex.(*sync.Mutex)
+}
+
+// processValueOf processes GetValueOf action
+// gets the value of key from a json file.
 // If a relative/absolute path is provided (e.g., "../../test.json"), it uses that exact path.
 // Otherwise, it searches for matching files and uses _response.json suffix for non-JSON files.
-func GetValueOf(key, fileName string) any {
-	if key == "" || fileName == "" {
+func processValueOf(key, fileName string) any {
+	if key == "" && fileName == "" {
 		if key == "" {
-			utils.PrintRed("provide 'key' for getValueOf action")
+			utils.PrintRed("Privide key for getValueOf action")
 		} else {
-			utils.PrintRed("provide 'fileName' for getValueOf action")
+			utils.PrintRed("Privide fileName/path to key for getValueOf action")
 		}
 		return ""
 	}
@@ -119,6 +176,7 @@ func GetValueOf(key, fileName string) any {
 			jsonResFilePath = filepath.Join(dirPath, baseFileName+utils.ResponseFileName)
 		}
 	} else {
+		// read-only operation for concurrent access
 		yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf(
@@ -135,11 +193,7 @@ func GetValueOf(key, fileName string) any {
 
 		// Handle multiple matches warning
 		if len(yamlPathList) > 1 {
-			warningKey := fmt.Sprintf("%s_%s", cleanFileName, yamlPathList[0])
-			if !warningTracker[warningKey] {
-				utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
-				warningTracker[warningKey] = true
-			}
+			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
 		}
 
 		singlePath := yamlPathList[0]
@@ -152,26 +206,25 @@ func GetValueOf(key, fileName string) any {
 		}
 	}
 
-	// Check if the JSON file exists
+	// Get file-specific mutex
+	fileMutex := getFileMutex(jsonResFilePath)
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
+
+	// Check file existence under lock to prevent race conditions
 	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
 		if isPath {
-			utils.PrintRed(fmt.Sprintf(
-				"File '%s' does not exist",
-				jsonResFilePath,
-			))
+			utils.PrintRed(fmt.Sprintf("File '%s' does not exist", jsonResFilePath))
 		} else {
 			utils.PrintRed(fmt.Sprintf(
 				"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'.\n",
-				jsonResFilePath,
-				cleanFileName,
-				jsonResFilePath,
-				key,
+				jsonResFilePath, cleanFileName, jsonResFilePath, key,
 			))
 		}
 		return ""
 	}
 
-	// Read and parse the JSON file
+	// Read file under lock
 	file, err := os.Open(jsonResFilePath)
 	if err != nil {
 		utils.PrintRed(fmt.Sprintf(
@@ -193,10 +246,10 @@ func GetValueOf(key, fileName string) any {
 		return ""
 	}
 
-	// Look up the value in the JSON content
+	// Value lookup is thread-safe as fileContent is local to this function
 	result, err := utils.LookupValue(key, fileContent)
 	if err != nil {
-		utils.PanicRedAndExit(
+		msg := fmt.Sprintf(
 			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
@@ -206,6 +259,7 @@ func GetValueOf(key, fileName string) any {
 			),
 			key,
 		)
+		utils.PrintRed(msg)
 	}
 
 	return result
