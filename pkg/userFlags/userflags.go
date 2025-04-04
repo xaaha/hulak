@@ -14,6 +14,8 @@ type AllFlags struct {
 	FilePath string
 	File     string
 	Debug    bool
+	Dir      string
+	Dirseq   string
 }
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
@@ -42,6 +44,8 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		FilePath: FilePath(),
 		File:     File(),
 		Debug:    Debug(),
+		Dir:      Dir(),
+		Dirseq:   Dirseq(),
 	}, nil
 }
 

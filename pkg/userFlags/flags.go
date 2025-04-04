@@ -14,9 +14,18 @@ var (
 	debug *bool
 	// dir is default for concurrent runs
 	dir *string
-	// dirseq is running directory in alphabetical order.
-	// In nested directories, the run is not guranteed to happen as it appears on a file system.
-	// Hulak does not sort files list yet
+	// dirseq runs directories in alphabetical order.
+	// Note that in nested directories, the execution order
+	// may not follow the file system appearance.
+	// Go automatically sorts by depth, processing shallower directories first.
+	// For example, consider the following run structure
+	//
+	//   dir_0/zeez.md
+	//   dir_0/dir_0/dir_0/aa.md
+	//   dir_0/dir_0/dir_0/hulak.md
+	//   dir_0/dir_0/dir_1/is.md
+	//
+	// In the above case, the files in the shallowest directories will be processed before deeper ones.
 	dirseq *string
 )
 

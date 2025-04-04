@@ -153,11 +153,15 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	}
 
 	fileExtensions := []string{YAML, YML, JSON}
-	for _, ext := range fileExtensions {
-		matchFile = strings.TrimSuffix(matchFile, ext)
-	}
-	matchFile = strings.ToLower(matchFile)
 
+	// Get base name by removing any supported extension
+	baseName := matchFile
+	for _, ext := range fileExtensions {
+		baseName = strings.TrimSuffix(baseName, ext)
+	}
+	baseName = strings.ToLower(baseName)
+
+	// Determine the start path
 	startPath := ""
 	if len(initialPath) == 0 {
 		var err error
@@ -169,21 +173,36 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		startPath = initialPath[0]
 	}
 
+	// List all files in the directory
 	allFiles, err := ListFiles(startPath)
 	if err != nil {
 		return nil, err
 	}
 
+	// Filter files by matching base name
 	var result []string
 	for _, filePath := range allFiles {
 		fileName := strings.ToLower(filepath.Base(filePath))
+
+		// Check if the file has a supported extension
+		hasMatchingExtension := false
 		for _, ext := range fileExtensions {
 			if strings.HasSuffix(fileName, ext) {
-				baseName := strings.TrimSuffix(fileName, ext)
-				if matchFile == baseName {
-					result = append(result, filePath)
-					break
-				}
+				hasMatchingExtension = true
+				break
+			}
+		}
+
+		// If it has a supported extension, compare base names
+		if hasMatchingExtension {
+			fileBaseName := fileName
+			for _, ext := range fileExtensions {
+				fileBaseName = strings.TrimSuffix(fileBaseName, ext)
+			}
+
+			// If base names match, add to results
+			if fileBaseName == baseName {
+				result = append(result, filePath)
 			}
 		}
 	}
@@ -216,4 +235,21 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 	// Merge sec map into main map
 	maps.Copy(main, sec)
 	return main
+}
+
+// FileExists checks if a file exists and is accessible at the given path
+// Returns true if the file exists and is readable, false otherwise
+func FileExists(path string) bool {
+	// Clean the path to remove redundancies
+	cleanPath := filepath.Clean(path)
+
+	// Check if file exists and is accessible
+	info, err := os.Stat(cleanPath)
+	if err != nil {
+		// File doesn't exist or cannot be accessed
+		return false
+	}
+
+	// Make sure it's a file and not a directory
+	return !info.IsDir()
 }

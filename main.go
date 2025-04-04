@@ -16,6 +16,8 @@ func main() {
 	fp := flags.FilePath
 	fileName := flags.File
 	debug := flags.Debug
+	// dir := flags.Dir
+	// dirseq := flags.Dirseq
 	envMap := InitializeProject(env)
 	filePathList, err := userflags.GenerateFilePathList(fileName, fp)
 	if err != nil {

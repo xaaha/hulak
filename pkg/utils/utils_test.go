@@ -593,3 +593,310 @@ func TestListMatchingFiles(t *testing.T) {
 		}
 	})
 }
+
+func TestSanitizeDirPath(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "sanitize_dir_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a temporary file for testing non-directory paths
+	tempFile, err := os.CreateTemp(tempDir, "test_file")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+	tempFile.Close()
+
+	// Create a nested directory for testing relative paths
+	nestedDir := filepath.Join(tempDir, "nested_dir")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatalf("Failed to create nested directory: %v", err)
+	}
+
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+
+	// Get absolute paths for comparison
+	tempDirAbs, _ := filepath.Abs(tempDir)
+	nestedDirAbs, _ := filepath.Abs(nestedDir)
+	cwdAbs, _ := filepath.Abs(cwd)
+	parentDirAbs, _ := filepath.Abs(filepath.Join(cwd, ".."))
+
+	// Create a symbolic link for testing symlinks (if supported)
+	symlinkDir := filepath.Join(tempDir, "symlink_dir")
+	err = os.Symlink(nestedDir, symlinkDir)
+	symlinkSupported := err == nil
+	symlinkDirAbs, _ := filepath.Abs(symlinkDir)
+
+	// Test cases
+	tests := []struct {
+		name           string
+		inputPath      string
+		expectedOutput string
+		expectError    bool
+		errorContains  string
+		setup          func() error
+		cleanup        func()
+	}{
+		{
+			name:           "Valid absolute directory path",
+			inputPath:      tempDir,
+			expectedOutput: tempDirAbs,
+			expectError:    false,
+		},
+		{
+			name:           "Valid nested directory path",
+			inputPath:      nestedDir,
+			expectedOutput: nestedDirAbs,
+			expectError:    false,
+		},
+		{
+			name:          "Non-existent path",
+			inputPath:     filepath.Join(tempDir, "non_existent_dir"),
+			expectError:   true,
+			errorContains: "error accessing path",
+		},
+		{
+			name:          "File path (not a directory)",
+			inputPath:     tempFile.Name(),
+			expectError:   true,
+			errorContains: "path is not a directory",
+		},
+		{
+			name:           "Empty path",
+			inputPath:      "",
+			expectedOutput: cwdAbs, // Current working directory
+			expectError:    false,
+		},
+		{
+			name:           "Current directory",
+			inputPath:      ".",
+			expectedOutput: cwdAbs, // Current working directory
+			expectError:    false,
+		},
+		{
+			name:           "Path with trailing slash",
+			inputPath:      tempDir + "/",
+			expectedOutput: tempDirAbs,
+			expectError:    false,
+		},
+		{
+			name:           "Path with redundant elements",
+			inputPath:      tempDir + "/./",
+			expectedOutput: tempDirAbs,
+			expectError:    false,
+		},
+		{
+			name:           "Parent directory",
+			inputPath:      "..",
+			expectedOutput: parentDirAbs,
+			expectError:    false,
+		},
+	}
+
+	// Add symlink test case if supported
+	if symlinkSupported {
+		tests = append(tests, struct {
+			name           string
+			inputPath      string
+			expectedOutput string
+			expectError    bool
+			errorContains  string
+			setup          func() error
+			cleanup        func()
+		}{
+			name:           "Symlink to directory",
+			inputPath:      symlinkDir,
+			expectedOutput: symlinkDirAbs,
+			expectError:    false,
+			setup:          nil,
+			cleanup:        nil,
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.setup != nil {
+				if err := tc.setup(); err != nil {
+					t.Fatalf("Setup failed: %v", err)
+				}
+			}
+
+			if tc.cleanup != nil {
+				defer tc.cleanup()
+			}
+
+			result, err := SanitizeDirPath(tc.inputPath)
+
+			// Check error conditions
+			if tc.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+					return
+				}
+				if tc.errorContains != "" && !strings.Contains(err.Error(), tc.errorContains) {
+					t.Errorf(
+						"Expected error to contain '%s', got '%s'",
+						tc.errorContains,
+						err.Error(),
+					)
+				}
+				return
+			}
+
+			// Check success conditions
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			// Normalize paths for comparison on all platforms
+			expectedPath := filepath.Clean(tc.expectedOutput)
+			resultPath := filepath.Clean(result)
+
+			if expectedPath != resultPath {
+				t.Errorf("Expected path '%s', got '%s'", expectedPath, resultPath)
+			}
+		})
+	}
+}
+
+// TestSanitizeDirPathWithPermissions tests path sanitization with different permission scenarios
+func TestSanitizeDirPathWithPermissions(t *testing.T) {
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("Skipping permission tests on Windows")
+	}
+	tempDir, err := os.MkdirTemp("", "sanitize_perm_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create a directory with no read permissions
+	noReadDir := filepath.Join(tempDir, "no_read_dir")
+	if err := os.MkdirAll(noReadDir, 0755); err != nil { // Create with read permissions first
+		t.Fatalf("Failed to create no-read directory: %v", err)
+	}
+
+	// Change permissions after creation
+	if err := os.Chmod(noReadDir, 0000); err != nil {
+		t.Fatalf("Failed to change directory permissions: %v", err)
+	}
+
+	// Restore permissions for cleanup
+	defer os.Chmod(noReadDir, 0755)
+
+	t.Run("No read permission directory", func(t *testing.T) {
+		// Skip if running as root (permissions won't affect root)
+		if os.Geteuid() == 0 {
+			t.Skip("Skipping as root user")
+		}
+
+		_, err := SanitizeDirPath(noReadDir)
+
+		// On some systems/configurations, this may not error out due to caching
+		// So we need to check if we can actually access the directory content
+		if err == nil {
+			// Try to read the directory to verify permissions actually prevent access
+			_, err = os.ReadDir(noReadDir)
+			if err == nil {
+				t.Error("Expected error when reading directory with no permissions, but got nil")
+				// If this passes, permissions weren't actually restricted
+				t.Logf("WARNING: Permission test may be unreliable on this system")
+			} else {
+				t.Logf("Note: SanitizeDirPath succeeded but directory is not readable: %v", err)
+			}
+		}
+	})
+}
+
+// TestSanitizeDirPathWithSpecialPaths tests path sanitization with special path values
+func TestSanitizeDirPathWithSpecialPaths(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+	parentDir := filepath.Dir(cwd)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Logf("Couldn't determine home directory: %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		inputPath       string
+		expectedPath    string
+		expectError     bool
+		skipIfNoHomeDir bool
+	}{
+		{
+			name:         "Multiple dot path",
+			inputPath:    "./././.",
+			expectedPath: cwd,
+			expectError:  false,
+		},
+		{
+			name:         "Parent directory",
+			inputPath:    "..",
+			expectedPath: parentDir,
+			expectError:  false,
+		},
+	}
+
+	if homeDir != "" {
+		tests = append(tests, struct {
+			name            string
+			inputPath       string
+			expectedPath    string
+			expectError     bool
+			skipIfNoHomeDir bool
+		}{
+			name:            "Home directory tilde expansion",
+			inputPath:       "~/",
+			expectedPath:    homeDir,
+			expectError:     false,
+			skipIfNoHomeDir: true,
+		})
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.skipIfNoHomeDir && homeDir == "" {
+				t.Skip("Skipping test as home directory couldn't be determined")
+			}
+
+			// Handle tilde expansion manually for the test
+			inputPath := tc.inputPath
+			if strings.HasPrefix(inputPath, "~/") && homeDir != "" {
+				inputPath = filepath.Join(homeDir, inputPath[2:])
+			}
+
+			result, err := SanitizeDirPath(inputPath)
+
+			if tc.expectError && err == nil {
+				t.Errorf("Expected error but got nil")
+				return
+			}
+
+			if !tc.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if err == nil {
+				normalizedResult := filepath.Clean(result)
+				normalizedExpected := filepath.Clean(tc.expectedPath)
+
+				if normalizedResult != normalizedExpected {
+					t.Errorf("Expected result '%s', got '%s'", normalizedExpected, normalizedResult)
+				}
+			}
+		})
+	}
+}

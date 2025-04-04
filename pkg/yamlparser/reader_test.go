@@ -236,7 +236,7 @@ body:
 			}
 			defer os.Remove(filepath)
 
-			result, err := FinalStructForAPI(filepath, secretsMap)
+			result, _, err := FinalStructForAPI(filepath, secretsMap)
 
 			if tc.expectErr {
 				if err == nil {
