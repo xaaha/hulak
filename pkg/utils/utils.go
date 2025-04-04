@@ -189,9 +189,8 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 	}
 
 	if len(result) == 0 {
-		return nil, ColorError(
-			"no files with matching name " + matchFile + " found in " + startPath,
-		)
+		msg := fmt.Sprintf("no files with matching name '%s' found in '%s'", matchFile, startPath)
+		return nil, ColorError(msg)
 	}
 
 	return result, nil
