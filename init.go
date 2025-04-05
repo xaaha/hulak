@@ -178,20 +178,20 @@ func HandleAPIRequests(
 			// Add concurrent directory files to the main processing list
 			if len(dirPaths.Concurrent) > 0 {
 				allFiles = append(allFiles, dirPaths.Concurrent...)
-				utils.PrintInfo(fmt.Sprintf("Found %d files for concurrent processing", len(dirPaths.Concurrent)))
 			}
 
 			// Keep sequential files separate
 			if len(dirPaths.Sequential) > 0 {
 				sequentialFiles = append(sequentialFiles, dirPaths.Sequential...)
-				utils.PrintInfo(fmt.Sprintf("Found %d files for sequential processing", len(dirPaths.Sequential)))
 			}
 		}
 	}
 
 	// Process concurrent files if any
 	if len(allFiles) > 0 {
-		// utils.PrintInfo(fmt.Sprintf("Processing %d files concurrently...", len(allFiles)))
+		if dir != "" || dirseq != "" {
+			utils.PrintInfo(fmt.Sprintf("Processing %d files concurrently...", len(allFiles)))
+		}
 		runTasks(allFiles, secretsMap, debug)
 	}
 
