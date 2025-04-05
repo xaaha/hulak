@@ -6,6 +6,8 @@ NAME
 SYNOPSIS
        hulak [OPTIONS] -f <file>
        hulak [OPTIONS] -fp <file_path>
+       hulak [OPTIONS] -dir <directory_path>
+       hulak [OPTIONS] -dirseq <directory_path>
        hulak migrate <json_file>
 
 DESCRIPTION
@@ -13,13 +15,21 @@ DESCRIPTION
 
 OPTIONS
        -env <environment>
-              Specifies an environment file inside the env directory for API calls. If not provided, the default “global” environment is used.
+              Specifies an environment file inside the env directory for API calls. If not provided, the default "global" environment is used.
 
        -f <file>
               Specifies a YAML/YML file to run. Hulak searches recursively through directories to locate matching yaml/yml files and executes all matches concurrently if more than one is found.
 
        -fp <file_path>
               Specifies the exact file path of the file to run.
+
+       -dir <directory_path>
+              Run entire directory concurrently. Only supports (.yaml or .yml) files. All files use the same provided environment.
+
+       -dirseq <directory_path>
+              Run entire directory one file at a time. Only supports (.yaml or .yml) files. All files use the same provided environment. 
+              In nested directories, the execution order is not guaranteed to follow the file system appearance. If order matters, 
+              it's recommended to use a directory without nested directories, in which case files will run alphabetically.
 
        migrate <json_file>
               Migrates the specified JSON file(s) to the new Hulak format.
@@ -33,6 +43,8 @@ FLAGS
        -env    Specifies the environment file for API calls.
        -f      Designates the YAML/YML file to be executed.
        -fp     Specifies the direct file path for the file to execute.
+       -dir    Run an entire directory of YAML/YML files concurrently.
+       -dirseq Run an entire directory of YAML/YML files sequentially.
        -debug  Get the entire request, response, headers, and TLS info about the request 
 
 INSTALLATION
@@ -41,7 +53,7 @@ INSTALLATION
        Using go install:
               go install github.com/xaaha/hulak@latest
 
-              Ensure that your GOPATH is added to your shell’s PATH:
+              Ensure that your GOPATH is added to your shell's PATH:
               export GOPATH=$HOME/go
               export PATH=$PATH:$(go env GOPATH)/bin
 
@@ -59,7 +71,7 @@ INSTALLATION
               `brew install xaaha/tap/hulak`
 
 ENVIRONMENT SETUP
-       Create an env/ directory with a ‘global.env’ file in the project root:
+       Create an env/ directory with a 'global.env' file in the project root:
 
               mkdir -p env && touch env/global.env
 
@@ -81,6 +93,14 @@ EXAMPLES
 
               Run with:
               hulak -env prod -f test
+              
+       Processing a directory of API requests:
+       
+              # Run all .yaml files in the directory concurrently
+              hulak -dir path/to/directory/
+              
+              # Run all .yaml files in the directory sequentially
+              hulak -dirseq path/to/directory/
 
 AUTH 2.0
        Supports OAuth 2.0 web-application flow. Refer to the documentation for detailed setup instructions:
