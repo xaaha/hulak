@@ -139,9 +139,9 @@ func getFileMutex(filePath string) *sync.Mutex {
 func processValueOf(key, fileName string) any {
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintRed("Privide key for getValueOf action")
+			utils.PrintRed("Provide key for getValueOf action")
 		} else {
-			utils.PrintRed("Privide fileName/path to key for getValueOf action")
+			utils.PrintRed("Provide fileName/path to key for getValueOf action")
 		}
 		return ""
 	}
