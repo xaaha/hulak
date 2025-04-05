@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -212,7 +213,7 @@ func HandleAPIRequests(
 // processFilesSequentially handles files one by one in a sequential manner
 func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool) {
 	for _, path := range filePaths {
-		utils.PrintInfo(fmt.Sprintf("Processing %s...", path))
+		utils.PrintInfo(filepath.Base(path))
 
 		// Create a fresh copy of the environment for each file
 		fileEnv := utils.CopyEnvMap(secretsMap)
