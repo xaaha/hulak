@@ -220,7 +220,7 @@ func TestConfigParsing(t *testing.T) {
 		name             string
 		yamlContent      string
 		createFile       bool
-		secretsMap       map[string]interface{}
+		secretsMap       map[string]any
 		want             ConfigType
 		wantPanic        bool
 		expectedPanicMsg string

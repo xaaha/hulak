@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -31,13 +33,13 @@ func PrepareURL(baseURL string, urlParams map[string]string) string {
 	return u.String()
 }
 
-// TODO: 1 Then fix tests
 // processResponse takes in http request, response and returns a CustomResponse struct for debugging purposes
 func processResponse(
 	req *http.Request,
 	resp *http.Response,
 	duration time.Duration,
 	debug bool,
+	reqBody []byte,
 ) CustomResponse {
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
@@ -108,6 +110,7 @@ func processResponse(
 			URL:     req.URL.String(),
 			Method:  req.Method,
 			Headers: requestHeaders,
+			Body:    string(reqBody),
 		},
 		Response: &ResponseInfo{
 			StatusCode: resp.StatusCode,
@@ -118,4 +121,74 @@ func processResponse(
 		HTTPInfo: &tlsInfo,
 		Duration: durationFormatted,
 	}
+}
+
+// when the flag is -dir run all the requests concurrently
+// this is the current behavior. All we need to do is pass all the dir content to filePaths array
+// When the flag is dirseq, we need to run one at a time as they appear in an array
+// We could create a function that handles dir and dirseq without repeating what functions in this file is doing
+// this function could take in functions as well
+
+// DirPath is the paths for Concurrent or Sequential file run
+type DirPath struct {
+	Concurrent []string
+	Sequential []string
+}
+
+// processDirectory sanitizes a directory path and returns all valid files
+func processDirectory(dirPath string) ([]string, error) {
+	var result []string
+	if dirPath == "" {
+		// -dir and -dirseq is empty by default. So, not returning error here
+		return result, nil
+	}
+
+	cleanDir, err := utils.SanitizeDirPath(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	files, err := utils.ListFiles(cleanDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// since we save json as responses, examples, and such,
+	// let's not allow json file to be run concurrently
+	fileExtensions := []string{utils.YAML, utils.YML}
+	for _, file := range files {
+		fileIsValid := false
+		for _, ext := range fileExtensions {
+			if strings.HasSuffix(strings.ToLower(file), ext) {
+				fileIsValid = true
+				break
+			}
+		}
+		if fileIsValid {
+			result = append(result, file)
+		}
+	}
+
+	return result, nil
+}
+
+// ListDirPaths lists directory paths for dir and dirseq flags
+func ListDirPaths(dir, dirseq string) (DirPath, error) {
+	var result DirPath
+
+	// Process concurrent directory
+	concurrentFiles, err := processDirectory(dir)
+	if err != nil {
+		return result, fmt.Errorf("error processing concurrent directory: %w", err)
+	}
+	result.Concurrent = concurrentFiles
+
+	// Process sequential directory
+	sequentialFiles, err := processDirectory(dirseq)
+	if err != nil {
+		return result, fmt.Errorf("error processing sequential directory: %w", err)
+	}
+	result.Sequential = sequentialFiles
+
+	return result, nil
 }

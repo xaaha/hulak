@@ -24,26 +24,21 @@ func CreatePath(filePath string) (string, error) {
 // SanitizeDirPath cleans up the directory path to avoid traversals
 func SanitizeDirPath(dirPath string) (string, error) {
 	cleanPath := filepath.Clean(dirPath)
-	if !filepath.IsAbs(cleanPath) {
-		return "", fmt.Errorf("invalid directory path: %s", dirPath)
+	if cleanPath == "" {
+		cleanPath = "."
 	}
-	return cleanPath, nil
-}
-
-// SanitizeFilePath cleans and ensures that the file is within the dir
-func SanitizeFilePath(dirPath, filePath string) (string, error) {
-	cleanDirPath, err := SanitizeDirPath(dirPath)
+	absPath, err := filepath.Abs(cleanPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error converting to absolute path: %w", err)
 	}
-
-	// Clean the file path and ensure it's within the directory
-	cleanFilePath := filepath.Join(cleanDirPath, filepath.Clean(filePath))
-	if !strings.HasPrefix(cleanFilePath, cleanDirPath) {
-		return "", fmt.Errorf("file path %s is outside of the directory %s", filePath, dirPath)
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", fmt.Errorf("error accessing path %s: %w", dirPath, err)
 	}
-
-	return cleanFilePath, nil
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", dirPath)
+	}
+	return absPath, nil
 }
 
 // CreateDir checks for the existence of a directory at the given path,
@@ -148,21 +143,25 @@ func CopyEnvMap(original map[string]any) map[string]any {
 	return result
 }
 
-// ListMatchingFiles Searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
+// ListMatchingFiles searches for files matching the "matchFile" name (case-insensitive, .yaml/.yml or .json only)
 // in the specified directory and its subdirectories. If no directory is specified, it starts from the project root.
-// Skips all hidden folders like `.git`, `.vscode` or `.random` folder during traversal.
-// Returns slice of matched file path and an error if no matching files are found or if there are file system errors.
+// Includes all directories in traversal, including hidden ones.
+// Returns slice of matched file paths and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	if matchFile == "" {
 		return nil, ColorError("#utils.go: matchFile can't be empty")
 	}
 
 	fileExtensions := []string{YAML, YML, JSON}
-	for _, ext := range fileExtensions {
-		matchFile = strings.TrimSuffix(matchFile, ext)
-	}
-	matchFile = strings.ToLower(matchFile)
 
+	// Get base name by removing any supported extension
+	baseName := matchFile
+	for _, ext := range fileExtensions {
+		baseName = strings.TrimSuffix(baseName, ext)
+	}
+	baseName = strings.ToLower(baseName)
+
+	// Determine the start path
 	startPath := ""
 	if len(initialPath) == 0 {
 		var err error
@@ -174,56 +173,49 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 		startPath = initialPath[0]
 	}
 
-	dirContents, err := os.ReadDir(startPath)
+	// List all files in the directory
+	allFiles, err := ListFiles(startPath)
 	if err != nil {
-		return nil, ColorError("error reading directory "+startPath, err)
+		return nil, err
 	}
 
+	// Filter files by matching base name
 	var result []string
+	for _, filePath := range allFiles {
+		fileName := strings.ToLower(filepath.Base(filePath))
 
-	for _, entry := range dirContents {
-		if entry.IsDir() {
-			// Skip hidden directories
-			if strings.HasPrefix(entry.Name(), ".") {
-				continue
+		// Check if the file has a supported extension
+		hasMatchingExtension := false
+		for _, ext := range fileExtensions {
+			if strings.HasSuffix(fileName, ext) {
+				hasMatchingExtension = true
+				break
 			}
+		}
 
-			// Recursively process subdirectories
-			subDirPath := filepath.Join(startPath, entry.Name())
-			matches, err := ListMatchingFiles(matchFile, subDirPath)
-			if err != nil && !isNoMatchingFileError(err) {
-				PrintRed(
-					"Skipping subdirectory " + entry.Name() + " due to error: \n" + err.Error(),
-				)
-				continue
-			}
-			result = append(result, matches...)
-		} else {
-			// Process files
-			fileName := strings.ToLower(entry.Name())
+		// If it has a supported extension, compare base names
+		if hasMatchingExtension {
+			fileBaseName := fileName
 			for _, ext := range fileExtensions {
-				if strings.HasSuffix(fileName, ext) {
-					baseName := strings.TrimSuffix(fileName, ext)
-					if matchFile == baseName {
-						result = append(result, filepath.Join(startPath, entry.Name()))
-					}
-				}
+				fileBaseName = strings.TrimSuffix(fileBaseName, ext)
+			}
+
+			// If base names match, add to results
+			if fileBaseName == baseName {
+				result = append(result, filePath)
 			}
 		}
 	}
 
 	if len(result) == 0 {
-		return nil, ColorError(
-			"no files with matching name " + matchFile + " found in " + startPath,
+		return nil, fmt.Errorf(
+			"no files with matching name '%s' found in '%s'",
+			matchFile,
+			startPath,
 		)
 	}
 
 	return result, nil
-}
-
-// isNoMatchingFileError determines if the error is related to no matching files found.
-func isNoMatchingFileError(err error) bool {
-	return strings.Contains(err.Error(), "no files with matching name")
 }
 
 // FileNameWithoutExtension takes in filepath and returns the name of the file
@@ -243,4 +235,21 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 	// Merge sec map into main map
 	maps.Copy(main, sec)
 	return main
+}
+
+// FileExists checks if a file exists and is accessible at the given path
+// Returns true if the file exists and is readable, false otherwise
+func FileExists(path string) bool {
+	// Clean the path to remove redundancies
+	cleanPath := filepath.Clean(path)
+
+	// Check if file exists and is accessible
+	info, err := os.Stat(cleanPath)
+	if err != nil {
+		// File doesn't exist or cannot be accessed
+		return false
+	}
+
+	// Make sure it's a file and not a directory
+	return !info.IsDir()
 }

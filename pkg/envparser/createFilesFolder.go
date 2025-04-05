@@ -1,3 +1,4 @@
+// Package envparser contains environment parsing and functions around it
 package envparser
 
 import (
@@ -8,7 +9,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Creates an env directory and a fileName inside it.
+// CreateEnvDirAndFiles Creates an env directory and a fileName inside it.
 // Returns envfilePath and errors associated with it
 func CreateEnvDirAndFiles(fileName string) (string, error) {
 	defEnvDir := utils.EnvironmentFolder
@@ -33,10 +34,8 @@ func CreateEnvDirAndFiles(fileName string) (string, error) {
 	return envFilePath, nil
 }
 
-/*
-Creates environment folder and a default global.env file in it.
-Optional: File names as a *string
-*/
+// CreateDefaultEnvs Creates environment folder and a default global.env file in it.
+// Optional: File names as a *string
 func CreateDefaultEnvs(envName *string) error {
 	defEnv := utils.DefaultEnvVal
 

@@ -37,6 +37,11 @@ func PrintRed(msg string) {
 	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)
 }
 
+// PrintInfo prints the info for the user in blue
+func PrintInfo(msg string) {
+	fmt.Printf("%s%s%s\n", Blue, msg, ColorReset)
+}
+
 // PanicRedAndExit Print message in Red and os.Exit(1)
 func PanicRedAndExit(msg string, args ...any) {
 	fmt.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)

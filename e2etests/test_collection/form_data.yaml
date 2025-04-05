@@ -13,7 +13,12 @@ body:
     product: "{{.product}}"
     myBool: false
     other: null
-    # myFloat: "{{getValueOf `data.height` `graphql`}}"
+    # getValueOf gets the value of a key from json file.
+    # you can also extract complex keys from the json
+    # For path, either provide the complete path from root
+    # Or just provide the file name 'formdata.json',
+    # if '.json' is ignored, _response.json is default
+    # 'e2etests/test_collection/formdata.json' or `formdata.json`
     myNumber: "{{getValueOf `users[0].info.age` `formdata.json`}}"
     myAwesomeNumber: "{{.myAwesomeNumber}}"
-#   Need double quotes for the gotemplate function argument
+#   Need double quotes " " for the gotemplate function argument or ``

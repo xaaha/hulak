@@ -38,6 +38,9 @@ func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error
 	urlParams := map[string]string{}
 	preparedURL := PrepareURL(urlStr, urlParams)
 
+	reqBodyForDebug := make([]byte, len(bodyBytes))
+	copy(reqBodyForDebug, bodyBytes)
+
 	req, err := http.NewRequest(method, preparedURL, newBodyReader)
 	if err != nil {
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %v", method, err)
@@ -61,13 +64,13 @@ func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug), nil
+	return processResponse(req, response, duration, debug, reqBodyForDebug), nil
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
 // and makes the Api Call with StandardCall and prints the response in console
 func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) error {
-	apiConfig, err := yamlparser.FinalStructForAPI(
+	apiConfig, _, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
 	)

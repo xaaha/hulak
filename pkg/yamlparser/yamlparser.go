@@ -104,24 +104,25 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 }
 
 // FinalStructForAPI builds a final struct for the api call.
+// Returns ApiCallFile struct, true if file is valid, and error
 // It  checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile, error) {
+func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile, bool, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return ApiCallFile{}, utils.ColorError("Error occured after reading yaml file", err)
+		return ApiCallFile{}, false, utils.ColorError("Error occured after reading yaml file", err)
 	}
 
 	var file ApiCallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&file); err != nil {
-		return ApiCallFile{}, utils.ColorError("Error decoding data", err)
+		return ApiCallFile{}, false, utils.ColorError("Error decoding data", err)
 	}
 
 	if valid, err := file.IsValid(filePath); !valid {
-		return ApiCallFile{}, utils.ColorError("Invalid file schema", err)
+		return ApiCallFile{}, false, utils.ColorError("Invalid file schema", err)
 	}
 
-	return file, nil
+	return file, true, nil
 }
 
 // FinalStructForOAuth2 checks the validity of all the fields in the yaml file meant for OAuth2.0.

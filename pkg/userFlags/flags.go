@@ -12,6 +12,21 @@ var (
 	env   *string
 	f     *string
 	debug *bool
+	// dir is default for concurrent runs
+	dir *string
+	// dirseq runs directories in alphabetical order.
+	// Note that in nested directories, the execution order
+	// may not follow the file system appearance.
+	// Go automatically sorts by depth, processing shallower directories first.
+	// For example, consider the following run structure
+	//
+	//   dir_0/zeez.md
+	//   dir_0/dir_0/dir_0/aa.md
+	//   dir_0/dir_0/dir_0/hulak.md
+	//   dir_0/dir_0/dir_1/is.md
+	//
+	// In the above case, the files in the shallowest directories will be processed before deeper ones.
+	dirseq *string
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -33,6 +48,18 @@ func init() {
 		false,
 		"enable debug mode to get the entire request, response, headers, and other info for the API call",
 	)
+
+	dir = flag.String(
+		"dir",
+		"",
+		"Directory path to run concurrent",
+	)
+
+	dirseq = flag.String(
+		"dirseq",
+		"",
+		"Directory path to run in alphabetical order",
+	)
 }
 
 // FilePath returns the parsed value of the file path "fp" flag -fp
@@ -53,4 +80,14 @@ func Env() string {
 // Debug represents if the user wants the entire statement
 func Debug() bool {
 	return *debug
+}
+
+// Dir represents concurrent directory run flag
+func Dir() string {
+	return *dir
+}
+
+// Dirseq represents directory run in sequence
+func Dirseq() string {
+	return *dirseq
 }
