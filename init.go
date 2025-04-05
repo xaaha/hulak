@@ -170,8 +170,8 @@ func HandleAPIRequests(
 
 	// Process directory paths if provided
 	if dir != "" || dirseq != "" {
-		// TODO: BUG BUG BUG
-		dirPaths, err := apicalls.ListDirPaths(dir, dirseq, secretsMap)
+		dirPaths, err := apicalls.ListDirPaths(dir, dirseq)
+
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf("Error processing directories: %v", err))
 		} else {

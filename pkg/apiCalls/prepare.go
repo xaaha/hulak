@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -137,7 +136,14 @@ type DirPath struct {
 }
 
 // processDirectory sanitizes a directory path and returns all valid files
-func processDirectory(dirPath string, secretsMap map[string]any) ([]string, error) {
+func processDirectory(dirPath string) ([]string, error) {
+	// TODO: BUG BUG BUG
+	// TODO: BUG BUG BUG
+	var result []string
+	if dirPath == "" {
+		return result, fmt.Errorf("")
+	}
+
 	cleanDir, err := utils.SanitizeDirPath(dirPath)
 	if err != nil {
 		return nil, err
@@ -148,9 +154,17 @@ func processDirectory(dirPath string, secretsMap map[string]any) ([]string, erro
 		return nil, err
 	}
 
-	var result []string
+	// since we save json as responses, examples, and such,
+	// let's not allow json file to be run concurrently
+	fileExtensions := []string{utils.YAML, utils.YML}
 	for _, file := range files {
-		_, fileIsValid, _ := yamlparser.FinalStructForAPI(file, secretsMap)
+		fileIsValid := false
+		for _, ext := range fileExtensions {
+			if strings.HasSuffix(strings.ToLower(file), ext) {
+				fileIsValid = true
+				break
+			}
+		}
 		if fileIsValid {
 			result = append(result, file)
 		}
@@ -160,18 +174,18 @@ func processDirectory(dirPath string, secretsMap map[string]any) ([]string, erro
 }
 
 // ListDirPaths lists directory paths for dir and dirseq flags
-func ListDirPaths(dir, dirseq string, secretsMap map[string]any) (DirPath, error) {
+func ListDirPaths(dir, dirseq string) (DirPath, error) {
 	var result DirPath
 
 	// Process concurrent directory
-	concurrentFiles, err := processDirectory(dir, secretsMap)
+	concurrentFiles, err := processDirectory(dir)
 	if err != nil {
 		return result, fmt.Errorf("error processing concurrent directory: %w", err)
 	}
 	result.Concurrent = concurrentFiles
 
 	// Process sequential directory
-	sequentialFiles, err := processDirectory(dirseq, secretsMap)
+	sequentialFiles, err := processDirectory(dirseq)
 	if err != nil {
 		return result, fmt.Errorf("error processing sequential directory: %w", err)
 	}
