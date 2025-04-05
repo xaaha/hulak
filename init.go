@@ -88,7 +88,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool) {
 					select {
 					case <-doneChan:
 						success = true
-						// No need to print success, it gets annoying
+						utils.PrintInfo(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
 					case err := <-errChan:
 						lastErr = err
 						utils.PrintRed(fmt.Sprintf("Error processing %s: %v (attempt %d/%d)",
@@ -213,12 +213,12 @@ func HandleAPIRequests(
 // processFilesSequentially handles files one by one in a sequential manner
 func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool) {
 	for _, path := range filePaths {
-		utils.PrintInfo(filepath.Base(path))
 
 		// Create a fresh copy of the environment for each file
 		fileEnv := utils.CopyEnvMap(secretsMap)
 
 		err := processTask(path, fileEnv, debug)
+		utils.PrintInfo(fmt.Sprintf("Processed: '%s'", filepath.Base(path)))
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf("Error processing %s: %v", path, err))
 		} else if debug {
