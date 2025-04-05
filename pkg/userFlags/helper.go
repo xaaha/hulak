@@ -66,6 +66,7 @@ func printHelpSubCommands() {
 	utils.PrintWarning("Subcommands:")
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 	writeCommandHelp(w, []*CommandHelp{
+		{"hulak version", "Prints hulak version"},
 		{"hulak init", "Initializes default environment and creates an apiOptions.yaml file"},
 		{"hulak init -env global prod test", "Initializes specific environments"},
 		{"hulak migrate <file1> <file2> ...", "Migrates postman env and collections"},
