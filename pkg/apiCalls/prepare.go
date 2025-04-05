@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // PrepareURL perpares and returns the full url.
@@ -136,7 +137,7 @@ type DirPath struct {
 }
 
 // processDirectory sanitizes a directory path and returns all valid files
-func processDirectory(dirPath string, fileIsValid bool) ([]string, error) {
+func processDirectory(dirPath string, secretsMap map[string]any) ([]string, error) {
 	cleanDir, err := utils.SanitizeDirPath(dirPath)
 	if err != nil {
 		return nil, err
@@ -149,6 +150,7 @@ func processDirectory(dirPath string, fileIsValid bool) ([]string, error) {
 
 	var result []string
 	for _, file := range files {
+		_, fileIsValid, _ := yamlparser.FinalStructForAPI(file, secretsMap)
 		if fileIsValid {
 			result = append(result, file)
 		}
@@ -158,18 +160,18 @@ func processDirectory(dirPath string, fileIsValid bool) ([]string, error) {
 }
 
 // ListDirPaths lists directory paths for dir and dirseq flags
-func ListDirPaths(dir, dirseq string, isFileValid bool) (DirPath, error) {
+func ListDirPaths(dir, dirseq string, secretsMap map[string]any) (DirPath, error) {
 	var result DirPath
 
 	// Process concurrent directory
-	concurrentFiles, err := processDirectory(dir, isFileValid)
+	concurrentFiles, err := processDirectory(dir, secretsMap)
 	if err != nil {
 		return result, fmt.Errorf("error processing concurrent directory: %w", err)
 	}
 	result.Concurrent = concurrentFiles
 
 	// Process sequential directory
-	sequentialFiles, err := processDirectory(dirseq, isFileValid)
+	sequentialFiles, err := processDirectory(dirseq, secretsMap)
 	if err != nil {
 		return result, fmt.Errorf("error processing sequential directory: %w", err)
 	}
