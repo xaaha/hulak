@@ -137,11 +137,10 @@ type DirPath struct {
 
 // processDirectory sanitizes a directory path and returns all valid files
 func processDirectory(dirPath string) ([]string, error) {
-	// TODO: BUG BUG BUG
-	// TODO: BUG BUG BUG
 	var result []string
 	if dirPath == "" {
-		return result, fmt.Errorf("")
+		// -dir and -dirseq is empty by default. So, not returning error here
+		return result, nil
 	}
 
 	cleanDir, err := utils.SanitizeDirPath(dirPath)
