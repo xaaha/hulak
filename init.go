@@ -221,8 +221,6 @@ func processFilesSequentially(filePaths []string, secretsMap map[string]any, deb
 		utils.PrintInfo(fmt.Sprintf("Processed: '%s'", filepath.Base(path)))
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf("Error processing %s: %v", path, err))
-		} else if debug {
-			utils.PrintInfo(fmt.Sprintf("Successfully processed %s", path))
 		}
 	}
 }
