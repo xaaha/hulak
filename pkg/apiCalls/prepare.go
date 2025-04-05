@@ -136,7 +136,7 @@ type DirPath struct {
 }
 
 // processDirectory sanitizes a directory path and returns all valid files
-func processDirectory(dirPath string, isFileValid bool) ([]string, error) {
+func processDirectory(dirPath string, fileIsValid bool) ([]string, error) {
 	cleanDir, err := utils.SanitizeDirPath(dirPath)
 	if err != nil {
 		return nil, err
@@ -147,11 +147,14 @@ func processDirectory(dirPath string, isFileValid bool) ([]string, error) {
 		return nil, err
 	}
 
-	if !isFileValid {
-		return nil, nil
+	var result []string
+	for _, file := range files {
+		if fileIsValid {
+			result = append(result, file)
+		}
 	}
 
-	return files, nil
+	return result, nil
 }
 
 // ListDirPaths lists directory paths for dir and dirseq flags
