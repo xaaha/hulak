@@ -137,7 +137,7 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 	return &config, nil
 }
 
-// parses a YAML file and panics on error
+// MustParseConfig parses a YAML file and panics on error
 func MustParseConfig(filePath string, secretsMap map[string]any) ConfigType {
 	config, err := ParseConfig(filePath, secretsMap)
 	if err != nil {

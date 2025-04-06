@@ -91,6 +91,8 @@ export PATH=$PATH:$(go env GOPATH)/bin
 ## Verify Installation with
 
 ```bash
+hulak version
+# or
 hulak help
 ```
 
