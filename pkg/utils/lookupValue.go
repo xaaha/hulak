@@ -1,3 +1,4 @@
+// Package utils has all the utils required for hulak, including but not limited to CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import (
@@ -11,7 +12,7 @@ import (
 // Use {} to escape dots in keys (e.g., "{user.name}").
 // For arrays, reference an index with square brackets (e.g., myArr[0] for the first element).
 // You can also access nested properties like myArr[0].name for the "name" key of the first array element.
-func LookupValue(key string, data map[string]interface{}) (interface{}, error) {
+func LookupValue(key string, data map[string]any) (any, error) {
 	// Step 1: Check for direct key match
 	if value, exists := data[key]; exists {
 		return MarshalToJSON(value)
@@ -22,14 +23,14 @@ func LookupValue(key string, data map[string]interface{}) (interface{}, error) {
 	segments := parseKeySegments(key, pathSeparator)
 
 	// Step 3: Initialize the current context
-	current := interface{}(data)
+	current := any(data)
 
 	// Step 4: Iterate through key segments
 	for i, segment := range segments {
 		isArrayKey, keyPart, index := ParseArrayKey(segment)
 
 		// Step 5: Ensure current context is a map
-		currMap, ok := current.(map[string]interface{})
+		currMap, ok := current.(map[string]any)
 		if !ok {
 			currMap, ok = structToMap(current)
 			if !ok {
@@ -74,12 +75,12 @@ func LookupValue(key string, data map[string]interface{}) (interface{}, error) {
 	return "", ColorError("unexpected error")
 }
 
-func structToMap(value interface{}) (map[string]interface{}, bool) {
+func structToMap(value any) (map[string]any, bool) {
 	val := reflect.ValueOf(value)
 	if val.Kind() == reflect.Struct {
-		mapData := make(map[string]interface{})
+		mapData := make(map[string]any)
 		valType := val.Type()
-		for i := 0; i < val.NumField(); i++ {
+		for i := range val.NumField() {
 			field := valType.Field(i)
 			mapData[field.Name] = val.Field(i).Interface()
 		}
@@ -115,6 +116,7 @@ func parseKeySegments(key, pathSeparator string) []string {
 	return segments
 }
 
+// ParseArrayKey checks if array has proper syntax
 func ParseArrayKey(segment string) (bool, string, int) {
 	if strings.HasSuffix(segment, "]") && strings.Contains(segment, "[") {
 		openBracket := strings.LastIndex(segment, "[")

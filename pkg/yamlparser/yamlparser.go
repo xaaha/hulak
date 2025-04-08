@@ -109,17 +109,17 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile, bool, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return ApiCallFile{}, false, utils.ColorError("Error occured after reading yaml file", err)
+		return ApiCallFile{}, false, err
 	}
 
 	var file ApiCallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&file); err != nil {
-		return ApiCallFile{}, false, utils.ColorError("Error decoding data", err)
+		return ApiCallFile{}, false, err
 	}
 
 	if valid, err := file.IsValid(filePath); !valid {
-		return ApiCallFile{}, false, utils.ColorError("Invalid file schema", err)
+		return ApiCallFile{}, false, err
 	}
 
 	return file, true, nil

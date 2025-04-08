@@ -1,0 +1,269 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hulak API Request Schema",
+  "description": "Schema for hulak API request YAML files",
+  "type": "object",
+  "properties": {
+    "method": {
+      "type": "string",
+      "description": "HTTP method for the request",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS",
+        "TRACE",
+        "CONNECT"
+      ],
+      "minLength": 1
+    },
+    "url": {
+      "type": "string",
+      "description": "Target URL for the API request",
+      "format": "uri",
+      "minLength": 1
+    },
+    "headers": {
+      "type": "object",
+      "description": "HTTP headers to include in the request",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "properties": {
+        "Content-Type": {
+          "type": "string",
+          "description": "The MIME type of the body content",
+          "enum": [
+            "application/json",
+            "application/xml",
+            "application/x-www-form-urlencoded",
+            "application/octet-stream",
+            "application/pdf",
+            "application/zip",
+            "application/vnd.api+json",
+            "application/javascript",
+            "application/msword",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "multipart/form-data",
+            "multipart/byteranges",
+            "multipart/related",
+            "text/plain",
+            "text/html",
+            "text/css",
+            "text/javascript",
+            "text/csv",
+            "text/markdown",
+            "text/xml",
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/svg+xml",
+            "image/webp",
+            "image/bmp",
+            "image/tiff",
+            "audio/mpeg",
+            "audio/wav",
+            "audio/ogg",
+            "audio/aac",
+            "audio/webm",
+            "video/mp4",
+            "video/mpeg",
+            "video/ogg",
+            "video/webm",
+            "video/x-msvideo",
+            "font/ttf",
+            "font/woff",
+            "font/woff2"
+          ]
+        },
+        "Accept": {
+          "type": "string",
+          "description": "Acceptable content types for the response",
+          "enum": [
+            "application/json",
+            "application/xml",
+            "application/x-www-form-urlencoded",
+            "application/octet-stream",
+            "application/pdf",
+            "application/zip",
+            "application/vnd.api+json",
+            "application/javascript",
+            "application/msword",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "multipart/form-data",
+            "multipart/byteranges",
+            "multipart/related",
+            "text/plain",
+            "text/html",
+            "text/css",
+            "text/javascript",
+            "text/csv",
+            "text/markdown",
+            "text/xml",
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/svg+xml",
+            "image/webp",
+            "image/bmp",
+            "image/tiff",
+            "audio/mpeg",
+            "audio/wav",
+            "audio/ogg",
+            "audio/aac",
+            "audio/webm",
+            "video/mp4",
+            "video/mpeg",
+            "video/ogg",
+            "video/webm",
+            "video/x-msvideo",
+            "font/ttf",
+            "font/woff",
+            "font/woff2",
+            "*/*"
+          ]
+        },
+        "Authorization": {
+          "type": "string",
+          "description": "Authentication credentials for the request",
+          "default": "'{{.token\\}\\}'"
+        },
+        "Cache-Control": {
+          "type": "string",
+          "description": "Directives for caching mechanisms in both requests and responses"
+        },
+        "User-Agent": {
+          "type": "string",
+          "description": "Information about the user agent originating the request"
+        },
+        "Content-Length": {
+          "type": "string",
+          "description": "The size of the request body in octets (8-bit bytes)"
+        },
+        "Accept-Encoding": {
+          "type": "string",
+          "description": "The encoding algorithm, usually a compression algorithm, that the client can understand"
+        },
+        "Accept-Language": {
+          "type": "string",
+          "description": "The natural languages that are preferred for the response"
+        },
+        "Connection": {
+          "type": "string",
+          "description": "Control options for the current connection",
+          "enum": ["keep-alive", "close"]
+        },
+        "Cookie": {
+          "type": "string",
+          "description": "Contains stored HTTP cookies previously sent by the server with Set-Cookie"
+        },
+        "Host": {
+          "type": "string",
+          "description": "The domain name of the server and the TCP port number on which the server is listening"
+        },
+        "Origin": {
+          "type": "string",
+          "description": "Indicates where a fetch originates from"
+        },
+        "Referer": {
+          "type": "string",
+          "description": "The address of the previous web page from which a link to the currently requested page was followed"
+        },
+        "X-Requested-With": {
+          "type": "string",
+          "description": "Identifies Ajax requests (most JavaScript frameworks send this field with value of XMLHttpRequest)"
+        },
+        "X-Forwarded-For": {
+          "type": "string",
+          "description": "A de-facto standard header for identifying the originating IP address of a client connecting through a proxy"
+        },
+        "X-Forwarded-Proto": {
+          "type": "string",
+          "description": "A de-facto standard header for identifying the protocol that a client used to connect to a proxy"
+        },
+        "X-Csrf-Token": {
+          "type": "string",
+          "description": "Used to prevent cross-site request forgery"
+        }
+      }
+    },
+    "urlparams": {
+      "type": "object",
+      "description": "URL parameters to be added to the request",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "body": {
+      "type": "object",
+      "description": "Request body (only one type should be specified)",
+      "oneOf": [
+        {
+          "properties": {
+            "raw": {
+              "type": "string",
+              "description": "Raw body content"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "formdata": {
+              "type": "object",
+              "description": "Form data (multipart/form-data)",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "urlencodedformdata": {
+              "type": "object",
+              "description": "URL encoded form data (application/x-www-form-urlencoded)",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "graphql": {
+              "type": "object",
+              "description": "GraphQL query and variables",
+              "required": ["query"],
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "description": "GraphQL query string",
+                  "minLength": 1,
+                  "default": "'{{getFile `path/to/file.gql`\\}\\}'"
+                },
+                "variables": {
+                  "type": "object",
+                  "description": "GraphQL variables object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["graphql"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["method", "url"],
+  "additionalProperties": false
+}
