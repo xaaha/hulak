@@ -234,9 +234,10 @@ func processValueOf(key, fileName string) any {
 	}
 	defer file.Close()
 
-	var fileContent map[string]any
+	// First, decode into a generic any
+	var rawContent any
 	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&fileContent); err != nil {
+	if err := decoder.Decode(&rawContent); err != nil {
 		utils.PrintRed(
 			"make sure " + filepath.Base(jsonResFilePath) +
 				" has proper json content: " + err.Error(),
@@ -244,8 +245,31 @@ func processValueOf(key, fileName string) any {
 		return ""
 	}
 
-	// Value lookup is thread-safe as fileContent is local to this function
-	result, err := utils.LookupValue(key, fileContent)
+	// Then handle different types
+	var result any
+	switch content := rawContent.(type) {
+	case []any:
+		// Handle array case - for root level arrays
+		if strings.HasPrefix(key, "[") && strings.Contains(key, "]") {
+			// This is already an array and the key starts with array notation
+			result, err = utils.LookupValue(key, map[string]any{
+				"": content, // Empty key for root array
+			})
+		} else {
+			utils.PrintRed("JSON content is an array, use [index] notation to access elements")
+			return ""
+		}
+	case map[string]any:
+		result, err = utils.LookupValue(key, content)
+	default:
+		utils.PrintRed(fmt.Sprintf(
+			"unexpected JSON content format in file '%s'",
+			filepath.Base(jsonResFilePath),
+		))
+		return ""
+	}
+
+	// Handle any lookup errors
 	if err != nil {
 		msg := fmt.Sprintf(
 			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
@@ -258,6 +282,7 @@ func processValueOf(key, fileName string) any {
 			key,
 		)
 		utils.PrintRed(msg)
+		return ""
 	}
 
 	return result

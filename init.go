@@ -32,11 +32,16 @@ func InitializeProject(env string) map[string]any {
 }
 
 // runTasks manages the go tasks with a limited worker pool
-func runTasks(filePathList []string, secretsMap map[string]any, debug bool) {
+func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string) {
 	// Configuration parameters
 	maxWorkers := calculateOptimalWorkerCount() // Dynamically determine worker count
 	maxRetries := 3                             // Number of retries for failed tasks
 	timeout := 60 * time.Second                 // Timeout for each API call
+
+	if fp != "" {
+		// If fp flag has a path, then let's not retry it again
+		maxRetries = 1
+	}
 
 	var wg sync.WaitGroup
 	taskChan := make(chan string, len(filePathList)) // Buffered channel for tasks
@@ -91,8 +96,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool) {
 						utils.PrintInfo(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
 					case err := <-errChan:
 						lastErr = err
-						utils.PrintRed(fmt.Sprintf("Error processing %s: %v (attempt %d/%d)",
-							path, err, attempt+1, maxRetries))
+						utils.PrintInfo(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
 					case <-ctx.Done():
 						lastErr = fmt.Errorf("timeout after %v", timeout)
 						utils.PrintRed(fmt.Sprintf("Timeout processing %s after %v (attempt %d/%d)",
@@ -159,7 +163,7 @@ func HandleAPIRequests(
 	secretsMap map[string]any,
 	debug bool,
 	filePathList []string,
-	dir, dirseq string,
+	dir, dirseq, fp string,
 ) {
 	var allFiles []string
 	var sequentialFiles []string
@@ -193,7 +197,7 @@ func HandleAPIRequests(
 		if dir != "" || dirseq != "" {
 			utils.PrintInfo(fmt.Sprintf("Processing %d files concurrently...", len(allFiles)))
 		}
-		runTasks(allFiles, secretsMap, debug)
+		runTasks(allFiles, secretsMap, debug, fp)
 	}
 
 	// Process sequential files one by one

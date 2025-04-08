@@ -96,6 +96,8 @@ profession: '{{getValueOf "profession.{company.info}" "example.json"}}' # gets E
 ```yaml
 # get's the Name value "pt" from example.json above
 employee: '{{getValueOf "myArr[1].Name" "example.json"}}' # gets "pt"
+# if the example.josn file is an array start with indexig [0]
+employee: '{{getValueOf "[0].company.Name" "example.json"}}' # gets "pt"
 ```
 
 ### Using `path` or `file_name`
