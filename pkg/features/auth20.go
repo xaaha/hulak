@@ -62,8 +62,8 @@ var codeChan = make(chan string)
 func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
-		authHtml := filepath.Join("assets", "auth.html")
-		http.ServeFile(w, r, authHtml)
+		authHTML := filepath.Join("assets", "auth.html")
+		http.ServeFile(w, r, authHTML)
 		// Send the code to the channel and close it
 		codeChan <- code
 		close(codeChan)
