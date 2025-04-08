@@ -1,6 +1,8 @@
 // Package features have all the additional features hulak supports
 package features
 
+// TODO: This is a prototype. I am not sure if this works right now.
+// Need to refine and do bunch of tets on this.
 import (
 	"encoding/json"
 	"fmt"
@@ -65,7 +67,8 @@ type TypeRef struct {
 	OfType *TypeRef `json:"ofType,omitempty"`
 }
 
-func main() {
+// Graphql reads and parses the json file create output dir
+func Graphql() {
 	// Read the JSON file
 	jsonFile := os.Args[1]
 	if jsonFile == "" {
