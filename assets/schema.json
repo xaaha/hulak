@@ -205,23 +205,6 @@
         "type": "string"
       }
     },
-    "auth": {
-      "type": "object",
-      "description": "Authentication configuration for OAuth2.0 flows (required when kind is Auth)",
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "The type of authentication flow",
-          "enum": ["OAuth2.0", "oauth2", "oauth2.0"]
-        },
-        "access_token_url": {
-          "type": "string",
-          "description": "URL for obtaining the access token",
-          "format": "uri"
-        }
-      },
-      "required": ["type", "access_token_url"]
-    },
     "body": {
       "type": "object",
       "description": "Request body (only one type should be specified)",
@@ -293,28 +276,40 @@
     {
       "if": {
         "properties": {
-          "kind": { "enum": ["Auth", "auth"] }
+          "kind": {
+            "const": "Auth"
+          }
         }
       },
       "then": {
-        "required": ["auth", "urlparams"],
+        "required": ["auth"],
         "properties": {
-          "urlparams": {
-            "required": ["client_id"]
-          },
-          "body": {
+          "auth": {
             "type": "object",
             "properties": {
-              "urlencodedformdata": {
-                "type": "object",
-                "description": "URL encoded form data for OAuth2.0 token request",
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "minProperties": 1
+              "type": {
+                "type": "string",
+                "enum": ["OAuth2.0", "oauth2", "oauth2.0"]
+              },
+              "access_token_url": {
+                "type": "string",
+                "format": "uri"
               }
             },
-            "required": ["urlencodedformdata"]
+            "required": ["type", "access_token_url"],
+            "additionalProperties": false
+          },
+          "urlparams": {
+            "type": "object",
+            "properties": {
+              "client_id": {
+                "type": "string"
+              }
+            },
+            "required": ["client_id"],
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }
