@@ -12,8 +12,8 @@ body:
   formdata:
     user: "{{.userName}}"
     product: "{{.product}}"
-    myBool: false
-    other: null
+    myBool: "false"
+    other: "null"
     # getValueOf gets the value of a key from json file.
     # you can also extract complex keys from the json
     # For path, either provide the complete path from root

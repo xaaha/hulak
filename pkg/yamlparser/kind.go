@@ -1,3 +1,4 @@
+// Package yamlparser does everything related to yaml file for hulak, including type translation
 package yamlparser
 
 import (
@@ -121,7 +122,7 @@ func ValidateKinds(kinds []Kind) ([]string, bool) {
 	return invalidKinds, isValid
 }
 
-// parses a YAML file and returns the configuration type
+// ParseConfig parses a YAML file and returns the configuration type
 func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
