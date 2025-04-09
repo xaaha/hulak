@@ -131,7 +131,7 @@
         "Authorization": {
           "type": "string",
           "description": "Authentication credentials for the request",
-          "default": "'{{.token\\}\\}'"
+          "default": "'{{.token}}'"
         },
         "Cache-Control": {
           "type": "string",
@@ -247,7 +247,7 @@
                   "type": "string",
                   "description": "GraphQL query string",
                   "minLength": 1,
-                  "default": "'{{getFile `path/to/file.gql`\\}\\}'"
+                  "default": "'{{getFile `path/to/file.gql`}}'"
                 },
                 "variables": {
                   "type": "object",
