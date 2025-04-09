@@ -1,6 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
 ---
 # should result in error 404 Not found
-method: get
+method: GET
 url: "{{.baseUrl}}"
 urlparams:
   foo: bar
