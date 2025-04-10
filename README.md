@@ -144,7 +144,7 @@ Run the file with
 ```bash
 hulak -env global -f test
 # or
-hulak -env global -fp ./test.yaml
+hulak -env global -fp test.yaml
 ```
 
 Since global is default environment, we don't need to specify `-env global`. So, this is the simplest way of running the file.
@@ -175,8 +175,8 @@ Read more about response in [response documentation](./docs/response.md).
 | Flag      | Description                                                                                                                                                                                                                                                                                                                                                            | Usage                            |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `-env`    | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                                                                                                                                                                                        | `-env prod`                      |
-| `-fp`     | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                                                                                                                                                                                            | -fp "./collection/getUsers.yaml" |
-| `-f`      | yaml/yml file to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                       | `-f graphql`                     |
+| `-fp`     | Represents file-path for the file/directory you want to run.                                                                                                                                                                                                                                                                                                           | -fp "./collection/getUsers.yaml" |
+| `-f`      | File name (yaml/yml) to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                | `-f graphql`                     |
 | `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                | `-debug`                         |
 | `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                     | `-dir path/to/directory/`        |
 | `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guranteed that files will run as they appear in the file system. If the order matter, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
@@ -230,7 +230,7 @@ You can also provide the exact file location instead of `file_name` as `./e2etes
 # name is inside the user object in the user.json file
 name: '{{getValueOf "user.name" "user.json"}}'
 # extract the value of name from nested object from provided json file path
-name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_response.json"}}'
+name: '{{getValueOf "data.users[0].name" "e2etests/test_collection/graphql_response.json"}}'
 # where name is the key in the file
 name: `{{getValueOf "name" "user.json"}}`
 ```
