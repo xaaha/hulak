@@ -1,12 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Hulak API Request Schema",
-  "description": "Schema for hulak API request YAML files",
+  "title": "hulakApiRequest",
+  "description": "Schema for Hulak request YAML files\nhttps://github.com/xaaha/hulak",
   "type": "object",
   "properties": {
-    "method": {
+    "kind": {
+      "title": "requestKind",
       "type": "string",
-      "description": "HTTP method for the request",
+      "description": "Request type that determines the flow to follow.",
+      "enum": ["API", "Auth"],
+      "default": "API"
+    },
+    "method": {
+      "title": "httpMethod",
+      "type": "string",
+      "description": "HTTP method for the request\nhttps://developer.mozilla.org/docs/Web/HTTP/Methods",
       "enum": [
         "GET",
         "POST",
@@ -17,25 +25,35 @@
         "OPTIONS",
         "TRACE",
         "CONNECT"
-      ],
-      "minLength": 1
+      ]
     },
     "url": {
+      "title": "requestUrl",
       "type": "string",
-      "description": "Target URL for the API request",
-      "format": "uri",
-      "minLength": 1
+      "description": "Target URL for the API request\nhttps://developer.mozilla.org/docs/Web/HTTP/URLs",
+      "format": "uri"
     },
-    "headers": {
+    "urlparams": {
+      "title": "queryParameters",
       "type": "object",
-      "description": "HTTP headers to include in the request",
+      "description": "URL query parameters for the request\nhttps://developer.mozilla.org/docs/Web/API/URLSearchParams",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+
+    "headers": {
+      "title": "httpHeaders",
+      "type": "object",
+      "description": "HTTP headers included in the request\nhttps://developer.mozilla.org/docs/Web/HTTP/Headers",
       "additionalProperties": {
         "type": "string"
       },
       "properties": {
         "Content-Type": {
+          "title": "contentType",
           "type": "string",
-          "description": "The MIME type of the body content",
+          "description": "The MIME type of the body content\nhttps://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Type",
           "enum": [
             "application/json",
             "application/xml",
@@ -131,7 +149,7 @@
         "Authorization": {
           "type": "string",
           "description": "Authentication credentials for the request",
-          "default": "'{{.token\\}\\}'"
+          "default": "'{{.token}}'"
         },
         "Cache-Control": {
           "type": "string",
@@ -192,22 +210,17 @@
         }
       }
     },
-    "urlparams": {
-      "type": "object",
-      "description": "URL parameters to be added to the request",
-      "additionalProperties": {
-        "type": "string"
-      }
-    },
     "body": {
+      "title": "requestBody",
       "type": "object",
-      "description": "Request body (only one type should be specified)",
+      "description": "Request body content\nhttps://developer.mozilla.org/docs/Web/API/Request/body",
       "oneOf": [
         {
+          "title": "rawBody",
           "properties": {
             "raw": {
               "type": "string",
-              "description": "Raw body content"
+              "description": "Raw body content as string"
             }
           },
           "additionalProperties": false
@@ -247,7 +260,7 @@
                   "type": "string",
                   "description": "GraphQL query string",
                   "minLength": 1,
-                  "default": "'{{getFile `path/to/file.gql`\\}\\}'"
+                  "default": "{{getFile `path/to/file.gql`}}"
                 },
                 "variables": {
                   "type": "object",
@@ -262,8 +275,65 @@
           "additionalProperties": false
         }
       ]
+    },
+    "auth": {
+      "title": "oauthConfig",
+      "type": "object",
+      "description": "OAuth 2.0 authentication configuration\nhttps://oauth.net/2/",
+      "properties": {
+        "type": {
+          "title": "authType",
+          "type": "string",
+          "description": "OAuth 2.0 flow type\nhttps://oauth.net/2/grant-types/",
+          "enum": ["OAuth2.0"]
+        },
+        "access_token_url": {
+          "title": "tokenUrl",
+          "type": "string",
+          "description": "Endpoint to obtain the OAuth 2.0 access token\nhttps://oauth.net/2/access-tokens/",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": true
     }
   },
   "required": ["method", "url"],
-  "additionalProperties": false
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "Auth"
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["auth"],
+        "properties": {
+          "auth": {
+            "title": "oauthConfig",
+            "type": "object",
+            "description": "OAuth 2.0 authentication configuration\nhttps://oauth.net/2/",
+            "properties": {
+              "type": {
+                "title": "authType",
+                "type": "string",
+                "description": "OAuth 2.0 flow type\nhttps://oauth.net/2/grant-types/",
+                "enum": ["OAuth2.0"]
+              },
+              "access_token_url": {
+                "title": "tokenUrl",
+                "type": "string",
+                "description": "URL for obtaining the OAuth 2.0 access token\nhttps://oauth.net/2/access-tokens/",
+                "format": "uri"
+              }
+            },
+            "required": ["type", "access_token_url"],
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ]
 }

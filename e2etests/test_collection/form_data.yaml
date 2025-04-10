@@ -1,18 +1,18 @@
+# yaml-language-server: $schema=../../assets/schema.json
 ---
-method: Post
+method: POST
 url: "{{.baseUrl}}"
 urlparams:
   foo: bar
   baz: bin
 headers:
   Content-Type: multipart/form-data
-#   Header is optional when body has "formdata" or "urlencodedformdata"
 body:
   formdata:
     user: "{{.userName}}"
     product: "{{.product}}"
-    myBool: false
-    other: null
+    myBool: "false"
+    other: "null"
     # getValueOf gets the value of a key from json file.
     # you can also extract complex keys from the json
     # For path, either provide the complete path from root

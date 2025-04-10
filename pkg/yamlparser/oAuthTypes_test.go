@@ -15,7 +15,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Valid type Oauth2type1 with valid AccessTokenUrl",
 			auth: Auth{
 				Type:           Oauth2type1,
-				AccessTokenUrl: "https://www.example.com/",
+				AccessTokenURL: "https://www.example.com/",
 			},
 			want: true,
 		},
@@ -23,7 +23,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Valid type Oauth2type2 without AccessTokenUrl",
 			auth: Auth{
 				Type:           Oauth2type2,
-				AccessTokenUrl: "",
+				AccessTokenURL: "",
 			},
 			want: false,
 		},
@@ -31,7 +31,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Valid type Oauth2type3 with empty AccessTokenUrl",
 			auth: Auth{
 				Type:           Oauth2type3,
-				AccessTokenUrl: "",
+				AccessTokenURL: "",
 			},
 			want: false,
 		},
@@ -39,7 +39,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Invalid type with valid AccessTokenUrl",
 			auth: Auth{
 				Type:           "invalid",
-				AccessTokenUrl: "https://www.example.com/",
+				AccessTokenURL: "https://www.example.com/",
 			},
 			want: false,
 		},
@@ -47,7 +47,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Invalid type with invalid AccessTokenUrl",
 			auth: Auth{
 				Type:           "invalid",
-				AccessTokenUrl: "example.com",
+				AccessTokenURL: "example.com",
 			},
 			want: false,
 		},
@@ -55,7 +55,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Empty type with empty AccessTokenUrl",
 			auth: Auth{
 				Type:           "",
-				AccessTokenUrl: "",
+				AccessTokenURL: "",
 			},
 			want: false,
 		},
@@ -63,7 +63,7 @@ func TestAuth_IsValid(t *testing.T) {
 			name: "Valid type Oauth2type1 with invalid AccessTokenUrl",
 			auth: Auth{
 				Type:           Oauth2type1,
-				AccessTokenUrl: "invalid-url",
+				AccessTokenURL: "invalid-url",
 			},
 			want: false,
 		},
@@ -133,16 +133,16 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Valid request: Oauth2type1, valid URL, and valid params, and valid body",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
-				UrlParams: URLPARAMS{
+				URL:    "https://api.example.com",
+				URLParams: URLPARAMS{
 					"client_id": "validClientId",
 				},
 				Auth: &Auth{
 					Type:           Oauth2type1,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 				Body: &Auth2Body{
-					UrlEncodedFormData: map[string]string{
+					URLEncodedFormData: map[string]string{
 						"client_id": "xaaha",
 					},
 				},
@@ -154,13 +154,13 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Valid request: Oauth2type1, valid URL, and valid params, and missing body",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
-				UrlParams: URLPARAMS{
+				URL:    "https://api.example.com",
+				URLParams: URLPARAMS{
 					"client_id": "validClientId",
 				},
 				Auth: &Auth{
 					Type:           Oauth2type1,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 			},
 			expectedBool: false, // missing body is not allowed
@@ -170,7 +170,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Missing auth section",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth:   nil,
 			},
 			expectedBool: false,
@@ -180,10 +180,10 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Invalid auth type with valid AccessTokenUrl",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth: &Auth{
 					Type:           "invalid_type",
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 			},
 			expectedBool: false,
@@ -193,10 +193,10 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Invalid AccessTokenUrl in Auth",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth: &Auth{
 					Type:           Oauth2type1,
-					AccessTokenUrl: "invalid-url",
+					AccessTokenURL: "invalid-url",
 				},
 			},
 			expectedBool: false,
@@ -208,7 +208,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 				Method: POST,
 				Auth: &Auth{
 					Type:           Oauth2type2,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 			},
 			expectedBool: false,
@@ -218,12 +218,12 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Invalid UrlParams without client_id",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth: &Auth{
 					Type:           Oauth2type2,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
-				UrlParams: URLPARAMS{
+				URLParams: URLPARAMS{
 					"scope": "read",
 				},
 			},
@@ -234,10 +234,10 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Invalid HTTP method",
 			authRequest: AuthRequestFile{
 				Method: "INVALID",
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth: &Auth{
 					Type:           Oauth2type2,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 			},
 			expectedBool: false,
@@ -247,13 +247,13 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			name: "Valid request without UrlParams",
 			authRequest: AuthRequestFile{
 				Method: POST,
-				Url:    "https://api.example.com",
+				URL:    "https://api.example.com",
 				Auth: &Auth{
 					Type:           Oauth2type1,
-					AccessTokenUrl: "https://auth.example.com/token",
+					AccessTokenURL: "https://auth.example.com/token",
 				},
 				Body: &Auth2Body{
-					UrlEncodedFormData: map[string]string{
+					URLEncodedFormData: map[string]string{
 						"client_id":     "my_id",
 						"client_secret": "my_secret",
 					},

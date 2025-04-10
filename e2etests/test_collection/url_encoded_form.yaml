@@ -1,12 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
 ---
-method: post
+method: POST
 url: "{{.baseUrl}}"
 urlparams:
   foo: bar
   baz: bin
-# headers:
-#   Content-Type: application/x-www-form-urlencoded
-#   Header is optional when body has "formdata" or "urlencodedformdata"
 body:
   urlencodedformdata:
     user: "{{.userName}}"
