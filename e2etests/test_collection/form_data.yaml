@@ -7,7 +7,6 @@ urlparams:
   baz: bin
 headers:
   Content-Type: multipart/form-data
-#   Header is optional when body has "formdata" or "urlencodedformdata"
 body:
   formdata:
     user: "{{.userName}}"

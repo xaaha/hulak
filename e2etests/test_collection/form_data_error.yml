@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/40-test-schema/assets/schema.json
 ---
 # should result in error 404 Not found
 method: GET
@@ -8,7 +8,6 @@ urlparams:
   baz: bin
 headers:
   Content-Type: multipart/form-data
-#   Header is optional when body has "formdata" or "urlencodedformdata"
 body:
   formdata:
     user: "{{.userName}}"
