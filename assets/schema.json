@@ -37,13 +37,6 @@
       "title": "queryParameters",
       "type": "object",
       "description": "URL query parameters for the request\nhttps://developer.mozilla.org/docs/Web/API/URLSearchParams",
-      "properties": {
-        "client_id": {
-          "title": "clientId",
-          "type": "string",
-          "description": "OAuth 2.0 client identifier\nhttps://oauth.net/2/client-types/"
-        }
-      },
       "additionalProperties": {
         "type": "string"
       }
