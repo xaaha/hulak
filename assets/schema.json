@@ -282,27 +282,27 @@
           "additionalProperties": false
         }
       ]
-    }
-  },
-  "auth": {
-    "title": "oauthConfig",
-    "type": "object",
-    "description": "OAuth 2.0 authentication configuration\nhttps://oauth.net/2/",
-    "properties": {
-      "type": {
-        "title": "authType",
-        "type": "string",
-        "description": "OAuth 2.0 flow type\nhttps://oauth.net/2/grant-types/",
-        "enum": ["OAuth2.0"]
-      },
-      "access_token_url": {
-        "title": "tokenUrl",
-        "type": "string",
-        "description": "Endpoint to obtain the OAuth 2.0 access token\nhttps://oauth.net/2/access-tokens/",
-        "format": "uri"
-      }
     },
-    "additionalProperties": true
+    "auth": {
+      "title": "oauthConfig",
+      "type": "object",
+      "description": "OAuth 2.0 authentication configuration\nhttps://oauth.net/2/",
+      "properties": {
+        "type": {
+          "title": "authType",
+          "type": "string",
+          "description": "OAuth 2.0 flow type\nhttps://oauth.net/2/grant-types/",
+          "enum": ["OAuth2.0"]
+        },
+        "access_token_url": {
+          "title": "tokenUrl",
+          "type": "string",
+          "description": "Endpoint to obtain the OAuth 2.0 access token\nhttps://oauth.net/2/access-tokens/",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": true
+    }
   },
   "required": ["method", "url"],
   "allOf": [
