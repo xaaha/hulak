@@ -23,7 +23,7 @@ type Auth struct {
 	AccessTokenURL URL      `json:"access_token_url" yaml:"access_token_url"`
 }
 
-// IsValid check's if auth key contains type and has at least 1 item in Extras
+// IsValid checks if auth key contains type and has at least 1 item in Extras
 // we need to extend this validation as we need them
 func (a *Auth) IsValid() bool {
 	if a == nil {
