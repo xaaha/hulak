@@ -3,9 +3,6 @@
   <p align="center">File based API client for terminal nerds.</p>
 </p>
 
-> [!Warning]
-> ⚠️ This project is actively in development and testing. Expect rapid changes and plenty of bugs! 🚧
-
 # Elevator Pitch
 
 If you’ve ever wanted to manage your API workflows like a code repository — easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
@@ -288,3 +285,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Planned Features
 
 [See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
+
+# Support the Project
+
+If you enjoy the project, please consider supporting it by reporting a bug, suggesting a feature request, or sponsoring the project. Your pull request contributions are also welcome—feel free to open an issue indicating your interest in tackling a bug or implementing a new feature.
