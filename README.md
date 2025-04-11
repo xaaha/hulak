@@ -3,16 +3,13 @@
   <p align="center">File based API client for terminal nerds.</p>
 </p>
 
-> [!Warning]
-> ⚠️ This project is actively in development and testing. Expect rapid changes and plenty of bugs! 🚧
-
 # Elevator Pitch
 
 If you’ve ever wanted to manage your API workflows like a code repository — easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
 
 ```yaml
 # ────────────────────────────────────────────────────
-# Example: test_gql.yaml
+# Example: test_gql.hk.yaml
 # ────────────────────────────────────────────────────
 ---
 method: POST
@@ -39,6 +36,29 @@ body:
 # Run the file using secrets from staging.env file
 hulak -env staging -f test_gql
 ```
+
+# Table of Contents
+
+- [Elevator Pitch](#elevator-pitch)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+    - [1. Homebrew](#1-homebrew)
+    - [2. go install](#2-go-install)
+    - [3. Build from source](#3-build-from-source)
+  - [Verify Installation with](#verify-installation-with)
+  - [Initialize Project](#initialize-project)
+  - [Create An API file](#create-an-api-file)
+- [Flags and Subcommands](#flags-and-subcommands)
+  - [Flags](#flags)
+  - [Subcommands](#subcommands)
+- [Schema](#schema)
+- [Actions](#actions)
+  - [.Key](#key)
+  - [getValueOf](#getvalueof)
+  - [getFile](#getfile)
+- [Auth2.0 (Beta)](#auth20-beta)
+- [Planned Features](#planned-features)
+- [Support the Project](#support-the-project)
 
 # Getting Started
 
@@ -98,17 +118,19 @@ hulak help
 
 ---
 
-## Initialize environment directory to store secrets
+## Initialize Project
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments.
-
-### Setup
-
-Create the `env/global.env` in the root of the hulak project by running
+Create a project directory and cd into it. Then Initialize the project
 
 ```bash
-
+mkdir my_apis & cd my_apis
 hulak init
+
+```
+
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.yaml` file for your reference.
+
+```bash
 # to create multiple .env files in the env directory run
 hulak init -env staging prod
 ```
@@ -120,14 +142,12 @@ If `env/global.env` is absent, it will prompt you to create one at runtime. For 
 ```bash
 # example directory structure
 env/
-  global.env    # default and required
+  global.env    # default and required created with hulak init
   prod.env      # user defined, could be anything
   staging.env   # user defined
-collection/
-    test.yaml   # api file
+collection/     # example directory
+    test.yaml   # example api file
 ```
-
-As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
 
 ## Create An API file
 
@@ -188,6 +208,39 @@ Read more about response in [response documentation](./docs/response.md).
 | help       | display help message                                                     | `hulak help`                                                        |
 | init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
+
+# Schema
+
+To enable auto-completion for Hulak YAML files, you have following options:
+
+> **Note:** You need a YAML language server for any of these options to work.
+
+## Option 1: Declare Schema in the File
+
+You can declare the schema at the top of your YAML file. This can either be a local schema or a schema referenced by a URL. Here are two examples:
+
+### Local Schema
+
+```yaml
+# yaml-language-server: $schema=../../assets/schema.json
+---
+```
+
+OR
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
+---
+```
+
+## Option 2: Configure Your Editor
+
+Alternatively, you can configure your editor to enable auto-completion without needing to declare the schema in each file. For Neovim users, you can find my configuration [here](https://github.com/xaaha/dev-env/blob/7d25456e59a3a73081baedfd9060810afa4332e4/nvim/.config/nvim/lua/pratik/plugins/lsp/lspconfig.lua).
+Once configured, you can simply rename your file to `yourFile.hk.yaml` to benefit from auto-completion.
+
+## Option 3: Schema Store
+
+A request to add the schema to the Schema Store is currently pending. For updates, please refer to the issue on GitHub: [SchemaStore Issue #4645](https://github.com/SchemaStore/schemastore/issues/4645).
 
 # Actions
 
@@ -255,3 +308,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Planned Features
 
 [See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
+
+# Support the Project
+
+If you enjoy the project, please consider supporting it by reporting a bug, suggesting a feature request, or sponsoring the project. Your pull request contributions are also welcome—feel free to open an issue indicating your interest in tackling a bug or implementing a new feature.

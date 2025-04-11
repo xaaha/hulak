@@ -8,8 +8,7 @@
       "title": "requestKind",
       "type": "string",
       "description": "Request type that determines the flow to follow.",
-      "enum": ["API", "Auth"],
-      "default": "API"
+      "enum": ["API", "Auth"]
     },
     "method": {
       "title": "httpMethod",
