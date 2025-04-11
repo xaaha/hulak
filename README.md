@@ -12,7 +12,7 @@ If you’ve ever wanted to manage your API workflows like a code repository — 
 
 ```yaml
 # ────────────────────────────────────────────────────
-# Example: test_gql.yaml
+# Example: test_gql.hk.yaml
 # ────────────────────────────────────────────────────
 ---
 method: POST
