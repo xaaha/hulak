@@ -37,6 +37,29 @@ body:
 hulak -env staging -f test_gql
 ```
 
+# Table of Contents
+
+- [Elevator Pitch](#elevator-pitch)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+    - [1. Homebrew](#1-homebrew)
+    - [2. go install](#2-go-install)
+    - [3. Build from source](#3-build-from-source)
+  - [Verify Installation with](#verify-installation-with)
+  - [Initialize Project](#initialize-project)
+  - [Create An API file](#create-an-api-file)
+- [Flags and Subcommands](#flags-and-subcommands)
+  - [Flags](#flags)
+  - [Subcommands](#subcommands)
+- [Schema](#schema)
+- [Actions](#actions)
+  - [.Key](#key)
+  - [getValueOf](#getvalueof)
+  - [getFile](#getfile)
+- [Auth2.0 (Beta)](#auth20-beta)
+- [Planned Features](#planned-features)
+- [Support the Project](#support-the-project)
+
 # Getting Started
 
 ## Installation
@@ -95,17 +118,19 @@ hulak help
 
 ---
 
-## Initialize environment directory to store secrets
+## Initialize Project
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments.
-
-### Setup
-
-Create the `env/global.env` in the root of the hulak project by running
+Create a project directory and cd into it. Then Initialize the project
 
 ```bash
-
+mkdir my_apis & cd my_apis
 hulak init
+
+```
+
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.yaml` file for your reference.
+
+```bash
 # to create multiple .env files in the env directory run
 hulak init -env staging prod
 ```
@@ -117,14 +142,12 @@ If `env/global.env` is absent, it will prompt you to create one at runtime. For 
 ```bash
 # example directory structure
 env/
-  global.env    # default and required
+  global.env    # default and required created with hulak init
   prod.env      # user defined, could be anything
   staging.env   # user defined
-collection/
-    test.yaml   # api file
+collection/     # example directory
+    test.yaml   # example api file
 ```
-
-As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
 
 ## Create An API file
 
