@@ -189,6 +189,39 @@ Read more about response in [response documentation](./docs/response.md).
 | init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
 
+# Schema
+
+To enable auto-completion for Hulak YAML files, you have following options:
+
+> **Note:** You need a YAML language server for any of these options to work.
+
+## Option 1: Declare Schema in the File
+
+You can declare the schema at the top of your YAML file. This can either be a local schema or a schema referenced by a URL. Here are two examples:
+
+### Local Schema
+
+```yaml
+# yaml-language-server: $schema=../../assets/schema.json
+---
+```
+
+OR
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
+---
+```
+
+## Option 2: Configure Your Editor
+
+Alternatively, you can configure your editor to enable auto-completion without needing to declare the schema in each file. For Neovim users, you can find my configuration [here](https://github.com/xaaha/dev-env/blob/7d25456e59a3a73081baedfd9060810afa4332e4/nvim/.config/nvim/lua/pratik/plugins/lsp/lspconfig.lua).
+Once configured, you can simply rename your file to `yourFile.hk.yaml` to benefit from auto-completion.
+
+## Option 3: Schema Store
+
+A request to add the schema to the Schema Store is currently pending. For updates, please refer to the issue on GitHub: [SchemaStore Issue #4645](https://github.com/SchemaStore/schemastore/issues/4645).
+
 # Actions
 
 Actions make it easier to retrieve values from other files. See, [actions documentation](./docs/body.md) for more detailed explanation.
