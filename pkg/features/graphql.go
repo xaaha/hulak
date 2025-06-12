@@ -15,7 +15,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-// IntrospectionResponse  Root structure for the GraphQL introspection response
+// IntrospectionResponse Root structure for the GraphQL introspection response
 type IntrospectionResponse struct {
 	Response struct {
 		StatusCode int `json:"status_code"`
