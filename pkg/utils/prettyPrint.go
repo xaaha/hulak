@@ -8,18 +8,19 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
-// Safe ANSI 8 colors
-const (
-	reset   = "\033[0m"
-	cyan    = "\033[96m" // number
-	yellow  = "\033[93m" // booleans
-	green   = "\033[92m" // strings
-	magenta = "\033[95m" // null
+// Create reusable color objects using the fatih/color package
+var (
+	green   = color.New(color.FgHiGreen)   // for strings
+	yellow  = color.New(color.FgHiYellow)  // for booleans
+	cyan    = color.New(color.FgHiCyan)    // for numbers
+	magenta = color.New(color.FgHiMagenta) // for null
 )
 
-// PrintJSONColored Pretty-prints JSON with safe ANSI colors
+// PrintJSONColored Pretty-prints JSON using the fatih/color package
 func PrintJSONColored(data []byte) error {
 	var obj any
 	if err := json.Unmarshal(data, &obj); err != nil {
@@ -40,13 +41,13 @@ func marshalValue(val any, buf *bytes.Buffer, depth int) {
 		marshalArray(v, buf, depth)
 	case string:
 		s, _ := json.Marshal(v) // adds quotes & escapes
-		buf.WriteString(green + string(s) + reset)
+		buf.WriteString(green.Sprint(string(s)))
 	case float64:
-		buf.WriteString(cyan + strconv.FormatFloat(v, 'f', -1, 64) + reset)
+		buf.WriteString(cyan.Sprint(strconv.FormatFloat(v, 'f', -1, 64)))
 	case bool:
-		buf.WriteString(yellow + strconv.FormatBool(v) + reset)
+		buf.WriteString(yellow.Sprint(strconv.FormatBool(v)))
 	case nil:
-		buf.WriteString(magenta + "null" + reset)
+		buf.WriteString(magenta.Sprint("null"))
 	default:
 		fmt.Fprintf(buf, "%v", v)
 	}
@@ -61,7 +62,6 @@ func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 	buf.WriteString("{\n")
 	indent := strings.Repeat("  ", depth+1)
 
-	// sort keys for stable output
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -70,7 +70,7 @@ func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 
 	for i, k := range keys {
 		buf.WriteString(indent)
-		buf.WriteString(fmt.Sprintf("\"%s\": ", k) + reset)
+		fmt.Fprintf(buf, "\"%s\": ", k)
 		marshalValue(m[k], buf, depth+1)
 		if i < len(keys)-1 {
 			buf.WriteString(",")
