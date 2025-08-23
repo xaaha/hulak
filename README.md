@@ -96,11 +96,9 @@ export PATH=$PATH:$(go env GOPATH)/bin
 - Install required dependencies: Run `go mod tidy` in the root of the project
 - Build the executable with: `go build -o hulak`
 - Move the executable to the path.
-
   - On Mac/Linux: `sudo mv hulak /usr/local/bin/`
     - Verify the project exists in path with: `which hulak`
   - On Windows:
-
     - Move the `hulak.exe` binary to a folder that is in your PATH. A common location for this is `C:\Go\bin` (or another directory you've added to your PATH).
     - To add a folder to your PATH in Windows:
       Go to `Control Panel > System and Security > System > Advanced system settings`.
