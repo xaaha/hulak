@@ -89,10 +89,10 @@ func marshalArray(jsonArray []any, buf *bytes.Buffer, depth int) {
 	buf.WriteString("[\n")
 	indent := strings.Repeat("  ", depth+1)
 
-	for i, v := range jsonArray {
+	for idx, val := range jsonArray {
 		buf.WriteString(indent)
-		marshalValue(v, buf, depth+1)
-		if i < len(jsonArray)-1 {
+		marshalValue(val, buf, depth+1)
+		if idx < len(jsonArray)-1 {
 			buf.WriteString(",")
 		}
 		buf.WriteString("\n")
