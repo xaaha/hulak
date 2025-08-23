@@ -53,8 +53,8 @@ func marshalValue(val any, buf *bytes.Buffer, depth int) {
 	}
 }
 
-func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
-	if len(m) == 0 {
+func marshalMap(jsonMap map[string]any, buf *bytes.Buffer, depth int) {
+	if len(jsonMap) == 0 {
 		buf.WriteString("{}")
 		return
 	}
@@ -62,8 +62,8 @@ func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 	buf.WriteString("{\n")
 	indent := strings.Repeat("  ", depth+1)
 
-	keys := make([]string, 0, len(m))
-	for k := range m {
+	keys := make([]string, 0, len(jsonMap))
+	for k := range jsonMap {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -71,7 +71,7 @@ func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 	for i, k := range keys {
 		buf.WriteString(indent)
 		fmt.Fprintf(buf, "\"%s\": ", k)
-		marshalValue(m[k], buf, depth+1)
+		marshalValue(jsonMap[k], buf, depth+1)
 		if i < len(keys)-1 {
 			buf.WriteString(",")
 		}
@@ -80,8 +80,8 @@ func marshalMap(m map[string]any, buf *bytes.Buffer, depth int) {
 	buf.WriteString(strings.Repeat("  ", depth) + "}")
 }
 
-func marshalArray(a []any, buf *bytes.Buffer, depth int) {
-	if len(a) == 0 {
+func marshalArray(jsonArray []any, buf *bytes.Buffer, depth int) {
+	if len(jsonArray) == 0 {
 		buf.WriteString("[]")
 		return
 	}
@@ -89,10 +89,10 @@ func marshalArray(a []any, buf *bytes.Buffer, depth int) {
 	buf.WriteString("[\n")
 	indent := strings.Repeat("  ", depth+1)
 
-	for i, v := range a {
+	for i, v := range jsonArray {
 		buf.WriteString(indent)
 		marshalValue(v, buf, depth+1)
-		if i < len(a)-1 {
+		if i < len(jsonArray)-1 {
 			buf.WriteString(",")
 		}
 		buf.WriteString("\n")
