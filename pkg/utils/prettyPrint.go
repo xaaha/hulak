@@ -1,4 +1,3 @@
-// Package utils in this file pretty prints json
 package utils
 
 import (

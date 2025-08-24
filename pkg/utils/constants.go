@@ -1,5 +1,3 @@
-// Package utils has all the utils required for hulak, including but not limited to
-// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import "io/fs"
