@@ -35,8 +35,7 @@ func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error
 
 	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
-	urlParams := HandleUrlParams(apiInfo.UrlParams)
-	preparedURL := PrepareURL(urlStr, urlParams)
+	preparedURL := PrepareURL(urlStr, apiInfo.UrlParams)
 
 	reqBodyForDebug := make([]byte, len(bodyBytes))
 	copy(reqBodyForDebug, bodyBytes)
