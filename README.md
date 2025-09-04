@@ -147,6 +147,27 @@ collection/     # example directory
     test.yaml   # example api file
 ```
 
+### Using OS environment variables
+
+As you are using the `.env` file as a means to store the variables and secrets used to make the request, it's understandable that you may not want to store your secrets already in your system's OS environment into a file which you may accidentally push to your repository. To reduce the possibility of this occurring, you can set the variables to use values sourced from yoursystem's OS environment variable by using the `$` prefix for the value. 
+
+For example, if you had an environment variable `USER=foo` set on your system, and the following was in your `<custom_file_name>.env` file.
+
+```
+exampleVar = $USER
+```
+
+Using `{{.exampleVar}}` within a request file, i.e. 
+
+```yaml
+# test.yaml
+method: Get
+url: http://some.api.com/tests?bar={{.exampleVar}}
+```
+
+would result in the request targeting `http://some.api.com/tests?bar=foo`
+
+
 ## Create An API file
 
 Then Basic API call looks like `test.yaml` below. See full documentation on Request Body structure [here](./docs/body.md). More request examples are [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
