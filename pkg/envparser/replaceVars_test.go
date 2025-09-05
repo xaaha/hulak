@@ -2,9 +2,89 @@ package envparser
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestHandleEnvVarValue(t *testing.T) {
+	testCases := []struct {
+		name           string
+		input          string
+		expectedOutput string
+		setOSEnvFunc   func()
+		cleanupFunc    func()
+	}{
+		{
+			name:           "Value starts with $ and env var exists",
+			input:          "$EXISTING_ENV_VAR",
+			expectedOutput: "env_value",
+			setOSEnvFunc: func() {
+				_ = os.Setenv("EXISTING_ENV_VAR", "env_value")
+			},
+			cleanupFunc: func() {
+				_ = os.Unsetenv("EXISTING_ENV_VAR")
+			},
+		},
+		{
+			name:           "Value starts with $ and env var does not exist",
+			input:          "$NON_EXISTENT_ENV_VAR",
+			expectedOutput: "",
+			setOSEnvFunc:   func() {},
+			cleanupFunc:    func() {},
+		},
+		{
+			name:           "Value a standard string",
+			input:          "regular_value",
+			expectedOutput: "regular_value",
+			setOSEnvFunc:   func() {},
+			cleanupFunc:    func() {},
+		},
+		{
+			name:           "Value is just $",
+			input:          "$",
+			expectedOutput: "",
+			setOSEnvFunc:   func() {},
+			cleanupFunc:    func() {},
+		},
+		{
+			name:           "Value is empty string",
+			input:          "",
+			expectedOutput: "",
+			setOSEnvFunc:   func() {},
+			cleanupFunc:    func() {},
+		},
+		{
+			name:           "Value a plaintext with $ inside",
+			input:          "value_with_$inside",
+			expectedOutput: "value_with_$inside",
+			setOSEnvFunc:   func() {},
+			cleanupFunc:    func() {},
+		},
+		{
+			name:           "Value is only an env var name without $",
+			input:          "EXISTING_ENV_VAR",
+			expectedOutput: "EXISTING_ENV_VAR",
+			setOSEnvFunc: func() {
+				_ = os.Setenv("EXISTING_ENV_VAR", "env_value")
+			},
+			cleanupFunc: func() {
+				_ = os.Unsetenv("EXISTING_ENV_VAR")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setOSEnvFunc()
+			output := handleEnvVarValue(tc.input)
+			if output != tc.expectedOutput {
+				t.Errorf("Expected '%v', got '%v'", tc.expectedOutput, output)
+			}
+			tc.cleanupFunc()
+		})
+	}
+}
 
 func TestSubstituteVariables(t *testing.T) {
 	varMap := map[string]any{
