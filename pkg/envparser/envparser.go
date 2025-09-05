@@ -91,17 +91,13 @@ func trimQuotes(str string) (string, bool) {
 // environment variables, if it stats with "$". If so, it pulls from there and
 // defaults to empty string if not found, otherwise returns the original value
 func handleEnvVarValue(val string) string {
-
 	// OsEnvIdentifier the identifier for OS environment variables
 	const OsEnvIdentifier = "$"
-
-	if strings.HasPrefix(val, OsEnvIdentifier) {
-		envKey := strings.TrimPrefix(val, OsEnvIdentifier)
-		if envVal, exists := os.LookupEnv(envKey); exists {
-			val = envVal
-		} else {
-			val = ""
+	if after, ok := strings.CutPrefix(val, OsEnvIdentifier); ok {
+		if envVal, exists := os.LookupEnv(after); exists {
+			return envVal
 		}
+		return ""
 	}
 	return val
 }
