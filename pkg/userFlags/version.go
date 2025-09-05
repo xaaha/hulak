@@ -6,7 +6,7 @@ import (
 )
 
 // Until I have more time to build a solid makefile, this should suffice
-const version = "v0.1.3"
+const version = "v0.1.4"
 
 func getVersion() {
 	fmt.Printf("%s\n", version)
