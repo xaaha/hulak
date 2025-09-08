@@ -237,7 +237,7 @@ func processValueOf(key, fileName string) any {
 	// First, decode into a generic any
 	var rawContent any
 	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&rawContent); err != nil {
+	if err = decoder.Decode(&rawContent); err != nil {
 		utils.PrintRed(
 			"make sure " + filepath.Base(jsonResFilePath) +
 				" has proper json content: " + err.Error(),
