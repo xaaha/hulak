@@ -4,6 +4,7 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -272,22 +273,58 @@ func readJSONFile(filePath string) (any, error) {
 
 // extractValueByKey extracts a value from JSON content using the provided key
 func extractValueByKey(key string, content any) (any, error) {
+	var result any
+	var err error
+
 	switch typedContent := content.(type) {
 	case []any:
 		// For array root, key must start with [
 		if strings.HasPrefix(key, "[") && strings.Contains(key, "]") {
 			// Wrap array in a map with empty key for LookupValue
-			return utils.LookupValue(key, map[string]any{
+			result, err = utils.LookupValue(key, map[string]any{
 				"": typedContent,
 			})
+		} else {
+			return "", fmt.Errorf("JSON content is an array, use [index] notation to access elements")
 		}
-		return "", fmt.Errorf("JSON content is an array, use [index] notation to access elements")
 
 	case map[string]any:
 		// For object root
-		return utils.LookupValue(key, typedContent)
+		result, err = utils.LookupValue(key, typedContent)
 
 	default:
 		return "", fmt.Errorf("unexpected JSON content format")
 	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Convert float64 to int64 if it represents a whole number
+	return convertNumberToProperType(result), nil
+}
+
+// convertNumberToProperType converts float64 values to int64 if they represent whole numbers
+func convertNumberToProperType(v any) any {
+	switch value := v.(type) {
+	case float64:
+		// Check if it's an integer (no decimal part)
+		if value == float64(int64(value)) {
+			// For small numbers that fit in int, use int
+			if value >= float64(math.MinInt) && value <= float64(math.MaxInt) {
+				return int(value)
+			}
+			// For larger numbers, use int64
+			return int64(value)
+		}
+	case []any:
+		for i, item := range value {
+			value[i] = convertNumberToProperType(item)
+		}
+	case map[string]any:
+		for k, item := range value {
+			value[k] = convertNumberToProperType(item)
+		}
+	}
+	return v
 }

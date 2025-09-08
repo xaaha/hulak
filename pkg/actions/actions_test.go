@@ -82,7 +82,7 @@ func Test_processValueOf(t *testing.T) {
 			name:     "Get array element from nested property in object",
 			key:      "nested.array[1]",
 			fileName: objectFilePath,
-			want:     float64(2), // JSON numbers are decoded as float64
+			want:     2,
 		},
 		{
 			name:     "Get nonexistent property from object",
@@ -108,7 +108,7 @@ func Test_processValueOf(t *testing.T) {
 			name:     "Get expires_in from second array element",
 			key:      "[1].expires_in",
 			fileName: arrayFilePath,
-			want:     float64(81691643), // JSON numbers are decoded as float64
+			want:     81691643,
 		},
 		{
 			name:     "Use invalid syntax for array (missing brackets)",
