@@ -43,7 +43,7 @@ func Test_processValueOf(t *testing.T) {
 			"refresh_token": "",
 			"id_token": "",
 			"scope": "",
-			"expires_in": 43200,
+			"expires_in": 81691643,
 			"token_type": "Bearer"
 		}
 	]`
@@ -108,7 +108,7 @@ func Test_processValueOf(t *testing.T) {
 			name:     "Get expires_in from second array element",
 			key:      "[1].expires_in",
 			fileName: arrayFilePath,
-			want:     float64(43200), // JSON numbers are decoded as float64
+			want:     float64(81691643), // JSON numbers are decoded as float64
 		},
 		{
 			name:     "Use invalid syntax for array (missing brackets)",
