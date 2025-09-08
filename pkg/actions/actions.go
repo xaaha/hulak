@@ -137,6 +137,7 @@ func getFileMutex(filePath string) *sync.Mutex {
 // If a relative/absolute path is provided (e.g., "../../test.json"), it uses that exact path.
 // Otherwise, it searches for matching files and uses _response.json suffix for non-JSON files.
 func processValueOf(key, fileName string) any {
+	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
 			utils.PrintRed("Provide key for getValueOf action")
@@ -146,8 +147,39 @@ func processValueOf(key, fileName string) any {
 		return ""
 	}
 
+	jsonResFilePath, err := resolveJSONFilePath(fileName)
+	if err != nil {
+		utils.PrintRed(err.Error())
+		return ""
+	}
+
+	content, err := readJSONFile(jsonResFilePath)
+	if err != nil {
+		utils.PrintRed(err.Error())
+		return ""
+	}
+
+	result, err := extractValueByKey(key, content)
+	if err != nil {
+		utils.PrintRed(fmt.Sprintf(
+			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
+			key,
+			filepath.Join(
+				"...",
+				utils.FileNameWithoutExtension(filepath.Dir(jsonResFilePath)),
+				filepath.Base(jsonResFilePath),
+			),
+			key,
+		))
+		return ""
+	}
+
+	return result
+}
+
+// resolveJSONFilePath determines the correct JSON file path based on the input fileName
+func resolveJSONFilePath(fileName string) (string, error) {
 	cleanFileName := filepath.Clean(fileName)
-	var jsonResFilePath string
 
 	// Check if the fileName contains path separators or starts with ".."
 	isPath := strings.Contains(cleanFileName, string(filepath.Separator)) ||
@@ -157,133 +189,105 @@ func processValueOf(key, fileName string) any {
 		// Handle as a direct file path
 		absPath, err := filepath.Abs(cleanFileName)
 		if err != nil {
-			utils.PrintRed(fmt.Sprintf(
+			return "", fmt.Errorf(
 				"error resolving absolute path for '%s': %s",
 				fileName, err.Error(),
-			))
-			return ""
+			)
 		}
 
 		// If it's a JSON file, use it directly
 		if strings.HasSuffix(cleanFileName, utils.JSON) {
-			jsonResFilePath = absPath
-		} else {
-			// For non-JSON files, look for _response.json
-			dirPath := filepath.Dir(absPath)
-			baseFileName := utils.FileNameWithoutExtension(absPath)
-			jsonResFilePath = filepath.Join(dirPath, baseFileName+utils.ResponseFileName)
-		}
-	} else {
-		// read-only operation for concurrent access
-		yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
-		if err != nil {
-			utils.PrintRed(fmt.Sprintf(
-				"error occurred while grabbing matching paths for '%s': %s",
-				cleanFileName, err.Error(),
-			))
-			return ""
+			return absPath, nil
 		}
 
-		if len(yamlPathList) == 0 {
-			utils.PrintRed("could not find matching files " + cleanFileName)
-			return ""
-		}
-
-		// Handle multiple matches warning
-		if len(yamlPathList) > 1 {
-			utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
-		}
-
-		singlePath := yamlPathList[0]
-		if strings.HasSuffix(cleanFileName, utils.JSON) {
-			jsonResFilePath = singlePath
-		} else {
-			dirPath := filepath.Dir(singlePath)
-			jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-			jsonResFilePath = filepath.Join(dirPath, jsonBaseName)
-		}
+		// For non-JSON files, look for _response.json
+		dirPath := filepath.Dir(absPath)
+		baseFileName := utils.FileNameWithoutExtension(absPath)
+		return filepath.Join(dirPath, baseFileName+utils.ResponseFileName), nil
 	}
 
+	// Handle as a filename to search for
+	yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
+	if err != nil {
+		return "", fmt.Errorf(
+			"error occurred while grabbing matching paths for '%s': %s",
+			cleanFileName, err.Error(),
+		)
+	}
+
+	if len(yamlPathList) == 0 {
+		return "", fmt.Errorf("could not find matching files %s", cleanFileName)
+	}
+
+	// Handle multiple matches warning
+	if len(yamlPathList) > 1 {
+		utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
+	}
+
+	singlePath := yamlPathList[0]
+	if strings.HasSuffix(cleanFileName, utils.JSON) {
+		return singlePath, nil
+	}
+
+	dirPath := filepath.Dir(singlePath)
+	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
+	return filepath.Join(dirPath, jsonBaseName), nil
+}
+
+// readJSONFile reads and parses a JSON file with proper locking
+func readJSONFile(filePath string) (any, error) {
 	// Get file-specific mutex
-	fileMutex := getFileMutex(jsonResFilePath)
+	fileMutex := getFileMutex(filePath)
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 
-	// Check file existence under lock to prevent race conditions
-	if _, err := os.Stat(jsonResFilePath); os.IsNotExist(err) {
-		if isPath {
-			utils.PrintRed(fmt.Sprintf("File '%s' does not exist", jsonResFilePath))
-		} else {
-			utils.PrintRed(fmt.Sprintf(
-				"%s file does not exist. Either fetch the API response for '%s', or make sure the '%s' exists with '%s'.\n",
-				jsonResFilePath, cleanFileName, jsonResFilePath, key,
-			))
-		}
-		return ""
+	// Check file existence under lock
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("file '%s' does not exist", filePath)
 	}
 
-	// Read file under lock
-	file, err := os.Open(jsonResFilePath)
+	// Read the file content
+	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		utils.PrintRed(fmt.Sprintf(
-			"error occurred while opening the file '%s': %s",
-			filepath.Base(jsonResFilePath),
+		return nil, fmt.Errorf(
+			"error occurred while reading the file '%s': %s",
+			filepath.Base(filePath),
 			err.Error(),
-		))
-		return ""
-	}
-	defer file.Close()
-
-	// First, decode into a generic any
-	var rawContent any
-	decoder := json.NewDecoder(file)
-	if err = decoder.Decode(&rawContent); err != nil {
-		utils.PrintRed(
-			"make sure " + filepath.Base(jsonResFilePath) +
-				" has proper json content: " + err.Error(),
 		)
-		return ""
 	}
 
-	// Then handle different types
-	var result any
-	switch content := rawContent.(type) {
-	case []any:
-		// Handle array case - for root level arrays
-		if strings.HasPrefix(key, "[") && strings.Contains(key, "]") {
-			// This is already an array and the key starts with array notation
-			result, err = utils.LookupValue(key, map[string]any{
-				"": content, // Empty key for root array
-			})
-		} else {
-			utils.PrintRed("JSON content is an array, use [index] notation to access elements")
-			return ""
-		}
-	case map[string]any:
-		result, err = utils.LookupValue(key, content)
-	default:
-		utils.PrintRed(fmt.Sprintf(
-			"unexpected JSON content format in file '%s'",
-			filepath.Base(jsonResFilePath),
-		))
-		return ""
-	}
-
-	// Handle any lookup errors
+	// Parse JSON
+	var content any
+	err = json.Unmarshal(fileContent, &content)
 	if err != nil {
-		msg := fmt.Sprintf(
-			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
-			key,
-			filepath.Join(
-				"...",
-				utils.FileNameWithoutExtension(filepath.Dir(jsonResFilePath)),
-				filepath.Base(jsonResFilePath),
-			),
-			key,
+		return nil, fmt.Errorf(
+			"make sure %s has proper json content: %s",
+			filepath.Base(filePath),
+			err.Error(),
 		)
-		utils.PrintRed(msg)
-		return ""
 	}
 
-	return result
+	return content, nil
+}
+
+// extractValueByKey extracts a value from JSON content using the provided key
+func extractValueByKey(key string, content any) (any, error) {
+	switch typedContent := content.(type) {
+	case []any:
+		// For array root, key must start with [
+		if strings.HasPrefix(key, "[") && strings.Contains(key, "]") {
+			// Wrap array in a map with empty key for LookupValue
+			return utils.LookupValue(key, map[string]any{
+				"": typedContent,
+			})
+		}
+		return "", fmt.Errorf("JSON content is an array, use [index] notation to access elements")
+
+	case map[string]any:
+		// For object root
+		return utils.LookupValue(key, typedContent)
+
+	default:
+		return "", fmt.Errorf("unexpected JSON content format")
+	}
 }
