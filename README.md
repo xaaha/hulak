@@ -149,7 +149,7 @@ collection/     # example directory
 
 ### Using OS environment variables
 
-As you are using the `.env` file as a means to store the variables and secrets used to make the request, it's understandable that you may not want to store your secrets already in your system's OS environment into a file which you may accidentally push to your repository. To reduce the possibility of this occurring, you can set the variables to use values sourced from yoursystem's OS environment variable by using the `$` prefix for the value. 
+If you use a `.env` file to store secrets, you might not want to duplicate secrets already stored in your system environment (for example, your shell). To avoid this, you can reference system environment variables in your `.env` file by using the `$` prefix.
 
 For example, if you had an environment variable `USER=foo` set on your system, and the following was in your `<custom_file_name>.env` file.
 
@@ -157,7 +157,7 @@ For example, if you had an environment variable `USER=foo` set on your system, a
 exampleVar = $USER
 ```
 
-Using `{{.exampleVar}}` within a request file, i.e. 
+Using `{{.exampleVar}}` within a request file, i.e.
 
 ```yaml
 # test.yaml
@@ -166,7 +166,6 @@ url: http://some.api.com/tests?bar={{.exampleVar}}
 ```
 
 would result in the request targeting `http://some.api.com/tests?bar=foo`
-
 
 ## Create An API file
 
@@ -230,11 +229,18 @@ Read more about response in [response documentation](./docs/response.md).
 
 # Schema
 
-To enable auto-completion for Hulak YAML files, you have following options:
+To enable auto-completion for Hulak YAML files, you have the following options:
 
 > **Note:** You need a YAML language server for any of these options to work.
 
-## Option 1: Declare Schema in the File
+## Option 1: Schema Store (Recommended)
+
+The Hulak schema is now available in the [Schema Store](https://www.schemastore.org/json/).  
+If your editor supports Schema Store (most do, like VS Code and Neovim with `yaml-language-server`), auto-completion will work automatically for files ending in `.hk.yaml` or `.hk.yml`.
+
+If Schema Store is not set up in your editor, use **Option 2** or **Option 3** below.
+
+## Option 2: Declare Schema in the File
 
 You can declare the schema at the top of your YAML file. This can either be a local schema or a schema referenced by a URL. Here are two examples:
 
@@ -252,14 +258,10 @@ OR
 ---
 ```
 
-## Option 2: Configure Your Editor
+## Option 3: Configure Your Editor
 
 Alternatively, you can configure your editor to enable auto-completion without needing to declare the schema in each file. For Neovim users, you can find my configuration [here](https://github.com/xaaha/dev-env/blob/7d25456e59a3a73081baedfd9060810afa4332e4/nvim/.config/nvim/lua/pratik/plugins/lsp/lspconfig.lua).
-Once configured, you can simply rename your file to `yourFile.hk.yaml` to benefit from auto-completion.
-
-## Option 3: Schema Store
-
-A request to add the schema to the Schema Store is currently pending. For updates, please refer to the issue on GitHub: [SchemaStore Issue #4645](https://github.com/SchemaStore/schemastore/issues/4645).
+Once configured, you can simply rename your file to `yourFile.hk.yaml` for auto-completion.
 
 # Actions
 
@@ -331,3 +333,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Support the Project
 
 If you enjoy the project, please consider supporting it by reporting a bug, suggesting a feature request, or sponsoring the project. Your pull request contributions are also welcome—feel free to open an issue indicating your interest in tackling a bug or implementing a new feature.
+
+```
+
+```
