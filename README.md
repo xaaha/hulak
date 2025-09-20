@@ -235,9 +235,7 @@ To enable auto-completion for Hulak YAML files, you have the following options:
 
 ## Option 1: Schema Store (Recommended)
 
-The Hulak schema is now available in the [Schema Store](https://www.schemastore.org/json/).  
-If your editor supports Schema Store (most do, like VS Code and Neovim with `yaml-language-server`), auto-completion will work automatically for files ending in `.hk.yaml` or `.hk.yml`.
-
+The Hulak schema is now available in the [Schema Store](https://www.schemastore.org/). If your editor supports Schema Store (most do, like VS Code and Neovim with `yaml-language-server`), auto-completion will work automatically for files ending in `.hk.yaml` or `.hk.yml`.
 If Schema Store is not set up in your editor, use **Option 2** or **Option 3** below.
 
 ## Option 2: Declare Schema in the File
