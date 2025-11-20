@@ -34,6 +34,7 @@ var (
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
+// FlagSets must be created at package initialization so they exist before the program parses command-line arguments.
 func init() {
 	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
 
