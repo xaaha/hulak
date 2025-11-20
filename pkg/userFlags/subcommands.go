@@ -18,9 +18,11 @@ var embeddedFiles embed.FS
 const (
 	Version = "version"
 	Migrate = "migrate"
-	// future subcommands
-	Init = "init"
-	Help = "help"
+	Init    = "init"
+	Help    = "help"
+
+	Export = "export"
+	Import = "import"
 )
 
 var (
