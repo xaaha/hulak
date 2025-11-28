@@ -38,7 +38,7 @@ func TestGetEnvFiles(t *testing.T) {
 	}
 	// Cleanup temp dir
 	defer func() {
-		err := os.Chdir(oldDir)
+		err = os.Chdir(oldDir)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,8 @@ func TestGetEnvFiles(t *testing.T) {
 	testFileNames := []string{"global.env", "test.ENV", "spec_pm.env"}
 
 	for _, fName := range testFileNames {
-		file, err := os.Create(filepath.Join(envDir, fName))
+		var file *os.File
+		file, err = os.Create(filepath.Join(envDir, fName))
 		if err != nil {
 			t.Fatalf("Failed to Createfile :%v", err)
 		}
@@ -612,7 +613,7 @@ func TestSanitizeDirPath(t *testing.T) {
 
 	// Create a nested directory for testing relative paths
 	nestedDir := filepath.Join(tempDir, "nested_dir")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err = os.MkdirAll(nestedDir, 0755); err != nil {
 		t.Fatalf("Failed to create nested directory: %v", err)
 	}
 

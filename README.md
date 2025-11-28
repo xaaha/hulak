@@ -3,16 +3,13 @@
   <p align="center">File based API client for terminal nerds.</p>
 </p>
 
-> [!Warning]
-> ⚠️ This project is actively in development and testing. Expect rapid changes and plenty of bugs! 🚧
-
 # Elevator Pitch
 
-If you’ve ever wanted to manage your API workflows like a code repository — easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
+If you’ve ever wanted to manage your API workflows like a code repository, easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
 
 ```yaml
 # ────────────────────────────────────────────────────
-# Example: test_gql.yaml
+# Example: test_gql.hk.yaml
 # ────────────────────────────────────────────────────
 ---
 method: POST
@@ -39,6 +36,29 @@ body:
 # Run the file using secrets from staging.env file
 hulak -env staging -f test_gql
 ```
+
+# Table of Contents
+
+- [Elevator Pitch](#elevator-pitch)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+    - [1. Homebrew](#1-homebrew)
+    - [2. go install](#2-go-install)
+    - [3. Build from source](#3-build-from-source)
+  - [Verify Installation with](#verify-installation-with)
+  - [Initialize Project](#initialize-project)
+  - [Create An API file](#create-an-api-file)
+- [Flags and Subcommands](#flags-and-subcommands)
+  - [Flags](#flags)
+  - [Subcommands](#subcommands)
+- [Schema](#schema)
+- [Actions](#actions)
+  - [.Key](#key)
+  - [getValueOf](#getvalueof)
+  - [getFile](#getfile)
+- [Auth2.0 (Beta)](#auth20-beta)
+- [Planned Features](#planned-features)
+- [Support the Project](#support-the-project)
 
 # Getting Started
 
@@ -76,11 +96,9 @@ export PATH=$PATH:$(go env GOPATH)/bin
 - Install required dependencies: Run `go mod tidy` in the root of the project
 - Build the executable with: `go build -o hulak`
 - Move the executable to the path.
-
   - On Mac/Linux: `sudo mv hulak /usr/local/bin/`
     - Verify the project exists in path with: `which hulak`
   - On Windows:
-
     - Move the `hulak.exe` binary to a folder that is in your PATH. A common location for this is `C:\Go\bin` (or another directory you've added to your PATH).
     - To add a folder to your PATH in Windows:
       Go to `Control Panel > System and Security > System > Advanced system settings`.
@@ -98,17 +116,19 @@ hulak help
 
 ---
 
-## Initialize environment directory to store secrets
+## Initialize Project
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments.
-
-### Setup
-
-Create the `env/global.env` in the root of the hulak project by running
+Create a project directory and cd into it. Then Initialize the project
 
 ```bash
-
+mkdir my_apis & cd my_apis
 hulak init
+
+```
+
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.yaml` file for your reference.
+
+```bash
 # to create multiple .env files in the env directory run
 hulak init -env staging prod
 ```
@@ -120,14 +140,32 @@ If `env/global.env` is absent, it will prompt you to create one at runtime. For 
 ```bash
 # example directory structure
 env/
-  global.env    # default and required
+  global.env    # default and required created with hulak init
   prod.env      # user defined, could be anything
   staging.env   # user defined
-collection/
-    test.yaml   # api file
+collection/     # example directory
+    test.yaml   # example api file
 ```
 
-As seen above, in a location of your choice, create a directory called `env` and put `global.env` file inside it. Global is the default and required environment. You can put all your secrets here, but in order to run the same test with multiple secrets, you would need other `.env` files like `staging` or `prod` as well.
+### Using OS environment variables
+
+If you use a `.env` file to store secrets, you might not want to duplicate secrets already stored in your system environment (for example, your shell). To avoid this, you can reference system environment variables in your `.env` file by using the `$` prefix.
+
+For example, if you had an environment variable `USER=foo` set on your system, and the following was in your `<custom_file_name>.env` file.
+
+```
+exampleVar = $USER
+```
+
+Using `{{.exampleVar}}` within a request file, i.e.
+
+```yaml
+# test.yaml
+method: Get
+url: http://some.api.com/tests?bar={{.exampleVar}}
+```
+
+would result in the request targeting `http://some.api.com/tests?bar=foo`
 
 ## Create An API file
 
@@ -144,7 +182,7 @@ Run the file with
 ```bash
 hulak -env global -f test
 # or
-hulak -env global -fp ./test.yaml
+hulak -env global -fp test.yaml
 ```
 
 Since global is default environment, we don't need to specify `-env global`. So, this is the simplest way of running the file.
@@ -175,8 +213,8 @@ Read more about response in [response documentation](./docs/response.md).
 | Flag      | Description                                                                                                                                                                                                                                                                                                                                                            | Usage                            |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `-env`    | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                                                                                                                                                                                        | `-env prod`                      |
-| `-fp`     | Represents file-path for the file/directory you want to run. (Directory run is coming soon)                                                                                                                                                                                                                                                                            | -fp "./collection/getUsers.yaml" |
-| `-f`      | yaml/yml file to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                       | `-f graphql`                     |
+| `-fp`     | Represents file-path for the file/directory you want to run.                                                                                                                                                                                                                                                                                                           | -fp "./collection/getUsers.yaml" |
+| `-f`      | File name (yaml/yml) to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                | `-f graphql`                     |
 | `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                | `-debug`                         |
 | `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                     | `-dir path/to/directory/`        |
 | `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guranteed that files will run as they appear in the file system. If the order matter, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
@@ -188,6 +226,40 @@ Read more about response in [response documentation](./docs/response.md).
 | help       | display help message                                                     | `hulak help`                                                        |
 | init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
+
+# Schema
+
+To enable auto-completion for Hulak YAML files, you have the following options:
+
+> **Note:** You need a YAML language server for any of these options to work.
+
+## Option 1: Schema Store (Recommended)
+
+The Hulak schema is now available in the [Schema Store](https://www.schemastore.org/). If your editor supports Schema Store (most do, like VS Code and Neovim with `yaml-language-server`), auto-completion will work automatically for files ending in `.hk.yaml` or `.hk.yml`.
+If Schema Store is not set up in your editor, use **Option 2** or **Option 3** below.
+
+## Option 2: Declare Schema in the File
+
+You can declare the schema at the top of your YAML file. This can either be a local schema or a schema referenced by a URL. Here are two examples:
+
+### Local Schema
+
+```yaml
+# yaml-language-server: $schema=../../assets/schema.json
+---
+```
+
+OR
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
+---
+```
+
+## Option 3: Configure Your Editor
+
+Alternatively, you can configure your editor to enable auto-completion without needing to declare the schema in each file. For Neovim users, you can find my configuration [here](https://github.com/xaaha/dev-env/blob/7d25456e59a3a73081baedfd9060810afa4332e4/nvim/.config/nvim/lua/pratik/plugins/lsp/lspconfig.lua).
+Once configured, you can simply rename your file to `yourFile.hk.yaml` for auto-completion.
 
 # Actions
 
@@ -230,7 +302,7 @@ You can also provide the exact file location instead of `file_name` as `./e2etes
 # name is inside the user object in the user.json file
 name: '{{getValueOf "user.name" "user.json"}}'
 # extract the value of name from nested object from provided json file path
-name: '{{getValueOf "data.users[0].name" "./e2etests/test_collection/graphql_response.json"}}'
+name: '{{getValueOf "data.users[0].name" "e2etests/test_collection/graphql_response.json"}}'
 # where name is the key in the file
 name: `{{getValueOf "name" "user.json"}}`
 ```
@@ -255,3 +327,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Planned Features
 
 [See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
+
+# Support the Project
+
+If you enjoy the project, please consider supporting it by reporting a bug, suggesting a feature request, or sponsoring the project. Your pull request contributions are also welcome. Feel free to open an issue indicating your interest in tackling a bug or implementing a new feature.

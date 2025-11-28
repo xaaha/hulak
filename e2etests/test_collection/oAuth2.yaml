@@ -1,7 +1,8 @@
+# yaml-language-server: $schema=../../assets/schema.json
 ---
 #  Github OAuth2 Example
 # https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#web-application-flow
-kind: auth
+kind: Auth
 method: POST
 # url that opens up in a browser. Usually ends with /authorize
 url: https://github.com/login/oauth/authorize

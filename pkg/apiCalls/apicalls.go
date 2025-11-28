@@ -35,8 +35,7 @@ func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error
 
 	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
-	urlParams := map[string]string{}
-	preparedURL := PrepareURL(urlStr, urlParams)
+	preparedURL := PrepareURL(urlStr, apiInfo.UrlParams)
 
 	reqBodyForDebug := make([]byte, len(bodyBytes))
 	copy(reqBodyForDebug, bodyBytes)
@@ -94,20 +93,19 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) e
 
 // PrintAndSaveFinalResp prints and saves the CustomResponse
 func PrintAndSaveFinalResp(resp CustomResponse, path string) {
+	jsonData, err := json.MarshalIndent(resp, "", "  ")
+
 	var strBody string
-
-	// Marshal the CustomResponse structure
-	if jsonData, err := json.MarshalIndent(resp, "", "  "); err == nil {
+	if err == nil {
 		strBody = string(jsonData)
+		utils.PrintJSONColored(jsonData)
 	} else {
-		utils.PrintWarning("call.go: error serializing response: " + err.Error())
-		strBody = fmt.Sprintf("%+v", resp) // Fallback to entire response
+		utils.PrintWarning("error serializing response: " + err.Error())
+		strBody = fmt.Sprintf("%+v", resp) // Fallback to raw struct
+		fmt.Println(strBody)
 	}
 
-	err := evalAndWriteRes(strBody, path)
-	if err != nil {
-		utils.PrintRed("call.go: " + err.Error())
+	if err := evalAndWriteRes(strBody, path); err != nil {
+		utils.PrintRed("PrintAndSaveFinalResp " + err.Error())
 	}
-
-	fmt.Println(strBody)
 }

@@ -1,17 +1,15 @@
-// Package utils has all the utils required for hulak, including but not limited to
-// CreateFilePath, CreateDir, CreateFiles, ListMatchingFiles, MergeMaps and more..
 package utils
 
 import "io/fs"
 
 // Colors
 const (
-	Red        = "\033[31;1m"
-	Green      = "\033[32;1m"
-	Yellow     = "\033[33;1m"
-	Grey       = "\033[90;1m"
+	Red        = "\033[91m"
+	Green      = "\033[92m"
+	Yellow     = "\033[93m"
+	Grey       = "\033[90m"
 	ColorReset = "\033[0m"
-	Blue       = "\033[34;1m"
+	Blue       = "\033[94m"
 )
 
 // Environment

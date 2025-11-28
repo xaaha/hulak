@@ -87,6 +87,21 @@ func trimQuotes(str string) (string, bool) {
 	return str, false
 }
 
+// handleEnvVarValue handles assessing if a value from a secret is from existing
+// environment variables, if it stats with "$". If so, it pulls from there and
+// defaults to empty string if not found, otherwise returns the original value
+func handleEnvVarValue(val string) string {
+	// OsEnvIdentifier the identifier for OS environment variables
+	const OsEnvIdentifier = "$"
+	if after, ok := strings.CutPrefix(val, OsEnvIdentifier); ok {
+		if envVal, exists := os.LookupEnv(after); exists {
+			return envVal
+		}
+		return ""
+	}
+	return val
+}
+
 // LoadEnvVars returns map of the key-value pair from the provided .env filepath
 func LoadEnvVars(filePath string) (map[string]any, error) {
 	hulakEnvironmentVariable := make(map[string]any)
@@ -120,6 +135,8 @@ func LoadEnvVars(filePath string) (map[string]any, error) {
 		}
 		key := strings.TrimSpace(secret[0])
 		val := strings.TrimSpace(secret[1])
+		val = handleEnvVarValue(val)
+
 		val, wasTrimmed := trimQuotes(val)
 
 		// Infer value type and assign to the map

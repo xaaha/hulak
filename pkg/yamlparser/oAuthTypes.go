@@ -1,3 +1,4 @@
+// Package yamlparser does everything related to yaml file for hulak, including type translation
 package yamlparser
 
 import (
@@ -16,13 +17,13 @@ const (
 	Oauth2type3 authtype = "oauth2.0"
 )
 
-// Represents how Auth section in yaml looks like
+// Auth Represents how Auth section in yaml looks like
 type Auth struct {
 	Type           authtype `json:"type"             yaml:"type"`
-	AccessTokenUrl URL      `json:"access_token_url" yaml:"access_token_url"`
+	AccessTokenURL URL      `json:"access_token_url" yaml:"access_token_url"`
 }
 
-// check's if auth key contains type and has at least 1 item in Extras
+// IsValid checks if auth key contains type and has at least 1 item in Extras
 // we need to extend this validation as we need them
 func (a *Auth) IsValid() bool {
 	if a == nil {
@@ -31,7 +32,7 @@ func (a *Auth) IsValid() bool {
 
 	switch a.Type {
 	case Oauth2type1, Oauth2type2, Oauth2type3:
-		if a.AccessTokenUrl == "" || !a.AccessTokenUrl.IsValidURL() {
+		if a.AccessTokenURL == "" || !a.AccessTokenURL.IsValidURL() {
 			return false
 		}
 		return true
@@ -41,9 +42,10 @@ func (a *Auth) IsValid() bool {
 	}
 }
 
+// URLPARAMS is the standard url params just like in api file
 type URLPARAMS map[string]string
 
-// Checks if the URLPARAMS map contains the required "client_id" key.
+// IsValid checks if the URLPARAMS map contains the required "client_id" key.
 func (u URLPARAMS) IsValid() bool {
 	if u == nil {
 		return false
@@ -55,7 +57,7 @@ func (u URLPARAMS) IsValid() bool {
 // Auth2Body represents the body of an Auth2.0 request, which typically contains
 // URL-encoded form data as a map of string keys and values.
 type Auth2Body struct {
-	UrlEncodedFormData map[string]string `json:"urlencodedformdata" yaml:"urlencodedformdata"`
+	URLEncodedFormData map[string]string `json:"urlencodedformdata" yaml:"urlencodedformdata"`
 }
 
 // IsValid checks if the Auth2Body is valid. A valid Auth2Body meets the following conditions:
@@ -71,14 +73,14 @@ func (b *Auth2Body) IsValid() bool {
 		return false
 	}
 	// Check if the UrlEncodedFormData field has at least one item
-	if len(b.UrlEncodedFormData) > 0 {
+	if len(b.URLEncodedFormData) > 0 {
 		return true
 	}
 	// If UrlEncodedFormData is empty or missing, it's considered invalid
 	return false
 }
 
-// *Auth2Body
+// EncodeBody encodes the *Auth2Body
 func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 	var body io.Reader
 	var contentType string
@@ -89,10 +91,10 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 
 	codeMap := make(map[string]string)
 	codeMap[utils.ResponseType] = code
-	mergedMap := utils.MergeMaps(b.UrlEncodedFormData, codeMap)
+	mergedMap := utils.MergeMaps(b.URLEncodedFormData, codeMap)
 
 	switch {
-	case len(b.UrlEncodedFormData) > 0:
+	case len(b.URLEncodedFormData) > 0:
 		encodedBody, err := EncodeXwwwFormURLBody(mergedMap)
 		if err != nil {
 			return nil, "", utils.ColorError("#oAuthTypes.go", err)
@@ -105,17 +107,17 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 	return body, contentType, nil
 }
 
-// represents how a yaml file for Auth2.0 would look like
+// AuthRequestFile  represents how a yaml file for Auth2.0 would look like
 type AuthRequestFile struct {
 	Method    HTTPMethodType    `json:"method"              yaml:"method"`
-	Url       URL               `json:"url"                 yaml:"url"`
-	UrlParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
+	URL       URL               `json:"url"                 yaml:"url"`
+	URLParams URLPARAMS         `json:"urlparams,omitempty" yaml:"urlparams"`
 	Auth      *Auth             `json:"auth"                yaml:"auth"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Auth2Body
 }
 
-// AuthRequestBody is valid if,
+// IsValid checks if AuthRequestBody is valid ,
 // Has valid method, if missing method defaults to post.
 // Has valid auth section with type and access_token_url, for auth2.0
 // Has Required, and valid Url
@@ -151,12 +153,12 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 	}
 
 	// Validate URL
-	if !auth2Body.Url.IsValidURL() {
+	if !auth2Body.URL.IsValidURL() {
 		return false, utils.ColorError("missing or invalid URL in auth request body")
 	}
 
 	// Validate optional URL parameters, if present
-	if len(auth2Body.UrlParams) > 0 && !auth2Body.UrlParams.IsValid() {
+	if len(auth2Body.URLParams) > 0 && !auth2Body.URLParams.IsValid() {
 		return false, utils.ColorError("invalid URL parameters")
 	}
 
@@ -168,6 +170,7 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 	return true, nil
 }
 
+// PrepareStruct prepars struct for the standard call
 func (auth2Body *AuthRequestFile) PrepareStruct(code string) (ApiInfo, error) {
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
@@ -183,8 +186,8 @@ func (auth2Body *AuthRequestFile) PrepareStruct(code string) (ApiInfo, error) {
 
 	return ApiInfo{
 		Method:    string(auth2Body.Method),
-		Url:       string(auth2Body.Auth.AccessTokenUrl),
-		UrlParams: auth2Body.UrlParams,
+		Url:       string(auth2Body.Auth.AccessTokenURL),
+		UrlParams: auth2Body.URLParams,
 		Headers:   auth2Body.Headers,
 		Body:      body,
 	}, nil

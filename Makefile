@@ -1,11 +1,11 @@
 run: 
-	@go run . -fp "e2etests/test_collection/form_data.yaml" 
+	@go run . -fp "e2etests/test_collection/form_data.hk.yaml" 
 
 run-all:
-	@go run . -fp "e2etests/test_collection/url_encoded_form.yaml" -env prod 
+	@go run . -fp "e2etests/test_collection/url_encoded_form.hk.yaml" -env prod 
 
 graphql:
-	@go run . -fp "e2etests/test_collection/graphql.yml"
+	@go run . -fp "e2etests/test_collection/graphql.hk.yml"
 
 auth2:
 	@go run . -f "oAuth2" -env test

@@ -1,13 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
 ---
 # should result in error 404 Not found
-method: get
+method: GET
 url: "{{.baseUrl}}"
 urlparams:
   foo: bar
   baz: bin
 headers:
   Content-Type: multipart/form-data
-#   Header is optional when body has "formdata" or "urlencodedformdata"
 body:
   formdata:
     user: "{{.userName}}"

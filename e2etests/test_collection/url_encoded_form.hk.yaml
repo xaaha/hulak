@@ -1,0 +1,10 @@
+---
+method: POST
+url: "{{.baseUrl}}"
+urlparams:
+  foo: bar
+  baz: bin
+body:
+  urlencodedformdata:
+    user: "{{.userName}}"
+    product: "{{.product}}"
