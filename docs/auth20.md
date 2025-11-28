@@ -17,7 +17,7 @@ Below is the example of how, say `auth2.yaml` file would look after registering 
 
 ```yaml
 # kind is required field if  the yaml is meant for auth2.0
-kind: auth # value can be auth or api. For api, you don't need to provide this field
+kind: auth # required for auth2.0. If missing, this yaml will be treated as an API call
 method: POST
 # url that opens up in a browser and asks you to login. Usually ends with /authorize
 url: https://github.com/login/oauth/authorize
