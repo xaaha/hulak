@@ -13,20 +13,26 @@ type Kind string
 
 // Available configuration kinds
 const (
-	KindAuth Kind = "Auth"
-	KindAPI  Kind = "API"
+	KindAuth    Kind = "Auth"
+	KindAPI     Kind = "API"
+	KindGraphQL Kind = "GraphQL"
 )
 
 // KindConfig holds configuration for handling different kinds
 type KindConfig struct {
 	// Map of normalized (lowercase) kind names to their canonical forms
 	validKinds map[string]Kind
-	// Default kind to use when none is specified
+	// Default kind to use when none is specified. API is default
 	defaultKind Kind
 }
 
 // Global instance of KindConfig
 var kindConfig = newKindConfig()
+
+// registerKind adds a new kind to the valid kinds map
+func (kc *KindConfig) registerKind(k Kind) {
+	kc.validKinds[strings.ToLower(string(k))] = k
+}
 
 // newKindConfig initializes the kind configuration
 func newKindConfig() *KindConfig {
@@ -38,13 +44,9 @@ func newKindConfig() *KindConfig {
 	// Register default kinds
 	kc.registerKind(KindAuth)
 	kc.registerKind(KindAPI)
+	kc.registerKind(KindGraphQL)
 
 	return kc
-}
-
-// registerKind adds a new kind to the valid kinds map
-func (kc *KindConfig) registerKind(k Kind) {
-	kc.validKinds[strings.ToLower(string(k))] = k
 }
 
 // GetValidKinds returns a slice of all valid kinds
