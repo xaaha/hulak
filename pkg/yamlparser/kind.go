@@ -26,9 +26,6 @@ type KindConfig struct {
 	defaultKind Kind
 }
 
-// Global instance of KindConfig
-var kindConfig = newKindConfig()
-
 // registerKind adds a new kind to the valid kinds map
 func (kc *KindConfig) registerKind(k Kind) {
 	kc.validKinds[strings.ToLower(string(k))] = k
@@ -48,6 +45,9 @@ func newKindConfig() *KindConfig {
 
 	return kc
 }
+
+// Global instance of KindConfig
+var kindConfig = newKindConfig()
 
 // GetValidKinds returns a slice of all valid kinds
 func (kc *KindConfig) GetValidKinds() []Kind {
@@ -108,6 +108,11 @@ func (conf *ConfigType) IsAPI() bool {
 	return conf.IsKind(KindAPI)
 }
 
+// IsGraphql checks whether kind is Graphql
+func (conf *ConfigType) IsGraphql() bool {
+	return conf.IsKind(KindGraphQL)
+}
+
 // ValidateKinds checks if all kinds in the slice are valid
 func ValidateKinds(kinds []Kind) ([]string, bool) {
 	var invalidKinds []string
@@ -138,13 +143,4 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 	}
 
 	return &config, nil
-}
-
-// MustParseConfig parses a YAML file and panics on error
-func MustParseConfig(filePath string, secretsMap map[string]any) ConfigType {
-	config, err := ParseConfig(filePath, secretsMap)
-	if err != nil {
-		utils.PanicRedAndExit("#kind.go: %v", err)
-	}
-	return *config
 }

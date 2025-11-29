@@ -324,15 +324,6 @@ func TestConfigParsing(t *testing.T) {
 				}
 			}()
 
-			// Test both ParseConfig and MustParseConfig
-			got := MustParseConfig(tmpPath, tt.secretsMap)
-
-			// Normalize the kind for comparison
-			got.Kind = got.Kind.normalize()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Config parsing = %v, want %v", got, tt.want)
-			}
-
 			// Also verify ParseConfig returns the same result
 			gotFromParse, err := ParseConfig(tmpPath, tt.secretsMap)
 			if err != nil {
