@@ -1,4 +1,4 @@
-// Package yamlparser does everything related to yaml file for hulak, including type translation
+// Package yamlparser handles YAML configuration parsing for hulak.
 package yamlparser
 
 import (
@@ -8,142 +8,93 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Kind represents the type of yaml flow hulak should follow
+// Kind represents the type of YAML flow hulak should follow.
 type Kind string
 
-// Available configuration kinds
+// Allowed configuration kinds.
 const (
 	KindAuth    Kind = "Auth"
 	KindAPI     Kind = "API"
 	KindGraphQL Kind = "GraphQL"
 )
 
-// KindConfig holds configuration for handling different kinds
-type KindConfig struct {
-	// Map of normalized (lowercase) kind names to their canonical forms
-	validKinds map[string]Kind
-	// Default kind to use when none is specified. API is default
+// Holds the registered kinds and default selection logic.
+type kindRegistry struct {
+	validKinds  map[string]Kind
 	defaultKind Kind
 }
 
-// registerKind adds a new kind to the valid kinds map
-func (kc *KindConfig) registerKind(k Kind) {
-	kc.validKinds[strings.ToLower(string(k))] = k
-}
-
-// newKindConfig initializes the kind configuration
-func newKindConfig() *KindConfig {
-	kc := &KindConfig{
+func newKindRegistry() *kindRegistry {
+	r := &kindRegistry{
 		validKinds:  make(map[string]Kind),
-		defaultKind: KindAPI, // Set API as default
+		defaultKind: KindAPI, // default kind
 	}
-
-	// Register default kinds
-	kc.registerKind(KindAuth)
-	kc.registerKind(KindAPI)
-	kc.registerKind(KindGraphQL)
-
-	return kc
+	r.register(KindAuth)
+	r.register(KindAPI)
+	r.register(KindGraphQL)
+	return r
 }
 
-// Global instance of KindConfig
-var kindConfig = newKindConfig()
-
-// TODO: If this is not used, removed it
-// GetValidKinds returns a slice of all valid kinds
-func (kc *KindConfig) GetValidKinds() []Kind {
-	kinds := make([]Kind, 0, len(kc.validKinds))
-	for _, k := range kc.validKinds {
-		kinds = append(kinds, k)
-	}
-	return kinds
+func (r *kindRegistry) register(k Kind) {
+	r.validKinds[strings.ToLower(string(k))] = k
 }
 
-// ConfigType represents the configuration structure
+var registry = newKindRegistry()
+
+// ConfigType is the root YAML configuration structure.
 type ConfigType struct {
 	Kind Kind `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
-// normalize standardizes the kind value
+// normalize resolves case insensitivity and defaulting.
 func (k *Kind) normalize() Kind {
 	if k == nil || *k == "" {
-		return kindConfig.defaultKind
+		return registry.defaultKind
 	}
 
-	normalized := strings.ToLower(string(*k))
-	if canonical, exists := kindConfig.validKinds[normalized]; exists {
+	key := strings.ToLower(string(*k))
+	if canonical, ok := registry.validKinds[key]; ok {
 		return canonical
 	}
-	return Kind(normalized)
+
+	return Kind(key)
 }
 
-// isValid checks if the kind is valid according to defined rules
-func (conf *ConfigType) isValid() bool {
-	// empty mean  API
-	if conf.Kind == "" {
-		return true
-	}
-
-	normalized := strings.ToLower(string(conf.getKind()))
-	_, exists := kindConfig.validKinds[normalized]
-	return exists
+// getKind returns the normalized Kind.
+func (c *ConfigType) getKind() Kind {
+	return c.Kind.normalize()
 }
 
-// getKind returns the normalized kind
-func (conf *ConfigType) getKind() Kind {
-	return conf.Kind.normalize()
+// IsAuth returns true when the configuration kind is "Auth".
+func (c *ConfigType) IsAuth() bool {
+	return strings.EqualFold(string(c.getKind()), string(KindAuth))
 }
 
-// isKind checks if the configuration is of a specific kind
-func (conf *ConfigType) isKind(k Kind) bool {
-	return strings.EqualFold(string(conf.getKind()), string(k))
+// IsAPI returns true when the configuration kind is "API".
+func (c *ConfigType) IsAPI() bool {
+	return strings.EqualFold(string(c.getKind()), string(KindAPI))
 }
 
-// IsAuth checks if the kind is Auth
-func (conf *ConfigType) IsAuth() bool {
-	return conf.isKind(KindAuth)
+// IsGraphQL returns true when the configuration kind is "GraphQL".
+func (c *ConfigType) IsGraphql() bool {
+	return strings.EqualFold(string(c.getKind()), string(KindGraphQL))
 }
 
-// IsAPI checks if the kind is API
-func (conf *ConfigType) IsAPI() bool {
-	return conf.isKind(KindAPI)
-}
-
-// IsGraphql checks whether kind is Graphql
-func (conf *ConfigType) IsGraphql() bool {
-	return conf.isKind(KindGraphQL)
-}
-
-// TODO: Use ValidateKinds to check whether the provided kind is valid in runtime
-// Then use the Graphql kind, kind: Graphql should only be considered with the hulak graphql command
-// ValidateKinds checks if all kinds in the slice are valid
-func ValidateKinds(kinds []Kind) ([]string, bool) {
-	var invalidKinds []string
-	isValid := true
-
-	for _, kind := range kinds {
-		config := ConfigType{Kind: kind}
-		if !config.isValid() {
-			invalidKinds = append(invalidKinds, string(kind))
-			isValid = false
-		}
-	}
-
-	return invalidKinds, isValid
-}
-
-// ParseConfig parses a YAML file and returns the configuration type
+// ParseConfig parses a YAML file into ConfigType.
 func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
 		return nil, utils.ColorError("error reading YAML file: %w", err)
 	}
 
-	var config ConfigType
+	var cfg ConfigType
 	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&config); err != nil {
+	if err := dec.Decode(&cfg); err != nil {
 		return nil, utils.ColorError("error decoding YAML: %w", err)
 	}
 
-	return &config, nil
+	// normalize kind once at parse time
+	cfg.Kind = cfg.Kind.normalize()
+
+	return &cfg, nil
 }
