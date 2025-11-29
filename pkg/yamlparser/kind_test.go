@@ -54,7 +54,7 @@ func TestConfigType_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &ConfigType{Kind: tt.kind}
-			if got := conf.IsValid(); got != tt.want {
+			if got := conf.isValid(); got != tt.want {
 				t.Errorf("ConfigType.IsValid() = %v, want %v", got, tt.want)
 			}
 		})
@@ -92,7 +92,7 @@ func TestConfigType_GetKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conf := &ConfigType{Kind: tt.kind}
-			if got := conf.GetKind(); got != tt.want {
+			if got := conf.getKind(); got != tt.want {
 				t.Errorf("ConfigType.GetKind() = %v, want %v", got, tt.want)
 			}
 		})
@@ -201,7 +201,7 @@ func createTempYAMLFile(t *testing.T, content string) string {
 	}
 
 	t.Cleanup(func() {
-		os.Remove(tmpfile.Name())
+		_ = os.Remove(tmpfile.Name())
 	})
 
 	if _, err := tmpfile.Write([]byte(content)); err != nil {
