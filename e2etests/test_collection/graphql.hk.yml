@@ -1,5 +1,6 @@
 ---
 method: POST
+kind: API
 url: "{{.graphqlUrl}}"
 headers:
   Content-Type: application/json
