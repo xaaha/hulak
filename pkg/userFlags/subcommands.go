@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -18,9 +19,9 @@ var embeddedFiles embed.FS
 const (
 	Version = "version"
 	Migrate = "migrate"
-	// future subcommands
-	Init = "init"
-	Help = "help"
+	Init    = "init"
+	Help    = "help"
+	GraphQL = "gql"
 )
 
 var (
@@ -69,6 +70,10 @@ func HandleSubcommands() error {
 
 	case Help:
 		printHelp()
+		os.Exit(0)
+
+	case GraphQL:
+		graphql.Introspect()
 		os.Exit(0)
 
 	default:
