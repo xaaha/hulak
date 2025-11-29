@@ -93,7 +93,6 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 		return nil, utils.ColorError("error decoding YAML: %w", err)
 	}
 
-	// normalize kind once at parse time
 	cfg.Kind = cfg.Kind.normalize()
 
 	return &cfg, nil
