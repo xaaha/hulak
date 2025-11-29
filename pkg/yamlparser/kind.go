@@ -49,6 +49,7 @@ func newKindConfig() *KindConfig {
 // Global instance of KindConfig
 var kindConfig = newKindConfig()
 
+// TODO: If this is not used, removed it
 // GetValidKinds returns a slice of all valid kinds
 func (kc *KindConfig) GetValidKinds() []Kind {
 	kinds := make([]Kind, 0, len(kc.validKinds))
@@ -76,43 +77,45 @@ func (k *Kind) normalize() Kind {
 	return Kind(normalized)
 }
 
-// IsValid checks if the kind is valid according to defined rules
-func (conf *ConfigType) IsValid() bool {
+// isValid checks if the kind is valid according to defined rules
+func (conf *ConfigType) isValid() bool {
 	// empty mean  API
 	if conf.Kind == "" {
 		return true
 	}
 
-	normalized := strings.ToLower(string(conf.GetKind()))
+	normalized := strings.ToLower(string(conf.getKind()))
 	_, exists := kindConfig.validKinds[normalized]
 	return exists
 }
 
-// GetKind returns the normalized kind
-func (conf *ConfigType) GetKind() Kind {
+// getKind returns the normalized kind
+func (conf *ConfigType) getKind() Kind {
 	return conf.Kind.normalize()
 }
 
-// IsKind checks if the configuration is of a specific kind
-func (conf *ConfigType) IsKind(k Kind) bool {
-	return strings.EqualFold(string(conf.GetKind()), string(k))
+// isKind checks if the configuration is of a specific kind
+func (conf *ConfigType) isKind(k Kind) bool {
+	return strings.EqualFold(string(conf.getKind()), string(k))
 }
 
 // IsAuth checks if the kind is Auth
 func (conf *ConfigType) IsAuth() bool {
-	return conf.IsKind(KindAuth)
+	return conf.isKind(KindAuth)
 }
 
 // IsAPI checks if the kind is API
 func (conf *ConfigType) IsAPI() bool {
-	return conf.IsKind(KindAPI)
+	return conf.isKind(KindAPI)
 }
 
 // IsGraphql checks whether kind is Graphql
 func (conf *ConfigType) IsGraphql() bool {
-	return conf.IsKind(KindGraphQL)
+	return conf.isKind(KindGraphQL)
 }
 
+// TODO: Use ValidateKinds to check whether the provided kind is valid in runtime
+// Then use the Graphql kind, kind: Graphql should only be considered with the hulak graphql command
 // ValidateKinds checks if all kinds in the slice are valid
 func ValidateKinds(kinds []Kind) ([]string, bool) {
 	var invalidKinds []string
@@ -120,7 +123,7 @@ func ValidateKinds(kinds []Kind) ([]string, bool) {
 
 	for _, kind := range kinds {
 		config := ConfigType{Kind: kind}
-		if !config.IsValid() {
+		if !config.isValid() {
 			invalidKinds = append(invalidKinds, string(kind))
 			isValid = false
 		}
