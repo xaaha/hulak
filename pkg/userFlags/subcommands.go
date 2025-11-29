@@ -27,6 +27,9 @@ const (
 var (
 	migrate    *flag.FlagSet
 	initialize *flag.FlagSet
+	// TODO: Understand, how is the error know that a file does not exist
+	// and complete this
+	gql *flag.FlagSet
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
@@ -35,6 +38,8 @@ var (
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
+	// TODO:
+	gql = flag.NewFlagSet(GraphQL, flag.ExitOnError)
 
 	initialize = flag.NewFlagSet(Init, flag.ExitOnError)
 	createEnvs = initialize.Bool(
