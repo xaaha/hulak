@@ -27,7 +27,7 @@ func TestGetEnvFiles(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	envDir := filepath.Join(tempDir, "env")
-	err = os.Mkdir(envDir, 0755)
+	err = os.Mkdir(envDir, 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestGetEnvFiles(t *testing.T) {
 	}
 
 	// Test Case: Directories should not be included:
-	err = os.Mkdir(filepath.Join(envDir, "shouldNotAppear"), 0755)
+	err = os.Mkdir(filepath.Join(envDir, "shouldNotAppear"), 0o755)
 	if err != nil {
 		t.Fatalf("Temporary directory could not be created: %v", err)
 	}
@@ -416,7 +416,7 @@ func TestListMatchingFiles(t *testing.T) {
 	}
 
 	for _, tf := range testFiles {
-		if err := os.WriteFile(tf.path, []byte(tf.contents), 0644); err != nil {
+		if err := os.WriteFile(tf.path, []byte(tf.contents), 0o644); err != nil {
 			t.Fatalf("Failed to create file: %s, error: %v", tf.path, err)
 		}
 	}
@@ -613,7 +613,7 @@ func TestSanitizeDirPath(t *testing.T) {
 
 	// Create a nested directory for testing relative paths
 	nestedDir := filepath.Join(tempDir, "nested_dir")
-	if err = os.MkdirAll(nestedDir, 0755); err != nil {
+	if err = os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatalf("Failed to create nested directory: %v", err)
 	}
 
@@ -781,17 +781,17 @@ func TestSanitizeDirPathWithPermissions(t *testing.T) {
 
 	// Create a directory with no read permissions
 	noReadDir := filepath.Join(tempDir, "no_read_dir")
-	if err := os.MkdirAll(noReadDir, 0755); err != nil { // Create with read permissions first
+	if err := os.MkdirAll(noReadDir, 0o755); err != nil { // Create with read permissions first
 		t.Fatalf("Failed to create no-read directory: %v", err)
 	}
 
 	// Change permissions after creation
-	if err := os.Chmod(noReadDir, 0000); err != nil {
+	if err := os.Chmod(noReadDir, 0o000); err != nil {
 		t.Fatalf("Failed to change directory permissions: %v", err)
 	}
 
 	// Restore permissions for cleanup
-	defer os.Chmod(noReadDir, 0755)
+	defer os.Chmod(noReadDir, 0o755)
 
 	t.Run("No read permission directory", func(t *testing.T) {
 		// Skip if running as root (permissions won't affect root)
