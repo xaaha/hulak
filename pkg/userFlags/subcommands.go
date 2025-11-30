@@ -27,9 +27,7 @@ const (
 var (
 	migrate    *flag.FlagSet
 	initialize *flag.FlagSet
-	// TODO: Understand, how is the error know that a file does not exist
-	// and complete this
-	gql *flag.FlagSet
+	gql        *flag.FlagSet
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
@@ -38,7 +36,6 @@ var (
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
-	// TODO:
 	gql = flag.NewFlagSet(GraphQL, flag.ExitOnError)
 
 	initialize = flag.NewFlagSet(Init, flag.ExitOnError)
@@ -78,7 +75,12 @@ func HandleSubcommands() error {
 		os.Exit(0)
 
 	case GraphQL:
-		graphql.Introspect()
+		err := gql.Parse(os.Args[2:])
+		if err != nil {
+			return fmt.Errorf("\n invalid subcommand after gql %v", err)
+		}
+		paths := gql.Args()
+		graphql.Introspect(paths)
 		os.Exit(0)
 
 	default:
