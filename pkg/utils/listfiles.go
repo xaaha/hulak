@@ -9,6 +9,29 @@ import (
 	"strings"
 )
 
+// Option pattern for configurable function behavior
+type listFilesOptions struct {
+	respectDotDirs bool
+	skipDirs       []string
+}
+
+// ListFilesOption lists the options we should skip
+type ListFilesOption func(*listFilesOptions)
+
+// WithSkipDirs specifies directories to skip
+func WithSkipDirs(dirs []string) ListFilesOption {
+	return func(opts *listFilesOptions) {
+		opts.skipDirs = dirs
+	}
+}
+
+// WithRespectDotDirs controls whether to traverse dot directories
+func WithRespectDotDirs(respect bool) ListFilesOption {
+	return func(opts *listFilesOptions) {
+		opts.respectDotDirs = respect
+	}
+}
+
 // ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
 // Files are added as they are discovered so it does not guarantee any files are run before the other
 func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
@@ -95,29 +118,6 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 	}
 
 	return result, nil
-}
-
-// Option pattern for configurable function behavior
-type listFilesOptions struct {
-	respectDotDirs bool
-	skipDirs       []string
-}
-
-// ListFilesOption lists the options we should skip
-type ListFilesOption func(*listFilesOptions)
-
-// WithSkipDirs specifies directories to skip
-func WithSkipDirs(dirs []string) ListFilesOption {
-	return func(opts *listFilesOptions) {
-		opts.skipDirs = dirs
-	}
-}
-
-// WithRespectDotDirs controls whether to traverse dot directories
-func WithRespectDotDirs(respect bool) ListFilesOption {
-	return func(opts *listFilesOptions) {
-		opts.respectDotDirs = respect
-	}
 }
 
 /**
