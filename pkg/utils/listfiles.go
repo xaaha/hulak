@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-// Option pattern for configurable function behavior
+// --- Options ----
+
+// listFilesOptions is a structure for configurable function behavior
 type listFilesOptions struct {
 	respectDotDirs bool
 	skipDirs       []string
@@ -32,89 +34,96 @@ func WithRespectDotDirs(respect bool) ListFilesOption {
 	}
 }
 
-// ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
-// Files are added as they are discovered so it does not guarantee any files are run before the other
-func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
-	// Default folders to skip during file listing
-	opts := listFilesOptions{
+// --- helpers ---
+
+// defaultOptions are the sane defaults list file will ignore
+func defaultOptions() listFilesOptions {
+	return listFilesOptions{
 		skipDirs:       []string{"node_modules", ".git", ".svn", ".hg", ".idea", ".vscode"},
 		respectDotDirs: true,
 	}
+}
 
-	// Apply options
-	for _, option := range options {
-		option(&opts)
+// applyOptions applies the provided options
+func applyOptions(options []ListFilesOption) listFilesOptions {
+	opts := defaultOptions()
+	for _, opt := range options {
+		opt(&opts)
 	}
+	return opts
+}
 
-	fileExtensions := []string{YAML, YML, JSON}
-	result := make([]string, 0)
+func isWantedFilePath(path string) bool {
+	name := strings.ToLower(filepath.Base(path))
+	return strings.HasSuffix(name, YAML) || strings.HasSuffix(name, YML) ||
+		strings.HasSuffix(name, JSON)
+}
+
+func shouldSkipDir(dirName string, opts listFilesOptions) bool {
+	if !opts.respectDotDirs && strings.HasPrefix(dirName, ".") {
+		return true
+	}
+	return slices.Contains(opts.skipDirs, dirName)
+}
+
+// ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
+// Files are added as they are discovered so it does not guarantee any files are run before the other
+func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
+	opts := applyOptions(options)
 
 	if dirPath == "" {
 		dirPath = "."
 	}
 
-	// Clean the path to normalize it
-	cleanPath := filepath.Clean(dirPath)
+	// Clean + verify directory
+	clean := filepath.Clean(dirPath)
 
-	// Check if directory exists and is accessible
-	info, err := os.Stat(cleanPath)
+	info, err := os.Stat(clean)
 	if err != nil {
 		return nil, fmt.Errorf("error accessing directory '%s': %w", dirPath, err)
 	}
-
 	if !info.IsDir() {
 		return nil, fmt.Errorf("path '%s' is not a directory", dirPath)
 	}
 
-	// Convert to absolute path for consistency
-	absPath, err := filepath.Abs(cleanPath)
+	abs, err := filepath.Abs(clean)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving absolute path for '%s': %w", dirPath, err)
 	}
 
-	err = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
+	var result []string
+
+	err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// Skip the root dir itself
-		if path == absPath {
+		if path == abs {
 			return nil
 		}
 
-		// Skip configured directories
 		if d.IsDir() {
 			dirName := filepath.Base(path)
-
-			// Skip dot directories only if configured to do so
-			if !opts.respectDotDirs && strings.HasPrefix(dirName, ".") {
+			if shouldSkipDir(dirName, opts) {
 				return filepath.SkipDir
 			}
-
-			// Skip directories in the skipDirs list
-			if slices.Contains(opts.skipDirs, dirName) {
-				return filepath.SkipDir
-			}
+			return nil
 		}
 
-		if !d.IsDir() {
-			fileName := strings.ToLower(filepath.Base(path))
-			for _, ext := range fileExtensions {
-				if strings.HasSuffix(fileName, ext) {
-					result = append(result, path)
-					break
-				}
-			}
+		// Files
+		if isWantedFilePath(path) {
+			result = append(result, path)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return result, fmt.Errorf("error walking dir '%s': %w", absPath, err)
+		return result, fmt.Errorf("error walking dir '%s': %w", abs, err)
 	}
 
 	if len(result) == 0 {
-		return result, fmt.Errorf("no YAML, YML, or JSON files found in directory %s", absPath)
+		return result, fmt.Errorf("no YAML, YML, or JSON files found in directory %s", abs)
 	}
 
 	return result, nil
