@@ -9,8 +9,7 @@ import (
 	"strings"
 )
 
-// ListFiles lists all .yaml, .yml, or .json files in a directory
-// with configurable directory exclusion
+// ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
 // Files are added as they are discovered so it does not guarantee any files are run before the other
 func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 	// Default folders to skip during file listing
