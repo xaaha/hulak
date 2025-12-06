@@ -118,11 +118,11 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 		return nil
 	})
 	if err != nil {
-		return result, fmt.Errorf("error walking dir '%s': %w", abs, err)
+		return nil, fmt.Errorf("error walking dir '%s': %w", abs, err)
 	}
 
 	if len(result) == 0 {
-		return result, fmt.Errorf("no YAML, YML, or JSON files found in directory %s", abs)
+		return nil, fmt.Errorf("no YAML, YML, or JSON files found in directory %s", abs)
 	}
 
 	return result, nil
