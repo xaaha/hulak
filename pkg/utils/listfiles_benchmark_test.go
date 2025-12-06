@@ -11,8 +11,8 @@ import (
 func BenchmarkListFiles(b *testing.B) {
 	root := b.TempDir()
 
-	// build a directory tree: depth=4, width=5
-	createBenchmarkTree(b, root, 4, 5)
+	// build a directory tree: depth=5, width=6
+	createBenchmarkTree(b, root, 5, 6)
 
 	for b.Loop() {
 		_, err := ListFiles(root)
