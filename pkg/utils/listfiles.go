@@ -104,15 +104,14 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 		}
 
 		if d.IsDir() {
-			dirName := filepath.Base(path)
-			if shouldSkipDir(dirName, opts) {
-				return filepath.SkipDir
+			if shouldSkipDir(d.Name(), opts) {
+				return fs.SkipDir
 			}
 			return nil
 		}
 
 		// Files
-		if isWantedFilePath(path) {
+		if isWantedFilePath(d.Name()) {
 			result = append(result, path)
 		}
 
