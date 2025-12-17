@@ -27,6 +27,7 @@ func StartExplorer() error {
 	// Get available environment files
 	envFiles, err := utils.GetEnvFiles()
 	if err != nil {
+		utils.PrintRed("Failed to get environment files")
 		return utils.ColorError("failed to get environment files: %w", err)
 	}
 
@@ -35,6 +36,9 @@ func StartExplorer() error {
 		return utils.ColorError("no environment files found")
 	}
 
+	utils.PrintGreen("Starting GraphQL Explorer...")
+	utils.PrintGreen("Found " + string(rune(len(envFiles))) + " environment files")
+
 	config := ExplorerConfig{
 		EnvFiles:    envFiles,
 		SelectedEnv: utils.DefaultEnvVal,
@@ -42,7 +46,7 @@ func StartExplorer() error {
 
 	// Initialize the TUI model
 	m := initialModel(config)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
 		return utils.ColorError("error running TUI: %w", err)

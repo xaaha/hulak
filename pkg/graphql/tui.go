@@ -155,6 +155,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.envList.SetSize(msg.Width-4, msg.Height-4)
 		return m, nil
 
+	case schemaLoadedMsg:
+		m.schemaLoading = false
+		if msg.err != nil {
+			m.schemaError = msg.err
+			return m, nil
+		}
+		m.schema = msg.schema
+		m.currentView = ViewSchemaExplorer
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -338,8 +348,16 @@ var (
 // loadSchemaCmd is a command to load the GraphQL schema
 func loadSchemaCmd(endpoint, env string) tea.Cmd {
 	return func() tea.Msg {
-		// This will be implemented in the introspection module
-		return schemaLoadedMsg{endpoint: endpoint}
+		// Load environment variables for headers if needed
+		headers := make(map[string]string)
+
+		// Perform introspection
+		schema, err := IntrospectSchema(endpoint, headers)
+		return schemaLoadedMsg{
+			endpoint: endpoint,
+			schema:   schema,
+			err:      err,
+		}
 	}
 }
 
