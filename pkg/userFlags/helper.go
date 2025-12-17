@@ -70,6 +70,7 @@ func printHelpSubCommands() {
 		{"hulak init", "Initializes default environment and creates an apiOptions.yaml file"},
 		{"hulak init -env global prod test", "Initializes specific environments"},
 		{"hulak migrate <file1> <file2> ...", "Migrates postman env and collections"},
+		{"hulak graphql", "Launch interactive GraphQL schema explorer"},
 	})
 
 	w.Flush()
