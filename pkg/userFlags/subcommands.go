@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -19,13 +20,15 @@ const (
 	Version = "version"
 	Migrate = "migrate"
 	// future subcommands
-	Init = "init"
-	Help = "help"
+	Init    = "init"
+	Help    = "help"
+	GraphQL = "graphql"
 )
 
 var (
 	migrate    *flag.FlagSet
 	initialize *flag.FlagSet
+	graphqlCmd *flag.FlagSet
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
@@ -41,6 +44,8 @@ func init() {
 		false,
 		"Create environment files based on following arguments",
 	)
+
+	graphqlCmd = flag.NewFlagSet(GraphQL, flag.ExitOnError)
 }
 
 // HandleSubcommands loops through all the subcommands
@@ -64,6 +69,15 @@ func HandleSubcommands() error {
 	case Init:
 		if err := handleInit(); err != nil {
 			return err
+		}
+		os.Exit(0)
+
+	case GraphQL:
+		if err := graphqlCmd.Parse(os.Args[2:]); err != nil {
+			return fmt.Errorf("\n invalid subcommand %v", err)
+		}
+		if err := graphql.StartExplorer(); err != nil {
+			return fmt.Errorf("\n error starting GraphQL explorer: %v", err)
 		}
 		os.Exit(0)
 
