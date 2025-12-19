@@ -65,26 +65,30 @@ func CreateDir(dirPath string) error {
 // CreateFile checks for the existence of a file at the given filePath,
 // and creates it if it does not exist.
 func CreateFile(filePath string) error {
-	fileName := filepath.Base(filePath)
 	info, err := os.Stat(filePath)
+
+	// File does not exist → create it
 	if os.IsNotExist(err) {
-		file, err := os.Create(filePath)
+		f, err := os.Create(filePath)
 		if err != nil {
-			PrintRed(fmt.Sprintf("Error creating '%s': %s", fileName, CrossMark))
 			return err
 		}
-		defer file.Close()
-		PrintGreen(fmt.Sprintf("Created '%s': %s", fileName, CheckMark))
-	} else if err != nil {
-		PrintRed(fmt.Sprintf("Error checking '%s': %v", fileName, err))
+		defer func() {
+			cerr := f.Close()
+			if cerr != nil && err == nil {
+				err = cerr
+			}
+		}()
+		return nil
+	}
+
+	// An actual error other than "not exists"
+	if err != nil {
 		return err
-	} else {
-		if info.IsDir() {
-			return fmt.Errorf("cannot create file '%s': path is a directory", filePath)
-		}
-		if info.Mode().IsRegular() {
-			PrintWarning(fmt.Sprintf("File '%s' already exists.", filePath))
-		}
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("cannot create file '%s': path is a directory", filePath)
 	}
 
 	return nil

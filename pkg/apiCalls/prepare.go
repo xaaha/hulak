@@ -123,11 +123,8 @@ func processResponse(
 	}
 }
 
-// when the flag is -dir run all the requests concurrently
-// this is the current behavior. All we need to do is pass all the dir content to filePaths array
-// When the flag is dirseq, we need to run one at a time as they appear in an array
-// We could create a function that handles dir and dirseq without repeating what functions in this file is doing
-// this function could take in functions as well
+// when the flag is -dir run all the requests concurrently this is the current behavior.
+// When the flag is -dirseq, we run one file at a time as they are discovered in a directory
 
 // DirPath is the paths for Concurrent or Sequential file run
 type DirPath struct {
