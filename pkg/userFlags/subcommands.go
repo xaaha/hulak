@@ -84,15 +84,6 @@ func HandleSubcommands() error {
 		printHelp()
 		os.Exit(0)
 
-	case GraphQL:
-		err := gql.Parse(os.Args[2:])
-		if err != nil {
-			return fmt.Errorf("\n invalid subcommand after gql %v", err)
-		}
-		paths := gql.Args()
-		graphql.Introspect(paths)
-		os.Exit(0)
-
 	default:
 		utils.PrintRed("Enter a valid subcommand")
 		printHelpSubCommands()
