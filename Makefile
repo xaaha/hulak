@@ -18,3 +18,6 @@ build:
 
 check:
 	@make unit && make run && make run-all  && make graphql
+
+bench:
+	@cd pkg/utils/ && go test -bench=BenchmarkListFiles

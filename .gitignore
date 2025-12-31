@@ -7,3 +7,4 @@ test*
 !test_collection/
 !test.graphql
 !e2etests/test_collection/formdata.json
+!mise.toml

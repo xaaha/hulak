@@ -16,7 +16,7 @@ func readJSON(filePath string) (map[string]any, error) {
 	// Check if the file exists and get its info
 	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("\n file does not exist %s", filePath)
+		return nil, fmt.Errorf("\n file does not exist '%s'", filePath)
 	} else if err != nil {
 		return nil, fmt.Errorf("\n error checking file: %w", err)
 	}

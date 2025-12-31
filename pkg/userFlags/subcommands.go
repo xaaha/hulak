@@ -61,7 +61,7 @@ func HandleSubcommands() error {
 		filePaths := migrate.Args()
 		err = migration.CompleteMigration(filePaths)
 		if err != nil {
-			return fmt.Errorf("\n invalid subcommand %v", err)
+			return fmt.Errorf("file path error %v", err)
 		}
 		os.Exit(0)
 
@@ -82,6 +82,15 @@ func HandleSubcommands() error {
 
 	case Help:
 		printHelp()
+		os.Exit(0)
+
+	case GraphQL:
+		err := gql.Parse(os.Args[2:])
+		if err != nil {
+			return fmt.Errorf("\n invalid subcommand after gql %v", err)
+		}
+		paths := gql.Args()
+		graphql.Introspect(paths)
 		os.Exit(0)
 
 	default:

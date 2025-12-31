@@ -141,7 +141,7 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
 	switch {
 	case config.IsAuth():
 		return features.SendAPIRequestForAuth2(secretsMap, path, debug)
-	case config.IsAPI():
+	case (config.IsAPI() || config.IsGraphql()):
 		return apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
 	default:
 		return fmt.Errorf("unsupported kind in file: %s", path)
