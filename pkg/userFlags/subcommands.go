@@ -19,6 +19,7 @@ var embeddedFiles embed.FS
 const (
 	Version = "version"
 	Migrate = "migrate"
+	// future subcommands
 	Init    = "init"
 	Help    = "help"
 	GraphQL = "gql"
@@ -70,17 +71,17 @@ func HandleSubcommands() error {
 		}
 		os.Exit(0)
 
-	case Help:
-		printHelp()
+	case GraphQL:
+		if err := gql.Parse(os.Args[2:]); err != nil {
+			return fmt.Errorf("\n invalid subcommand %v", err)
+		}
+		if err := graphql.StartExplorer(); err != nil {
+			return fmt.Errorf("\n error starting GraphQL explorer: %v", err)
+		}
 		os.Exit(0)
 
-	case GraphQL:
-		err := gql.Parse(os.Args[2:])
-		if err != nil {
-			return fmt.Errorf("\n invalid subcommand after gql %v", err)
-		}
-		paths := gql.Args()
-		graphql.Introspect(paths)
+	case Help:
+		printHelp()
 		os.Exit(0)
 
 	default:
