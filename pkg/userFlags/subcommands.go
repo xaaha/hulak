@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xaaha/hulak/pkg/graphql"
+	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -22,13 +22,13 @@ const (
 	// future subcommands
 	Init    = "init"
 	Help    = "help"
-	GraphQL = "graphql"
+	GraphQL = "gql"
 )
 
 var (
 	migrate    *flag.FlagSet
 	initialize *flag.FlagSet
-	graphqlCmd *flag.FlagSet
+	gql        *flag.FlagSet
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
@@ -37,6 +37,7 @@ var (
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
+	gql = flag.NewFlagSet(GraphQL, flag.ExitOnError)
 
 	initialize = flag.NewFlagSet(Init, flag.ExitOnError)
 	createEnvs = initialize.Bool(
@@ -44,8 +45,6 @@ func init() {
 		false,
 		"Create environment files based on following arguments",
 	)
-
-	graphqlCmd = flag.NewFlagSet(GraphQL, flag.ExitOnError)
 }
 
 // HandleSubcommands loops through all the subcommands
@@ -73,7 +72,7 @@ func HandleSubcommands() error {
 		os.Exit(0)
 
 	case GraphQL:
-		if err := graphqlCmd.Parse(os.Args[2:]); err != nil {
+		if err := gql.Parse(os.Args[2:]); err != nil {
 			return fmt.Errorf("\n invalid subcommand %v", err)
 		}
 		if err := graphql.StartExplorer(); err != nil {
