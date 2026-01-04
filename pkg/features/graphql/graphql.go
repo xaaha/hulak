@@ -20,7 +20,7 @@ func peekKindField(filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var data map[string]any
 	dec := yaml.NewDecoder(file)
@@ -53,7 +53,7 @@ func hasValidURLField(filePath string, _ map[string]any) bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var data map[string]any
 	dec := yaml.NewDecoder(file)
@@ -139,7 +139,10 @@ func FindGraphQLFiles(dirPath string, secretsMap map[string]any) ([]string, erro
 	}
 
 	if len(graphqlFiles) == 0 {
-		return nil, fmt.Errorf("no files with 'kind: GraphQL' and 'url' field found in directory: %s", dirPath)
+		return nil, fmt.Errorf(
+			"no files with 'kind: GraphQL' and 'url' field found in directory: %s",
+			dirPath,
+		)
 	}
 
 	return graphqlFiles, nil
@@ -169,7 +172,10 @@ func ValidateGraphQLFile(filePath string, secretsMap map[string]any) (bool, erro
 
 	// Check if it has a valid URL field
 	if !hasValidURLField(filePath, secretsMap) {
-		return false, fmt.Errorf("file '%s' is missing required 'url' field for GraphQL introspection", filePath)
+		return false, fmt.Errorf(
+			"file '%s' is missing required 'url' field for GraphQL introspection",
+			filePath,
+		)
 	}
 
 	return true, nil

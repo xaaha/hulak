@@ -29,7 +29,7 @@ func createGraphQLFile(t *testing.T, dir, filename, url string) string {
 	}
 
 	filePath := filepath.Join(dir, filename)
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -49,23 +49,9 @@ func createYAMLFile(t *testing.T, dir, filename, kind, url string) string {
 	}
 
 	filePath := filepath.Join(dir, filename)
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
-	}
-	return filePath
-}
-
-// createMalformedYAMLFile creates an unparseable YAML file
-func createMalformedYAMLFile(t *testing.T, dir, filename string) string {
-	t.Helper()
-
-	// Create invalid YAML with unmatched brackets
-	content := "---\nkind: GraphQL\nurl: \"http://test.com\"\nbody:\n  query: [\n"
-	filePath := filepath.Join(dir, filename)
-	err := os.WriteFile(filePath, []byte(content), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create malformed file: %v", err)
 	}
 	return filePath
 }
@@ -83,7 +69,6 @@ func TestFindGraphQLFiles_Success(t *testing.T) {
 	createYAMLFile(t, tempDir, "auth.yaml", "Auth", "http://auth.com")
 
 	files, err := FindGraphQLFiles(tempDir, secretsMap)
-
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -108,7 +93,11 @@ func TestFindGraphQLFiles_Success(t *testing.T) {
 	}
 
 	if !foundValid1 || !foundValid2 {
-		t.Errorf("Expected GraphQL files not found. Found valid1: %v, valid2: %v", foundValid1, foundValid2)
+		t.Errorf(
+			"Expected GraphQL files not found. Found valid1: %v, valid2: %v",
+			foundValid1,
+			foundValid2,
+		)
 	}
 }
 
@@ -122,7 +111,6 @@ func TestFindGraphQLFiles_WithTemplateURLs(t *testing.T) {
 	createGraphQLFile(t, tempDir, "actual.yaml", "https://api.example.com/graphql")
 
 	files, err := FindGraphQLFiles(tempDir, secretsMap)
-
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -155,7 +143,7 @@ func TestFindGraphQLFiles_EmptyURL(t *testing.T) {
 	// Create file with empty URL
 	content := "---\nkind: GraphQL\nurl: \"\"\nmethod: POST\n"
 	filePath := filepath.Join(tempDir, "empty_url.yaml")
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -198,7 +186,7 @@ func TestFindGraphQLFiles_OnlyResponseFiles(t *testing.T) {
 	// Create only response files
 	content := "---\nkind: GraphQL\nurl: http://example.com\n"
 	responseFile := filepath.Join(tempDir, "test_response.json")
-	err := os.WriteFile(responseFile, []byte(content), 0644)
+	err := os.WriteFile(responseFile, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create response file: %v", err)
 	}
@@ -237,10 +225,12 @@ func TestFindGraphQLFiles_MalformedYAML(t *testing.T) {
 	// Create a file that's truly unparseable
 	malformedPath := filepath.Join(tempDir, "malformed.yaml")
 	malformedContent := "---\nthis is not: valid: yaml: at: all:\n  - [\n"
-	os.WriteFile(malformedPath, []byte(malformedContent), 0644)
+	err := os.WriteFile(malformedPath, []byte(malformedContent), 0o644)
+	if err != nil {
+		t.Fatalf("error on writing file in TestFindGraphQLFiles_MalformedYAML()")
+	}
 
 	files, err := FindGraphQLFiles(tempDir, secretsMap)
-
 	// Should find at least the valid file, malformed should be skipped
 	if err != nil {
 		t.Fatalf("Expected no error (malformed files should be skipped), got: %v", err)
@@ -256,7 +246,7 @@ func TestFindGraphQLFiles_NestedDirectories(t *testing.T) {
 
 	// Create nested directory structure
 	subDir := filepath.Join(tempDir, "subdir")
-	err := os.Mkdir(subDir, 0755)
+	err := os.Mkdir(subDir, 0o755)
 	if err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
@@ -266,7 +256,6 @@ func TestFindGraphQLFiles_NestedDirectories(t *testing.T) {
 	createGraphQLFile(t, subDir, "nested.yaml", "{{.baseUrl}}")
 
 	files, err := FindGraphQLFiles(tempDir, secretsMap)
-
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -284,7 +273,6 @@ func TestValidateGraphQLFile_Valid(t *testing.T) {
 	filePath := createGraphQLFile(t, tempDir, "valid.yaml", "http://example.com")
 
 	isValid, err := ValidateGraphQLFile(filePath, secretsMap)
-
 	if err != nil {
 		t.Errorf("Expected no error for valid file, got: %v", err)
 	}
@@ -300,7 +288,6 @@ func TestValidateGraphQLFile_TemplateURL(t *testing.T) {
 	filePath := createGraphQLFile(t, tempDir, "template.yaml", "{{.baseUrl}}")
 
 	isValid, err := ValidateGraphQLFile(filePath, secretsMap)
-
 	if err != nil {
 		t.Errorf("Expected no error for template URL, got: %v", err)
 	}
@@ -334,7 +321,7 @@ func TestValidateGraphQLFile_EmptyURL(t *testing.T) {
 
 	content := "---\nkind: GraphQL\nurl: \"\"\nmethod: POST\n"
 	filePath := filepath.Join(tempDir, "empty_url.yaml")
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -399,15 +386,17 @@ func TestValidateGraphQLFile_CaseInsensitive(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			content := fmt.Sprintf("---\nkind: %s\nurl: http://example.com\nmethod: POST\n", tc.kind)
+			content := fmt.Sprintf(
+				"---\nkind: %s\nurl: http://example.com\nmethod: POST\n",
+				tc.kind,
+			)
 			filePath := filepath.Join(tempDir, fmt.Sprintf("%s.yaml", tc.name))
-			err := os.WriteFile(filePath, []byte(content), 0644)
+			err := os.WriteFile(filePath, []byte(content), 0o644)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
 			isValid, err := ValidateGraphQLFile(filePath, secretsMap)
-
 			if err != nil {
 				t.Errorf("Expected no error for kind '%s', got: %v", tc.kind, err)
 			}
@@ -436,12 +425,14 @@ func TestValidateGraphQLFile_PathCleaning(t *testing.T) {
 
 	// Create subdir for path testing
 	subDir := filepath.Join(tempDir, "subdir")
-	os.Mkdir(subDir, 0755)
+	err := os.Mkdir(subDir, 0o755)
+	if err != nil {
+		t.Fatalf("error on making dir TestValidateGraphQLFile_PathCleaning")
+	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			isValid, err := ValidateGraphQLFile(tc.path, secretsMap)
-
 			if err != nil {
 				t.Errorf("Expected no error for path '%s', got: %v", tc.path, err)
 			}
@@ -518,7 +509,7 @@ func TestHasValidURLField_EdgeCases(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			filePath := filepath.Join(tempDir, fmt.Sprintf("%s.yaml", tc.name))
-			err := os.WriteFile(filePath, []byte(tc.content), 0644)
+			err := os.WriteFile(filePath, []byte(tc.content), 0o644)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
@@ -578,7 +569,7 @@ func TestPeekKindField(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			filePath := filepath.Join(tempDir, tc.name+".yaml")
-			err := os.WriteFile(filePath, []byte(tc.content), 0644)
+			err := os.WriteFile(filePath, []byte(tc.content), 0o644)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
@@ -619,7 +610,7 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 	gitDir := filepath.Join(tempDir, ".git")
 
 	for _, dir := range []string{envDir, apisDir, testsDir, gitDir} {
-		err := os.MkdirAll(dir, 0755)
+		err := os.MkdirAll(dir, 0o755)
 		if err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
@@ -627,18 +618,27 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 
 	// Create env file
 	envFile := filepath.Join(envDir, "global.env")
-	os.WriteFile(envFile, []byte("baseUrl=http://example.com\n"), 0644)
+	err := os.WriteFile(envFile, []byte("baseUrl=http://example.com\n"), 0o644)
+	if err != nil {
+		t.Fatalf("error on writing file in TestFindGraphQLFiles_MalformedYAML()")
+	}
 
 	// Create API files
 	createYAMLFile(t, apisDir, "users.yaml", "API", "http://api.com/users")
 	createGraphQLFile(t, apisDir, "graphql.yaml", "{{.baseUrl}}/graphql")
 	responseFile := filepath.Join(apisDir, "users_response.json")
-	os.WriteFile(responseFile, []byte("{}"), 0644)
+	err = os.WriteFile(responseFile, []byte("{}"), 0o644)
+	if err != nil {
+		t.Fatalf("error write file")
+	}
 
 	// Create test files
 	createGraphQLFile(t, testsDir, "test1.yaml", "http://test.com/graphql")
 	testResponseFile := filepath.Join(testsDir, "test1_response.json")
-	os.WriteFile(testResponseFile, []byte("{}"), 0644)
+	err = os.WriteFile(testResponseFile, []byte("{}"), 0o644)
+	if err != nil {
+		t.Fatalf("error write file")
+	}
 
 	// Create file in .git (should be skipped)
 	createGraphQLFile(t, gitDir, "graphql.yaml", "http://git.com/graphql")
@@ -685,21 +685,26 @@ func BenchmarkFindGraphQLFiles(b *testing.B) {
 	tempDir := b.TempDir()
 	secretsMap := make(map[string]any)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		content := fmt.Sprintf("---\nkind: GraphQL\nurl: http://example.com/%d\nmethod: POST\n", i)
 		filePath := filepath.Join(tempDir, fmt.Sprintf("graphql%d.yaml", i))
-		os.WriteFile(filePath, []byte(content), 0644)
+		err := os.WriteFile(filePath, []byte(content), 0o644)
+		if err != nil {
+			b.Fatalf("error write file")
+		}
 	}
 
-	for i := 0; i < 90; i++ {
+	for i := range 90 {
 		content := fmt.Sprintf("---\nkind: API\nurl: http://example.com/%d\nmethod: POST\n", i)
 		filePath := filepath.Join(tempDir, fmt.Sprintf("api%d.yaml", i))
-		os.WriteFile(filePath, []byte(content), 0644)
+		err := os.WriteFile(filePath, []byte(content), 0o644)
+		if err != nil {
+			b.Fatalf("error on write file")
+		}
+
 	}
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = FindGraphQLFiles(tempDir, secretsMap)
 	}
 }
@@ -711,11 +716,12 @@ func BenchmarkValidateGraphQLFile(b *testing.B) {
 
 	content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n"
 	filePath := filepath.Join(tempDir, "test.yaml")
-	os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0o644)
+	if err != nil {
+		b.Fatalf("error on wirte file")
+	}
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = ValidateGraphQLFile(filePath, secretsMap)
 	}
 }
