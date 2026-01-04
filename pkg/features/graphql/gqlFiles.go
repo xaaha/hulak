@@ -223,8 +223,8 @@ func Introspect(args []string) {
 
 		// Placeholder output - just print the list
 		fmt.Println("GraphQL files found:")
-		for _, f := range files {
-			fmt.Println(f)
+		for _, file := range files {
+			fmt.Println(file)
 		}
 	} else {
 		// File mode: validate specific file
