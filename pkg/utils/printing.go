@@ -3,21 +3,24 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+	"text/tabwriter"
 )
 
 // ColorError Creates an error message that optionally includes an additional error.
 // If an error is provided, it formats the message with the error appended.
 // The returned error is colored for console output.
 func ColorError(errMsg string, errs ...error) error {
-	fullMsg := errMsg
+	var fullMsg strings.Builder
+	fullMsg.WriteString(errMsg)
 	for _, err := range errs {
 		if err != nil {
-			fullMsg += ": " + err.Error()
+			fullMsg.WriteString(": " + err.Error())
 		}
 	}
-	return fmt.Errorf("\n%s  error: %s%s", Red, fullMsg, ColorReset)
+	return fmt.Errorf("\n%s  error: %s%s", Red, fullMsg.String(), ColorReset)
 }
 
 // PrintGreen Prints Success Message
@@ -71,4 +74,21 @@ func MarshalToJSON(value any) (any, error) {
 		}
 		return string(jsonStr), nil
 	}
+}
+
+// CommandHelp holds a command and its description
+type CommandHelp struct {
+	Command     string
+	Description string
+}
+
+// CommandHelp holds a command and its description
+func WriteCommandHelp(out io.Writer, commands []*CommandHelp) error {
+	w := tabwriter.NewWriter(out, 0, 0, 4, ' ', 0)
+	for _, cmd := range commands {
+		if _, err := fmt.Fprintf(w, "  %s\t- %s\n", cmd.Command, cmd.Description); err != nil {
+			return err
+		}
+	}
+	return w.Flush()
 }
