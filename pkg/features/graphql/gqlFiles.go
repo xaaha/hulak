@@ -45,53 +45,53 @@ func peekKindField(filePath string) (string, error) {
 	return "", nil // Kind exists but not a string
 }
 
-// hasValidURLField checks if a YAML file has a non-empty url field.
-// It only checks for presence and non-empty value, not URL validity.
-// This allows templates like {{.baseUrl}} to pass validation.
-func hasValidURLField(filePath string) bool {
+// peekURLField reads a YAML file and extracts only the 'url' field
+// without performing template substitution. Returns the raw URL value
+// which could be a template string like "{{.baseUrl}}" or a full URL.
+func peekURLField(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return false
+		return "", fmt.Errorf("cannot open file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
 	var data map[string]any
 	dec := yaml.NewDecoder(file)
 	if err := dec.Decode(&data); err != nil {
-		return false
+		return "", fmt.Errorf("cannot decode YAML: %w", err)
 	}
 
-	// Convert keys to lowercase (consistent with yamlparser behavior)
+	// Convert keys to lowercase (consistent with yamlparser)
 	data = utils.ConvertKeysToLowerCase(data)
 
-	// Check if url field exists
+	// Extract url field
 	urlValue, exists := data["url"]
 	if !exists {
-		return false
+		return "", nil // No url field
 	}
 
-	// Check if url is not empty
-	switch url := urlValue.(type) {
-	case string:
-		// Trim whitespace and check non-empty
-		return strings.TrimSpace(url) != ""
-	default:
-		// Non-string types (null, number, bool) are invalid
-		return false
+	// Return URL as string (could be template or full URL)
+	if url, ok := urlValue.(string); ok {
+		return strings.TrimSpace(url), nil
 	}
+
+	return "", nil // URL exists but not a string
 }
 
-// FindGraphQLFiles finds all files with kind: GraphQL and a valid url field
+// FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
 // in the given directory and its subdirectories.
-// Returns a list of absolute file paths.
-func FindGraphQLFiles(dirPath string, secretsMap map[string]any) ([]string, error) {
+// Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths.
+// This ensures each unique URL/template is only represented once.
+// NOTE: This function does NOT perform template substitution - URLs are returned as-is.
+func FindGraphQLFiles(dirPath string, secretsMap map[string]any) (map[string]string, error) {
 	// Get all YAML/JSON files recursively
 	allFiles, err := utils.ListFiles(dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("error listing files in '%s': %w", dirPath, err)
 	}
 
-	var graphqlFiles []string
+	// Map of URL -> filePath to ensure uniqueness
+	graphqlFiles := make(map[string]string)
 
 	for _, filePath := range allFiles {
 		// Skip response files early (performance optimization)
@@ -99,48 +99,38 @@ func FindGraphQLFiles(dirPath string, secretsMap map[string]any) ([]string, erro
 			continue
 		}
 
-		// Check kind field first to avoid template substitution
-		// errors from non-GraphQL files (API, Auth, etc.)
+		// Lightweight peek at kind field - no template substitution
 		kind, err := peekKindField(filePath)
 		if err != nil {
-			// Warn about unreadable files but continue checking others
-			utils.PrintWarning(fmt.Sprintf(
-				"Warning: Could not read file '%s':\n  %v",
-				filepath.Base(filePath), err))
+			// Silently skip malformed files
 			continue
 		}
 
+		// Only process GraphQL files
 		if !strings.EqualFold(kind, "GraphQL") {
-			continue // Not a GraphQL file, skip it
+			continue // Skip non-GraphQL files silently
 		}
 
-		// Full parsing with template substitution for GraphQL files only
-		// Template errors displayed here are useful for debugging
-		config, err := yamlparser.ParseConfig(filePath, secretsMap)
+		// Peek at URL field - no template substitution
+		url, err := peekURLField(filePath)
 		if err != nil {
-			// Warn but continue - other GraphQL files might be valid
-			utils.PrintWarning(fmt.Sprintf(
-				"Warning: Could not parse GraphQL file '%s'",
-				filepath.Base(filePath)))
+			// Silently skip files we can't read
 			continue
 		}
 
-		// Safety check after full parsing
-		if !config.IsGraphql() {
+		// Skip files with empty URL (silently)
+		if url == "" {
 			continue
 		}
 
-		// Check if it has a valid URL field
-		if !hasValidURLField(filePath) {
-			continue
-		}
-
-		graphqlFiles = append(graphqlFiles, filePath)
+		// Valid GraphQL file with non-empty URL (template or full URL)
+		// Store URL -> filePath mapping (later files with same URL will overwrite)
+		graphqlFiles[url] = filePath
 	}
 
 	if len(graphqlFiles) == 0 {
 		return nil, fmt.Errorf(
-			"no files with 'kind: GraphQL' and 'url' field found in directory: %s",
+			"no files with 'kind: GraphQL' and non-empty 'url' field found in directory: %s",
 			dirPath,
 		)
 	}
@@ -149,88 +139,90 @@ func FindGraphQLFiles(dirPath string, secretsMap map[string]any) ([]string, erro
 }
 
 // ValidateGraphQLFile checks if a file exists, has kind: GraphQL, and has a valid url field.
-// Returns true if valid, error with description if invalid.
-func ValidateGraphQLFile(filePath string, secretsMap map[string]any) (bool, error) {
+// Returns the URL (after template substitution) and true if valid, error if invalid.
+// This function DOES perform template substitution, unlike FindGraphQLFiles.
+func ValidateGraphQLFile(filePath string, secretsMap map[string]any) (string, bool, error) {
 	// Clean the path
 	filePath = filepath.Clean(filePath)
 
 	// Check if file exists
 	if !utils.FileExists(filePath) {
-		return false, fmt.Errorf("file not found: %s", filePath)
+		return "", false, fmt.Errorf("file not found: %s", filePath)
 	}
 
-	// Parse the file
-	config, err := yamlparser.ParseConfig(filePath, secretsMap)
+	// Peek at kind first (fast check before expensive parsing)
+	kind, err := peekKindField(filePath)
 	if err != nil {
-		return false, fmt.Errorf("error parsing file '%s': %w", filePath, err)
+		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
 	}
 
 	// Check if kind is GraphQL
-	if !config.IsGraphql() {
-		return false, fmt.Errorf("file '%s' does not have 'kind: GraphQL'", filePath)
+	if !strings.EqualFold(kind, "GraphQL") {
+		return "", false, fmt.Errorf("file '%s' does not have 'kind: GraphQL'", filePath)
 	}
 
-	// Check if it has a valid URL field
-	if !hasValidURLField(filePath) {
-		return false, fmt.Errorf(
-			"file '%s' is missing required 'url' field for GraphQL introspection",
+	// Parse the full API structure with template substitution
+	apiFile, valid, err := yamlparser.FinalStructForAPI(filePath, secretsMap)
+	if err != nil || !valid {
+		return "", false, fmt.Errorf("error parsing API file '%s': %w", filePath, err)
+	}
+
+	// Validate URL field
+	if !apiFile.URL.IsValidURL() {
+		return "", false, fmt.Errorf(
+			"file '%s' has invalid or missing URL (after template substitution)",
 			filePath,
 		)
 	}
 
-	return true, nil
+	return string(apiFile.URL), true, nil
 }
 
-// Introspect is a placeholder CLI handler for 'hulak gql' subcommand.
-// Any additional arguments after the first are silently ignored.
+// Introspect is the CLI handler for 'hulak gql' subcommand.
+// Supported usage:
+//   - hulak gql           (shows help)
+//   - hulak gql .         (directory mode - find all GraphQL files)
+//   - hulak gql <path>    (file mode - validate specific file)
 func Introspect(args []string) {
 	secretsMap := make(map[string]any)
 
-	// Determine mode based on first argument only
-	// Ignore any additional arguments
-	var mode string
-	var targetPath string
-
+	// No args = show help and return
 	if len(args) == 0 {
 		utils.PrintWarning("GraphQL Usage:")
 		_ = utils.WriteCommandHelp([]*utils.CommandHelp{
-			{Command: "hulak gql .", Description: "Find All GraphQL in current CWD"},
-			{Command: "hulak gql <path/to/file>", Description: "Use provided specific path"},
-		},
-		)
-	} else {
-		firstArg := args[0]
-		if firstArg == "." {
-			mode = "directory"
-		} else {
-			// Assume it's a file path
-			mode = "file"
-			targetPath = firstArg
-		}
+			{Command: "hulak gql .", Description: "Find All GraphQL files in current directory"},
+			{Command: "hulak gql <path/to/file>", Description: "Validate a specific GraphQL file"},
+		})
+		return
 	}
 
-	if mode == "directory" {
+	firstArg := args[0]
+
+	if firstArg == "." {
 		// Directory mode: find all GraphQL files in CWD
 		cwd, err := os.Getwd()
 		if err != nil {
 			utils.PanicRedAndExit("Error getting current directory: %v", err)
 		}
 
-		files, err := FindGraphQLFiles(cwd, secretsMap)
+		urlToFileMap, err := FindGraphQLFiles(cwd, secretsMap)
 		if err != nil {
 			utils.PanicRedAndExit("%v", err)
 		}
 
-		// Placeholder output - just print the list
-		fmt.Println("GraphQL files found:")
-		for _, file := range files {
-			fmt.Println(file)
+		// Display results
+		fmt.Println("\nGraphQL files found:")
+		for url, filePath := range urlToFileMap {
+			fmt.Printf("  URL:  %s\n", url)
+			fmt.Printf("  File: %s\n\n", filePath)
 		}
+
+		fmt.Printf("Total: %d unique GraphQL endpoint(s)\n", len(urlToFileMap))
 	} else {
 		// File mode: validate specific file
-		filePath := filepath.Clean(targetPath)
+		filePath := filepath.Clean(firstArg)
 
-		isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+		url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
 		if err != nil {
 			utils.PanicRedAndExit("%v", err)
 		}
@@ -239,7 +231,7 @@ func Introspect(args []string) {
 			utils.PanicRedAndExit("File validation failed unexpectedly")
 		}
 
-		// Placeholder output
 		fmt.Printf("Valid GraphQL file: %s\n", filePath)
+		fmt.Printf("URL: %s\n", url)
 	}
 }
