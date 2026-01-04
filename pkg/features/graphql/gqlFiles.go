@@ -48,7 +48,7 @@ func peekKindField(filePath string) (string, error) {
 // hasValidURLField checks if a YAML file has a non-empty url field.
 // It only checks for presence and non-empty value, not URL validity.
 // This allows templates like {{.baseUrl}} to pass validation.
-func hasValidURLField(filePath string, _ map[string]any) bool {
+func hasValidURLField(filePath string) bool {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return false
@@ -131,7 +131,7 @@ func FindGraphQLFiles(dirPath string, secretsMap map[string]any) ([]string, erro
 		}
 
 		// Check if it has a valid URL field
-		if !hasValidURLField(filePath, secretsMap) {
+		if !hasValidURLField(filePath) {
 			continue
 		}
 
@@ -171,7 +171,7 @@ func ValidateGraphQLFile(filePath string, secretsMap map[string]any) (bool, erro
 	}
 
 	// Check if it has a valid URL field
-	if !hasValidURLField(filePath, secretsMap) {
+	if !hasValidURLField(filePath) {
 		return false, fmt.Errorf(
 			"file '%s' is missing required 'url' field for GraphQL introspection",
 			filePath,

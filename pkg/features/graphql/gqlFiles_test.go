@@ -452,7 +452,6 @@ func TestValidateGraphQLFile_PathCleaning(t *testing.T) {
 
 func TestHasValidURLField_EdgeCases(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	testCases := []struct {
 		name     string
@@ -514,7 +513,7 @@ func TestHasValidURLField_EdgeCases(t *testing.T) {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			result := hasValidURLField(filePath, secretsMap)
+			result := hasValidURLField(filePath)
 
 			if result != tc.expected {
 				t.Errorf("Expected %v for case '%s', got %v", tc.expected, tc.name, result)
