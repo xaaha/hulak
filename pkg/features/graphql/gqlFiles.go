@@ -182,11 +182,6 @@ func ValidateGraphQLFile(filePath string, secretsMap map[string]any) (bool, erro
 }
 
 // Introspect is a placeholder CLI handler for 'hulak gql' subcommand.
-// Supported usage:
-//   - hulak gql         (directory mode)
-//   - hulak gql .       (directory mode)
-//   - hulak gql <path>  (file mode)
-//
 // Any additional arguments after the first are silently ignored.
 func Introspect(args []string) {
 	secretsMap := make(map[string]any)
@@ -197,7 +192,12 @@ func Introspect(args []string) {
 	var targetPath string
 
 	if len(args) == 0 {
-		mode = "directory"
+		utils.PrintWarning("GraphQL Usage:")
+		_ = utils.WriteCommandHelp([]*utils.CommandHelp{
+			{Command: "hulak gql .", Description: "Find All GraphQL in current CWD"},
+			{Command: "hulak gql <path/to/file>", Description: "Use provided specific path"},
+		},
+		)
 	} else {
 		firstArg := args[0]
 		if firstArg == "." {

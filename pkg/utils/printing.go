@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -83,8 +82,8 @@ type CommandHelp struct {
 }
 
 // CommandHelp holds a command and its description
-func WriteCommandHelp(out io.Writer, commands []*CommandHelp) error {
-	w := tabwriter.NewWriter(out, 0, 0, 4, ' ', 0)
+func WriteCommandHelp(commands []*CommandHelp) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
 	for _, cmd := range commands {
 		if _, err := fmt.Fprintf(w, "  %s\t- %s\n", cmd.Command, cmd.Description); err != nil {
 			return err

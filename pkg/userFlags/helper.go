@@ -2,8 +2,6 @@
 package userflags
 
 import (
-	"os"
-
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -41,7 +39,7 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 // Helper function to print command usage
 func printHelp() {
 	utils.PrintWarning("Api Usage:")
-	_ = utils.WriteCommandHelp(os.Stdout, []*utils.CommandHelp{
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
 		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{
 			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
@@ -65,7 +63,7 @@ func printHelp() {
 		},
 	})
 
-	_ = utils.WriteCommandHelp(os.Stdout, []*utils.CommandHelp{
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
 		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{
 			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
@@ -97,7 +95,7 @@ func printHelp() {
 // helper function to show valid subcommands
 func printHelpSubCommands() {
 	utils.PrintWarning("Subcommands:")
-	_ = utils.WriteCommandHelp(os.Stdout, []*utils.CommandHelp{
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
 		{Command: "hulak version", Description: "Prints hulak version"},
 		{
 			Command:     "hulak init",
