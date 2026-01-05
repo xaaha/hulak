@@ -7,7 +7,6 @@ import (
 	"testing"
 )
 
-// TODO: FIX THIS TEST
 func BenchmarkListFiles(b *testing.B) {
 	root := b.TempDir()
 

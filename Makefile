@@ -20,4 +20,11 @@ check:
 	@make unit && make run && make run-all  && make graphql
 
 bench:
-	@cd pkg/utils/ && go test -bench=BenchmarkListFiles
+	@go test -bench=. -benchmem ./... 2>&1 | grep '^Benchmark' | head -10
+
+
+gen-coverage:
+	@go test ./... -coverprofile=coverage.out
+
+view-coverage:
+	@go tool cover -html=coverage.out

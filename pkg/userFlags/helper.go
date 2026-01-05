@@ -2,10 +2,6 @@
 package userflags
 
 import (
-	"fmt"
-	"os"
-	"text/tabwriter"
-
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -43,20 +39,55 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 // Helper function to print command usage
 func printHelp() {
 	utils.PrintWarning("Api Usage:")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-	writeCommandHelp(w, []*CommandHelp{
-		{"hulak -env global -f fileName", "Find and run all 'fileName'"},
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
+		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{
-			"hulak -env staging -fp path/tofile/getUser.yaml",
-			"Run specific file with provided file path",
+			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
+			Description: "Run specific file with provided file path",
 		},
-		{"hulak -env prod -fp path/tofile/getUser.yaml -debug", "Run in debug mode"},
-		{"hulak  -fp path/tofile/getUser.yaml -debug", "Run in global environment with debug mode"},
-		{"hulak -env prod -dir path/to/dir ", "Run all files in the directory concurrently"},
-		{"hulak -env prod -dirseq path/to/dir ", "Run all files in the directory alphabetically"},
+		{
+			Command:     "hulak -env prod -fp path/tofile/getUser.yaml -debug",
+			Description: "Run in debug mode",
+		},
+		{
+			Command:     "hulak  -fp path/tofile/getUser.yaml -debug",
+			Description: "Run in global environment with debug mode",
+		},
+		{
+			Command:     "hulak -env prod -dir path/to/dir ",
+			Description: "Run all files in the directory concurrently",
+		},
+		{
+			Command:     "hulak -env prod -dirseq path/to/dir ",
+			Description: "Run all files in the directory alphabetically",
+		},
 	})
 
-	w.Flush()
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
+		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
+		{
+			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
+			Description: "Run specific file with provided file path",
+		},
+		{
+			Command:     "hulak -env prod -fp path/tofile/getUser.yaml -debug",
+			Description: "Run in debug mode",
+		},
+		{
+			Command:     "hulak  -fp path/tofile/getUser.yaml -debug",
+			Description: "Run in global environment with debug mode",
+		},
+		{
+			Command:     "hulak -env prod -dir path/to/dir ",
+			Description: "Run all files in the directory concurrently",
+		},
+		{
+			Command:     "hulak -env prod -dirseq path/to/dir ",
+			Description: "Run all files in the directory alphabetically",
+		},
+	})
+
+	// w.Flush()
 
 	printHelpSubCommands()
 }
@@ -64,26 +95,19 @@ func printHelp() {
 // helper function to show valid subcommands
 func printHelpSubCommands() {
 	utils.PrintWarning("Subcommands:")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
-	writeCommandHelp(w, []*CommandHelp{
-		{"hulak version", "Prints hulak version"},
-		{"hulak init", "Initializes default environment and creates an apiOptions.yaml file"},
-		{"hulak init -env global prod test", "Initializes specific environments"},
-		{"hulak migrate <file1> <file2> ...", "Migrates postman env and collections"},
+	_ = utils.WriteCommandHelp([]*utils.CommandHelp{
+		{Command: "hulak version", Description: "Prints hulak version"},
+		{
+			Command:     "hulak init",
+			Description: "Initializes default environment and creates an apiOptions.yaml file",
+		},
+		{
+			Command:     "hulak init -env global prod test",
+			Description: "Initializes specific environments",
+		},
+		{
+			Command:     "hulak migrate <file1> <file2> ...",
+			Description: "Migrates postman env and collections",
+		},
 	})
-
-	w.Flush()
-}
-
-// CommandHelp holds a command and its description
-type CommandHelp struct {
-	Command     string
-	Description string
-}
-
-// writeCommandHelp writes commands and descriptions with proper alignment
-func writeCommandHelp(w *tabwriter.Writer, commands []*CommandHelp) {
-	for _, cmd := range commands {
-		fmt.Fprintf(w, "  %s\t- %s\n", cmd.Command, cmd.Description)
-	}
 }
