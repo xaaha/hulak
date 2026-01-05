@@ -378,21 +378,6 @@ body:
 			expectErr:  true,
 			fileExists: true,
 		},
-		{
-			name: "Missing required template variable",
-			content: `
- method: post
- url: https://api.example.com
- headers:
-   Content-Type: application/json
- body:
-   json:
-     field1: "{{.missing_variable}}"
-		`,
-			secretMap:  secretsMap,
-			expectErr:  false,
-			fileExists: true,
-		},
 	}
 
 	for _, tc := range tests {

@@ -3,7 +3,9 @@ package yamlparser
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"strings"
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/actions"
@@ -20,30 +22,56 @@ import (
 func replaceVarsWithValues(
 	dict map[string]any,
 	secretsMap map[string]any,
-) map[string]any {
+) (map[string]any, error) {
 	changedMap := make(map[string]any)
 
 	for key, val := range dict {
 		switch valTyped := val.(type) {
 		case map[string]any:
-			changedMap[key] = replaceVarsWithValues(valTyped, secretsMap)
+			// Recursively process nested maps
+			nestedMap, err := replaceVarsWithValues(valTyped, secretsMap)
+			if err != nil {
+				return nil, fmt.Errorf("error in %s: %w", key, err)
+			}
+			changedMap[key] = nestedMap
+
 		case string:
+			// OPTIMIZATION: Skip template parsing if no template syntax present
+			if !strings.Contains(valTyped, "{{") {
+				changedMap[key] = valTyped
+				continue
+			}
+
+			// Process template variables
 			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
 			if err != nil {
-				utils.PrintRed(err.Error())
+				errMsg := fmt.Sprintf("error substituting variable in '%s': %v", key, err)
+				return nil, utils.ColorError(errMsg)
 			}
+
+			// Check if the value exists directly in secretsMap
 			if replacedValue, ok := secretsMap[valTyped]; ok {
 				changedMap[key] = replacedValue
 			} else {
 				changedMap[key] = finalChangedValue
 			}
+
 		case map[string]string:
 			innerMap := make(map[string]any)
 			for k, v := range valTyped {
+				// OPTIMIZATION: Skip template parsing if no template syntax present
+				if !strings.Contains(v, "{{") {
+					innerMap[k] = v
+					continue
+				}
+
+				// Process template variables
 				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
-					utils.PrintRed(err.Error())
+					return nil, fmt.Errorf("error substituting variable in '%s.%s': %w", key, k, err)
 				}
+
+				// Check if the value exists directly in secretsMap
 				if replacedValue, ok := secretsMap[v]; ok {
 					innerMap[k] = replacedValue
 				} else {
@@ -51,11 +79,12 @@ func replaceVarsWithValues(
 				}
 			}
 			changedMap[key] = innerMap
+
 		default:
 			changedMap[key] = val
 		}
 	}
-	return changedMap
+	return changedMap, nil
 }
 
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
@@ -85,7 +114,10 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	data = utils.ConvertKeysToLowerCase(data)
 
 	// parse all the values to with {{.key}} from .env folder
-	parsedMap := replaceVarsWithValues(data, secretsMap)
+	parsedMap, err := replaceVarsWithValues(data, secretsMap)
+	if err != nil {
+		return nil, err
+	}
 
 	// translate the types, if acceptable
 	parsedMap, err = translateType(data, parsedMap, secretsMap, actions.GetValueOf)
