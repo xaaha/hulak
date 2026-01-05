@@ -134,7 +134,8 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
 	// Parse the configuration for the file
 	config, err := yamlparser.ParseConfig(path, secretsMap)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		errMsg := fmt.Sprintf("failed to parse config %v", err)
+		return utils.ColorError(errMsg)
 	}
 
 	// Handle different kinds based on the yaml 'kind' we get
