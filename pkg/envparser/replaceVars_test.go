@@ -138,7 +138,7 @@ func TestSubstituteVariables(t *testing.T) {
 			stringToChange: "1234 comes before {{.naa}}",
 			expectedOutput: nil,
 			expectedErr: errors.New(
-				"map has no entry for key \"naa\"",
+				"key \"naa\" not found",
 			),
 			varMap: varMap,
 		},
@@ -168,7 +168,7 @@ func TestSubstituteVariables(t *testing.T) {
 			stringToChange: "this string has {{.unresolvedKey}}",
 			expectedOutput: nil,
 			expectedErr: errors.New(
-				"map has no entry for key \"unresolvedKey\"",
+				"key \"unresolvedKey\" not found",
 			),
 			varMap: map[string]any{},
 		},
@@ -177,7 +177,7 @@ func TestSubstituteVariables(t *testing.T) {
 			stringToChange: "{{.varName}} is missing, so is {{.secondName}}",
 			expectedOutput: nil,
 			expectedErr: errors.New(
-				"map has no entry for key \"varName\"",
+				"key \"varName\" not found",
 			),
 			varMap: map[string]any{},
 		},
@@ -198,6 +198,158 @@ func TestSubstituteVariables(t *testing.T) {
 				// Errors match; no action needed
 			} else {
 				t.Errorf("Error mismatch: expected %v, got %v", tc.expectedErr, err)
+			}
+		})
+	}
+}
+
+func TestExtractMissingKey(t *testing.T) {
+	testCases := []struct {
+		name        string
+		err         error
+		expectedKey string
+	}{
+		{
+			name:        "Standard missing key error",
+			err:         errors.New(`template: template:1:2: executing "template" at <.graphqlUrl>: map has no entry for key "graphqlUrl"`),
+			expectedKey: "graphqlUrl",
+		},
+		{
+			name:        "Missing key with different name",
+			err:         errors.New(`template: template:1:2: executing "template" at <.apiKey>: map has no entry for key "apiKey"`),
+			expectedKey: "apiKey",
+		},
+		{
+			name:        "Non-missing key error",
+			err:         errors.New("some other template error"),
+			expectedKey: "",
+		},
+		{
+			name:        "Nil error",
+			err:         nil,
+			expectedKey: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := extractMissingKey(tc.err)
+			if result != tc.expectedKey {
+				t.Errorf("Expected key '%s', got '%s'", tc.expectedKey, result)
+			}
+		})
+	}
+}
+
+func TestFormatMissingKeyError(t *testing.T) {
+	// Set up test environment
+	originalEnv := os.Getenv("hulakEnv")
+	defer func() {
+		if originalEnv != "" {
+			os.Setenv("hulakEnv", originalEnv)
+		} else {
+			os.Unsetenv("hulakEnv")
+		}
+	}()
+
+	testCases := []struct {
+		name          string
+		keyName       string
+		envValue      string
+		expectedInMsg []string
+	}{
+		{
+			name:     "Missing key in global environment",
+			keyName:  "graphqlUrl",
+			envValue: "global",
+			expectedInMsg: []string{
+				`key "graphqlUrl" not found`,
+				`environment "global"`,
+				`Add "graphqlUrl=<value>" to env/global.env`,
+			},
+		},
+		{
+			name:     "Missing key in custom environment",
+			keyName:  "apiKey",
+			envValue: "prod",
+			expectedInMsg: []string{
+				`key "apiKey" not found`,
+				`environment "prod"`,
+				`Add "apiKey=<value>" to env/prod.env`,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("hulakEnv", tc.envValue)
+
+			err := formatMissingKeyError(tc.keyName)
+			if err == nil {
+				t.Fatal("Expected error, got nil")
+			}
+
+			errMsg := err.Error()
+			for _, expectedStr := range tc.expectedInMsg {
+				if !strings.Contains(errMsg, expectedStr) {
+					t.Errorf("Expected error message to contain '%s', got:\n%s", expectedStr, errMsg)
+				}
+			}
+		})
+	}
+}
+
+func TestSubstituteVariablesWithImprovedErrors(t *testing.T) {
+	testCases := []struct {
+		name             string
+		stringToChange   string
+		varMap           map[string]any
+		env              string
+		expectedErrParts []string
+	}{
+		{
+			name:           "Missing key shows helpful error",
+			stringToChange: "{{.missingKey}}",
+			varMap:         map[string]any{},
+			env:            "global",
+			expectedErrParts: []string{
+				`key "missingKey" not found`,
+				`environment "global"`,
+				`Add "missingKey=<value>"`,
+			},
+		},
+		{
+			name:           "Missing key in prod environment",
+			stringToChange: "https://api.example.com/{{.endpoint}}",
+			varMap:         map[string]any{},
+			env:            "prod",
+			expectedErrParts: []string{
+				`key "endpoint" not found`,
+				`environment "prod"`,
+				`Add "endpoint=<value>" to env/prod.env`,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set environment
+			if tc.env != "" {
+				os.Setenv("hulakEnv", tc.env)
+				defer os.Unsetenv("hulakEnv")
+			}
+
+			_, err := SubstituteVariables(tc.stringToChange, tc.varMap)
+
+			if err == nil {
+				t.Fatal("Expected error, got nil")
+			}
+
+			errMsg := err.Error()
+			for _, expectedPart := range tc.expectedErrParts {
+				if !strings.Contains(errMsg, expectedPart) {
+					t.Errorf("Expected error to contain '%s', got:\n%s", expectedPart, errMsg)
+				}
 			}
 		})
 	}
