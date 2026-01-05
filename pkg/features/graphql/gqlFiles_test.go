@@ -212,7 +212,6 @@ func TestPeekURLField(t *testing.T) {
 
 func TestFindGraphQLFiles_Success(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create test files
 	createGraphQLFile(t, tempDir, "valid1.yaml", "http://example.com")
@@ -220,7 +219,7 @@ func TestFindGraphQLFiles_Success(t *testing.T) {
 	createYAMLFile(t, tempDir, "api.yaml", "API", "http://api.com")
 	createYAMLFile(t, tempDir, "auth.yaml", "Auth", "http://auth.com")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -246,14 +245,13 @@ func TestFindGraphQLFiles_Success(t *testing.T) {
 
 func TestFindGraphQLFiles_DuplicateURLs(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create multiple files with the same URL
 	createGraphQLFile(t, tempDir, "file1.yaml", "http://example.com/graphql")
 	createGraphQLFile(t, tempDir, "file2.yaml", "http://example.com/graphql")
 	createGraphQLFile(t, tempDir, "file3.yaml", "http://different.com/graphql")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -274,14 +272,13 @@ func TestFindGraphQLFiles_DuplicateURLs(t *testing.T) {
 
 func TestFindGraphQLFiles_WithTemplateURLs(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create files with various template URLs
 	createGraphQLFile(t, tempDir, "template1.yaml", "{{.baseUrl}}")
 	createGraphQLFile(t, tempDir, "template2.yaml", "{{.endpoint}}/graphql")
 	createGraphQLFile(t, tempDir, "actual.yaml", "https://api.example.com/graphql")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -303,12 +300,11 @@ func TestFindGraphQLFiles_WithTemplateURLs(t *testing.T) {
 
 func TestFindGraphQLFiles_WithoutURL(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create GraphQL file without URL
 	createGraphQLFile(t, tempDir, "no_url.yaml", "")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 
 	if err == nil {
 		t.Errorf("Expected error for GraphQL file without URL")
@@ -320,7 +316,6 @@ func TestFindGraphQLFiles_WithoutURL(t *testing.T) {
 
 func TestFindGraphQLFiles_EmptyURL(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create file with empty URL
 	content := "---\nkind: GraphQL\nurl: \"\"\nmethod: POST\n"
@@ -330,7 +325,7 @@ func TestFindGraphQLFiles_EmptyURL(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 
 	if err == nil {
 		t.Errorf("Expected error for GraphQL file with empty URL")
@@ -342,13 +337,12 @@ func TestFindGraphQLFiles_EmptyURL(t *testing.T) {
 
 func TestFindGraphQLFiles_NoGraphQLFiles(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create only non-GraphQL files
 	createYAMLFile(t, tempDir, "api.yaml", "API", "http://api.com")
 	createYAMLFile(t, tempDir, "auth.yaml", "Auth", "http://auth.com")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 
 	if err == nil {
 		t.Errorf("Expected error when no GraphQL files found")
@@ -363,7 +357,6 @@ func TestFindGraphQLFiles_NoGraphQLFiles(t *testing.T) {
 
 func TestFindGraphQLFiles_OnlyResponseFiles(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create only response files
 	content := "---\nkind: GraphQL\nurl: http://example.com\nmethod: POST\n"
@@ -373,7 +366,7 @@ func TestFindGraphQLFiles_OnlyResponseFiles(t *testing.T) {
 		t.Fatalf("Failed to create response file: %v", err)
 	}
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 
 	if err == nil {
 		t.Errorf("Expected error when only response files present")
@@ -385,9 +378,8 @@ func TestFindGraphQLFiles_OnlyResponseFiles(t *testing.T) {
 
 func TestFindGraphQLFiles_EmptyDirectory(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 
 	if err == nil {
 		t.Errorf("Expected error for empty directory")
@@ -399,7 +391,6 @@ func TestFindGraphQLFiles_EmptyDirectory(t *testing.T) {
 
 func TestFindGraphQLFiles_MalformedYAML(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create valid file and a truly malformed file
 	createGraphQLFile(t, tempDir, "valid.yaml", "http://example.com")
@@ -412,7 +403,7 @@ func TestFindGraphQLFiles_MalformedYAML(t *testing.T) {
 		t.Fatalf("Failed to create malformed file: %v", err)
 	}
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	// Should find at least the valid file, malformed should be skipped
 	if err != nil {
 		t.Fatalf("Expected no error (malformed files should be skipped), got: %v", err)
@@ -424,7 +415,6 @@ func TestFindGraphQLFiles_MalformedYAML(t *testing.T) {
 
 func TestFindGraphQLFiles_NestedDirectories(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create nested directory structure
 	subDir := filepath.Join(tempDir, "subdir")
@@ -437,7 +427,7 @@ func TestFindGraphQLFiles_NestedDirectories(t *testing.T) {
 	createGraphQLFile(t, tempDir, "root.yaml", "http://example.com")
 	createGraphQLFile(t, subDir, "nested.yaml", "http://nested.com")
 
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -450,11 +440,10 @@ func TestFindGraphQLFiles_NestedDirectories(t *testing.T) {
 
 func TestValidateGraphQLFile_Valid(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	filePath := createGraphQLFile(t, tempDir, "valid.yaml", "http://example.com")
 
-	url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+	url, isValid, err := ValidateGraphQLFile(filePath)
 	if err != nil {
 		t.Errorf("Expected no error for valid file, got: %v", err)
 	}
@@ -468,11 +457,10 @@ func TestValidateGraphQLFile_Valid(t *testing.T) {
 
 func TestValidateGraphQLFile_MissingURL(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	filePath := createGraphQLFile(t, tempDir, "no_url.yaml", "")
 
-	url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+	url, isValid, err := ValidateGraphQLFile(filePath)
 
 	if err == nil {
 		t.Errorf("Expected error for missing URL")
@@ -483,14 +471,13 @@ func TestValidateGraphQLFile_MissingURL(t *testing.T) {
 	if url != "" {
 		t.Errorf("Expected empty URL string, got '%s'", url)
 	}
-	if !strings.Contains(err.Error(), "missing or invalid URL") {
+	if !strings.Contains(err.Error(), "empty or missing 'url' field") {
 		t.Errorf("Expected 'missing url' error message, got: %v", err)
 	}
 }
 
 func TestValidateGraphQLFile_EmptyURL(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	content := "---\nkind: GraphQL\nurl: \"\"\nmethod: POST\n"
 	filePath := filepath.Join(tempDir, "empty_url.yaml")
@@ -499,7 +486,7 @@ func TestValidateGraphQLFile_EmptyURL(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+	url, isValid, err := ValidateGraphQLFile(filePath)
 
 	if err == nil {
 		t.Errorf("Expected error for empty URL")
@@ -514,11 +501,10 @@ func TestValidateGraphQLFile_EmptyURL(t *testing.T) {
 
 func TestValidateGraphQLFile_WrongKind(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	filePath := createYAMLFile(t, tempDir, "api.yaml", "API", "http://example.com")
 
-	url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+	url, isValid, err := ValidateGraphQLFile(filePath)
 
 	if err == nil {
 		t.Errorf("Expected error for wrong kind")
@@ -535,9 +521,7 @@ func TestValidateGraphQLFile_WrongKind(t *testing.T) {
 }
 
 func TestValidateGraphQLFile_FileNotFound(t *testing.T) {
-	secretsMap := make(map[string]any)
-
-	url, isValid, err := ValidateGraphQLFile("/nonexistent/file.yaml", secretsMap)
+	url, isValid, err := ValidateGraphQLFile("/nonexistent/file.yaml")
 
 	if err == nil {
 		t.Errorf("Expected error for non-existent file")
@@ -555,7 +539,6 @@ func TestValidateGraphQLFile_FileNotFound(t *testing.T) {
 
 func TestValidateGraphQLFile_CaseInsensitive(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	testCases := []struct {
 		name string
@@ -578,7 +561,7 @@ func TestValidateGraphQLFile_CaseInsensitive(t *testing.T) {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
 
-			url, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+			url, isValid, err := ValidateGraphQLFile(filePath)
 			if err != nil {
 				t.Errorf("Expected no error for kind '%s', got: %v", tc.kind, err)
 			}
@@ -594,7 +577,6 @@ func TestValidateGraphQLFile_CaseInsensitive(t *testing.T) {
 
 func TestValidateGraphQLFile_PathCleaning(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create a file
 	createGraphQLFile(t, tempDir, "test.yaml", "http://example.com")
@@ -617,7 +599,7 @@ func TestValidateGraphQLFile_PathCleaning(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			url, isValid, err := ValidateGraphQLFile(tc.path, secretsMap)
+			url, isValid, err := ValidateGraphQLFile(tc.path)
 			if err != nil {
 				t.Errorf("Expected no error for path '%s', got: %v", tc.path, err)
 			}
@@ -631,11 +613,61 @@ func TestValidateGraphQLFile_PathCleaning(t *testing.T) {
 	}
 }
 
+func TestValidateGraphQLFile_TemplateURL(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	// Test various template URL formats
+	testCases := []struct {
+		name        string
+		url         string
+		expectValid bool
+	}{
+		{
+			name:        "simple_template",
+			url:         "{{.graphqlUrl}}",
+			expectValid: true,
+		},
+		{
+			name:        "template_with_path",
+			url:         "{{.baseUrl}}/graphql",
+			expectValid: true,
+		},
+		{
+			name:        "full_url",
+			url:         "http://example.com/graphql",
+			expectValid: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			filePath := createGraphQLFile(t, tempDir, tc.name+".yaml", tc.url)
+
+			url, isValid, err := ValidateGraphQLFile(filePath)
+
+			if tc.expectValid {
+				if err != nil {
+					t.Errorf("Expected no error for URL '%s', got: %v", tc.url, err)
+				}
+				if !isValid {
+					t.Errorf("Expected isValid=true for URL '%s', got false", tc.url)
+				}
+				if url != tc.url {
+					t.Errorf("Expected URL '%s', got '%s'", tc.url, url)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected error for URL '%s', got none", tc.url)
+				}
+			}
+		})
+	}
+}
+
 // Integration test
 
 func TestIntegration_RealWorldScenario(t *testing.T) {
 	tempDir := setupTestDirectory(t)
-	secretsMap := make(map[string]any)
 
 	// Create project structure
 	envDir := filepath.Join(tempDir, "env")
@@ -678,7 +710,7 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 	createGraphQLFile(t, gitDir, "graphql.yaml", "http://git.com/graphql")
 
 	// Test FindGraphQLFiles
-	urlToFile, err := FindGraphQLFiles(tempDir, secretsMap)
+	urlToFile, err := FindGraphQLFiles(tempDir)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -700,7 +732,7 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 
 	// Verify each file is valid
 	for url, filePath := range urlToFile {
-		returnedURL, isValid, err := ValidateGraphQLFile(filePath, secretsMap)
+		returnedURL, isValid, err := ValidateGraphQLFile(filePath)
 		if err != nil {
 			t.Errorf("File %s failed validation: %v", filePath, err)
 		}
@@ -728,7 +760,6 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 func BenchmarkFindGraphQLFiles(b *testing.B) {
 	// Setup: create directory with 100 files (10 GraphQL, 90 other)
 	tempDir := b.TempDir()
-	secretsMap := make(map[string]any)
 
 	for i := range 10 {
 		content := fmt.Sprintf("---\nkind: GraphQL\nurl: http://example.com/%d\nmethod: POST\n", i)
@@ -749,14 +780,13 @@ func BenchmarkFindGraphQLFiles(b *testing.B) {
 	}
 
 	for b.Loop() {
-		_, _ = FindGraphQLFiles(tempDir, secretsMap)
+		_, _ = FindGraphQLFiles(tempDir)
 	}
 }
 
 func BenchmarkValidateGraphQLFile(b *testing.B) {
 	// Setup: create single test file
 	tempDir := b.TempDir()
-	secretsMap := make(map[string]any)
 
 	content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n"
 	filePath := filepath.Join(tempDir, "test.yaml")
@@ -766,6 +796,6 @@ func BenchmarkValidateGraphQLFile(b *testing.B) {
 	}
 
 	for b.Loop() {
-		_, _, _ = ValidateGraphQLFile(filePath, secretsMap)
+		_, _, _ = ValidateGraphQLFile(filePath)
 	}
 }
