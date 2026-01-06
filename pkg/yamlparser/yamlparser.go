@@ -49,12 +49,8 @@ func replaceVarsWithValues(
 				return nil, utils.ColorError(errMsg)
 			}
 
-			// Check if the value exists directly in secretsMap
-			if replacedValue, ok := secretsMap[valTyped]; ok {
-				changedMap[key] = replacedValue
-			} else {
-				changedMap[key] = finalChangedValue
-			}
+			// Only store the processed template value
+			changedMap[key] = finalChangedValue
 
 		case map[string]string:
 			innerMap := make(map[string]any)
@@ -71,12 +67,8 @@ func replaceVarsWithValues(
 					return nil, fmt.Errorf("error substituting variable in '%s.%s': %w", key, k, err)
 				}
 
-				// Check if the value exists directly in secretsMap
-				if replacedValue, ok := secretsMap[v]; ok {
-					innerMap[k] = replacedValue
-				} else {
-					innerMap[k] = finalChangedValue
-				}
+				// Only store the processed template value
+				innerMap[k] = finalChangedValue
 			}
 			changedMap[key] = innerMap
 
