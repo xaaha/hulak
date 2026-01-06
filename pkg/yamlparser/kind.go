@@ -84,13 +84,13 @@ func (c *ConfigType) IsGraphql() bool {
 func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return nil, utils.ColorError("error reading YAML file: %w", err)
+		return nil, utils.ColorError("error reading YAML file", err)
 	}
 
 	var cfg ConfigType
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&cfg); err != nil {
-		return nil, utils.ColorError("error decoding YAML: %w", err)
+		return nil, utils.ColorError("error decoding YAML", err)
 	}
 
 	cfg.Kind = cfg.Kind.normalize()

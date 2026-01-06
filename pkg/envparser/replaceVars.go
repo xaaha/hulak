@@ -4,10 +4,59 @@ package envparser
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"strings"
 	"text/template"
 
 	"github.com/xaaha/hulak/pkg/actions"
+	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// extractMissingKey parses a template error and extracts the missing key name
+// Returns the key name if found, empty string otherwise
+func extractMissingKey(err error) string {
+	if err == nil {
+		return ""
+	}
+	errMsg := err.Error()
+	// Template errors for missing keys look like:
+	// "template: template:1:2: executing "template" at <.keyName>: map has no entry for key "keyName""
+
+	// Look for the pattern: map has no entry for key "keyName"
+	if strings.Contains(errMsg, "map has no entry for key") {
+		start := strings.Index(errMsg, `map has no entry for key "`)
+		if start != -1 {
+			start += len(`map has no entry for key "`)
+			end := strings.Index(errMsg[start:], `"`)
+			if end != -1 {
+				return errMsg[start : start+end]
+			}
+		}
+	}
+	return ""
+}
+
+// formatMissingKeyError creates a user-friendly error message for missing template variables
+func formatMissingKeyError(keyName string) error {
+	env := os.Getenv(utils.EnvKey)
+	if env == "" {
+		env = utils.DefaultEnvVal
+	}
+
+	errMsg := fmt.Sprintf(
+		`key "%s" not found in environment "%s"
+
+Possible solutions:
+  - Add "%s=<value>" to env/%s.env
+  - Use a different environment: hulak -env <environment-name>`,
+		keyName,
+		env,
+		keyName,
+		env,
+	)
+
+	return fmt.Errorf("%s", errMsg)
+}
 
 func replaceVariables(
 	strToChange string,
@@ -36,7 +85,12 @@ func replaceVariables(
 	var result bytes.Buffer
 	err = tmpl.Execute(&result, secretsMap)
 	if err != nil {
-		return "", err
+		// Check if this is a missing key error and format it nicely
+		if missingKey := extractMissingKey(err); missingKey != "" {
+			return "", formatMissingKeyError(missingKey)
+		}
+		// For other template errors, return as-is
+		return "", fmt.Errorf("template error: %w", err)
 	}
 	return result.String(), nil
 }

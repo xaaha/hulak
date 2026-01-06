@@ -19,7 +19,7 @@ func ColorError(errMsg string, errs ...error) error {
 			fullMsg.WriteString(": " + err.Error())
 		}
 	}
-	return fmt.Errorf("\n%s  error: %s%s", Red, fullMsg.String(), ColorReset)
+	return fmt.Errorf("\n%s%s%s", Red, fullMsg.String(), ColorReset)
 }
 
 // PrintGreen Prints Success Message
