@@ -25,48 +25,16 @@ The `import curl` subcommand parses cURL command strings and generates Hulak-com
 
 ### Basic Syntax
 
-Hulak supports **multiple input methods** for maximum flexibility:
+Hulak supports **three input methods**
 
-**Method 1: Heredoc (BEST for DevTools paste)**
-```bash
+\*\*Method 1: Heredoc
+
+````bash
 hulak import curl <<'EOF'
 <paste your curl command here>
 EOF
-```
 
-**Method 2: Pipe**
-```bash
-echo 'curl command' | hulak import curl
-pbpaste | hulak import curl  # macOS
-```
-
-**Method 3: File redirect**
-```bash
-hulak import curl < mycurl.txt
-```
-
-**Method 4: Traditional (command-line argument)**
-```bash
-hulak import curl '<curl_command>'
-```
-
-### Parameters
-
-- `curl_command` (optional with stdin): The cURL command string
-- `-o output_path` (optional): Custom output path for the generated `.hk.yaml` file
-
-**Note**: The `-o` flag must come BEFORE the `curl` keyword.
-
-### Why Multiple Input Methods?
-
-Copying cURL from browser DevTools gives you multi-line commands with backslashes and quotes. With heredoc or piping, you can **paste directly without any escaping**!
-
-### Input Methods in Detail
-
-#### 1. Heredoc (Recommended for DevTools)
-
-Perfect for pasting multi-line cURL commands from browser DevTools:
-
+# Example
 ```bash
 hulak import curl <<'EOF'
 curl -X POST https://api.example.com/users \
@@ -74,17 +42,16 @@ curl -X POST https://api.example.com/users \
   -H "Authorization: Bearer token" \
   -d '{"name":"John","age":30}'
 EOF
-```
 
-**Benefits:**
-- No escaping needed
-- Handles multi-line with backslashes automatically
-- Preserves quotes correctly
-- Works exactly as copied from DevTools
+````
 
-#### 2. Pipe from Command
+**Method 2: Pipe**
 
 ```bash
+echo 'curl command' | hulak import curl
+pbpaste | hulak import curl  # macOS
+
+# Example
 # From echo
 echo 'curl https://api.example.com/data' | hulak import curl
 
@@ -96,50 +63,50 @@ xclip -o | hulak import curl
 
 # From clipboard (Linux with xsel)
 xsel -b | hulak import curl
+
 ```
 
-#### 3. File Redirect
+**Method 3: Command-line argument**
 
 ```bash
-# Save curl to file first
-cat > mycurl.txt
-curl -X GET https://api.example.com/users
-^D
-
-# Import it
-hulak import curl < mycurl.txt
-
-# Or with cat
-cat mycurl.txt | hulak import curl
-```
-
-#### 4. Traditional Command-Line Argument
-
-```bash
-# Single-line curl (still works)
+hulak import curl '<curl_command>'
+#example
+# Mostly for Single-line curl
 hulak import curl 'curl https://api.example.com/users'
 
-# Must escape quotes and special characters
+# Must escape quotes and special characters, not a great user experience
 hulak import curl 'curl -d '"'"'{"key":"value"}'"'"' https://api.example.com'
+
 ```
+
+### Parameters
+
+- `curl_command` (optional with stdin): The cURL command string
+- `-o output_path` (optional): Custom output path for the generated `.hk.yaml` file
+
+**Note**: The `-o` flag must come BEFORE the `curl` keyword.
 
 ### Output Behavior
 
 **With `-o` flag:**
+
 ```bash
 hulak import -o ./my-request.hk.yaml curl <<'EOF'
 curl https://example.com
 EOF
 ```
+
 - Creates file at specified path
 - Automatically adds `.hk.yaml` extension if not provided
 - Creates parent directories automatically
 - Appends incremental number if file already exists (e.g., `file_1.hk.yaml`, `file_2.hk.yaml`)
 
 **Without `-o` flag:**
+
 ```bash
 echo 'curl https://example.com/users' | hulak import curl
 ```
+
 - Auto-generates filename in `imported/` directory
 - Format: `METHOD_urlpart_timestamp.hk.yaml`
 - Example: `GET_users_1767672792.hk.yaml`
@@ -149,17 +116,20 @@ echo 'curl https://example.com/users' | hulak import curl
 Hulak supports the following cURL options:
 
 ### HTTP Methods
+
 - `-X METHOD` or `--request METHOD`
 - Supports: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE, CONNECT
 - Defaults to GET if not specified
 - Case-insensitive
 
 ### URL
+
 - Required parameter
 - Supports both quoted and unquoted URLs
 - Query parameters are automatically extracted
 
 ### Headers
+
 - `-H "Header: Value"` or `--header "Header: Value"`
 - Multiple headers supported
 - Example: `-H "Content-Type: application/json" -H "Authorization: Bearer token"`
@@ -167,32 +137,38 @@ Hulak supports the following cURL options:
 ### Request Body
 
 **Raw Data:**
+
 - `-d 'data'`, `--data 'data'`, `--data-raw 'data'`, `--data-binary 'data'`
 - JSON bodies are automatically pretty-printed
 - GraphQL queries are automatically detected and formatted
 
 **Form Data (multipart/form-data):**
+
 - `-F "key=value"` or `--form "key=value"`
 - Multiple fields supported
 - File uploads (`@filename`) are noted as TODO in output
 
 **URL-encoded Form Data:**
+
 - `--data-urlencode "key=value"`
 - Also auto-detected from `-d` with `key=value` format
 
 ### Authentication
 
 **Basic Auth:**
+
 - `-u username:password` or `--user username:password"`
 - Automatically converts to Base64-encoded Authorization header
 
 **Cookies:**
+
 - `--cookie "name=value"` or `-b "name=value"`
 - Added as Cookie header
 
 ### Unsupported Flags (with warnings)
 
 The following flags are not supported and will show warnings:
+
 - `-k`, `--insecure`: Skip certificate verification
 - `-L`, `--location`: Follow redirects
 - `--compressed`: Request compressed response
@@ -210,6 +186,7 @@ The following flags are not supported and will show warnings:
 Format: `METHOD_urlpart_timestamp.hk.yaml`
 
 **Examples:**
+
 - `curl https://api.example.com/users` → `GET_users_1767672792.hk.yaml`
 - `curl -X POST https://api.example.com/posts` → `POST_posts_1767672815.hk.yaml`
 - `curl https://jsonplaceholder.typicode.com/todos/1` → `GET_todos_1767672820.hk.yaml`
@@ -273,6 +250,7 @@ hulak import curl 'curl https://jsonplaceholder.typicode.com/todos/1'
 ```
 
 **Output** (`imported/GET_todos_*.hk.yaml`):
+
 ```yaml
 ---
 method: GET
@@ -286,6 +264,7 @@ hulak import curl 'curl "https://api.example.com/search?q=test&page=1&limit=10"'
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: GET
@@ -305,6 +284,7 @@ hulak import curl 'curl -X POST https://jsonplaceholder.typicode.com/posts \
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: POST
@@ -329,6 +309,7 @@ hulak import curl 'curl -X POST https://api.example.com/login \
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: POST
@@ -348,6 +329,7 @@ hulak import curl 'curl -X POST https://api.example.com/login \
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: POST
@@ -369,6 +351,7 @@ hulak import curl 'curl -X POST https://api.example.com/graphql \
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: POST
@@ -391,6 +374,7 @@ hulak import curl 'curl -u username:password https://api.example.com/secure'
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: GET
@@ -410,6 +394,7 @@ hulak import curl 'curl "https://api.example.com/data" \
 ```
 
 **Output**:
+
 ```yaml
 ---
 method: GET
@@ -420,7 +405,7 @@ headers:
   user-agent: Mozilla/5.0
 ```
 
-*Note: `--compressed` flag shows a warning but is ignored.*
+_Note: `--compressed` flag shows a warning but is ignored._
 
 ### 9. Custom Output Path
 
@@ -485,12 +470,14 @@ hulak import curl "curl -d '{\"key\":\"value\"}' https://example.com"
 After importing, you may want to replace sensitive data with environment variables:
 
 **Imported:**
+
 ```yaml
 headers:
   Authorization: Bearer eyJhbGc...
 ```
 
 **After manual edit:**
+
 ```yaml
 headers:
   Authorization: Bearer {{.apiToken}}
