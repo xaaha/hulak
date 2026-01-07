@@ -117,5 +117,9 @@ func printHelpSubCommands() {
 			Command:     "echo 'curl ...' | hulak import curl",
 			Description: "Import cURL from pipe or heredoc",
 		},
+		{
+			Command:     "hulak import curl",
+			Description: "Show cURL import usage help",
+		},
 	})
 }
