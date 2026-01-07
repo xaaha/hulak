@@ -455,15 +455,22 @@ hulak import curl 'curl -X POST https://api.example.com/users \
 
 ### Quote Handling
 
-Use single quotes for the outer string and escape inner quotes:
+For best results, use single quotes for JSON data instead of double quotes:
 
 ```bash
-# Good
-hulak import curl 'curl -d '"'"'{"key":"value"}'"'"' https://example.com'
+# Best practice - single quotes for JSON body
+hulak import curl 'curl -d '\''{"key":"value"}'\'' https://example.com'
+hulak import curl 'curl -H "Content-Type: application/json" -d '\''{"key":"value"}'\'' https://example.com'
 
-# Also good (using double quotes and escaping)
-hulak import curl "curl -d '{\"key\":\"value\"}' https://example.com"
+# Also works in heredoc (recommended)
+hulak import curl <<'EOF'
+curl -X POST https://api.example.com/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John","age":30}'
+EOF
 ```
+
+**Note**: Using double quotes for JSON body can be problematic due to escaping issues. Always prefer single quotes for JSON data.
 
 ### Converting to Environment Variables
 
