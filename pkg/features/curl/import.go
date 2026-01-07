@@ -19,15 +19,15 @@ import (
 // 1. Command line argument: hulak import curl 'curl command'
 // 2. Stdin/pipe: echo 'curl command' | hulak import curl
 // 3. Heredoc: hulak import curl <<'EOF' ... EOF
-// 4. Interactive: hulak import curl (then paste and Ctrl+D)
 // outputPath is from -o flag (empty string if not provided)
 func ImportCurl(args []string, outputPath string) error {
 	var curlString string
 	var err error
 
-	// Determine input method
+	// Show usage help if no arguments are provided after "curl"
 	if len(args) < 1 {
-		return utils.ColorError("usage: hulak import curl ['curl command'] or pipe/redirect input")
+		utils.PrintCurlImportUsage()
+		return nil
 	}
 
 	// Check if first arg is "curl" keyword
@@ -37,13 +37,13 @@ func ImportCurl(args []string, outputPath string) error {
 
 	// Decide between stdin and command-line argument
 	if len(args) < 2 || args[1] == "" || args[1] == "-" {
-		// Read from stdin (pipe, heredoc, or interactive)
+		// Read from stdin (pipe or heredoc)
 		curlString, err = readCurlFromStdin()
 		if err != nil {
 			return err
 		}
 	} else {
-		// Use command-line argument (original behavior)
+		// Use command-line argument
 		curlString = args[1]
 	}
 
@@ -82,8 +82,7 @@ func ImportCurl(args []string, outputPath string) error {
 	return nil
 }
 
-// readCurlFromStdin reads cURL command from stdin
-// Handles piped input, heredoc, and interactive mode
+// readCurlFromStdin reads cURL command from stdin and handles piped input and heredoc
 func readCurlFromStdin() (string, error) {
 	// Check if stdin has data
 	stat, err := os.Stdin.Stat()
@@ -95,8 +94,9 @@ func readCurlFromStdin() (string, error) {
 	isPipe := (stat.Mode() & os.ModeCharDevice) == 0
 
 	if !isPipe {
-		// Interactive mode - show helpful message
-		utils.PrintInfo("Paste your cURL command (press Ctrl+D when done):")
+		// If not piped input, show usage and exit
+		utils.PrintCurlImportUsage()
+		os.Exit(0)
 	}
 
 	// Read all input from stdin
