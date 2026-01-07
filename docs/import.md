@@ -25,22 +25,111 @@ The `import curl` subcommand parses cURL command strings and generates Hulak-com
 
 ### Basic Syntax
 
+Hulak supports **multiple input methods** for maximum flexibility:
+
+**Method 1: Heredoc (BEST for DevTools paste)**
 ```bash
-hulak import curl '<curl_command>' [-o output_path]
+hulak import curl <<'EOF'
+<paste your curl command here>
+EOF
+```
+
+**Method 2: Pipe**
+```bash
+echo 'curl command' | hulak import curl
+pbpaste | hulak import curl  # macOS
+```
+
+**Method 3: File redirect**
+```bash
+hulak import curl < mycurl.txt
+```
+
+**Method 4: Traditional (command-line argument)**
+```bash
+hulak import curl '<curl_command>'
 ```
 
 ### Parameters
 
-- `curl_command` (required): The cURL command string (must be quoted)
+- `curl_command` (optional with stdin): The cURL command string
 - `-o output_path` (optional): Custom output path for the generated `.hk.yaml` file
 
 **Note**: The `-o` flag must come BEFORE the `curl` keyword.
+
+### Why Multiple Input Methods?
+
+Copying cURL from browser DevTools gives you multi-line commands with backslashes and quotes. With heredoc or piping, you can **paste directly without any escaping**!
+
+### Input Methods in Detail
+
+#### 1. Heredoc (Recommended for DevTools)
+
+Perfect for pasting multi-line cURL commands from browser DevTools:
+
+```bash
+hulak import curl <<'EOF'
+curl -X POST https://api.example.com/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer token" \
+  -d '{"name":"John","age":30}'
+EOF
+```
+
+**Benefits:**
+- No escaping needed
+- Handles multi-line with backslashes automatically
+- Preserves quotes correctly
+- Works exactly as copied from DevTools
+
+#### 2. Pipe from Command
+
+```bash
+# From echo
+echo 'curl https://api.example.com/data' | hulak import curl
+
+# From clipboard (macOS)
+pbpaste | hulak import curl
+
+# From clipboard (Linux with xclip)
+xclip -o | hulak import curl
+
+# From clipboard (Linux with xsel)
+xsel -b | hulak import curl
+```
+
+#### 3. File Redirect
+
+```bash
+# Save curl to file first
+cat > mycurl.txt
+curl -X GET https://api.example.com/users
+^D
+
+# Import it
+hulak import curl < mycurl.txt
+
+# Or with cat
+cat mycurl.txt | hulak import curl
+```
+
+#### 4. Traditional Command-Line Argument
+
+```bash
+# Single-line curl (still works)
+hulak import curl 'curl https://api.example.com/users'
+
+# Must escape quotes and special characters
+hulak import curl 'curl -d '"'"'{"key":"value"}'"'"' https://api.example.com'
+```
 
 ### Output Behavior
 
 **With `-o` flag:**
 ```bash
-hulak import -o ./my-request.hk.yaml curl 'curl https://example.com'
+hulak import -o ./my-request.hk.yaml curl <<'EOF'
+curl https://example.com
+EOF
 ```
 - Creates file at specified path
 - Automatically adds `.hk.yaml` extension if not provided
@@ -49,7 +138,7 @@ hulak import -o ./my-request.hk.yaml curl 'curl https://example.com'
 
 **Without `-o` flag:**
 ```bash
-hulak import curl 'curl https://example.com/users'
+echo 'curl https://example.com/users' | hulak import curl
 ```
 - Auto-generates filename in `imported/` directory
 - Format: `METHOD_urlpart_timestamp.hk.yaml`
@@ -138,6 +227,42 @@ hulak import -o ./requests/get-users curl 'curl https://api.example.com/users'
 # Nested directories created automatically
 hulak import -o ./api/v1/users/get.hk.yaml curl 'curl https://api.example.com/users'
 ```
+
+## Quick Start: Import from Browser DevTools
+
+This is the **easiest way** to import API calls:
+
+1. Open your browser DevTools (F12)
+2. Go to the Network tab
+3. Make your API request
+4. Right-click on the request → Copy → Copy as cURL
+5. In your terminal:
+
+```bash
+hulak import curl <<'EOF'
+# Paste here (Cmd+V or Ctrl+V)
+EOF
+```
+
+6. Press Enter, and you're done!
+
+**Example workflow:**
+
+```bash
+$ hulak import curl <<'EOF'
+curl 'https://jsonplaceholder.typicode.com/posts' \
+  -H 'accept: application/json' \
+  -H 'content-type: application/json' \
+  --data-raw '{"title":"My Post","body":"Content here","userId":1}'
+EOF
+
+Created 'imported/POST_posts_1767759460.hk.yaml' ✓
+Run with: hulak -env <name> -fp imported/POST_posts_1767759460.hk.yaml
+```
+
+That's it! No escaping, no quote juggling, just paste and go! 🎉
+
+---
 
 ## Examples
 

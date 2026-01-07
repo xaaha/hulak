@@ -2,7 +2,9 @@
 package curl
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,20 +15,42 @@ import (
 )
 
 // ImportCurl handles the import curl subcommand
-// args[0] should be "curl"
-// args[1] should be the curl command string
+// Supports multiple input methods:
+// 1. Command line argument: hulak import curl 'curl command'
+// 2. Stdin/pipe: echo 'curl command' | hulak import curl
+// 3. Heredoc: hulak import curl <<'EOF' ... EOF
+// 4. Interactive: hulak import curl (then paste and Ctrl+D)
 // outputPath is from -o flag (empty string if not provided)
 func ImportCurl(args []string, outputPath string) error {
-	// Validate arguments
-	if len(args) < 2 {
-		return utils.ColorError("usage: hulak import curl 'curl command' [-o path/to/file.hk.yaml]")
+	var curlString string
+	var err error
+
+	// Determine input method
+	if len(args) < 1 {
+		return utils.ColorError("usage: hulak import curl ['curl command'] or pipe/redirect input")
 	}
 
+	// Check if first arg is "curl" keyword
 	if args[0] != "curl" {
 		return utils.ColorError("expected 'curl' keyword after 'import'")
 	}
 
-	curlString := args[1]
+	// Decide between stdin and command-line argument
+	if len(args) < 2 || args[1] == "" || args[1] == "-" {
+		// Read from stdin (pipe, heredoc, or interactive)
+		curlString, err = readCurlFromStdin()
+		if err != nil {
+			return err
+		}
+	} else {
+		// Use command-line argument (original behavior)
+		curlString = args[1]
+	}
+
+	// Validate we have input
+	if strings.TrimSpace(curlString) == "" {
+		return utils.ColorError("no cURL command provided")
+	}
 
 	// Parse the cURL command
 	parsedCurl, err := ParseCurlCommand(curlString)
@@ -56,6 +80,88 @@ func ImportCurl(args []string, outputPath string) error {
 	utils.PrintInfo(fmt.Sprintf("Run with: hulak -env <name> -fp %s", filePath))
 
 	return nil
+}
+
+// readCurlFromStdin reads cURL command from stdin
+// Handles piped input, heredoc, and interactive mode
+func readCurlFromStdin() (string, error) {
+	// Check if stdin has data
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to stat stdin: %w", err)
+	}
+
+	// Check if stdin is from pipe/redirect or terminal
+	isPipe := (stat.Mode() & os.ModeCharDevice) == 0
+
+	if !isPipe {
+		// Interactive mode - show helpful message
+		utils.PrintInfo("Paste your cURL command (press Ctrl+D when done):")
+	}
+
+	// Read all input from stdin
+	reader := bufio.NewReader(os.Stdin)
+	var lines []string
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				// Add the last line if it doesn't end with newline
+				if line != "" {
+					lines = append(lines, line)
+				}
+				break
+			}
+			return "", fmt.Errorf("error reading from stdin: %w", err)
+		}
+		lines = append(lines, line)
+	}
+
+	if len(lines) == 0 {
+		return "", utils.ColorError("no input provided")
+	}
+
+	// Join lines and clean up
+	curlString := strings.Join(lines, "\n")
+	curlString = cleanStdinInput(curlString)
+
+	return curlString, nil
+}
+
+// cleanStdinInput cleans up the input from stdin
+// Handles multi-line with backslashes, extra whitespace, etc.
+func cleanStdinInput(input string) string {
+	// Split into lines
+	lines := strings.Split(input, "\n")
+
+	// Process each line
+	var cleanedLines []string
+	for _, line := range lines {
+		// Trim whitespace
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+
+		// Remove trailing backslash (line continuation)
+		line = strings.TrimSuffix(line, "\\")
+		line = strings.TrimSpace(line)
+
+		if line != "" {
+			cleanedLines = append(cleanedLines, line)
+		}
+	}
+
+	// Join with spaces
+	result := strings.Join(cleanedLines, " ")
+
+	// Normalize multiple spaces to single space
+	result = regexp.MustCompile(`\s+`).ReplaceAllString(result, " ")
+
+	return strings.TrimSpace(result)
 }
 
 // determineOutputPath decides where to save the file

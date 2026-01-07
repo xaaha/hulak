@@ -327,17 +327,42 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 
 # Import cURL
 
-Easily convert cURL commands to Hulak YAML files for better organization and version control:
+Easily convert cURL commands to Hulak YAML files for better organization and version control. **Now supports multiple input methods** - paste multi-line cURL directly without escaping!
+
+### Easy paste from DevTools (Recommended)
 
 ```bash
-# Import with auto-generated filename (saved in imported/ directory)
+# Use heredoc - just paste your cURL command as-is!
+hulak import curl <<'EOF'
+curl -X POST https://jsonplaceholder.typicode.com/posts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"foo","body":"bar","userId":1}'
+EOF
+```
+
+### Other input methods
+
+```bash
+# Pipe from echo
+echo 'curl https://api.example.com/users' | hulak import curl
+
+# Redirect from file
+hulak import curl < mycurl.txt
+
+# Pipe from clipboard (macOS)
+pbpaste | hulak import curl
+
+# Traditional way (still works)
 hulak import curl 'curl https://jsonplaceholder.typicode.com/todos/1'
+```
 
-# Import with custom output path
-hulak import -o ./my-api.hk.yaml curl 'curl -X POST https://api.example.com/users -H "Content-Type: application/json" -d "{\"name\":\"John\"}"'
+### With custom output path
 
-# Import to specific directory
-hulak import -o ./collection/get_data.hk.yaml curl 'curl https://api.example.com/data'
+```bash
+# Any method works with -o flag
+hulak import -o ./my-api.hk.yaml curl <<'EOF'
+curl https://api.example.com/data
+EOF
 ```
 
 The imported file can then be run with:
