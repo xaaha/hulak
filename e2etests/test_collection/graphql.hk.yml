@@ -7,11 +7,7 @@ headers:
   # Authorization: Bearer {{getValueOf "access_token" "employer_auth"}}
 body:
   graphql:
-    # query: '{{getFile "e2etests/test_collection/test.graphql"}}'
-    query: |
-      query Hello($name: String!, $age: Int) {
-        hello(person: { name: $name, age: $age })
-      }
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
     variables:
       name: "{{.userName}} of age {{.userAge}}"
       age: "{{.userAge}}"
