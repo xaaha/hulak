@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/features/curl"
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -22,15 +23,19 @@ const (
 	Init    = "init"
 	Help    = "help"
 	GraphQL = "gql"
+	Import  = "import"
 )
 
 var (
 	migrate    *flag.FlagSet
 	initialize *flag.FlagSet
 	gql        *flag.FlagSet
+	importCmd  *flag.FlagSet
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
+	// Flag for import command output path
+	outputPath *string
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -43,6 +48,13 @@ func init() {
 		"env",
 		false,
 		"Create environment files based on following arguments",
+	)
+
+	importCmd = flag.NewFlagSet(Import, flag.ExitOnError)
+	outputPath = importCmd.String(
+		"o",
+		"",
+		"Output path for the generated .hk.yaml file",
 	)
 }
 
@@ -81,6 +93,18 @@ func HandleSubcommands() error {
 		}
 		paths := gql.Args()
 		graphql.Introspect(paths)
+		os.Exit(0)
+
+	case Import:
+		err := importCmd.Parse(os.Args[2:])
+		if err != nil {
+			return fmt.Errorf("\n invalid subcommand after import %v", err)
+		}
+		args := importCmd.Args()
+		err = curl.ImportCurl(args, *outputPath)
+		if err != nil {
+			return err
+		}
 		os.Exit(0)
 
 	default:
