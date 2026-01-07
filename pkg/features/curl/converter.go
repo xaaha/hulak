@@ -8,6 +8,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // ConvertToYAML converts parsed cURL command to Hulak YAML format
@@ -20,7 +21,8 @@ func ConvertToYAML(cmd *CurlCommand) (string, error) {
 
 	// Add kind for GraphQL
 	if cmd.BodyType == "graphql" {
-		yamlParts = append(yamlParts, "kind: GraphQL")
+		kind := fmt.Sprintf("kind: %s", yamlparser.KindGraphQL)
+		yamlParts = append(yamlParts, kind)
 	}
 
 	// Add URL
