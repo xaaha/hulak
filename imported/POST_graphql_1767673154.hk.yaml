@@ -1,0 +1,12 @@
+---
+method: POST
+kind: GraphQL
+url: "https://api.example.com/graphql"
+headers:
+  Content-Type: application/json
+body:
+  graphql:
+    query: |
+      query GetUser($id: ID!) { user(id: $id) { name email } }
+    variables:
+        id: "123"

@@ -226,6 +226,7 @@ Read more about response in [response documentation](./docs/response.md).
 | help       | display help message                                                     | `hulak help`                                                        |
 | init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
+| import     | import cURL commands and convert to Hulak YAML files                     | `hulak import curl 'curl command' -o path/to/file.hk.yaml`          |
 
 # Schema
 
@@ -323,6 +324,29 @@ Learn more about these actions [here](./docs/actions.md)
 # Auth2.0 (Beta)
 
 Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
+
+# Import cURL
+
+Easily convert cURL commands to Hulak YAML files for better organization and version control:
+
+```bash
+# Import with auto-generated filename (saved in imported/ directory)
+hulak import curl 'curl https://jsonplaceholder.typicode.com/todos/1'
+
+# Import with custom output path
+hulak import -o ./my-api.hk.yaml curl 'curl -X POST https://api.example.com/users -H "Content-Type: application/json" -d "{\"name\":\"John\"}"'
+
+# Import to specific directory
+hulak import -o ./collection/get_data.hk.yaml curl 'curl https://api.example.com/data'
+```
+
+The imported file can then be run with:
+
+```bash
+hulak -env global -fp imported/GET_todos_1767672792.hk.yaml
+```
+
+Read more about importing cURL commands [here](./docs/import.md)
 
 # Planned Features
 

@@ -1,0 +1,12 @@
+{
+  "response": {
+    "status_code": 200,
+    "body": {
+      "completed": false,
+      "id": 1,
+      "title": "delectus aut autem",
+      "userId": 1
+    }
+  },
+  "duration": "56.87ms"
+}

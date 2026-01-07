@@ -34,6 +34,19 @@ OPTIONS
        migrate <json_file>
               Migrates the specified JSON file(s) to the new Hulak format.
        
+       import curl <curl_command> [-o <output_path>]
+              Imports a cURL command and converts it to a Hulak YAML file.
+              
+              Options:
+                -o <path>    Output path for the generated .hk.yaml file.
+                             If not specified, creates file in imported/ directory with auto-generated name.
+                             The -o flag must come before the 'curl' keyword.
+              
+              Examples:
+                hulak import curl 'curl https://api.example.com/data'
+                hulak import -o myapi.hk.yaml curl 'curl -X POST https://api.example.com/users'
+                hulak import -o ./collection/get-users.hk.yaml curl 'curl https://api.example.com/users'
+       
        init   Initializes the default environment configuration.
               When used with -env flag, creates specific environment files.
           
