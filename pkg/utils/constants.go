@@ -35,6 +35,11 @@ const (
 	JSON = ".json"
 )
 
+const (
+	HulakFileSuffix  = ".hk.yaml"
+	HulakFileSuffix2 = ".hk.yml"
+)
+
 // response pattern for files saved
 const (
 	ResponseBase       = "_response"
@@ -56,8 +61,8 @@ const ResponseType = "code"
 
 // Permissions for creating directory and files
 const (
-	DirPer  fs.FileMode = 0755
-	FilePer fs.FileMode = 0644
+	DirPer  fs.FileMode = 0o755
+	FilePer fs.FileMode = 0o644
 )
 
 // tick mark and x for success and failure
@@ -65,3 +70,6 @@ const (
 	CheckMark = "\u2713"
 	CrossMark = "\u2717"
 )
+
+// Import Dir
+const ImportDir = "imported"
