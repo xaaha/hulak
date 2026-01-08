@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -19,6 +20,25 @@ func CreatePath(filePath string) (string, error) {
 	finalFilePath := filepath.Join(projectRoot, filePath)
 
 	return finalFilePath, nil
+}
+
+// sanitizeForFilename removes/replaces invalid filename characters
+func SanitizeForFilename(s string) string {
+	// Replace common separators with underscore
+	s = strings.ReplaceAll(s, ".", "_")
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ReplaceAll(s, " ", "_")
+
+	// Remove any other invalid characters
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	s = reg.ReplaceAllString(s, "")
+
+	// Ensure it doesn't start with a number (optional, but good practice)
+	if len(s) > 0 && s[0] >= '0' && s[0] <= '9' {
+		s = "r_" + s
+	}
+
+	return strings.ToLower(s)
 }
 
 // SanitizeDirPath cleans up the directory path to avoid traversals

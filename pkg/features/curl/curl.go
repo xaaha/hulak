@@ -291,30 +291,11 @@ func extractURLPart(urlStr string) string {
 	}
 
 	// Sanitize for filename
-	result = sanitizeForFilename(result)
+	result = utils.SanitizeForFilename(result)
 
 	if len(result) > 30 {
 		result = result[:30]
 	}
 
 	return result
-}
-
-// sanitizeForFilename removes/replaces invalid filename characters
-func sanitizeForFilename(s string) string {
-	// Replace common separators with underscore
-	s = strings.ReplaceAll(s, ".", "_")
-	s = strings.ReplaceAll(s, "-", "_")
-	s = strings.ReplaceAll(s, " ", "_")
-
-	// Remove any other invalid characters
-	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	s = reg.ReplaceAllString(s, "")
-
-	// Ensure it doesn't start with a number (optional, but good practice)
-	if len(s) > 0 && s[0] >= '0' && s[0] <= '9' {
-		s = "r_" + s
-	}
-
-	return strings.ToLower(s)
 }
