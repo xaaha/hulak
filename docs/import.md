@@ -434,44 +434,6 @@ Creates file at `./api/users/get-all.hk.yaml`
 
 ## Tips
 
-### From Browser DevTools
-
-1. Open DevTools (F12)
-2. Go to Network tab
-3. Right-click on a request
-4. Select "Copy" → "Copy as cURL"
-5. Paste into Hulak import command
-
-### Working with Multiline cURL
-
-For readability, you can use backslashes:
-
-```bash
-hulak import curl 'curl -X POST https://api.example.com/users \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer token" \
-  -d '"'"'{"name":"John","age":30}'"'"''
-```
-
-### Quote Handling
-
-For best results, use single quotes for JSON data instead of double quotes:
-
-```bash
-# Best practice - single quotes for JSON body
-hulak import curl 'curl -d '\''{"key":"value"}'\'' https://example.com'
-hulak import curl 'curl -H "Content-Type: application/json" -d '\''{"key":"value"}'\'' https://example.com'
-
-# Also works in heredoc (recommended)
-hulak import curl <<'EOF'
-curl -X POST https://api.example.com/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"John","age":30}'
-EOF
-```
-
-**Note**: Using double quotes for JSON body can be problematic due to escaping issues. Always prefer single quotes for JSON data.
-
 ### Converting to Environment Variables
 
 After importing, you may want to replace sensitive data with environment variables:
