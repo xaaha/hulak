@@ -291,7 +291,7 @@ func extractURLPart(urlStr string) string {
 	}
 
 	// Sanitize for filename
-	result = utils.SanitizeForFilename(result)
+	result = utils.SanitizeFileName(result)
 
 	if len(result) > 30 {
 		result = result[:30]

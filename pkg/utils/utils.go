@@ -23,7 +23,7 @@ func CreatePath(filePath string) (string, error) {
 }
 
 // sanitizeForFilename removes/replaces invalid filename characters
-func SanitizeForFilename(s string) string {
+func SanitizeFileName(s string) string {
 	// Replace common separators with underscore
 	s = strings.ReplaceAll(s, ".", "_")
 	s = strings.ReplaceAll(s, "-", "_")
