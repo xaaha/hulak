@@ -1,7 +1,0 @@
----
-method: POST
-url: "https://api.example.com/form"
-body:
-    formdata:
-      password: secret123
-      username: john
