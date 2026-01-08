@@ -13,12 +13,12 @@ func PrintCurlImportUsage() {
 			Description: "Import from pipe",
 		},
 		{
-			Command:     "hulak import curl <<'EOF'\ncurl ...\nEOF",
-			Description: "Import from heredoc (best for DevTools paste)",
-		},
-		{
 			Command:     "hulak import -o ./my-api.hk.yaml curl 'curl ...'",
 			Description: "Specify output file with -o flag",
+		},
+		{
+			Command:     "hulak import curl <<'EOF'\\n curl ...  EOF",
+			Description: "Import from heredoc (best for DevTools paste)",
 		},
 	})
 	PrintInfo("Learn more: hulak help")
