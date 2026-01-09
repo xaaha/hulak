@@ -64,8 +64,8 @@ func (m model) View() string {
 		Render(m.list.View())
 
 	return lipgloss.Place(
-		80, 24,
-		lipgloss.Center,
+		40, 15,
+		lipgloss.Left,
 		lipgloss.Center,
 		box,
 	)
