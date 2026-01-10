@@ -6,11 +6,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type item string
+type item struct {
+	title       string
+	description string
+}
 
-func (i item) Title() string       { return string(i) }
-func (i item) Description() string { return "" }
-func (i item) FilterValue() string { return string(i) }
+func (i item) Title() string       { return string(i.title) }
+func (i item) Description() string { return i.description }
+func (i item) FilterValue() string { return string(i.title) }
 
 type model struct {
 	list     list.Model
@@ -19,9 +22,10 @@ type model struct {
 
 func initialModel() model {
 	items := []list.Item{
-		item("Dev"),
-		item("Staging"),
-		item("Prod"),
+		item{title: "Global", description: "Default"},
+		item{title: "Dev", description: ""},
+		item{title: "Staging", description: ""},
+		item{title: "Prod", description: ""},
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 40, 15)
@@ -45,7 +49,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if i, ok := m.list.SelectedItem().(item); ok {
-				m.selected = string(i)
+				m.selected = string(i.title)
 			}
 			return m, tea.Quit
 
