@@ -24,11 +24,13 @@ func initialModel() model {
 		item("Prod"),
 	}
 
-	l := list.New(items, list.NewDefaultDelegate(), 40, 10)
+	l := list.New(items, list.NewDefaultDelegate(), 40, 15)
 	l.Title = "Select Environment"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
+	l.SetShowPagination(true)
+	l.SetShowHelp(true)
 
 	return model{list: l}
 }
@@ -59,12 +61,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	box := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.HiddenBorder()).
 		Padding(1).
 		Render(m.list.View())
 
 	return lipgloss.Place(
-		40, 15,
+		40, 18,
 		lipgloss.Left,
 		lipgloss.Center,
 		box,
