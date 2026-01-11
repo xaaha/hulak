@@ -226,6 +226,7 @@ Read more about response in [response documentation](./docs/response.md).
 | help       | display help message                                                     | `hulak help`                                                        |
 | init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
+| import     | import cURL commands and convert to Hulak YAML files                     | `hulak import curl 'curl command' -o path/to/file.hk.yaml`          |
 
 # Schema
 
@@ -323,6 +324,54 @@ Learn more about these actions [here](./docs/actions.md)
 # Auth2.0 (Beta)
 
 Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
+
+# Import cURL
+
+Easily convert cURL commands to Hulak YAML files for better organization and version control. **Now supports multiple input methods** - paste multi-line cURL directly without escaping!
+
+### Easy paste from DevTools (Recommended)
+
+```bash
+# Use heredoc - just paste your cURL command as-is!
+hulak import curl <<'EOF'
+curl -X POST https://jsonplaceholder.typicode.com/posts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"foo","body":"bar","userId":1}'
+EOF
+```
+
+### Other input methods
+
+```bash
+# Pipe from echo
+echo 'curl https://api.example.com/users' | hulak import curl
+
+# Redirect from file
+hulak import curl < mycurl.txt
+
+# Pipe from clipboard (macOS)
+pbpaste | hulak import curl
+
+# Traditional way (still works)
+hulak import curl 'curl https://jsonplaceholder.typicode.com/todos/1'
+```
+
+### With custom output path
+
+```bash
+# Any method works with -o flag
+hulak import -o ./my-api.hk.yaml curl <<'EOF'
+curl https://api.example.com/data
+EOF
+```
+
+The imported file can then be run with:
+
+```bash
+hulak -env global -fp imported/GET_todos_1767672792.hk.yaml
+```
+
+Read more about importing cURL commands [here](./docs/import.md)
 
 # Planned Features
 

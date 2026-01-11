@@ -109,5 +109,17 @@ func printHelpSubCommands() {
 			Command:     "hulak migrate <file1> <file2> ...",
 			Description: "Migrates postman env and collections",
 		},
+		{
+			Command:     "hulak import curl 'curl command' -o path/to/file.hk.yaml",
+			Description: "Import cURL command and create Hulak YAML file",
+		},
+		{
+			Command:     "echo 'curl ...' | hulak import curl",
+			Description: "Import cURL from pipe or heredoc",
+		},
+		{
+			Command:     "hulak import curl",
+			Description: "Show cURL import usage help",
+		},
 	})
 }
