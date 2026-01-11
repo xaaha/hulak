@@ -79,8 +79,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle selection
 		if tui.IsConfirmKey(msg) && !m.list.SettingFilter() {
-			if i, ok := m.list.SelectedItem().(item); ok {
-				m.Selected = i.title
+			if itm, ok := m.list.SelectedItem().(item); ok {
+				m.Selected = itm.title
 			}
 			return m, tea.Quit
 		}
