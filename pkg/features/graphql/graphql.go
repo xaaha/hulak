@@ -18,11 +18,7 @@ import (
 func Introspect(args []string) {
 	// No args = show help and return
 	if len(args) == 0 {
-		utils.PrintWarning("GraphQL Usage (Upcoming Feature):")
-		_ = utils.WriteCommandHelp([]*utils.CommandHelp{
-			{Command: "hulak gql .", Description: "Find All GraphQL files in current directory"},
-			{Command: "hulak gql <path/to/file>", Description: "Validate a specific GraphQL file"},
-		})
+		utils.PrintGQLUsage()
 		return
 	}
 
