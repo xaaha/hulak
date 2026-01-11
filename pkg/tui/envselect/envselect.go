@@ -108,20 +108,20 @@ func (m Model) View() string {
 // RunEnvSelector launches the TUI and returns the selected environment name.
 // Returns empty string if cancelled or error occurred.
 func RunEnvSelector() (string, error) {
-	p := tea.NewProgram(NewModel())
-	finalModel, err := p.Run()
+	program := tea.NewProgram(NewModel())
+	finalModel, err := program.Run()
 	if err != nil {
 		return "", fmt.Errorf("env selector error: %w", err)
 	}
 
-	m, ok := finalModel.(Model)
+	model, ok := finalModel.(Model)
 	if !ok {
 		return "", fmt.Errorf("unexpected model type")
 	}
 
-	if m.Cancelled {
+	if model.Cancelled {
 		return "", nil
 	}
 
-	return m.Selected, nil
+	return model.Selected, nil
 }
