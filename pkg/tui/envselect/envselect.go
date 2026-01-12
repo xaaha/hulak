@@ -12,12 +12,6 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-var (
-	green  = lipgloss.Color("10")
-	yellow = lipgloss.Color("11")
-	muted  = lipgloss.Color("8")
-)
-
 type item string
 
 func (i item) FilterValue() string { return string(i) }
@@ -31,7 +25,7 @@ func (d delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	s := li.FilterValue()
 	if index == m.Index() {
-		_, _ = fmt.Fprint(w, lipgloss.NewStyle().Foreground(green).Render("> "+s))
+		_, _ = fmt.Fprint(w, lipgloss.NewStyle().Foreground(tui.ColorSecondary).Render("> "+s))
 	} else {
 		_, _ = fmt.Fprint(w, "  "+s)
 	}
@@ -61,9 +55,9 @@ func NewModel() Model {
 	l.DisableQuitKeybindings()
 	l.SetShowPagination(len(items) > 8)
 	l.SetShowHelp(false)
-	l.Styles.Title = lipgloss.NewStyle().Foreground(yellow).Bold(true)
-	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(muted)
-	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(green)
+	l.Styles.Title = lipgloss.NewStyle().Foreground(tui.ColorWarning).Bold(true)
+	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(tui.ColorMuted)
+	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(tui.ColorSecondary)
 
 	return Model{list: l}
 }
@@ -88,7 +82,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	help := lipgloss.NewStyle().
-		Foreground(muted).
+		Foreground(tui.ColorMuted).
 		Render("enter: select • esc: cancel • ctrl+c: quit • /: filter")
 	return "\n" + m.list.View() + "\n" + help
 }
