@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -25,7 +24,7 @@ func (d delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	s := li.FilterValue()
 	if index == m.Index() {
-		_, _ = fmt.Fprint(w, lipgloss.NewStyle().Foreground(tui.ColorSecondary).Render("> "+s))
+		_, _ = fmt.Fprint(w, tui.SubtitleStyle.Render("> "+s))
 	} else {
 		_, _ = fmt.Fprint(w, "  "+s)
 	}
@@ -81,8 +80,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	help := lipgloss.NewStyle().
-		Foreground(tui.ColorMuted).
+	help := tui.HelpStyle.
 		Render("enter: select • esc: cancel • ctrl+c: quit • /: filter")
 	return "\n" + m.list.View() + "\n" + help
 }

@@ -4,7 +4,7 @@ import "github.com/charmbracelet/lipgloss"
 
 // Common colors used across TUI components
 var (
-	ColorPrimary   = lipgloss.Color("39")  // Blue
+	ColorPrimary   = lipgloss.Color("75")  // Blue
 	ColorSecondary = lipgloss.Color("141") // Purple
 	ColorSuccess   = lipgloss.Color("78")  // Green
 	ColorWarning   = lipgloss.Color("214") // Orange
