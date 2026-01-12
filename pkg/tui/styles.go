@@ -57,6 +57,8 @@ var (
 	BorderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorMuted)
+	FilterStyle  = lipgloss.NewStyle().Foreground(ColorMuted)
+	FilterCursor = lipgloss.NewStyle().Foreground(ColorSecondary)
 )
 
 // RenderHelp creates a consistently styled help line

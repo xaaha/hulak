@@ -55,9 +55,9 @@ func NewModel() Model {
 	l.DisableQuitKeybindings()
 	l.SetShowPagination(len(items) > 8)
 	l.SetShowHelp(false)
-	l.Styles.Title = lipgloss.NewStyle().Foreground(tui.ColorWarning).Bold(true)
-	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(tui.ColorMuted)
-	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(tui.ColorSecondary)
+	l.Styles.Title = tui.TitleStyle
+	l.Styles.FilterPrompt = tui.FilterStyle
+	l.Styles.FilterCursor = tui.FilterCursor
 
 	return Model{list: l}
 }
