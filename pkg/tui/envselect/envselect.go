@@ -2,6 +2,7 @@ package envselect
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -11,117 +12,95 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type item struct {
-	title       string
-	description string
+var (
+	green  = lipgloss.Color("10")
+	yellow = lipgloss.Color("11")
+	muted  = lipgloss.Color("8")
+)
+
+type item string
+
+func (i item) FilterValue() string { return string(i) }
+
+type delegate struct{}
+
+func (d delegate) Height() int                             { return 1 }
+func (d delegate) Spacing() int                            { return 0 }
+func (d delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	s := li.FilterValue()
+	if index == m.Index() {
+		_, _ = fmt.Fprint(w, lipgloss.NewStyle().Foreground(green).Render("> "+s))
+	} else {
+		_, _ = fmt.Fprint(w, "  "+s)
+	}
 }
 
-func (i item) Title() string       { return i.title }
-func (i item) Description() string { return i.description }
-func (i item) FilterValue() string { return i.title }
-
-// Model represents the environment selector TUI state
 type Model struct {
 	list      list.Model
 	Selected  string
 	Cancelled bool
 }
 
-// getEnvItems fetches env files dynamically from the env/ directory
-func getEnvItems() []list.Item {
-	items := []list.Item{
-		item{title: "global", description: "Default environment"},
-	}
-
-	files, err := utils.GetEnvFiles()
-	if err != nil {
-		return items
-	}
-
-	for _, file := range files {
-		name := strings.TrimSuffix(file, ".env")
-		if name == "global" {
-			continue // Already added as default
-		}
-		items = append(items, item{title: name, description: ""})
-	}
-
-	return items
-}
-
-// NewModel creates a new environment selector model
 func NewModel() Model {
-	items := getEnvItems()
+	items := []list.Item{item("global")}
+	if files, err := utils.GetEnvFiles(); err == nil {
+		for _, f := range files {
+			name := strings.TrimSuffix(f, ".env")
+			if name != "global" {
+				items = append(items, item(name))
+			}
+		}
+	}
 
-	l := list.New(items, list.NewDefaultDelegate(), 40, 15)
+	l := list.New(items, delegate{}, 30, min(len(items)+2, 10))
 	l.Title = "Select Environment"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
-	l.SetShowPagination(true)
-	l.SetShowHelp(true)
+	l.SetShowPagination(len(items) > 8)
+	l.SetShowHelp(false)
+	l.Styles.Title = lipgloss.NewStyle().Foreground(yellow).Bold(true)
+	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(muted)
+	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(green)
 
 	return Model{list: l}
 }
 
-func (m Model) Init() tea.Cmd {
-	return nil
-}
+func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		// Handle quit/cancel using shared helper
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if quit, cancelled := tui.HandleQuitCancelWithFilter(msg, m.list.SettingFilter()); quit {
 			m.Cancelled = cancelled
 			return m, tea.Quit
 		}
-
-		// Handle selection
 		if tui.IsConfirmKey(msg) && !m.list.SettingFilter() {
-			if itm, ok := m.list.SelectedItem().(item); ok {
-				m.Selected = itm.title
-			}
+			m.Selected = string(m.list.SelectedItem().(item))
 			return m, tea.Quit
 		}
 	}
-
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
 func (m Model) View() string {
-	box := lipgloss.NewStyle().
-		Border(lipgloss.HiddenBorder()).
-		Padding(1).
-		Render(m.list.View() + "\n" + tui.StandardHelpText())
-
-	return lipgloss.Place(
-		40, 20,
-		lipgloss.Left,
-		lipgloss.Center,
-		box,
-	)
+	help := lipgloss.NewStyle().
+		Foreground(muted).
+		Render("enter: select • esc: cancel • ctrl+c: quit • /: filter")
+	return "\n" + m.list.View() + "\n" + help
 }
 
-// RunEnvSelector launches the TUI and returns the selected environment name.
-// Returns empty string if cancelled or error occurred.
 func RunEnvSelector() (string, error) {
-	program := tea.NewProgram(NewModel())
-	finalModel, err := program.Run()
+	final, err := tea.NewProgram(NewModel()).Run()
 	if err != nil {
-		return "", fmt.Errorf("env selector error: %w", err)
+		return "", err
 	}
-
-	model, ok := finalModel.(Model)
-	if !ok {
-		return "", fmt.Errorf("unexpected model type")
-	}
-
-	if model.Cancelled {
+	m := final.(Model)
+	if m.Cancelled {
 		return "", nil
 	}
-
-	return model.Selected, nil
+	return m.Selected, nil
 }
