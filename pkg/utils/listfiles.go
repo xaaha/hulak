@@ -122,7 +122,7 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("no files [YAML, YML, or JSON] in '%s'", abs)
+		return nil, fmt.Errorf("no files [.yaml, .yml, or .json] in '%s'", abs)
 	}
 
 	return result, nil
