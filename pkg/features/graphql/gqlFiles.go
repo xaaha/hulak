@@ -87,7 +87,7 @@ func FindGraphQLFiles(dirPath string) (map[string]string, error) {
 	// Get all YAML/JSON files recursively
 	allFiles, err := utils.ListFiles(dirPath)
 	if err != nil {
-		return nil, fmt.Errorf("error listing files in '%s': %w", dirPath, err)
+		return nil, err
 	}
 
 	// Map of URL -> filePath to ensure uniqueness
