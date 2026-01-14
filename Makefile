@@ -14,7 +14,7 @@ unit:
 	@go test ./...
 
 build:
-	@go build -o bin/hulak ./cmd/hulak/
+	@go build -o . 
 
 check:
 	@make unit && make run && make run-all  && make graphql
