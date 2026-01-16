@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"fmt"
+)
+
 func PrintGQLUsage() {
 	PrintWarning("GraphQL Usage (Upcoming Feature):")
 	_ = WriteCommandHelp([]*CommandHelp{
@@ -14,8 +18,11 @@ func PrintHelpSubCommands() {
 	_ = WriteCommandHelp([]*CommandHelp{
 		{Command: "hulak version", Description: "Prints hulak version"},
 		{
-			Command:     "hulak init",
-			Description: "Initializes default environment and creates an apiOptions.yaml file",
+			Command: "hulak init",
+			Description: fmt.Sprintf(
+				"Initializes default environment and creates an '%s' file",
+				ApiOptions,
+			),
 		},
 		{
 			Command:     "hulak init -env global prod test",
