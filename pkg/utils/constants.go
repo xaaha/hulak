@@ -35,6 +35,9 @@ const (
 	JSON = ".json"
 )
 
+// default const file
+const ApiOptions = "apiOptions.yaml"
+
 // response pattern for files saved
 const (
 	ResponseBase       = "_response"
@@ -56,8 +59,8 @@ const ResponseType = "code"
 
 // Permissions for creating directory and files
 const (
-	DirPer  fs.FileMode = 0755
-	FilePer fs.FileMode = 0644
+	DirPer  fs.FileMode = 0o755
+	FilePer fs.FileMode = 0o644
 )
 
 // tick mark and x for success and failure
