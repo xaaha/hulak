@@ -95,7 +95,8 @@ func FindGraphQLFiles(dirPath string) (map[string]string, error) {
 
 	for _, filePath := range allFiles {
 		// Skip response files early (performance optimization)
-		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) {
+		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) ||
+			strings.Contains(filepath.Base(filePath), utils.ApiOptions) {
 			continue
 		}
 
