@@ -1,8 +1,9 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/refs/heads/40-test-schema/assets/schema.json
 ---
 # Example API Call File with all available options
+# Kind: Gql # Could be "Gql, Auth, API". API is default and don't need to provide
 #
 # Supported Methods: GET POST PUT PATCH DELETE HEAD OPTIONS TRACE CONNECT
+#
 #
 method: POST
 #

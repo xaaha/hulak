@@ -126,7 +126,7 @@ hulak init
 
 ```
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.yaml` file for your reference.
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.hk.yaml` file for your reference.
 
 ```bash
 # to create multiple .env files in the env directory run

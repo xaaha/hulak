@@ -12,7 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-//go:embed apiOptions.yaml
+//go:embed apiOptions.hk.yaml
 var embeddedFiles embed.FS
 
 // User subcommands

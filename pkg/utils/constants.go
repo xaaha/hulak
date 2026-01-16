@@ -35,8 +35,8 @@ const (
 	JSON = ".json"
 )
 
-// default const file
-const ApiOptions = "apiOptions.yaml"
+// example file with all options
+const ApiOptions = "apiOptions.hk.yaml"
 
 // response pattern for files saved
 const (
