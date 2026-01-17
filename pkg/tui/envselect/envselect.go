@@ -82,7 +82,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	help := tui.HelpStyle.
 		Render("enter: select • esc: cancel • ctrl+c: quit • /: filter")
-	return "\n" + m.list.View() + "\n" + help
+	return fmt.Sprintf("\n %s \n, %s", m.list.View(), help)
 }
 
 func RunEnvSelector() (string, error) {
