@@ -24,7 +24,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		utils.PrintWarning(
 			"Provide a subcommand or a flag. See full docs at https://github.com/xaaha/hulak",
 		)
-		printHelp()
+		utils.PrintHelp()
 		os.Exit(1)
 	}
 

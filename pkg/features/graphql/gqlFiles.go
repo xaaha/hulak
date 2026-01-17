@@ -9,6 +9,7 @@ import (
 	yaml "github.com/goccy/go-yaml"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // peekKindField reads a YAML file and extracts only the 'kind' field
@@ -86,7 +87,7 @@ func FindGraphQLFiles(dirPath string) (map[string]string, error) {
 	// Get all YAML/JSON files recursively
 	allFiles, err := utils.ListFiles(dirPath)
 	if err != nil {
-		return nil, fmt.Errorf("error listing files in '%s': %w", dirPath, err)
+		return nil, err
 	}
 
 	// Map of URL -> filePath to ensure uniqueness
@@ -94,7 +95,8 @@ func FindGraphQLFiles(dirPath string) (map[string]string, error) {
 
 	for _, filePath := range allFiles {
 		// Skip response files early (performance optimization)
-		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) {
+		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) ||
+			strings.Contains(filepath.Base(filePath), utils.ApiOptions) {
 			continue
 		}
 
@@ -105,9 +107,9 @@ func FindGraphQLFiles(dirPath string) (map[string]string, error) {
 			continue
 		}
 
-		// Only process GraphQL files
-		if !strings.EqualFold(kind, "GraphQL") {
-			continue // Skip non-GraphQL files silently
+		// Only process GraphQL files, and skip non Graphql files
+		if !strings.EqualFold(kind, string(yamlparser.KindGraphQL)) {
+			continue
 		}
 
 		// Peek at URL field - no template substitution

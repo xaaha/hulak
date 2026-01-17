@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -16,11 +18,7 @@ import (
 func Introspect(args []string) {
 	// No args = show help and return
 	if len(args) == 0 {
-		utils.PrintWarning("GraphQL Usage (Upcoming Feature):")
-		_ = utils.WriteCommandHelp([]*utils.CommandHelp{
-			{Command: "hulak gql .", Description: "Find All GraphQL files in current directory"},
-			{Command: "hulak gql <path/to/file>", Description: "Validate a specific GraphQL file"},
-		})
+		utils.PrintGQLUsage()
 		return
 	}
 
@@ -38,8 +36,32 @@ func Introspect(args []string) {
 			utils.PanicRedAndExit("%v", err)
 		}
 
-		// Display results
-		fmt.Println("\nGraphQL files found:")
+		// Check if any URLs contain template variables that need env resolution
+		needsEnv := false
+		for url := range urlToFileMap {
+			if strings.Contains(url, "{{") {
+				needsEnv = true
+				break
+			}
+		}
+
+		// Show env selector if templates need resolution
+		if needsEnv {
+			selectedEnv, err := envselect.RunEnvSelector()
+			if err != nil {
+				utils.PanicRedAndExit("Environment selector error: %v", err)
+			}
+			if selectedEnv == "" {
+				fmt.Println("Environment selection cancelled.")
+				return
+			}
+
+			// TODO: Clean up later. Just show what we've selected for now
+			fmt.Printf("Selected environment: %s\n\n", selectedEnv)
+		}
+
+		// TEMP: CLEANUP LATER.. Display results for now
+		fmt.Println("GraphQL files found:")
 		for url, filePath := range urlToFileMap {
 			fmt.Printf("  URL:  %s\n", url)
 			fmt.Printf("  File: %s\n\n", filePath)

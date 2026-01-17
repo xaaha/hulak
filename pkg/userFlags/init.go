@@ -10,7 +10,6 @@ import (
 )
 
 func handleInit() error {
-	apiOptionsFile := "apiOptions.yaml"
 	err := initialize.Parse(os.Args[2:])
 	if err != nil {
 		return fmt.Errorf("\n invalid subcommand %v", err)
@@ -32,21 +31,21 @@ func handleInit() error {
 			utils.PrintRed(err.Error())
 		}
 
-		content, err := embeddedFiles.ReadFile(apiOptionsFile)
+		content, err := embeddedFiles.ReadFile(utils.ApiOptions)
 		if err != nil {
 			return err
 		}
 
-		root, err := utils.CreatePath(apiOptionsFile)
+		root, err := utils.CreatePath(utils.ApiOptions)
 		if err != nil {
 			return nil
 		}
 
 		if err := os.WriteFile(root, content, utils.FilePer); err != nil {
-			return fmt.Errorf("error on writing '%s' file: %s", apiOptionsFile, err)
+			return fmt.Errorf("error on writing '%s' file: %s", utils.ApiOptions, err)
 		}
 
-		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", apiOptionsFile, utils.CheckMark))
+		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", utils.ApiOptions, utils.CheckMark))
 		utils.PrintGreen("Done " + utils.CheckMark)
 	}
 	return nil

@@ -12,7 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-//go:embed apiOptions.yaml
+//go:embed apiOptions.hk.yaml
 var embeddedFiles embed.FS
 
 // User subcommands
@@ -71,7 +71,7 @@ func HandleSubcommands() error {
 		os.Exit(0)
 
 	case Help:
-		printHelp()
+		utils.PrintHelp()
 		os.Exit(0)
 
 	case GraphQL:
@@ -85,7 +85,7 @@ func HandleSubcommands() error {
 
 	default:
 		utils.PrintRed("Enter a valid subcommand")
-		printHelpSubCommands()
+		utils.PrintHelpSubCommands()
 		os.Exit(1)
 	}
 	return nil
