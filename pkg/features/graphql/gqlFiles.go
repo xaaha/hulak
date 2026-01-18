@@ -8,6 +8,7 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -175,4 +176,51 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 
 	// Return raw URL (could be template like {{.graphqlUrl}} or full URL)
 	return url, true, nil
+}
+
+// ResolveTemplateURLs takes a map of raw URLs (may contain {{.key}} templates)
+// and resolves them using the provided secrets map.
+// Returns a new map with resolved URLs as keys and original file paths as values.
+// All URLs are validated after resolution using yamlparser.URL.IsValidURL().
+
+// TODO: Not only urls, but we need to resolve the url-parameters
+// Auth:
+// Set headers and Method (POST and application/json)
+// Even though we resolve the values here, we need to show the actual value in file,
+// be it key or actual value. We use the value, but display what ever user wants to
+func ResolveTemplateURLs(
+	urlToFileMap map[string]string,
+	secretsMap map[string]any,
+) (map[string]string, error) {
+	resolved := make(map[string]string, len(urlToFileMap))
+
+	for rawURL, filePath := range urlToFileMap {
+		var finalURL string
+
+		// Resolve template variables if present
+		if strings.Contains(rawURL, "{{") {
+			result, err := envparser.SubstituteVariables(rawURL, secretsMap)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve URL in %s: %w", filePath, err)
+			}
+
+			resolvedURL, ok := result.(string)
+			if !ok {
+				return nil, fmt.Errorf("URL resolution returned non-string for %s", filePath)
+			}
+			finalURL = resolvedURL
+		} else {
+			finalURL = rawURL
+		}
+
+		// Validate the URL using yamlparser.URL type for consistency with API call infrastructure
+		url := yamlparser.URL(finalURL)
+		if !url.IsValidURL() {
+			return nil, fmt.Errorf("invalid URL '%s' in file %s", finalURL, filePath)
+		}
+
+		resolved[finalURL] = filePath
+	}
+
+	return resolved, nil
 }

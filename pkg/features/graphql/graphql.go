@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -56,11 +57,20 @@ func Introspect(args []string) {
 				return
 			}
 
-			// TODO: Clean up later. Just show what we've selected for now
-			fmt.Printf("Selected environment: %s\n\n", selectedEnv)
+			// Load secrets from selected environment (no interactive prompts)
+			secretsMap, err := envparser.LoadSecretsMap(selectedEnv)
+			if err != nil {
+				utils.PanicRedAndExit("Failed to load environment '%s': %v", selectedEnv, err)
+			}
+
+			// Resolve template URLs
+			urlToFileMap, err = ResolveTemplateURLs(urlToFileMap, secretsMap)
+			if err != nil {
+				utils.PanicRedAndExit("%v", err)
+			}
 		}
 
-		// TEMP: CLEANUP LATER.. Display results for now
+		// Display results
 		fmt.Println("GraphQL files found:")
 		for url, filePath := range urlToFileMap {
 			fmt.Printf("  URL:  %s\n", url)
