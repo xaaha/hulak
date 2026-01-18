@@ -8,6 +8,7 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 
+	"github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
@@ -178,10 +179,29 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	return url, true, nil
 }
 
-// TODO: Follow the steps in SendAndSaveAPIRequest function and create the struct.
-// This should properly create the struct for standar call.
-// have the default headers `application/json` and method `POST` if they are not
-// present on file
+// ProcessGraphQLFile fully processes a GraphQL YAML file with template resolution.
+// This follows the same pattern as SendAndSaveAPIRequest, using checkYamlFile() for
+// template resolution and applying defaults (method=POST, Content-Type: application/json).
+// The returned ApiInfo has:
+// - Url: Full URL with query parameters appended (using apicalls.PrepareURL)
+// - UrlParams: nil (params already merged into Url)
+// - Body: nil - the caller must set the query body (e.g., introspection query or TUI-built query)
+func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.ApiInfo, error) {
+	graphqlConfig, _, err := yamlparser.FinalStructForGraphQL(filePath, secretsMap)
+	if err != nil {
+		return yamlparser.ApiInfo{}, err
+	}
+
+	apiInfo := graphqlConfig.PrepareGraphQLStruct()
+
+	// Combine base URL with query parameters (same as StandardCall does)
+	// This ensures the full URL is available for introspection and TUI display
+	fullURL := apicalls.PrepareURL(apiInfo.Url, apiInfo.UrlParams)
+	apiInfo.Url = fullURL
+	apiInfo.UrlParams = nil // Params are now part of the URL
+
+	return apiInfo, nil
+}
 
 // ResolveTemplateURLs takes a map of raw URLs (may contain {{.key}} templates)
 // and resolves them using the provided secrets map.
@@ -202,6 +222,15 @@ func ResolveTemplateURLs(
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve URL in %s: %w", filePath, err)
 			}
+
+			apiInfo, err := ProcessGraphQLFile(filePath, secretsMap)
+			if err != nil {
+				return nil, fmt.Errorf("error processing gql file %w", err)
+			}
+
+			fmt.Println("Resolved URL:", apiInfo.Url)
+			fmt.Println("Resolved Method:", apiInfo.Method)
+			fmt.Println("Resolved Method:", apiInfo.Headers)
 
 			resolvedURL, ok := result.(string)
 			if !ok {
