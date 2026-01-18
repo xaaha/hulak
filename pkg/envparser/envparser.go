@@ -238,3 +238,30 @@ func mergeCustomEnvVars(
 
 	return baseMap, nil
 }
+
+// LoadSecretsMap loads environment variables without interactive prompts or console output.
+// Unlike GenerateSecretsMap, this function does not call setEnvironment() which has side effects
+// (interactive prompts for missing env files, console output, setting OS env vars).
+// Returns merged map of global.env + {envName}.env variables, where custom env values override global.
+// Use this for TUI flows where environment selection has already been handled separately.
+func LoadSecretsMap(envName string) (map[string]any, error) {
+	// Load global environment variables
+	globalMap, err := loadEnvFile(utils.DefaultEnvVal + utils.DefaultEnvFileSuffix)
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy global map as base
+	resultMap := utils.CopyEnvMap(globalMap)
+
+	// Load and merge custom environment if not global
+	if envName != "" && !strings.EqualFold(envName, utils.DefaultEnvVal) {
+		envFileName := envName + utils.DefaultEnvFileSuffix
+		resultMap, err = mergeCustomEnvVars(resultMap, envFileName)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return resultMap, nil
+}
