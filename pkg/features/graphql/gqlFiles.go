@@ -178,16 +178,15 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	return url, true, nil
 }
 
+// TODO: Follow the steps in SendAndSaveAPIRequest function and create the struct.
+// This should properly create the struct for standar call.
+// have the default headers `application/json` and method `POST` if they are not
+// present on file
+
 // ResolveTemplateURLs takes a map of raw URLs (may contain {{.key}} templates)
 // and resolves them using the provided secrets map.
 // Returns a new map with resolved URLs as keys and original file paths as values.
 // All URLs are validated after resolution using yamlparser.URL.IsValidURL().
-
-// TODO: Not only urls, but we need to resolve the url-parameters
-// Auth:
-// Set headers and Method (POST and application/json)
-// Even though we resolve the values here, we need to show the actual value in file,
-// be it key or actual value. We use the value, but display what ever user wants to
 func ResolveTemplateURLs(
 	urlToFileMap map[string]string,
 	secretsMap map[string]any,
