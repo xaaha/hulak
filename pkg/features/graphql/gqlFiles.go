@@ -8,8 +8,7 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 
-	"github.com/xaaha/hulak/pkg/apiCalls"
-	"github.com/xaaha/hulak/pkg/envparser"
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -203,7 +202,8 @@ func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.
 	return apiInfo, nil
 }
 
-// ResolveTemplateURLs takes a map of raw URLs (may contain {{.key}} templates)
+// ResolveTemplateURLs used for directory mode.
+// It takes a map of raw URLs (may contain {{.key}} templates)
 // and resolves them using the provided secrets map.
 // Returns a new map with resolved URLs as keys and original file paths as values.
 // All URLs are validated after resolution using yamlparser.URL.IsValidURL().
@@ -217,26 +217,12 @@ func ResolveTemplateURLs(
 		var finalURL string
 
 		// Resolve template variables if present
-		if strings.Contains(rawURL, "{{") {
-			result, err := envparser.SubstituteVariables(rawURL, secretsMap)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve URL in %s: %w", filePath, err)
-			}
-
+		if strings.Contains(rawURL, "{{.") {
 			apiInfo, err := ProcessGraphQLFile(filePath, secretsMap)
 			if err != nil {
-				return nil, fmt.Errorf("error processing gql file %w", err)
+				return nil, fmt.Errorf("error processing gql file: %w", err)
 			}
-
-			fmt.Println("Resolved URL:", apiInfo.Url)
-			fmt.Println("Resolved Method:", apiInfo.Method)
-			fmt.Println("Resolved Method:", apiInfo.Headers)
-
-			resolvedURL, ok := result.(string)
-			if !ok {
-				return nil, fmt.Errorf("URL resolution returned non-string for %s", filePath)
-			}
-			finalURL = resolvedURL
+			finalURL = apiInfo.Url
 		} else {
 			finalURL = rawURL
 		}
