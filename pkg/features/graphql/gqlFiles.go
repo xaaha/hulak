@@ -1,10 +1,15 @@
 package graphql
 
 import (
+	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	yaml "github.com/goccy/go-yaml"
 
@@ -12,6 +17,69 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
+
+// ResolutionResult represents the outcome of resolving a single template URL
+type ResolutionResult struct {
+	RawURL      string // Original URL (potentially with templates)
+	ResolvedURL string // Final resolved URL (empty if error)
+	FilePath    string // Path to the GraphQL file
+	Error       error  // nil if successful
+}
+
+// ResolutionSummary aggregates all resolution results
+type ResolutionSummary struct {
+	Successful []ResolutionResult // Successfully resolved files
+	Failed     []ResolutionResult // Files that failed resolution
+	TotalFiles int                // Total number of files processed
+}
+
+// workItem represents a single file to process
+type workItem struct {
+	rawURL   string
+	filePath string
+}
+
+// HasErrors returns true if any resolutions failed
+func (rs *ResolutionSummary) HasErrors() bool {
+	return len(rs.Failed) > 0
+}
+
+// GetResolvedMap converts successful results to the traditional map[url]filepath format
+func (rs *ResolutionSummary) GetResolvedMap() map[string]string {
+	resolved := make(map[string]string, len(rs.Successful))
+	for _, result := range rs.Successful {
+		resolved[result.ResolvedURL] = result.FilePath
+	}
+	return resolved
+}
+
+// FormatErrors formats all errors in a user-friendly way with file paths and error details
+func (rs *ResolutionSummary) FormatErrors() string {
+	if len(rs.Failed) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Failed to resolve %d file(s):\n\n", len(rs.Failed))
+
+	for i, failure := range rs.Failed {
+		fmt.Fprintf(&sb, "%d. File: %s\n", i+1, failure.FilePath)
+		fmt.Fprintf(&sb, "   URL:  %s\n", failure.RawURL)
+		fmt.Fprintf(&sb, "   Error: %v\n", failure.Error)
+
+		// Add helpful context for common errors
+		if strings.Contains(failure.Error.Error(), "key") &&
+			strings.Contains(failure.Error.Error(), "not found") {
+			sb.WriteString("   Hint: Check your environment variables\n")
+		}
+
+		if i < len(rs.Failed)-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
+}
 
 // peekKindField reads a YAML file and extracts only the 'kind' field
 // without performing template substitution. This prevents template
@@ -178,6 +246,92 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	return url, true, nil
 }
 
+// calculateWorkerCount determines the optimal number of workers based on file count
+// For small number of files (< 5), use fewer workers to avoid overhead
+// For I/O-bound tasks like file reading and template processing, use up to CPU*2
+// but cap at 20 workers to prevent resource exhaustion
+func calculateWorkerCount(totalFiles int) int {
+	cpuCount := runtime.NumCPU()
+
+	// For small number of files, use fewer workers
+	if totalFiles < 5 {
+		return totalFiles
+	}
+
+	// For I/O-bound tasks, use up to CPU*2, but cap at 20
+	maxWorkers := int(math.Min(float64(cpuCount*2), 20))
+	return int(math.Min(float64(maxWorkers), float64(totalFiles)))
+}
+
+// resolveWorker processes work items from the workChan and sends results to resultChan
+// Each worker runs independently and handles template resolution with timeout
+func resolveWorker(
+	wg *sync.WaitGroup,
+	workChan <-chan workItem,
+	resultChan chan<- ResolutionResult,
+	secretsMap map[string]any,
+	timeout time.Duration,
+) {
+	defer wg.Done()
+
+	for work := range workChan {
+		result := ResolutionResult{
+			RawURL:   work.rawURL,
+			FilePath: work.filePath,
+		}
+
+		// Check if resolution is needed
+		if !strings.Contains(work.rawURL, "{{") {
+			// No template, validate and pass through
+			url := yamlparser.URL(work.rawURL)
+			if !url.IsValidURL() {
+				result.Error = fmt.Errorf("invalid URL '%s'", work.rawURL)
+			} else {
+				result.ResolvedURL = work.rawURL
+			}
+			resultChan <- result
+			continue
+		}
+
+		// Process with timeout (matching init.go pattern)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+		doneChan := make(chan struct{})
+		errChan := make(chan error, 1)
+		var resolvedURL string
+
+		// Execute resolution in goroutine
+		go func() {
+			apiInfo, err := ProcessGraphQLFile(work.filePath, secretsMap)
+			if err != nil {
+				errChan <- err
+			} else {
+				resolvedURL = apiInfo.Url
+				close(doneChan)
+			}
+		}()
+
+		// Wait for completion or timeout
+		select {
+		case <-doneChan:
+			// Validate resolved URL
+			url := yamlparser.URL(resolvedURL)
+			if !url.IsValidURL() {
+				result.Error = fmt.Errorf("invalid resolved URL '%s'", resolvedURL)
+			} else {
+				result.ResolvedURL = resolvedURL
+			}
+		case err := <-errChan:
+			result.Error = fmt.Errorf("error processing file: %w", err)
+		case <-ctx.Done():
+			result.Error = fmt.Errorf("timeout after %v", timeout)
+		}
+
+		cancel()
+		resultChan <- result
+	}
+}
+
 // ProcessGraphQLFile fully processes a GraphQL YAML file with template resolution.
 // This follows the same pattern as SendAndSaveAPIRequest, using checkYamlFile() for
 // template resolution and applying defaults (method=POST, Content-Type: application/json).
@@ -202,39 +356,115 @@ func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.
 	return apiInfo, nil
 }
 
+// ResolveTemplateURLsConcurrent processes multiple GraphQL files concurrently
+// using a worker pool pattern. It resolves template URLs and collects all results
+// and errors, allowing partial success (some files can succeed while others fail).
+// Returns a ResolutionSummary containing successful and failed resolutions.
+func ResolveTemplateURLsConcurrent(
+	urlToFileMap map[string]string,
+	secretsMap map[string]any,
+) (*ResolutionSummary, error) {
+	// Handle edge case: empty input
+	if len(urlToFileMap) == 0 {
+		return &ResolutionSummary{TotalFiles: 0}, nil
+	}
+
+	// Fast path: If no templates needed, just validate URLs
+	hasTemplates := false
+	for url := range urlToFileMap {
+		if strings.Contains(url, "{{") {
+			hasTemplates = true
+			break
+		}
+	}
+
+	if !hasTemplates {
+		// No templates, just validate URLs and return
+		summary := &ResolutionSummary{TotalFiles: len(urlToFileMap)}
+		for rawURL, filePath := range urlToFileMap {
+			result := ResolutionResult{
+				RawURL:   rawURL,
+				FilePath: filePath,
+			}
+
+			url := yamlparser.URL(rawURL)
+			if !url.IsValidURL() {
+				result.Error = fmt.Errorf("invalid URL '%s'", rawURL)
+				summary.Failed = append(summary.Failed, result)
+			} else {
+				result.ResolvedURL = rawURL
+				summary.Successful = append(summary.Successful, result)
+			}
+		}
+		return summary, nil
+	}
+
+	// Configuration
+	maxWorkers := calculateWorkerCount(len(urlToFileMap))
+	timeout := 30 * time.Second // Per-file timeout
+
+	// Channels for work distribution and result collection
+	workChan := make(chan workItem, len(urlToFileMap))
+	resultChan := make(chan ResolutionResult, len(urlToFileMap))
+
+	var wg sync.WaitGroup
+
+	// Fill work channel
+	for rawURL, filePath := range urlToFileMap {
+		workChan <- workItem{rawURL: rawURL, filePath: filePath}
+	}
+	close(workChan)
+
+	// Start worker pool
+	for range maxWorkers {
+		wg.Add(1)
+		go resolveWorker(&wg, workChan, resultChan, secretsMap, timeout)
+	}
+
+	// Close result channel when all workers complete
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect results
+	summary := &ResolutionSummary{
+		TotalFiles: len(urlToFileMap),
+	}
+
+	for result := range resultChan {
+		if result.Error != nil {
+			summary.Failed = append(summary.Failed, result)
+		} else {
+			summary.Successful = append(summary.Successful, result)
+		}
+	}
+
+	return summary, nil
+}
+
 // ResolveTemplateURLs used for directory mode.
+// DEPRECATED: This function maintains backward compatibility but delegates to
+// ResolveTemplateURLsConcurrent. For better error handling and concurrent processing,
+// use ResolveTemplateURLsConcurrent directly.
 // It takes a map of raw URLs (may contain {{.key}} templates)
 // and resolves them using the provided secrets map.
 // Returns a new map with resolved URLs as keys and original file paths as values.
-// All URLs are validated after resolution using yamlparser.URL.IsValidURL().
+// Returns error if ANY resolution fails (stops at first error for backward compatibility).
 func ResolveTemplateURLs(
 	urlToFileMap map[string]string,
 	secretsMap map[string]any,
 ) (map[string]string, error) {
-	resolved := make(map[string]string, len(urlToFileMap))
-
-	for rawURL, filePath := range urlToFileMap {
-		var finalURL string
-
-		// Resolve template variables if present ({{.key}}, {{getValueOf}}, {{getFile}})
-		if strings.Contains(rawURL, "{{") {
-			apiInfo, err := ProcessGraphQLFile(filePath, secretsMap)
-			if err != nil {
-				return nil, fmt.Errorf("error processing gql file: %w", err)
-			}
-			finalURL = apiInfo.Url
-		} else {
-			finalURL = rawURL
-		}
-
-		// Validate the URL using yamlparser.URL type for consistency with API call infrastructure
-		url := yamlparser.URL(finalURL)
-		if !url.IsValidURL() {
-			return nil, fmt.Errorf("invalid URL '%s' in file %s", finalURL, filePath)
-		}
-
-		resolved[finalURL] = filePath
+	summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
+	if err != nil {
+		return nil, err
 	}
 
-	return resolved, nil
+	// For backward compatibility: return error if any resolutions failed
+	if summary.HasErrors() {
+		// Return the first error (old behavior of stopping at first failure)
+		return nil, fmt.Errorf("error processing gql file:\n%s", summary.FormatErrors())
+	}
+
+	return summary.GetResolvedMap(), nil
 }

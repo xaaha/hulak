@@ -11,14 +11,14 @@ import (
 // Test helper functions
 
 // setupTestDirectory creates a temporary directory for tests
-func setupTestDirectory(t *testing.T) string {
-	t.Helper()
-	return t.TempDir()
+func setupTestDirectory(tb testing.TB) string {
+	tb.Helper()
+	return tb.TempDir()
 }
 
 // createGraphQLFile creates a test GraphQL YAML file with specified URL
-func createGraphQLFile(t *testing.T, dir, filename, url string) string {
-	t.Helper()
+func createGraphQLFile(tb testing.TB, dir, filename, url string) string {
+	tb.Helper()
 
 	var content string
 	if url == "" {
@@ -31,14 +31,14 @@ func createGraphQLFile(t *testing.T, dir, filename, url string) string {
 	filePath := filepath.Join(dir, filename)
 	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
+		tb.Fatalf("Failed to create test file: %v", err)
 	}
 	return filePath
 }
 
 // createYAMLFile creates a test YAML file with custom kind and optional URL
-func createYAMLFile(t *testing.T, dir, filename, kind, url string) string {
-	t.Helper()
+func createYAMLFile(tb testing.TB, dir, filename, kind, url string) string {
+	tb.Helper()
 
 	var content string
 	if url == "" {
@@ -51,7 +51,7 @@ func createYAMLFile(t *testing.T, dir, filename, kind, url string) string {
 	filePath := filepath.Join(dir, filename)
 	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
+		tb.Fatalf("Failed to create test file: %v", err)
 	}
 	return filePath
 }
@@ -867,5 +867,208 @@ func BenchmarkValidateGraphQLFile(b *testing.B) {
 
 	for b.Loop() {
 		_, _, _ = ValidateGraphQLFile(filePath)
+	}
+}
+
+// Tests for concurrent resolution
+
+func TestResolveTemplateURLsConcurrent_EmptyInput(t *testing.T) {
+	emptyMap := make(map[string]string)
+	secretsMap := make(map[string]any)
+
+	summary, err := ResolveTemplateURLsConcurrent(emptyMap, secretsMap)
+	if err != nil {
+		t.Errorf("Expected no error for empty input, got: %v", err)
+	}
+	if summary.TotalFiles != 0 {
+		t.Errorf("Expected TotalFiles=0, got %d", summary.TotalFiles)
+	}
+	if len(summary.Successful) != 0 {
+		t.Errorf("Expected no successful results, got %d", len(summary.Successful))
+	}
+	if len(summary.Failed) != 0 {
+		t.Errorf("Expected no failed results, got %d", len(summary.Failed))
+	}
+}
+
+func TestResolveTemplateURLsConcurrent_NoTemplates(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	// Create files without templates
+	createGraphQLFile(t, tempDir, "file1.yaml", "http://example.com/graphql")
+	createGraphQLFile(t, tempDir, "file2.yaml", "https://api.test.com/query")
+
+	urlToFileMap := map[string]string{
+		"http://example.com/graphql":  filepath.Join(tempDir, "file1.yaml"),
+		"https://api.test.com/query": filepath.Join(tempDir, "file2.yaml"),
+	}
+	secretsMap := make(map[string]any)
+
+	summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if summary.TotalFiles != 2 {
+		t.Errorf("Expected TotalFiles=2, got %d", summary.TotalFiles)
+	}
+	if len(summary.Successful) != 2 {
+		t.Errorf("Expected 2 successful resolutions, got %d", len(summary.Successful))
+	}
+	if len(summary.Failed) != 0 {
+		t.Errorf("Expected 0 failed resolutions, got %d", len(summary.Failed))
+	}
+	if summary.HasErrors() {
+		t.Error("Expected HasErrors()=false")
+	}
+
+	// Verify resolved map
+	resolvedMap := summary.GetResolvedMap()
+	if len(resolvedMap) != 2 {
+		t.Errorf("Expected 2 entries in resolved map, got %d", len(resolvedMap))
+	}
+}
+
+func TestResolveTemplateURLsConcurrent_InvalidURLs(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	// Create file with invalid URL (no protocol)
+	createGraphQLFile(t, tempDir, "invalid.yaml", "example.com/graphql")
+
+	urlToFileMap := map[string]string{
+		"example.com/graphql": filepath.Join(tempDir, "invalid.yaml"),
+	}
+	secretsMap := make(map[string]any)
+
+	summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if len(summary.Failed) != 1 {
+		t.Errorf("Expected 1 failed resolution, got %d", len(summary.Failed))
+	}
+	if len(summary.Successful) != 0 {
+		t.Errorf("Expected 0 successful resolutions, got %d", len(summary.Successful))
+	}
+
+	// Verify error message mentions invalid URL
+	if !strings.Contains(summary.Failed[0].Error.Error(), "invalid URL") {
+		t.Errorf("Expected error about invalid URL, got: %v", summary.Failed[0].Error)
+	}
+}
+
+func TestResolutionSummary_Methods(t *testing.T) {
+	t.Run("HasErrors_true", func(t *testing.T) {
+		summary := &ResolutionSummary{
+			Failed: []ResolutionResult{
+				{RawURL: "test", Error: fmt.Errorf("test error")},
+			},
+		}
+		if !summary.HasErrors() {
+			t.Error("Expected HasErrors()=true when Failed is not empty")
+		}
+	})
+
+	t.Run("HasErrors_false", func(t *testing.T) {
+		summary := &ResolutionSummary{
+			Successful: []ResolutionResult{
+				{RawURL: "test", ResolvedURL: "http://test.com"},
+			},
+		}
+		if summary.HasErrors() {
+			t.Error("Expected HasErrors()=false when Failed is empty")
+		}
+	})
+
+	t.Run("GetResolvedMap", func(t *testing.T) {
+		summary := &ResolutionSummary{
+			Successful: []ResolutionResult{
+				{ResolvedURL: "http://example.com", FilePath: "/path/file1.yaml"},
+				{ResolvedURL: "http://test.com", FilePath: "/path/file2.yaml"},
+			},
+		}
+		resolved := summary.GetResolvedMap()
+		if len(resolved) != 2 {
+			t.Errorf("Expected 2 entries in map, got %d", len(resolved))
+		}
+		if resolved["http://example.com"] != "/path/file1.yaml" {
+			t.Errorf("Expected correct mapping for example.com")
+		}
+	})
+
+	t.Run("FormatErrors", func(t *testing.T) {
+		summary := &ResolutionSummary{
+			Failed: []ResolutionResult{
+				{
+					FilePath: "/path/file1.yaml",
+					RawURL:   "{{.missing}}",
+					Error:    fmt.Errorf("key not found"),
+				},
+			},
+		}
+		formatted := summary.FormatErrors()
+		if !strings.Contains(formatted, "Failed to resolve") {
+			t.Error("Expected format to mention 'Failed to resolve'")
+		}
+		if !strings.Contains(formatted, "file1.yaml") {
+			t.Error("Expected format to include file path")
+		}
+		if !strings.Contains(formatted, "{{.missing}}") {
+			t.Error("Expected format to include raw URL")
+		}
+	})
+
+	t.Run("FormatErrors_empty", func(t *testing.T) {
+		summary := &ResolutionSummary{}
+		formatted := summary.FormatErrors()
+		if formatted != "" {
+			t.Errorf("Expected empty string, got: %s", formatted)
+		}
+	})
+}
+
+func TestCalculateWorkerCount(t *testing.T) {
+	tests := []struct {
+		name       string
+		totalFiles int
+		minWorkers int
+		maxWorkers int
+	}{
+		{"zero_files", 0, 0, 0},
+		{"one_file", 1, 1, 1},
+		{"small_3files", 3, 3, 3},
+		{"medium_10files", 10, 1, 20}, // Depends on CPU count
+		{"large_50files", 50, 1, 20},  // Capped at 20
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workers := calculateWorkerCount(tt.totalFiles)
+			if workers < tt.minWorkers || workers > tt.maxWorkers {
+				t.Errorf("Expected workers between %d and %d, got %d",
+					tt.minWorkers, tt.maxWorkers, workers)
+			}
+		})
+	}
+}
+
+func BenchmarkResolveTemplateURLsConcurrent(b *testing.B) {
+	tempDir := b.TempDir()
+
+	// Create 20 test files without templates for benchmarking
+	urlToFileMap := make(map[string]string)
+	for i := range 20 {
+		url := fmt.Sprintf("http://example.com/%d", i)
+		filename := fmt.Sprintf("file%d.yaml", i)
+		createGraphQLFile(b, tempDir, filename, url)
+		urlToFileMap[url] = filepath.Join(tempDir, filename)
+	}
+
+	secretsMap := make(map[string]any)
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, _ = ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
 	}
 }

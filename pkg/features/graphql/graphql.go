@@ -52,11 +52,34 @@ func handleDirectoryMode() {
 			return
 		}
 
-		// Resolve template URLs
-		urlToFileMap, err = ResolveTemplateURLs(urlToFileMap, secretsMap)
+		// Resolve template URLs concurrently
+		summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
 		if err != nil {
 			utils.PanicRedAndExit("%v", err)
 		}
+
+		// TEMP:
+		// Display successful resolutions
+		if len(summary.Successful) > 0 {
+			fmt.Printf("\n✓ Successfully resolved %d file(s):\n", len(summary.Successful))
+			for _, success := range summary.Successful {
+				fmt.Printf("  • %s → %s\n", filepath.Base(success.FilePath), success.ResolvedURL)
+			}
+		}
+
+		// Display failed resolutions
+		if summary.HasErrors() {
+			fmt.Fprintf(os.Stderr, "\n✗ Failed to resolve %d file(s):\n", len(summary.Failed))
+			for i, failure := range summary.Failed {
+				fmt.Fprintf(os.Stderr, "\n%d. File: %s\n", i+1, failure.FilePath)
+				fmt.Fprintf(os.Stderr, "   URL:  %s\n", failure.RawURL)
+				fmt.Fprintf(os.Stderr, "   Error: %v\n", failure.Error)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+
+		// Continue with successful files only
+		urlToFileMap = summary.GetResolvedMap()
 	}
 
 	// Display results
