@@ -755,6 +755,76 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 	}
 }
 
+// Tests for needsEnvResolution (from graphql.go)
+
+func TestNeedsEnvResolution(t *testing.T) {
+	testCases := []struct {
+		name        string
+		urlToFileMap map[string]string
+		expected    bool
+	}{
+		{
+			name: "no_templates",
+			urlToFileMap: map[string]string{
+				"http://example.com/graphql": "file1.yaml",
+				"https://api.test.com/query": "file2.yaml",
+			},
+			expected: false,
+		},
+		{
+			name: "dot_variable_template",
+			urlToFileMap: map[string]string{
+				"{{.baseUrl}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "getValueOf_template",
+			urlToFileMap: map[string]string{
+				"{{getValueOf url config}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "getFile_template",
+			urlToFileMap: map[string]string{
+				"{{getFile url.txt}}": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "mixed_templates_and_urls",
+			urlToFileMap: map[string]string{
+				"http://example.com/graphql":         "file1.yaml",
+				"{{.graphqlUrl}}":                    "file2.yaml",
+				"{{getValueOf endpoint config.json}}": "file3.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "partial_template_in_url",
+			urlToFileMap: map[string]string{
+				"https://{{.domain}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name:         "empty_map",
+			urlToFileMap: map[string]string{},
+			expected:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := needsEnvResolution(tc.urlToFileMap)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 // Benchmark tests
 
 func BenchmarkFindGraphQLFiles(b *testing.B) {

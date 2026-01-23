@@ -216,8 +216,8 @@ func ResolveTemplateURLs(
 	for rawURL, filePath := range urlToFileMap {
 		var finalURL string
 
-		// Resolve template variables if present
-		if strings.Contains(rawURL, "{{.") {
+		// Resolve template variables if present ({{.key}}, {{getValueOf}}, {{getFile}})
+		if strings.Contains(rawURL, "{{") {
 			apiInfo, err := ProcessGraphQLFile(filePath, secretsMap)
 			if err != nil {
 				return nil, fmt.Errorf("error processing gql file: %w", err)
