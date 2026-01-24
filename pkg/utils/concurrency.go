@@ -15,7 +15,6 @@ import (
 // This function is intended for primarily I/O-bound workloads such as file reading
 // and template processing.
 func GetWorkers(count *int) int {
-	// Use a reasonable number of workers based on CPU count
 	// Typically for I/O-bound tasks (like API calls), we can use more workers than CPUs
 	// For CPU-bound tasks, we need stay close to the CPU count
 	cpuCount := runtime.NumCPU()
