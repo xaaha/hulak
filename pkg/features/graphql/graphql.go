@@ -62,8 +62,13 @@ func handleDirectoryMode() {
 		urlToFileMap = summary.GetResolvedMap()
 	}
 
-	// Display results
-	printGraphQLFiles(urlToFileMap)
+	// Display results for now
+	fmt.Println("GraphQL files found:")
+	for url, filePath := range urlToFileMap {
+		fmt.Printf("  URL:  %s\n", url)
+		fmt.Printf("  File: %s\n\n", filePath)
+	}
+	fmt.Printf("Total: %d unique GraphQL endpoint(s)\n", len(urlToFileMap))
 }
 
 // handleFileMode validates and processes a specific GraphQL file.
@@ -139,16 +144,4 @@ func loadSecretsWithEnvSelector() (map[string]any, bool) {
 	}
 
 	return secretsMap, false
-}
-
-// printGraphQLFiles displays the discovered GraphQL files and their URLs.
-//
-//	TODO-gql: Remove later
-func printGraphQLFiles(urlToFileMap map[string]string) {
-	fmt.Println("GraphQL files found:")
-	for url, filePath := range urlToFileMap {
-		fmt.Printf("  URL:  %s\n", url)
-		fmt.Printf("  File: %s\n\n", filePath)
-	}
-	fmt.Printf("Total: %d unique GraphQL endpoint(s)\n", len(urlToFileMap))
 }
