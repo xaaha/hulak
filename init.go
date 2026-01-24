@@ -4,9 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"math"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -34,9 +32,9 @@ func InitializeProject(env string) map[string]any {
 // runTasks manages the go tasks with a limited worker pool
 func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string) {
 	// Configuration parameters
-	maxWorkers := calculateOptimalWorkerCount() // Dynamically determine worker count
-	maxRetries := 3                             // Number of retries for failed tasks
-	timeout := 60 * time.Second                 // Timeout for each API call
+	maxWorkers := utils.GetWorkers(nil) // Dynamically determine worker count
+	maxRetries := 3                     // Number of retries for failed tasks
+	timeout := 60 * time.Second         // Timeout for each API call
 
 	if fp != "" {
 		// If fp flag has a path, then let's not retry it again
@@ -115,18 +113,6 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 	}
 	// Wait for all workers to finish
 	wg.Wait()
-}
-
-// calculateOptimalWorkerCount determines the optimal number of workers based on system resources
-func calculateOptimalWorkerCount() int {
-	cpuCount := runtime.NumCPU()
-	// Use a reasonable number of workers based on CPU count
-	// Typically for I/O-bound tasks (like API calls), we can use more workers than CPUs
-	// For CPU-bound tasks, we need stay close to the CPU count
-	return int(
-		// Between 1 and 20, with CPU*2 as guidance
-		math.Max(1, math.Min(float64(cpuCount*2), 20)),
-	)
 }
 
 // processTask handles a single task, separated to simplify the worker logic

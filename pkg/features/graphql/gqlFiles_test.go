@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Test helper functions
@@ -759,9 +761,9 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 
 func TestNeedsEnvResolution(t *testing.T) {
 	testCases := []struct {
-		name        string
+		name         string
 		urlToFileMap map[string]string
-		expected    bool
+		expected     bool
 	}{
 		{
 			name: "no_templates",
@@ -795,8 +797,8 @@ func TestNeedsEnvResolution(t *testing.T) {
 		{
 			name: "mixed_templates_and_urls",
 			urlToFileMap: map[string]string{
-				"http://example.com/graphql":         "file1.yaml",
-				"{{.graphqlUrl}}":                    "file2.yaml",
+				"http://example.com/graphql":          "file1.yaml",
+				"{{.graphqlUrl}}":                     "file2.yaml",
 				"{{getValueOf endpoint config.json}}": "file3.yaml",
 			},
 			expected: true,
@@ -899,7 +901,7 @@ func TestResolveTemplateURLsConcurrent_NoTemplates(t *testing.T) {
 	createGraphQLFile(t, tempDir, "file2.yaml", "https://api.test.com/query")
 
 	urlToFileMap := map[string]string{
-		"http://example.com/graphql":  filepath.Join(tempDir, "file1.yaml"),
+		"http://example.com/graphql": filepath.Join(tempDir, "file1.yaml"),
 		"https://api.test.com/query": filepath.Join(tempDir, "file2.yaml"),
 	}
 	secretsMap := make(map[string]any)
@@ -1044,7 +1046,8 @@ func TestCalculateWorkerCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workers := calculateWorkerCount(tt.totalFiles)
+			totalFiles := tt.totalFiles
+			workers := utils.GetWorkers(&totalFiles)
 			if workers < tt.minWorkers || workers > tt.maxWorkers {
 				t.Errorf("Expected workers between %d and %d, got %d",
 					tt.minWorkers, tt.maxWorkers, workers)

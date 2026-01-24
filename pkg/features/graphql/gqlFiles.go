@@ -3,10 +3,8 @@ package graphql
 import (
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -246,23 +244,6 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	return url, true, nil
 }
 
-// calculateWorkerCount determines the optimal number of workers based on file count
-// For small number of files (< 5), use fewer workers to avoid overhead
-// For I/O-bound tasks like file reading and template processing, use up to CPU*2
-// but cap at 20 workers to prevent resource exhaustion
-func calculateWorkerCount(totalFiles int) int {
-	cpuCount := runtime.NumCPU()
-
-	// For small number of files, use fewer workers
-	if totalFiles < 5 {
-		return totalFiles
-	}
-
-	// For I/O-bound tasks, use up to CPU*2, but cap at 20
-	maxWorkers := int(math.Min(float64(cpuCount*2), 20))
-	return int(math.Min(float64(maxWorkers), float64(totalFiles)))
-}
-
 // resolveWorker processes work items from the workChan and sends results to resultChan
 // Each worker runs independently and handles template resolution with timeout
 func resolveWorker(
@@ -400,7 +381,8 @@ func ResolveTemplateURLsConcurrent(
 	}
 
 	// Configuration
-	maxWorkers := calculateWorkerCount(len(urlToFileMap))
+	numOfFiles := len(urlToFileMap)
+	maxWorkers := utils.GetWorkers(&numOfFiles)
 	timeout := 30 * time.Second // Per-file timeout
 
 	// Channels for work distribution and result collection
