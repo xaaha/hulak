@@ -115,9 +115,9 @@ func handleFileMode(arg string) {
 }
 
 // needsEnvResolution checks if any URL in the map contains template variables.
-// This catches all template types: {{.key}}, {{getValueOf key fileName}}, {{getFile fileName}} since they all start with "{{".
 func needsEnvResolution(urlToFileMap map[string]string) bool {
 	for url := range urlToFileMap {
+		// should catch all: {{.key}}, {{getValueOf key fileName}}, {{getFile fileName}}
 		if strings.Contains(url, "{{") {
 			return true
 		}
