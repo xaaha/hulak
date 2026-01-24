@@ -424,29 +424,3 @@ func ResolveTemplateURLsConcurrent(
 
 	return summary, nil
 }
-
-// ResolveTemplateURLs used for directory mode.
-// DEPRECATED: This function maintains backward compatibility but delegates to
-// ResolveTemplateURLsConcurrent. For better error handling and concurrent processing,
-// use ResolveTemplateURLsConcurrent directly.
-// It takes a map of raw URLs (may contain {{.key}} templates)
-// and resolves them using the provided secrets map.
-// Returns a new map with resolved URLs as keys and original file paths as values.
-// Returns error if ANY resolution fails (stops at first error for backward compatibility).
-func ResolveTemplateURLs(
-	urlToFileMap map[string]string,
-	secretsMap map[string]any,
-) (map[string]string, error) {
-	summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	// For backward compatibility: return error if any resolutions failed
-	if summary.HasErrors() {
-		// Return the first error (old behavior of stopping at first failure)
-		return nil, fmt.Errorf("error processing gql file:\n%s", summary.FormatErrors())
-	}
-
-	return summary.GetResolvedMap(), nil
-}
