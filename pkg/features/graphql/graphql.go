@@ -58,8 +58,7 @@ func handleDirectoryMode() {
 			utils.PanicRedAndExit("%v", err)
 		}
 
-		// TEMP:
-		// Display successful resolutions
+		// TODO-gql: Cleanup later for now, just print
 		if len(summary.Successful) > 0 {
 			fmt.Printf("\n✓ Successfully resolved %d file(s):\n", len(summary.Successful))
 			for _, success := range summary.Successful {
