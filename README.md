@@ -341,11 +341,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
    make install-hooks
    ```
 
-2. **Code style**
-   - Follow existing patterns in the codebase
-   - Write table-driven tests for new functionality
-
-3. **Useful commands**
+2. **Useful commands**
    | Command | Description |
    |---------|-------------|
    | `make check` | Run lint and unit tests |
