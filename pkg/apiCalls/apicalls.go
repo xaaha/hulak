@@ -98,7 +98,10 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 	var strBody string
 	if err == nil {
 		strBody = string(jsonData)
-		utils.PrintJSONColored(jsonData)
+		err = utils.PrintJSONColored(jsonData)
+		if err != nil {
+			utils.PrintRed(string(err.Error()))
+		}
 	} else {
 		utils.PrintWarning("error serializing response: " + err.Error())
 		strBody = fmt.Sprintf("%+v", resp) // Fallback to raw struct

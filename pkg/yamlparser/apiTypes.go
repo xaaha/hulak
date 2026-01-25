@@ -152,7 +152,7 @@ func (b *Body) IsValid() bool {
 	for i := range ln.NumField() {
 		field := ln.Field(i)
 		switch field.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			// If the pointer is non-nil, it's valid
 			if !field.IsNil() {
 				validFieldCount++

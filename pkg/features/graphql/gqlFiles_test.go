@@ -6,19 +6,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Test helper functions
 
 // setupTestDirectory creates a temporary directory for tests
-func setupTestDirectory(t *testing.T) string {
-	t.Helper()
-	return t.TempDir()
+func setupTestDirectory(tb testing.TB) string {
+	tb.Helper()
+	return tb.TempDir()
 }
 
 // createGraphQLFile creates a test GraphQL YAML file with specified URL
-func createGraphQLFile(t *testing.T, dir, filename, url string) string {
-	t.Helper()
+func createGraphQLFile(tb testing.TB, dir, filename, url string) string {
+	tb.Helper()
 
 	var content string
 	if url == "" {
@@ -31,14 +33,14 @@ func createGraphQLFile(t *testing.T, dir, filename, url string) string {
 	filePath := filepath.Join(dir, filename)
 	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
+		tb.Fatalf("Failed to create test file: %v", err)
 	}
 	return filePath
 }
 
 // createYAMLFile creates a test YAML file with custom kind and optional URL
-func createYAMLFile(t *testing.T, dir, filename, kind, url string) string {
-	t.Helper()
+func createYAMLFile(tb testing.TB, dir, filename, kind, url string) string {
+	tb.Helper()
 
 	var content string
 	if url == "" {
@@ -51,7 +53,7 @@ func createYAMLFile(t *testing.T, dir, filename, kind, url string) string {
 	filePath := filepath.Join(dir, filename)
 	err := os.WriteFile(filePath, []byte(content), 0o644)
 	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
+		tb.Fatalf("Failed to create test file: %v", err)
 	}
 	return filePath
 }
@@ -755,6 +757,76 @@ func TestIntegration_RealWorldScenario(t *testing.T) {
 	}
 }
 
+// Tests for NeedsEnvResolution
+
+func TestNeedsEnvResolution(t *testing.T) {
+	testCases := []struct {
+		name         string
+		urlToFileMap map[string]string
+		expected     bool
+	}{
+		{
+			name: "no_templates",
+			urlToFileMap: map[string]string{
+				"http://example.com/graphql": "file1.yaml",
+				"https://api.test.com/query": "file2.yaml",
+			},
+			expected: false,
+		},
+		{
+			name: "dot_variable_template",
+			urlToFileMap: map[string]string{
+				"{{.baseUrl}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "getValueOf_template",
+			urlToFileMap: map[string]string{
+				"{{getValueOf url config}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "getFile_template",
+			urlToFileMap: map[string]string{
+				"{{getFile url.txt}}": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "mixed_templates_and_urls",
+			urlToFileMap: map[string]string{
+				"http://example.com/graphql":          "file1.yaml",
+				"{{.graphqlUrl}}":                     "file2.yaml",
+				"{{getValueOf endpoint config.json}}": "file3.yaml",
+			},
+			expected: true,
+		},
+		{
+			name: "partial_template_in_url",
+			urlToFileMap: map[string]string{
+				"https://{{.domain}}/graphql": "file1.yaml",
+			},
+			expected: true,
+		},
+		{
+			name:         "empty_map",
+			urlToFileMap: map[string]string{},
+			expected:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := NeedsEnvResolution(tc.urlToFileMap)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 // Benchmark tests
 
 func BenchmarkFindGraphQLFiles(b *testing.B) {
@@ -797,5 +869,170 @@ func BenchmarkValidateGraphQLFile(b *testing.B) {
 
 	for b.Loop() {
 		_, _, _ = ValidateGraphQLFile(filePath)
+	}
+}
+
+// Tests for ProcessFilesConcurrent
+
+func TestProcessFilesConcurrent_EmptyInput(t *testing.T) {
+	secretsMap := make(map[string]any)
+
+	results := ProcessFilesConcurrent(nil, secretsMap)
+	if results != nil {
+		t.Errorf("Expected nil for empty input, got: %v", results)
+	}
+
+	results = ProcessFilesConcurrent([]string{}, secretsMap)
+	if results != nil {
+		t.Errorf("Expected nil for empty slice, got: %v", results)
+	}
+}
+
+func TestProcessFilesConcurrent_SingleFile(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	createGraphQLFile(t, tempDir, "file1.yaml", "http://example.com/graphql")
+	filePath := filepath.Join(tempDir, "file1.yaml")
+	secretsMap := make(map[string]any)
+
+	results := ProcessFilesConcurrent([]string{filePath}, secretsMap)
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+	if results[0].Error != nil {
+		t.Errorf("Expected no error, got: %v", results[0].Error)
+	}
+	if results[0].FilePath != filePath {
+		t.Errorf("Expected FilePath=%s, got %s", filePath, results[0].FilePath)
+	}
+	if results[0].ApiInfo.Url != "http://example.com/graphql" {
+		t.Errorf("Expected URL=http://example.com/graphql, got %s", results[0].ApiInfo.Url)
+	}
+}
+
+func TestProcessFilesConcurrent_MultipleFiles(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	createGraphQLFile(t, tempDir, "file1.yaml", "http://example.com/graphql")
+	createGraphQLFile(t, tempDir, "file2.yaml", "https://api.test.com/query")
+
+	filePaths := []string{
+		filepath.Join(tempDir, "file1.yaml"),
+		filepath.Join(tempDir, "file2.yaml"),
+	}
+	secretsMap := make(map[string]any)
+
+	results := ProcessFilesConcurrent(filePaths, secretsMap)
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+
+	// Count successes and errors
+	var successCount, errorCount int
+	for _, r := range results {
+		if r.Error != nil {
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	if successCount != 2 {
+		t.Errorf("Expected 2 successful results, got %d", successCount)
+	}
+	if errorCount != 0 {
+		t.Errorf("Expected 0 errors, got %d", errorCount)
+	}
+}
+
+func TestProcessFilesConcurrent_WithErrors(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	// Create one valid and one invalid file
+	createGraphQLFile(t, tempDir, "valid.yaml", "http://example.com/graphql")
+
+	// Create file with template that will fail (missing secret)
+	invalidContent := "---\nkind: GraphQL\nurl: \"{{.missingSecret}}\"\nmethod: POST\n"
+	invalidPath := filepath.Join(tempDir, "invalid.yaml")
+	err := os.WriteFile(invalidPath, []byte(invalidContent), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create invalid file: %v", err)
+	}
+
+	filePaths := []string{
+		filepath.Join(tempDir, "valid.yaml"),
+		invalidPath,
+	}
+	secretsMap := make(map[string]any) // Empty, so template will fail
+
+	results := ProcessFilesConcurrent(filePaths, secretsMap)
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+
+	// Count successes and errors
+	var successCount, errorCount int
+	for _, r := range results {
+		if r.Error != nil {
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	if successCount != 1 {
+		t.Errorf("Expected 1 successful result, got %d", successCount)
+	}
+	if errorCount != 1 {
+		t.Errorf("Expected 1 error, got %d", errorCount)
+	}
+}
+
+func TestGetWorkers(t *testing.T) {
+	tests := []struct {
+		name       string
+		totalFiles int
+		minWorkers int
+		maxWorkers int
+	}{
+		{"zero_files", 0, 0, 0},
+		{"one_file", 1, 1, 1},
+		{"small_3files", 3, 3, 3},
+		{"medium_10files", 10, 1, 20}, // Depends on CPU count
+		{"large_50files", 50, 1, 20},  // Capped at 20
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			totalFiles := tt.totalFiles
+			workers := utils.GetWorkers(&totalFiles)
+			if workers < tt.minWorkers || workers > tt.maxWorkers {
+				t.Errorf("Expected workers between %d and %d, got %d",
+					tt.minWorkers, tt.maxWorkers, workers)
+			}
+		})
+	}
+}
+
+func BenchmarkProcessFilesConcurrent(b *testing.B) {
+	tempDir := b.TempDir()
+
+	// Create 20 test files without templates for benchmarking
+	var filePaths []string
+	for i := range 20 {
+		url := fmt.Sprintf("http://example.com/%d", i)
+		filename := fmt.Sprintf("file%d.yaml", i)
+		createGraphQLFile(b, tempDir, filename, url)
+		filePaths = append(filePaths, filepath.Join(tempDir, filename))
+	}
+
+	secretsMap := make(map[string]any)
+
+	b.ResetTimer()
+	for b.Loop() {
+		_ = ProcessFilesConcurrent(filePaths, secretsMap)
 	}
 }

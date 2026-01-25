@@ -171,3 +171,26 @@ func FinalStructForOAuth2(
 	}
 	return auth2Config, nil
 }
+
+// FinalStructForGraphQL builds a final struct for GraphQL requests.
+// Returns ApiCallFile struct, true if valid, and error.
+// It applies default method (POST) and headers (Content-Type: application/json).
+// Unlike FinalStructForAPI, this does NOT require body/query since the TUI provides it.
+func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (ApiCallFile, bool, error) {
+	buf, err := checkYamlFile(filePath, secretsMap)
+	if err != nil {
+		return ApiCallFile{}, false, err
+	}
+
+	var file ApiCallFile
+	dec := yaml.NewDecoder(buf)
+	if err := dec.Decode(&file); err != nil {
+		return ApiCallFile{}, false, err
+	}
+
+	if valid, err := file.IsValidForGraphQL(filePath); !valid {
+		return ApiCallFile{}, false, err
+	}
+
+	return file, true, nil
+}

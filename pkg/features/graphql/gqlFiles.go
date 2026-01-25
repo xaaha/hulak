@@ -5,12 +5,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	yaml "github.com/goccy/go-yaml"
 
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
+
+// ProcessResult represents the outcome of processing a single GraphQL file
+type ProcessResult struct {
+	FilePath string
+	ApiInfo  yamlparser.ApiInfo
+	Error    error
+}
+
+// NeedsEnvResolution checks if any URL in the map contains template variables.
+func NeedsEnvResolution(urlToFileMap map[string]string) bool {
+	for url := range urlToFileMap {
+		if strings.Contains(url, "{{") {
+			return true
+		}
+	}
+	return false
+}
 
 // peekKindField reads a YAML file and extracts only the 'kind' field
 // without performing template substitution. This prevents template
@@ -175,4 +194,78 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 
 	// Return raw URL (could be template like {{.graphqlUrl}} or full URL)
 	return url, true, nil
+}
+
+// ProcessGraphQLFile fully processes a GraphQL YAML file with template resolution.
+// This follows the same pattern as SendAndSaveAPIRequest, using checkYamlFile() for
+// template resolution and applying defaults (method=POST, Content-Type: application/json).
+// The returned ApiInfo has:
+// - Url: Full URL with query parameters appended (using apicalls.PrepareURL)
+// - UrlParams: nil (params already merged into Url)
+// - Body: nil - the caller must set the query body (e.g., introspection query or TUI-built query)
+func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.ApiInfo, error) {
+	graphqlConfig, _, err := yamlparser.FinalStructForGraphQL(filePath, secretsMap)
+	if err != nil {
+		return yamlparser.ApiInfo{}, err
+	}
+
+	apiInfo := graphqlConfig.PrepareGraphQLStruct()
+
+	// Combine base URL with query parameters (same as StandardCall does)
+	// This ensures the full URL is available for introspection and TUI display
+	fullURL := apicalls.PrepareURL(apiInfo.Url, apiInfo.UrlParams)
+	apiInfo.Url = fullURL
+	apiInfo.UrlParams = nil // Params are now part of the URL
+
+	return apiInfo, nil
+}
+
+// ProcessFilesConcurrent processes GraphQL files using a simple worker pool.
+// Uses utils.GetWorkers to determine the number of concurrent workers.
+// Returns all results (successful and failed) for the caller to handle.
+func ProcessFilesConcurrent(filePaths []string, secretsMap map[string]any) []ProcessResult {
+	if len(filePaths) == 0 {
+		return nil
+	}
+
+	numFiles := len(filePaths)
+	numWorkers := utils.GetWorkers(&numFiles)
+
+	jobs := make(chan string, numFiles)
+	results := make(chan ProcessResult, numFiles)
+
+	// Start workers
+	var wg sync.WaitGroup
+	for range numWorkers {
+		wg.Go(func() {
+			for job := range jobs {
+				apiInfo, err := ProcessGraphQLFile(job, secretsMap)
+				results <- ProcessResult{
+					FilePath: job,
+					ApiInfo:  apiInfo,
+					Error:    err,
+				}
+			}
+		})
+	}
+
+	// Send jobs
+	for _, fp := range filePaths {
+		jobs <- fp
+	}
+	close(jobs)
+
+	// Wait for workers and close results channel
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	var allResults []ProcessResult
+	for result := range results {
+		allResults = append(allResults, result)
+	}
+
+	return allResults
 }
