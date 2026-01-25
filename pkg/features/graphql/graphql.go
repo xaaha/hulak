@@ -9,7 +9,6 @@ import (
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
-	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // Introspect is the CLI handler for 'hulak gql' subcommand.
@@ -18,14 +17,12 @@ import (
 //   - hulak gql .         (directory mode - find all GraphQL files)
 //   - hulak gql <path>    (file mode - validate specific file)
 func Introspect(args []string) {
-	// No args = show help and return
 	if len(args) == 0 {
 		utils.PrintGQLUsage()
 		return
 	}
 
 	firstArg := args[0]
-
 	if firstArg == "." {
 		handleDirectoryMode()
 	} else {
@@ -33,7 +30,7 @@ func Introspect(args []string) {
 	}
 }
 
-// handleDirectoryMode finds all GraphQL files in CWD and resolves template URLs if needed.
+// handleDirectoryMode finds all GraphQL files in CWD and processes them concurrently.
 func handleDirectoryMode() {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -45,37 +42,28 @@ func handleDirectoryMode() {
 		utils.PanicRedAndExit("%v", err)
 	}
 
-	// Check if any URLs contain template variables that need env resolution
-	if needsEnvResolution(urlToFileMap) {
-		secretsMap, cancelled := loadSecretsWithEnvSelector()
-		if cancelled {
-			return
-		}
-
-		// Resolve template URLs concurrently
-		summary, err := ResolveTemplateURLsConcurrent(urlToFileMap, secretsMap)
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
-		}
-
-		// Continue with successful files only
-		urlToFileMap = summary.GetResolvedMap()
+	// Extract file paths from the map
+	filePaths := make([]string, 0, len(urlToFileMap))
+	for _, fp := range urlToFileMap {
+		filePaths = append(filePaths, fp)
 	}
 
-	// Display results for now
-	fmt.Println("GraphQL files found:")
-	for url, filePath := range urlToFileMap {
-		fmt.Printf("  URL:  %s\n", url)
-		fmt.Printf("  File: %s\n\n", filePath)
+	// Get secrets if any file needs template resolution
+	secretsMap := getSecretsIfNeeded(urlToFileMap)
+	if secretsMap == nil {
+		return // User cancelled
 	}
-	fmt.Printf("Total: %d unique GraphQL endpoint(s)\n", len(urlToFileMap))
+
+	// Process all files concurrently
+	results := ProcessFilesConcurrent(filePaths, secretsMap)
+	printResultsAndErrors(results)
 }
 
 // handleFileMode validates and processes a specific GraphQL file.
 func handleFileMode(arg string) {
 	filePath := filepath.Clean(arg)
 
-	// First validate the file has kind: GraphQL and a URL
+	// Validate the file has kind: GraphQL and a URL
 	rawURL, isValid, err := ValidateGraphQLFile(filePath)
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
@@ -84,45 +72,63 @@ func handleFileMode(arg string) {
 		utils.PanicRedAndExit("File validation failed unexpectedly")
 	}
 
-	var apiInfo yamlparser.ApiInfo
-
-	// Check if URL contains template variables that need env resolution
+	// Get secrets if template resolution is needed
+	var secretsMap map[string]any
 	if strings.Contains(rawURL, "{{") {
-		secretsMap, cancelled := loadSecretsWithEnvSelector()
-		if cancelled {
-			return
-		}
-
-		// Process file with template resolution
-		apiInfo, err = ProcessGraphQLFile(filePath, secretsMap)
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
+		secretsMap, _ = loadSecretsWithEnvSelector()
+		if secretsMap == nil {
+			return // User cancelled
 		}
 	} else {
-		// No templates - process with empty secrets map
-		apiInfo, err = ProcessGraphQLFile(filePath, map[string]any{})
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
-		}
+		secretsMap = map[string]any{}
 	}
 
-	// Display result
-	fmt.Println("\nGraphQL file:")
-	fmt.Printf("  URL:     %s\n", apiInfo.Url)
-	fmt.Printf("  Method:  %s\n", apiInfo.Method)
-	fmt.Printf("  Headers: %v\n", apiInfo.Headers)
-	fmt.Printf("  File:    %s\n", filePath)
+	// Process single file using the same concurrent function (1 worker)
+	results := ProcessFilesConcurrent([]string{filePath}, secretsMap)
+	printResultsAndErrors(results)
 }
 
-// needsEnvResolution checks if any URL in the map contains template variables.
-func needsEnvResolution(urlToFileMap map[string]string) bool {
-	for url := range urlToFileMap {
-		// should catch all: {{.key}}, {{getValueOf key fileName}}, {{getFile fileName}}
-		if strings.Contains(url, "{{") {
-			return true
+// getSecretsIfNeeded checks if any URL needs template resolution and loads secrets.
+// Returns empty map if no templates needed, nil if user cancelled.
+func getSecretsIfNeeded(urlToFileMap map[string]string) map[string]any {
+	if !NeedsEnvResolution(urlToFileMap) {
+		return map[string]any{}
+	}
+
+	secretsMap, cancelled := loadSecretsWithEnvSelector()
+	if cancelled {
+		return nil
+	}
+	return secretsMap
+}
+
+// printResultsAndErrors prints successful results and collects errors to print at the end.
+func printResultsAndErrors(results []ProcessResult) {
+	var errors []ProcessResult
+
+	fmt.Println("\nGraphQL files:")
+	for _, r := range results {
+		if r.Error != nil {
+			errors = append(errors, r)
+			continue
+		}
+		fmt.Printf("  URL:     %s\n", r.ApiInfo.Url)
+		fmt.Printf("  Method:  %s\n", r.ApiInfo.Method)
+		fmt.Printf("  Headers: %v\n", r.ApiInfo.Headers)
+		fmt.Printf("  File:    %s\n\n", r.FilePath)
+	}
+
+	successCount := len(results) - len(errors)
+	fmt.Printf("Total: %d file(s) processed successfully\n", successCount)
+
+	// Print errors at the end
+	if len(errors) > 0 {
+		fmt.Printf("\nErrors (%d):\n", len(errors))
+		for _, e := range errors {
+			fmt.Printf("  File:  %s\n", e.FilePath)
+			fmt.Printf("  Error: %v\n\n", e.Error)
 		}
 	}
-	return false
 }
 
 // loadSecretsWithEnvSelector shows the env selector TUI and loads secrets.
