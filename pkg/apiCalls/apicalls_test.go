@@ -430,7 +430,12 @@ func TestMockServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to reach mock server: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			t.Errorf("error closing the body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != 201 {
 		t.Errorf("expected status 201, got %d", resp.StatusCode)
@@ -438,7 +443,7 @@ func TestMockServer(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	var result map[string]bool
-	json.Unmarshal(body, &result)
+	_ = json.Unmarshal(body, &result)
 
 	if !result["created"] {
 		t.Error("expected created=true in response")
@@ -449,10 +454,10 @@ func TestMockServerWithHandler(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			w.WriteHeader(201)
-			w.Write([]byte(`{"method": "POST"}`))
+			_, _ = w.Write([]byte(`{"method": "POST"}`))
 		} else {
 			w.WriteHeader(200)
-			w.Write([]byte(`{"method": "GET"}`))
+			_, _ = w.Write([]byte(`{"method": "GET"}`))
 		}
 	}
 
@@ -464,7 +469,13 @@ func TestMockServerWithHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			t.Errorf("error closing the body: %v", err)
+		}
+	}()
+
 	if resp.StatusCode != 200 {
 		t.Errorf("GET: expected 200, got %d", resp.StatusCode)
 	}
@@ -474,7 +485,14 @@ func TestMockServerWithHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST request failed: %v", err)
 	}
-	defer resp2.Body.Close()
+
+	defer func() {
+		err := resp2.Body.Close()
+		if err != nil {
+			t.Errorf("error closing the body: %v", err)
+		}
+	}()
+
 	if resp2.StatusCode != 201 {
 		t.Errorf("POST: expected 201, got %d", resp2.StatusCode)
 	}
