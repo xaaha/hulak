@@ -238,10 +238,10 @@ func ProcessFilesConcurrent(filePaths []string, secretsMap map[string]any) []Pro
 	var wg sync.WaitGroup
 	for range numWorkers {
 		wg.Go(func() {
-			for filePath := range jobs {
-				apiInfo, err := ProcessGraphQLFile(filePath, secretsMap)
+			for job := range jobs {
+				apiInfo, err := ProcessGraphQLFile(job, secretsMap)
 				results <- ProcessResult{
-					FilePath: filePath,
+					FilePath: job,
 					ApiInfo:  apiInfo,
 					Error:    err,
 				}
