@@ -58,6 +58,7 @@ hulak -env staging -f test_gql
   - [getFile](#getfile)
 - [Auth2.0 (Beta)](#auth20-beta)
 - [Planned Features](#planned-features)
+- [Contributing](#contributing)
 - [Support the Project](#support-the-project)
 
 # Getting Started
@@ -327,6 +328,25 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Planned Features
 
 [See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
+
+# Contributing
+
+1. **Setup**
+
+   ```bash
+   git clone https://github.com/xaaha/hulak.git
+   cd hulak
+   go mod tidy
+   # install pre-commit hooks
+   make install-hooks
+   ```
+
+2. **Useful commands**
+   | Command | Description |
+   |---------|-------------|
+   | `make check` | Run lint and unit tests |
+   | `make check-e2e` | Run full tests including real API calls |
+   | `make build` | Build the binary |
 
 # Support the Project
 

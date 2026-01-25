@@ -13,8 +13,27 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
+// HTTPClient interface allows mocking HTTP calls in tests
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// DefaultClient is the production HTTP client
+var DefaultClient HTTPClient = &http.Client{}
+
 // StandardCall calls the api and returns the json body string
+// Uses the DefaultClient for HTTP calls
 func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error) {
+	return StandardCallWithClient(apiInfo, debug, DefaultClient)
+}
+
+// StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
+// This function allows dependency injection for testing purposes
+func StandardCallWithClient(
+	apiInfo yamlparser.ApiInfo,
+	debug bool,
+	client HTTPClient,
+) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
 	}
@@ -50,8 +69,6 @@ func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error
 			req.Header.Add(key, val)
 		}
 	}
-
-	client := &http.Client{}
 
 	start := time.Now()
 
