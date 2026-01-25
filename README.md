@@ -332,27 +332,20 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 # Contributing
 
 1. **Setup**
+
    ```bash
    git clone https://github.com/xaaha/hulak.git
    cd hulak
    go mod tidy
-   ```
-
-2. **Install pre-commit hooks** (recommended)
-   ```bash
+   # install pre-commit hooks
    make install-hooks
    ```
 
-3. **Run checks before submitting PR**
-   ```bash
-   make check    # runs lint + unit tests (no external API calls)
-   ```
-
-4. **Code style**
+2. **Code style**
    - Follow existing patterns in the codebase
    - Write table-driven tests for new functionality
 
-5. **Useful commands**
+3. **Useful commands**
    | Command | Description |
    |---------|-------------|
    | `make check` | Run lint and unit tests |
