@@ -29,7 +29,11 @@ func NewMockResponse(statusCode int, body string) *http.Response {
 }
 
 // NewMockResponseWithHeaders creates a mock HTTP response with custom headers
-func NewMockResponseWithHeaders(statusCode int, body string, headers map[string]string) *http.Response {
+func NewMockResponseWithHeaders(
+	statusCode int,
+	body string,
+	headers map[string]string,
+) *http.Response {
 	resp := NewMockResponse(statusCode, body)
 	for key, val := range headers {
 		resp.Header.Set(key, val)
@@ -42,7 +46,7 @@ func NewMockResponseWithHeaders(statusCode int, body string, headers map[string]
 func NewMockServer(statusCode int, body string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(statusCode)
-		w.Write([]byte(body))
+		_, _ = w.Write([]byte(body))
 	}))
 }
 
