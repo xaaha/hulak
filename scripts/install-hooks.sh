@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install git pre-commit hook for Hulak project
-# This hook runs formatting check, vet, and unit tests before commits
+# This hook auto-formats code, runs vet, and unit tests before commits
 
 set -e
 
@@ -23,13 +23,12 @@ set -e
 
 echo "Running pre-commit checks..."
 
-# Check formatting - gofmt returns files that need formatting
-UNFORMATTED=$(gofmt -l . | grep -v vendor || true)
-if [ -n "$UNFORMATTED" ]; then
-    echo "Error: The following files need formatting (run 'go fmt ./...'):"
-    echo "$UNFORMATTED"
-    exit 1
-fi
+# Auto-format code
+echo "Running go fmt..."
+go fmt ./...
+
+# Stage any formatting changes
+git diff --name-only | xargs -I {} git add {}
 
 # Run go vet
 echo "Running go vet..."
@@ -46,4 +45,4 @@ EOF
 chmod +x "${HOOK_FILE}"
 
 echo "Git pre-commit hook installed successfully!"
-echo "The hook will run: format check, go vet, and unit tests before each commit."
+echo "The hook will run: auto-format, go vet, and unit tests before each commit."
