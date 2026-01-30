@@ -3,62 +3,221 @@ package graphql
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/introspection"
 )
 
-func GqlParser() {
-	// schema.json is the response we get from the introspection query
-	// readfile for now
-	data, err := os.ReadFile("schema.json")
-	if err != nil {
-		fmt.Printf("Error reading schema.json: %v\n", err)
-		return
+// IntrospectionResponse represents the standard GraphQL introspection response structure
+type IntrospectionResponse struct {
+	Data struct {
+		Schema introspection.Schema `json:"__schema"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors,omitempty"`
+}
+
+// ParseIntrospectionResponse parses the JSON response from a GraphQL introspection query.
+// It returns the introspection.Schema object or an error if parsing fails or GraphQL errors exist.
+func ParseIntrospectionResponse(jsonData []byte) (*introspection.Schema, error) {
+	var response IntrospectionResponse
+	if err := json.Unmarshal(jsonData, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse introspection response: %w", err)
 	}
 
-	// Parse introspection JSON directly
-	var introspectionData introspection.Data
-	if err := json.Unmarshal(data, &introspectionData); err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
-		return
+	// Check for GraphQL errors
+	if len(response.Errors) > 0 {
+		var errMsgs []string
+		for _, e := range response.Errors {
+			errMsgs = append(errMsgs, e.Message)
+		}
+		return nil, fmt.Errorf("introspection query returned errors: %s", strings.Join(errMsgs, "; "))
 	}
 
-	// Build a type map for easy lookup
+	return &response.Data.Schema, nil
+}
+
+// ConvertToSchema converts the introspection.Schema from the library into our domain model.
+// This decouples our code from the graphql-go-tools library and provides a clean interface.
+func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) {
+	if introspectionSchema == nil {
+		return Schema{}, fmt.Errorf("introspection schema is nil")
+	}
+
+	// Build a type map for lookup by name
 	typeMap := make(map[string]*introspection.FullType)
-	for _, t := range introspectionData.Schema.Types {
-		typeMap[t.Name] = t
-	}
-
-	// Print Queries
-	if introspectionData.Schema.QueryType.Name != "" {
-		queryTypeName := introspectionData.Schema.QueryType.Name
-		if queryType, ok := typeMap[queryTypeName]; ok {
-			fmt.Println("=== QUERIES ===")
-			for _, field := range queryType.Fields {
-				desc := "No description"
-				if field.Description != "" {
-					desc = field.Description
-				}
-				fmt.Printf("  %s: %s\n", field.Name, desc)
-			}
-			fmt.Println()
+	for _, t := range introspectionSchema.Types {
+		if t.Name != "" {
+			typeMap[t.Name] = t
 		}
 	}
 
-	// Print Mutations
-	if introspectionData.Schema.MutationType.Name != "" {
-		mutationTypeName := introspectionData.Schema.MutationType.Name
-		if mutationType, ok := typeMap[mutationTypeName]; ok {
-			fmt.Println("=== MUTATIONS ===")
-			for _, field := range mutationType.Fields {
-				desc := "No description"
-				if field.Description != "" {
-					desc = field.Description
-				}
-				fmt.Printf("  %s: %s\n", field.Name, desc)
-			}
-			fmt.Println()
+	schema := Schema{}
+
+	// Extract queries - look up QueryType by name in the types array
+	if introspectionSchema.QueryType.Name != "" {
+		if queryType, ok := typeMap[introspectionSchema.QueryType.Name]; ok {
+			schema.Queries = convertFields(queryType.Fields)
 		}
 	}
+
+	// Extract mutations (handle nil MutationType)
+	if introspectionSchema.MutationType != nil && introspectionSchema.MutationType.Name != "" {
+		if mutationType, ok := typeMap[introspectionSchema.MutationType.Name]; ok {
+			schema.Mutations = convertFields(mutationType.Fields)
+		}
+	}
+
+	// Extract subscriptions (handle nil SubscriptionType)
+	if introspectionSchema.SubscriptionType != nil && introspectionSchema.SubscriptionType.Name != "" {
+		if subscriptionType, ok := typeMap[introspectionSchema.SubscriptionType.Name]; ok {
+			schema.Subscriptions = convertFields(subscriptionType.Fields)
+		}
+	}
+
+	return schema, nil
+}
+
+// convertFields converts a slice of introspection.Field to our domain Operation model
+func convertFields(fields []introspection.Field) []Operation {
+	operations := make([]Operation, 0, len(fields))
+	for _, field := range fields {
+		deprecationReason := ""
+		if field.DeprecationReason != nil {
+			deprecationReason = *field.DeprecationReason
+		}
+
+		op := Operation{
+			Name:              field.Name,
+			Description:       field.Description,
+			Arguments:         convertArguments(field.Args),
+			ReturnType:        formatType(&field.Type),
+			IsDeprecated:      field.IsDeprecated,
+			DeprecationReason: deprecationReason,
+		}
+		operations = append(operations, op)
+	}
+	return operations
+}
+
+// convertArguments converts introspection.InputValue arguments to our domain Argument model
+func convertArguments(args []introspection.InputValue) []Argument {
+	arguments := make([]Argument, 0, len(args))
+	for _, arg := range args {
+		defaultValue := ""
+		if arg.DefaultValue != nil {
+			defaultValue = *arg.DefaultValue
+		}
+
+		a := Argument{
+			Name:         arg.Name,
+			Type:         formatType(&arg.Type),
+			DefaultValue: defaultValue,
+		}
+		arguments = append(arguments, a)
+	}
+	return arguments
+}
+
+// formatType recursively formats a TypeRef into a readable GraphQL type string.
+// Examples:
+//   - "String"
+//   - "String!"
+//   - "[String]"
+//   - "[String!]!"
+func formatType(t *introspection.TypeRef) string {
+	if t == nil {
+		return ""
+	}
+
+	switch t.Kind {
+	case introspection.NONNULL:
+		// Non-null types wrap another type and add "!"
+		return formatType(t.OfType) + "!"
+	case introspection.LIST:
+		// List types wrap another type in brackets
+		return "[" + formatType(t.OfType) + "]"
+	default:
+		// Scalar, Object, Interface, Union, Enum, InputObject
+		if t.Name != nil {
+			return *t.Name
+		}
+		return ""
+	}
+}
+
+// DisplaySchema prints a formatted schema to stdout.
+// This provides a readable view of queries, mutations, and subscriptions.
+func DisplaySchema(schema Schema) {
+	if len(schema.Queries) > 0 {
+		displayOperations(schema.Queries, "QUERIES")
+	}
+
+	if len(schema.Mutations) > 0 {
+		displayOperations(schema.Mutations, "MUTATIONS")
+	}
+
+	if len(schema.Subscriptions) > 0 {
+		displayOperations(schema.Subscriptions, "SUBSCRIPTIONS")
+	}
+}
+
+// displayOperations prints a group of operations (queries, mutations, or subscriptions)
+func displayOperations(ops []Operation, title string) {
+	fmt.Printf("\n=== %s ===\n\n", title)
+	for _, op := range ops {
+		// Print the signature
+		fmt.Printf("  %s\n", formatSignature(op))
+
+		// Print description if available
+		if op.Description != "" {
+			// Indent and wrap description
+			desc := strings.TrimSpace(op.Description)
+			fmt.Printf("    %s\n", desc)
+		}
+
+		// Print deprecation warning if applicable
+		if op.IsDeprecated {
+			reason := "This field is deprecated"
+			if op.DeprecationReason != "" {
+				reason = op.DeprecationReason
+			}
+			fmt.Printf("    ⚠️  DEPRECATED: %s\n", reason)
+		}
+
+		fmt.Println()
+	}
+}
+
+// formatSignature formats an operation signature like "user(id: ID!): User"
+func formatSignature(op Operation) string {
+	var sb strings.Builder
+	sb.WriteString(op.Name)
+
+	// Add arguments
+	if len(op.Arguments) > 0 {
+		sb.WriteString("(")
+		for i, arg := range op.Arguments {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(arg.Name)
+			sb.WriteString(": ")
+			sb.WriteString(arg.Type)
+
+			// Add default value if present
+			if arg.DefaultValue != "" {
+				sb.WriteString(" = ")
+				sb.WriteString(arg.DefaultValue)
+			}
+		}
+		sb.WriteString(")")
+	}
+
+	// Add return type
+	sb.WriteString(": ")
+	sb.WriteString(op.ReturnType)
+
+	return sb.String()
 }
