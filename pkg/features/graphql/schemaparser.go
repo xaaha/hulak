@@ -32,7 +32,10 @@ func ParseIntrospectionResponse(jsonData []byte) (*introspection.Schema, error) 
 		for _, e := range response.Errors {
 			errMsgs = append(errMsgs, e.Message)
 		}
-		return nil, fmt.Errorf("introspection query returned errors: %s", strings.Join(errMsgs, "; "))
+		return nil, fmt.Errorf(
+			"introspection query returned errors: %s",
+			strings.Join(errMsgs, "; "),
+		)
 	}
 
 	return &response.Data.Schema, nil
@@ -70,7 +73,8 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 	}
 
 	// Extract subscriptions (handle nil SubscriptionType)
-	if introspectionSchema.SubscriptionType != nil && introspectionSchema.SubscriptionType.Name != "" {
+	if introspectionSchema.SubscriptionType != nil &&
+		introspectionSchema.SubscriptionType.Name != "" {
 		if subscriptionType, ok := typeMap[introspectionSchema.SubscriptionType.Name]; ok {
 			schema.Subscriptions = convertFields(subscriptionType.Fields)
 		}
@@ -147,6 +151,7 @@ func formatType(t *introspection.TypeRef) string {
 	}
 }
 
+// TOTO-gql: temporary, remove once tui ingests the data
 // DisplaySchema prints a formatted schema to stdout.
 // This provides a readable view of queries, mutations, and subscriptions.
 func DisplaySchema(schema Schema) {
