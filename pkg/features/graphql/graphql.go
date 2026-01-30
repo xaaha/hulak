@@ -73,7 +73,7 @@ func handleDirectoryMode() {
 		}
 
 		fmt.Printf("\nEndpoint: %s\n", result.ApiInfo.Url)
-		fmt.Printf("File: %s\n", result.FilePath)
+		fmt.Printf("File: %s\n", filepath.Base(result.FilePath))
 		fmt.Println(strings.Repeat("-", 60))
 
 		// Fetch and display schema
