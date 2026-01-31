@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -57,6 +58,16 @@ func NewModel() Model {
 	l.Styles.Title = tui.TitleStyle
 	l.Styles.FilterPrompt = tui.FilterStyle
 	l.Styles.FilterCursor = tui.FilterCursor
+
+	// Add Emacs-style navigation (ctrl+p/ctrl+n) alongside vim-style (j/k)
+	l.KeyMap.CursorUp = key.NewBinding(
+		key.WithKeys(tui.KeyUp, "k", tui.KeyCtrlP),
+		key.WithHelp("↑/k/^p", "up"),
+	)
+	l.KeyMap.CursorDown = key.NewBinding(
+		key.WithKeys(tui.KeyDown, "j", tui.KeyCtrlN),
+		key.WithHelp("↓/j/^n", "down"),
+	)
 
 	return Model{list: l}
 }
