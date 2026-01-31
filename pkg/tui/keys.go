@@ -19,8 +19,10 @@ const (
 	KeyRight  = "right"
 	KeyTab    = "tab"
 	KeySpace  = "space"
-	KeySlash  = "/" // Start filter/search
-	KeyHelp   = "?" // Show help
+	KeySlash  = "/"      // Start filter/search
+	KeyHelp   = "?"      // Show help
+	KeyCtrlP  = "ctrl+p" // Emacs style up
+	KeyCtrlN  = "ctrl+n" // Emacs style down
 )
 
 // CommonKeyMap provides standard key bindings for TUI components
@@ -49,12 +51,12 @@ func NewCommonKeyMap() CommonKeyMap {
 			key.WithHelp("enter", "select"),
 		),
 		Up: key.NewBinding(
-			key.WithKeys(KeyUp, "k"),
-			key.WithHelp("↑/k", "up"),
+			key.WithKeys(KeyUp, "k", KeyCtrlP),
+			key.WithHelp("↑/k/^p", "up"),
 		),
 		Down: key.NewBinding(
-			key.WithKeys(KeyDown, "j"),
-			key.WithHelp("↓/j", "down"),
+			key.WithKeys(KeyDown, "j", KeyCtrlN),
+			key.WithHelp("↓/j/^n", "down"),
 		),
 		Help: key.NewBinding(
 			key.WithKeys(KeyHelp),
@@ -78,10 +80,10 @@ func IsConfirmKey(msg tea.KeyMsg) bool {
 	return msg.String() == KeyEnter
 }
 
-// IsNavigationKey checks if the key is for navigation (up/down/j/k)
+// IsNavigationKey checks if the key is for navigation (up/down/j/k/ctrl+p/ctrl+n)
 func IsNavigationKey(msg tea.KeyMsg) bool {
 	k := msg.String()
-	return k == KeyUp || k == KeyDown || k == "j" || k == "k"
+	return k == KeyUp || k == KeyDown || k == "j" || k == "k" || k == KeyCtrlP || k == KeyCtrlN
 }
 
 // HandleQuitCancel is a helper that handles quit and cancel keys.
@@ -113,7 +115,10 @@ func HandleQuitCancel(msg tea.KeyMsg) (shouldQuit bool, wasCancelled bool) {
 //	        m.Cancelled = cancelled
 //	        return m, tea.Quit
 //	    }
-func HandleQuitCancelWithFilter(msg tea.KeyMsg, inFilterMode bool) (shouldQuit bool, wasCancelled bool) {
+func HandleQuitCancelWithFilter(
+	msg tea.KeyMsg,
+	inFilterMode bool,
+) (shouldQuit bool, wasCancelled bool) {
 	// ctrl+c always quits
 	if IsQuitKey(msg) {
 		return true, true
