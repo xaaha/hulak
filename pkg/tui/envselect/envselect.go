@@ -25,7 +25,7 @@ func (d delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
 	s := li.FilterValue()
 	if index == m.Index() {
-		_, _ = fmt.Fprint(w, tui.SubtitleStyle.Render("> "+s))
+		_, _ = fmt.Fprint(w, tui.SubtitleStyle.Render(">  "+s))
 	} else {
 		_, _ = fmt.Fprint(w, "  "+s)
 	}
@@ -55,9 +55,13 @@ func NewModel() Model {
 	l.DisableQuitKeybindings()
 	l.SetShowPagination(len(items) > 8)
 	l.SetShowHelp(false)
-	l.Styles.Title = tui.TitleStyle
+	// Style the filter UI - both the list styles and the underlying textinput
 	l.Styles.FilterPrompt = tui.FilterStyle
 	l.Styles.FilterCursor = tui.FilterCursor
+	l.Styles.DefaultFilterCharacterMatch = tui.FilterStyle
+	l.FilterInput.PromptStyle = tui.FilterStyle
+	l.FilterInput.TextStyle = tui.FilterTextStyle
+	l.FilterInput.Cursor.Style = tui.FilterCursor
 
 	// Add Emacs-style navigation (ctrl+p/ctrl+n) alongside vim-style (j/k)
 	l.KeyMap.CursorUp = key.NewBinding(

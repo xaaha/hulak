@@ -2,27 +2,29 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Common colors used across TUI components
+// Adaptive colors that work in both light and dark terminal modes.
+// AdaptiveColor{Light: "...", Dark: "..."} automatically picks
+// the right color based on terminal background.
 var (
-	ColorPrimary   = lipgloss.Color("75")  // Blue
-	ColorSecondary = lipgloss.Color("141") // Purple
-	ColorSuccess   = lipgloss.Color("78")  // Green
-	ColorWarning   = lipgloss.Color("214") // Orange
-	ColorError     = lipgloss.Color("196") // Red
-	ColorMuted     = lipgloss.Color("241") // Gray
-	ColorHighlight = lipgloss.Color("212") // Pink
+	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
+	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
+	ColorSuccess   = lipgloss.AdaptiveColor{Light: "22", Dark: "78"}   // Green
+	ColorWarning   = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Orange
+	ColorError     = lipgloss.AdaptiveColor{Light: "124", Dark: "196"} // Red
+	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
+	ColorHighlight = lipgloss.AdaptiveColor{Light: "125", Dark: "212"} // Pink
 )
 
 // Badge colors for endpoint tags (cycle through these)
-var BadgeColors = []lipgloss.Color{
-	lipgloss.Color("39"),  // Blue
-	lipgloss.Color("78"),  // Green
-	lipgloss.Color("214"), // Orange
-	lipgloss.Color("141"), // Purple
-	lipgloss.Color("212"), // Pink
-	lipgloss.Color("87"),  // Cyan
-	lipgloss.Color("221"), // Yellow
-	lipgloss.Color("203"), // Coral
+var BadgeColors = []lipgloss.AdaptiveColor{
+	{Light: "21", Dark: "39"},   // Blue
+	{Light: "22", Dark: "78"},   // Green
+	{Light: "130", Dark: "214"}, // Orange
+	{Light: "55", Dark: "141"},  // Purple
+	{Light: "125", Dark: "212"}, // Pink
+	{Light: "30", Dark: "87"},   // Cyan
+	{Light: "136", Dark: "221"}, // Yellow
+	{Light: "124", Dark: "203"}, // Coral
 }
 
 // Common styles
@@ -57,8 +59,16 @@ var (
 	BorderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorMuted)
-	FilterStyle  = lipgloss.NewStyle().Foreground(ColorMuted)
-	FilterCursor = lipgloss.NewStyle().Foreground(ColorSecondary)
+	// FilterStyle for the "Filter:" prompt - no background, just readable text
+	FilterStyle = lipgloss.NewStyle().
+			Foreground(ColorPrimary).
+			Bold(true)
+	// FilterTextStyle for the text user types in filter
+	FilterTextStyle = lipgloss.NewStyle().
+			Foreground(ColorPrimary)
+	// FilterCursor style
+	FilterCursor = lipgloss.NewStyle().
+			Foreground(ColorPrimary)
 )
 
 // RenderHelp creates a consistently styled help line
@@ -74,9 +84,10 @@ func RenderError(text string) string {
 // RenderBadge creates a colored badge for endpoint tags
 func RenderBadge(text string, colorIndex int) string {
 	color := BadgeColors[colorIndex%len(BadgeColors)]
+	bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}
 	return lipgloss.NewStyle().
 		Foreground(color).
-		Background(lipgloss.Color("236")).
+		Background(bgColor).
 		Padding(0, 1).
 		Render(text)
 }

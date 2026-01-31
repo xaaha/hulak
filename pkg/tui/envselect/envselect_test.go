@@ -42,7 +42,7 @@ func TestDelegateRender(t *testing.T) {
 		selected int
 		contains string
 	}{
-		{"selected item has arrow", 0, 0, "> global"},
+		{"selected item has arrow", 0, 0, ">  global"},
 		{"unselected item has spaces", 1, 0, "  dev"},
 	}
 
