@@ -7,6 +7,7 @@ type Schema struct {
 	Queries       []Operation
 	Mutations     []Operation
 	Subscriptions []Operation
+	InputTypes    map[string]InputType // Map of input type name to InputType for TUI lookup
 }
 
 // Operation represents a query, mutation, or subscription field.
@@ -25,5 +26,21 @@ type Operation struct {
 type Argument struct {
 	Name         string
 	Type         string
+	DefaultValue string
+}
+
+// InputType represents a GraphQL input object type used for operation arguments.
+// These are the complex input types that the TUI needs to understand to build forms.
+type InputType struct {
+	Name        string
+	Description string
+	Fields      []InputField
+}
+
+// InputField represents a field within an input type.
+type InputField struct {
+	Name         string
+	Type         string
+	Description  string
 	DefaultValue string
 }

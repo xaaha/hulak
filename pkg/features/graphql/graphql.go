@@ -61,6 +61,8 @@ func handleDirectoryMode() {
 	// Process all files concurrently
 	results := ProcessFilesConcurrent(filePaths, secretsMap)
 
+	// TODO-gql: All printing below is temporary for Phase 1.
+	// Phase 2 will pass schemas to TUI for interactive browsing.
 	// Introspect each endpoint and display schema
 	fmt.Printf("\nFound %d GraphQL endpoint(s)\n", len(results))
 	fmt.Println(strings.Repeat("=", 60))
@@ -182,6 +184,8 @@ func handleFileMode(arg string) {
 		utils.PanicRedAndExit("Error processing file: %v", result.Error)
 	}
 
+	// TODO-gql: All printing below is temporary for Phase 1.
+	// Phase 2 will pass schema to TUI for interactive browsing.
 	fmt.Printf("\nFetching schema from: %s\n", result.ApiInfo.Url)
 
 	// Fetch and display schema
