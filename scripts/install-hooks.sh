@@ -23,12 +23,17 @@ set -e
 
 echo "Running pre-commit checks..."
 
+# Store list of originally staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
 # Auto-format code
 echo "Running go fmt..."
 go fmt ./...
 
-# Stage any formatting changes
-git diff --name-only | xargs -I {} git add {}
+# Re-stage only the files that were originally staged
+if [ -n "$STAGED_FILES" ]; then
+    echo "$STAGED_FILES" | xargs -I {} git add {}
+fi
 
 # Run go vet
 echo "Running go vet..."

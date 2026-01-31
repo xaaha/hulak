@@ -1,14 +1,18 @@
 package graphql
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // Introspect is the CLI handler for 'hulak gql' subcommand.
@@ -56,7 +60,92 @@ func handleDirectoryMode() {
 
 	// Process all files concurrently
 	results := ProcessFilesConcurrent(filePaths, secretsMap)
-	printResultsAndErrors(results)
+
+	// TODO-gql: All printing below is temporary for Phase 1.
+	// Phase 2 will pass schemas to TUI for interactive browsing.
+	// Introspect each endpoint and display schema
+	fmt.Printf("\nFound %d GraphQL endpoint(s)\n", len(results))
+	fmt.Println(strings.Repeat("=", 60))
+
+	successCount := 0
+	for _, result := range results {
+		if result.Error != nil {
+			fmt.Printf("\n❌ Error processing %s: %v\n", result.FilePath, result.Error)
+			continue
+		}
+
+		fmt.Printf("\nEndpoint: %s\n", result.ApiInfo.Url)
+		fmt.Printf("File: %s\n", filepath.Base(result.FilePath))
+		fmt.Println(strings.Repeat("-", 60))
+
+		// Fetch and display schema
+		schema, err := fetchAndParseSchema(result.ApiInfo)
+		if err != nil {
+			fmt.Printf("❌ Failed to fetch schema: %v\n", err)
+			continue
+		}
+
+		DisplaySchema(schema)
+		successCount++
+		fmt.Println(strings.Repeat("=", 60))
+	}
+
+	fmt.Printf("\n✓ Successfully fetched %d/%d schema(s)\n", successCount, len(results))
+}
+
+// fetchAndParseSchema makes an introspection query and parses the schema.
+// It takes an ApiInfo, sets the introspection query as the body, makes the HTTP call,
+// parses the response, and converts it to our domain Schema model.
+func fetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
+	// Prepare introspection query body
+	introspectionBody := map[string]any{"query": IntrospectionQuery}
+	jsonData, err := json.Marshal(introspectionBody)
+	if err != nil {
+		return Schema{}, fmt.Errorf("failed to marshal introspection query: %w", err)
+	}
+
+	// Set the body
+	apiInfo.Body = bytes.NewReader(jsonData)
+
+	// Make the HTTP call
+	resp, err := apicalls.StandardCall(apiInfo, false)
+	if err != nil {
+		return Schema{}, fmt.Errorf("introspection request failed: %w", err)
+	}
+
+	// Extract response body
+	if resp.Response == nil {
+		return Schema{}, fmt.Errorf("no response data received")
+	}
+
+	// Convert body to JSON bytes
+	var bodyBytes []byte
+	switch v := resp.Response.Body.(type) {
+	case string:
+		bodyBytes = []byte(v)
+	case []byte:
+		bodyBytes = v
+	default:
+		// Body might already be parsed JSON, marshal it back
+		bodyBytes, err = json.Marshal(v)
+		if err != nil {
+			return Schema{}, fmt.Errorf("failed to process response body: %w", err)
+		}
+	}
+
+	// Parse introspection response
+	introspectionData, err := ParseIntrospectionResponse(bodyBytes)
+	if err != nil {
+		return Schema{}, err
+	}
+
+	// Convert to domain model
+	schema, err := ConvertToSchema(introspectionData)
+	if err != nil {
+		return Schema{}, err
+	}
+
+	return schema, nil
 }
 
 // handleFileMode validates and processes a specific GraphQL file.
@@ -85,7 +174,28 @@ func handleFileMode(arg string) {
 
 	// Process single file using the same concurrent function (1 worker)
 	results := ProcessFilesConcurrent([]string{filePath}, secretsMap)
-	printResultsAndErrors(results)
+
+	if len(results) == 0 {
+		utils.PanicRedAndExit("No results returned")
+	}
+
+	result := results[0]
+	if result.Error != nil {
+		utils.PanicRedAndExit("Error processing file: %v", result.Error)
+	}
+
+	// TODO-gql: All printing below is temporary for Phase 1.
+	// Phase 2 will pass schema to TUI for interactive browsing.
+	fmt.Printf("\nFetching schema from: %s\n", result.ApiInfo.Url)
+
+	// Fetch and display schema
+	schema, err := fetchAndParseSchema(result.ApiInfo)
+	if err != nil {
+		utils.PanicRedAndExit("Failed to fetch schema: %v", err)
+	}
+
+	DisplaySchema(schema)
+	fmt.Println("\n✓ Schema introspection completed successfully")
 }
 
 // getSecretsIfNeeded checks if any URL needs template resolution and loads secrets.
@@ -100,35 +210,6 @@ func getSecretsIfNeeded(urlToFileMap map[string]string) map[string]any {
 		return nil
 	}
 	return secretsMap
-}
-
-// printResultsAndErrors prints successful results and collects errors to print at the end.
-func printResultsAndErrors(results []ProcessResult) {
-	var errors []ProcessResult
-
-	fmt.Println("\nGraphQL files:")
-	for _, r := range results {
-		if r.Error != nil {
-			errors = append(errors, r)
-			continue
-		}
-		fmt.Printf("  URL:     %s\n", r.ApiInfo.Url)
-		fmt.Printf("  Method:  %s\n", r.ApiInfo.Method)
-		fmt.Printf("  Headers: %v\n", r.ApiInfo.Headers)
-		fmt.Printf("  File:    %s\n\n", r.FilePath)
-	}
-
-	successCount := len(results) - len(errors)
-	fmt.Printf("Total: %d file(s) processed successfully\n", successCount)
-
-	// Print errors at the end
-	if len(errors) > 0 {
-		fmt.Printf("\nErrors (%d):\n", len(errors))
-		for _, e := range errors {
-			fmt.Printf("  File:  %s\n", e.FilePath)
-			fmt.Printf("  Error: %v\n\n", e.Error)
-		}
-	}
 }
 
 // loadSecretsWithEnvSelector shows the env selector TUI and loads secrets.
