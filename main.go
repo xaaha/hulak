@@ -48,6 +48,7 @@ func main() {
 	if hasFileFlags || hasDirFlags {
 		HandleAPIRequests(envMap, debug, filePathList, dir, dirseq, fp)
 	} else {
+		// TODO: Add case to handle `hulak -env prod gql .`
 		utils.PrintWarning("No file or directory specified. Use -file, -fp, -dir, or -dirseq flags.")
 	}
 }
