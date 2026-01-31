@@ -1,119 +1,59 @@
 package envselect
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-func TestItemFilterValue(t *testing.T) {
-	i := item("test-env")
-	if i.FilterValue() != "test-env" {
-		t.Errorf("expected 'test-env', got '%s'", i.FilterValue())
-	}
-}
-
-func TestDelegateHeight(t *testing.T) {
-	d := delegate{}
-	if d.Height() != 1 {
-		t.Errorf("expected height 1, got %d", d.Height())
-	}
-}
-
-func TestDelegateSpacing(t *testing.T) {
-	d := delegate{}
-	if d.Spacing() != 0 {
-		t.Errorf("expected spacing 0, got %d", d.Spacing())
-	}
-}
-
-func TestDelegateRender(t *testing.T) {
-	d := delegate{}
-	items := []list.Item{item("global"), item("dev")}
-	listModel := list.New(items, d, 30, 10)
-
-	tests := []struct {
-		name     string
-		index    int
-		selected int
-		contains string
-	}{
-		{"selected item has arrow", 0, 0, ">  global"},
-		{"unselected item has spaces", 1, 0, "  dev"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			listModel.Select(tc.selected)
-			var buf bytes.Buffer
-			d.Render(&buf, listModel, tc.index, items[tc.index])
-			if !bytes.Contains(buf.Bytes(), []byte(tc.contains)) {
-				t.Errorf("expected output to contain '%s', got '%s'", tc.contains, buf.String())
-			}
-		})
-	}
-}
 
 func TestNewModelHasGlobal(t *testing.T) {
 	m := NewModel()
 
-	// First item should always be "global"
-	first := m.list.Items()[0]
-	if first.FilterValue() != "global" {
-		t.Errorf("expected first item to be 'global', got '%s'", first.FilterValue())
+	if len(m.items) == 0 {
+		t.Fatal("expected at least one item")
+	}
+	if m.items[0] != "global" {
+		t.Errorf("expected first item to be 'global', got '%s'", m.items[0])
 	}
 }
 
 func TestNewModelWithEnvFiles(t *testing.T) {
-	// Create temp env directory
 	tmpDir := t.TempDir()
 	envDir := filepath.Join(tmpDir, "env")
 	if err := os.MkdirAll(envDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create test env files
 	for _, name := range []string{"global.env", "dev.env", "prod.env"} {
 		f, err := os.Create(filepath.Join(envDir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = f.Close()
-		if err != nil {
-			t.Fatalf("error closing file")
-		}
+		f.Close()
 	}
 
-	// Change to temp dir so GetEnvFiles finds our test files
 	oldWd, _ := os.Getwd()
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatal("error closing file")
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
 	}
 	defer os.Chdir(oldWd)
 
 	m := NewModel()
-	items := m.list.Items()
 
-	// Should have global + dev + prod = 3 items
-	if len(items) < 1 {
-		t.Errorf("expected at least 1 item, got %d", len(items))
+	if len(m.items) < 1 {
+		t.Errorf("expected at least 1 item, got %d", len(m.items))
 	}
-
-	// First should be global
-	if items[0].FilterValue() != "global" {
-		t.Errorf("expected first item 'global', got '%s'", items[0].FilterValue())
+	if m.items[0] != "global" {
+		t.Errorf("expected first item 'global', got '%s'", m.items[0])
 	}
 }
 
 func TestUpdateQuit(t *testing.T) {
 	m := NewModel()
 
-	// Send ctrl+c
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	model := newModel.(Model)
 
@@ -125,25 +65,42 @@ func TestUpdateQuit(t *testing.T) {
 	}
 }
 
-func TestUpdateCancel(t *testing.T) {
+func TestUpdateCancelWithEmptyFilter(t *testing.T) {
 	m := NewModel()
 
-	// Send esc
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := newModel.(Model)
 
 	if !model.Cancelled {
-		t.Error("expected Cancelled to be true after esc")
+		t.Error("expected Cancelled to be true after esc with empty filter")
 	}
 	if cmd == nil {
 		t.Error("expected quit command")
 	}
 }
 
+func TestUpdateCancelClearsFilterFirst(t *testing.T) {
+	m := NewModel()
+	m.filter = "test"
+	m.filtered = []string{}
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := newModel.(Model)
+
+	if model.Cancelled {
+		t.Error("expected Cancelled to be false - esc should clear filter first")
+	}
+	if model.filter != "" {
+		t.Errorf("expected filter to be cleared, got '%s'", model.filter)
+	}
+	if cmd != nil {
+		t.Error("expected no quit command when clearing filter")
+	}
+}
+
 func TestUpdateSelect(t *testing.T) {
 	m := NewModel()
 
-	// Send enter
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model := newModel.(Model)
 
@@ -158,15 +115,163 @@ func TestUpdateSelect(t *testing.T) {
 	}
 }
 
+func TestUpdateNavigation(t *testing.T) {
+	m := NewModel()
+	m.items = []string{"global", "dev", "prod"}
+	m.filtered = m.items
+
+	if m.cursor != 0 {
+		t.Errorf("expected initial cursor 0, got %d", m.cursor)
+	}
+
+	// Move down with arrow
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.cursor != 1 {
+		t.Errorf("expected cursor 1 after down, got %d", m.cursor)
+	}
+
+	// Move down with ctrl+n
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m = newModel.(Model)
+	if m.cursor != 2 {
+		t.Errorf("expected cursor 2 after ctrl+n, got %d", m.cursor)
+	}
+
+	// Move up with arrow
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = newModel.(Model)
+	if m.cursor != 1 {
+		t.Errorf("expected cursor 1 after up, got %d", m.cursor)
+	}
+
+	// Move up with ctrl+p
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = newModel.(Model)
+	if m.cursor != 0 {
+		t.Errorf("expected cursor 0 after ctrl+p, got %d", m.cursor)
+	}
+}
+
+func TestTypingFilters(t *testing.T) {
+	m := NewModel()
+	m.items = []string{"global", "dev", "prod", "development"}
+	m.filtered = m.items
+
+	// Type "dev" - should filter immediately
+	for _, r := range "dev" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	if m.filter != "dev" {
+		t.Errorf("expected filter 'dev', got '%s'", m.filter)
+	}
+	if len(m.filtered) != 2 {
+		t.Errorf("expected 2 filtered items (dev, development), got %d", len(m.filtered))
+	}
+}
+
+func TestBackspaceRemovesFilterChar(t *testing.T) {
+	m := NewModel()
+	m.filter = "test"
+	m.items = []string{"global", "test"}
+	m.applyFilter()
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = newModel.(Model)
+
+	if m.filter != "tes" {
+		t.Errorf("expected filter 'tes', got '%s'", m.filter)
+	}
+}
+
+func TestCtrlWDeletesLastWord(t *testing.T) {
+	m := NewModel()
+	m.items = []string{"global", "hello world test"}
+	m.filter = "hello world"
+	m.applyFilter()
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+	m = newModel.(Model)
+
+	if m.filter != "hello " {
+		t.Errorf("expected filter 'hello ', got '%s'", m.filter)
+	}
+
+	// Delete another word
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+	m = newModel.(Model)
+
+	if m.filter != "" {
+		t.Errorf("expected filter '', got '%s'", m.filter)
+	}
+}
+
+func TestCtrlUClearsFilter(t *testing.T) {
+	m := NewModel()
+	m.items = []string{"global", "test"}
+	m.filter = "hello world"
+	m.applyFilter()
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m = newModel.(Model)
+
+	if m.filter != "" {
+		t.Errorf("expected filter to be empty, got '%s'", m.filter)
+	}
+	if len(m.filtered) != 2 {
+		t.Errorf("expected all items after clearing filter, got %d", len(m.filtered))
+	}
+}
+
 func TestViewContainsHelp(t *testing.T) {
 	m := NewModel()
 	view := m.View()
 
-	if !bytes.Contains([]byte(view), []byte("enter: select")) {
+	if !strings.Contains(view, "enter: select") {
 		t.Error("expected view to contain help text")
 	}
-	if !bytes.Contains([]byte(view), []byte("esc: cancel")) {
+	if !strings.Contains(view, "esc: cancel") {
 		t.Error("expected view to contain esc help")
+	}
+}
+
+func TestViewContainsTitle(t *testing.T) {
+	m := NewModel()
+	view := m.View()
+
+	if !strings.Contains(view, "Select Environment") {
+		t.Error("expected view to contain title")
+	}
+}
+
+func TestViewShowsCursor(t *testing.T) {
+	m := NewModel()
+	view := m.View()
+
+	if !strings.Contains(view, "█") {
+		t.Error("expected view to show cursor")
+	}
+}
+
+func TestViewShowsFilterText(t *testing.T) {
+	m := NewModel()
+	m.filter = "test"
+	view := m.View()
+
+	if !strings.Contains(view, "test") {
+		t.Error("expected view to show filter text")
+	}
+}
+
+func TestViewHasBorder(t *testing.T) {
+	m := NewModel()
+	view := m.View()
+
+	// Rounded border uses these characters
+	if !strings.Contains(view, "╭") || !strings.Contains(view, "╯") {
+		t.Error("expected view to have rounded border")
 	}
 }
 
