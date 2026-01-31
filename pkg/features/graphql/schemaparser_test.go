@@ -299,6 +299,7 @@ func TestDisplaySchema(t *testing.T) {
 				ReturnType: "User!",
 			},
 		},
+		InputTypes: make(map[string]InputType),
 	}
 
 	DisplaySchema(schema)
@@ -345,6 +346,7 @@ func TestDisplaySchema_WithDeprecation(t *testing.T) {
 				DeprecationReason: "Use newQuery instead",
 			},
 		},
+		InputTypes: make(map[string]InputType),
 	}
 
 	DisplaySchema(schema)
@@ -362,6 +364,111 @@ func TestDisplaySchema_WithDeprecation(t *testing.T) {
 	}
 	if !strings.Contains(output, "Use newQuery instead") {
 		t.Error("Output should contain deprecation reason")
+	}
+}
+
+func TestExtractBaseTypeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeStr  string
+		expected string
+	}{
+		{
+			name:     "scalar type",
+			typeStr:  "String",
+			expected: "String",
+		},
+		{
+			name:     "non-null scalar",
+			typeStr:  "String!",
+			expected: "String",
+		},
+		{
+			name:     "list of scalars",
+			typeStr:  "[String]",
+			expected: "String",
+		},
+		{
+			name:     "non-null list of non-null scalars",
+			typeStr:  "[String!]!",
+			expected: "String",
+		},
+		{
+			name:     "input object",
+			typeStr:  "PersonInput",
+			expected: "PersonInput",
+		},
+		{
+			name:     "non-null input object",
+			typeStr:  "PersonInput!",
+			expected: "PersonInput",
+		},
+		{
+			name:     "list of input objects",
+			typeStr:  "[PersonInput!]",
+			expected: "PersonInput",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractBaseTypeName(tt.typeStr)
+			if result != tt.expected {
+				t.Errorf("Expected %q but got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestDisplaySchema_WithInputTypes(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	schema := Schema{
+		Queries: []Operation{
+			{
+				Name:        "hello",
+				Description: "Say hello",
+				Arguments: []Argument{
+					{Name: "person", Type: "PersonInput"},
+				},
+				ReturnType: "String!",
+			},
+		},
+		InputTypes: map[string]InputType{
+			"PersonInput": {
+				Name: "PersonInput",
+				Fields: []InputField{
+					{Name: "name", Type: "String!", Description: "Person's name"},
+					{Name: "age", Type: "Int"},
+				},
+			},
+		},
+	}
+
+	DisplaySchema(schema)
+
+	// Restore stdout and read captured output
+	w.Close()
+	os.Stdout = oldStdout
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Verify input type details are displayed
+	if !strings.Contains(output, "↳ person fields:") {
+		t.Error("Output should contain input type fields header")
+	}
+	if !strings.Contains(output, "- name: String!") {
+		t.Error("Output should contain name field")
+	}
+	if !strings.Contains(output, "- age: Int") {
+		t.Error("Output should contain age field")
+	}
+	if !strings.Contains(output, "Person's name") {
+		t.Error("Output should contain field description")
 	}
 }
 

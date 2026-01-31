@@ -56,7 +56,21 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 		}
 	}
 
-	schema := Schema{}
+	schema := Schema{
+		InputTypes: make(map[string]InputType),
+	}
+
+	// Extract input types (for TUI form building)
+	for _, t := range introspectionSchema.Types {
+		if t.Kind == introspection.INPUTOBJECT && t.Name != "" {
+			inputType := InputType{
+				Name:        t.Name,
+				Description: t.Description,
+				Fields:      convertInputFields(t.InputFields),
+			}
+			schema.InputTypes[t.Name] = inputType
+		}
+	}
 
 	// Extract queries - look up QueryType by name in the types array
 	if introspectionSchema.QueryType.Name != "" {
@@ -124,6 +138,26 @@ func convertArguments(args []introspection.InputValue) []Argument {
 	return arguments
 }
 
+// convertInputFields converts introspection.InputValue fields to our domain InputField model
+func convertInputFields(fields []introspection.InputValue) []InputField {
+	inputFields := make([]InputField, 0, len(fields))
+	for _, field := range fields {
+		defaultValue := ""
+		if field.DefaultValue != nil {
+			defaultValue = *field.DefaultValue
+		}
+
+		f := InputField{
+			Name:         field.Name,
+			Type:         formatType(&field.Type),
+			Description:  field.Description,
+			DefaultValue: defaultValue,
+		}
+		inputFields = append(inputFields, f)
+	}
+	return inputFields
+}
+
 // formatType recursively formats a TypeRef into a readable GraphQL type string.
 // Examples:
 //   - "String"
@@ -151,25 +185,28 @@ func formatType(t *introspection.TypeRef) string {
 	}
 }
 
-// TOTO-gql: temporary, remove once tui ingests the data
+// TODO-gql: All display functions below are temporary for Phase 1.
+// Remove once TUI consumes the Schema/Operation/InputType structs directly.
+// The TUI will use schema.Queries, schema.Mutations, schema.InputTypes to build interactive forms.
+
 // DisplaySchema prints a formatted schema to stdout.
 // This provides a readable view of queries, mutations, and subscriptions.
 func DisplaySchema(schema Schema) {
 	if len(schema.Queries) > 0 {
-		displayOperations(schema.Queries, "QUERIES")
+		displayOperations(schema.Queries, "QUERIES", schema.InputTypes)
 	}
 
 	if len(schema.Mutations) > 0 {
-		displayOperations(schema.Mutations, "MUTATIONS")
+		displayOperations(schema.Mutations, "MUTATIONS", schema.InputTypes)
 	}
 
 	if len(schema.Subscriptions) > 0 {
-		displayOperations(schema.Subscriptions, "SUBSCRIPTIONS")
+		displayOperations(schema.Subscriptions, "SUBSCRIPTIONS", schema.InputTypes)
 	}
 }
 
 // displayOperations prints a group of operations (queries, mutations, or subscriptions)
-func displayOperations(ops []Operation, title string) {
+func displayOperations(ops []Operation, title string, inputTypes map[string]InputType) {
 	fmt.Printf("\n=== %s ===\n\n", title)
 	for _, op := range ops {
 		// Print the signature
@@ -191,8 +228,66 @@ func displayOperations(ops []Operation, title string) {
 			fmt.Printf("    ⚠️  DEPRECATED: %s\n", reason)
 		}
 
+		// Print input type details for arguments that are input objects
+		displayInputTypeDetails(op.Arguments, inputTypes, "    ")
+
 		fmt.Println()
 	}
+}
+
+// displayInputTypeDetails shows the fields of input types used in operation arguments.
+// This is crucial for TUI - users need to see what fields to fill in.
+// Shows nested input types up to 2 levels deep to avoid overwhelming output.
+func displayInputTypeDetails(args []Argument, inputTypes map[string]InputType, indent string) {
+	for _, arg := range args {
+		// Extract the base type name (strip !, [], etc.)
+		baseType := extractBaseTypeName(arg.Type)
+
+		// Check if this is an input type we know about
+		if inputType, ok := inputTypes[baseType]; ok {
+			fmt.Printf("%s↳ %s fields:\n", indent, arg.Name)
+			displayInputTypeFields(inputType, inputTypes, indent+"  ", 1)
+		}
+	}
+}
+
+// displayInputTypeFields recursively displays input type fields up to maxDepth.
+func displayInputTypeFields(
+	inputType InputType,
+	inputTypes map[string]InputType,
+	indent string,
+	depth int,
+) {
+	const maxDepth = 2 // Limit nesting to avoid overwhelming output
+
+	for _, field := range inputType.Fields {
+		fieldStr := fmt.Sprintf("%s- %s: %s", indent, field.Name, field.Type)
+		if field.DefaultValue != "" {
+			fieldStr += fmt.Sprintf(" = %s", field.DefaultValue)
+		}
+		fmt.Println(fieldStr)
+		if field.Description != "" {
+			fmt.Printf("%s  %s\n", indent, field.Description)
+		}
+
+		// Recursively display nested input types if within depth limit
+		if depth < maxDepth {
+			nestedBaseType := extractBaseTypeName(field.Type)
+			if nestedInputType, ok := inputTypes[nestedBaseType]; ok {
+				displayInputTypeFields(nestedInputType, inputTypes, indent+"  ", depth+1)
+			}
+		}
+	}
+}
+
+// extractBaseTypeName extracts the base type name from a GraphQL type string.
+// Examples: "[String!]!" -> "String", "PersonInput!" -> "PersonInput"
+func extractBaseTypeName(typeStr string) string {
+	// Remove all wrapping characters: [], !, etc.
+	cleaned := strings.ReplaceAll(typeStr, "[", "")
+	cleaned = strings.ReplaceAll(cleaned, "]", "")
+	cleaned = strings.ReplaceAll(cleaned, "!", "")
+	return strings.TrimSpace(cleaned)
 }
 
 // formatSignature formats an operation signature like "user(id: ID!): User"
