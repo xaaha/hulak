@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -25,13 +26,12 @@ Possible solutions:
 
 // Model is a lightweight environment selector.
 type Model struct {
-	items      []string
-	filtered   []string
-	cursor     int    // list cursor
-	filter     string // filter text
-	textCursor int    // cursor position within filter text
-	Selected   string
-	Cancelled  bool
+	items     []string
+	filtered  []string
+	cursor    int
+	textInput textinput.Model
+	Selected  string
+	Cancelled bool
 }
 
 // NewModel creates a new env selector model.
@@ -44,10 +44,16 @@ func NewModel() Model {
 			}
 		}
 	}
-	return Model{items: items, filtered: items}
+	return Model{
+		items:     items,
+		filtered:  items,
+		textInput: tui.NewFilterInput(),
+	}
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd {
+	return textinput.Blink
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
@@ -63,9 +69,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case tui.KeyCancel:
-		if m.filter != "" {
-			m.filter = ""
-			m.textCursor = 0
+		if m.textInput.Value() != "" {
+			m.textInput.Reset()
 			m.applyFilter()
 			return m, nil
 		}
@@ -78,54 +83,34 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 
-	// List navigation
 	case tui.KeyUp, tui.KeyCtrlP:
 		m.cursor = tui.MoveCursorUp(m.cursor)
+		return m, nil
 
 	case tui.KeyDown, tui.KeyCtrlN:
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
-
-	// Text cursor navigation
-	case tui.KeyLeft, tui.KeyCtrlB:
-		m.textCursor = tui.TextCursorLeft(m.textCursor)
-
-	case tui.KeyRight, tui.KeyCtrlF:
-		m.textCursor = tui.TextCursorRight(m.textCursor, len(m.filter))
-
-	case tui.KeyCtrlA:
-		m.textCursor = tui.TextCursorStart()
-
-	case tui.KeyCtrlE:
-		m.textCursor = tui.TextCursorEnd(len(m.filter))
-
-	// Text editing
-	case tui.KeyBackspace, tui.KeyCtrlH:
-		m.filter, m.textCursor = tui.DeleteCharAtCursor(m.filter, m.textCursor)
-		m.applyFilter()
-
-	case tui.KeyCtrlW:
-		m.filter, m.textCursor = tui.DeleteWordAtCursor(m.filter, m.textCursor)
-		m.applyFilter()
-
-	case tui.KeyCtrlU:
-		m.filter, m.textCursor = tui.ClearToStart(m.filter, m.textCursor)
-		m.applyFilter()
-
-	default:
-		if len(msg.Runes) > 0 {
-			m.filter, m.textCursor = tui.InsertAtCursor(m.filter, m.textCursor, msg.Runes)
-			m.applyFilter()
-		}
+		return m, nil
 	}
-	return m, nil
+
+	// Delegate all other keys to textinput
+	prevValue := m.textInput.Value()
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+
+	if m.textInput.Value() != prevValue {
+		m.applyFilter()
+	}
+
+	return m, cmd
 }
 
 func (m *Model) applyFilter() {
-	if m.filter == "" {
+	filter := m.textInput.Value()
+	if filter == "" {
 		m.filtered = m.items
 	} else {
 		m.filtered = nil
-		lower := strings.ToLower(m.filter)
+		lower := strings.ToLower(filter)
 		for _, item := range m.items {
 			if strings.Contains(strings.ToLower(item), lower) {
 				m.filtered = append(m.filtered, item)
@@ -138,14 +123,14 @@ func (m *Model) applyFilter() {
 func (m Model) View() string {
 	title := m.renderTitle()
 	list := m.renderList()
-	help := tui.HelpStyle.Render("enter: select • esc: cancel • ↑/↓: navigate")
+	help := tui.HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
 	return "\n" + tui.BoxStyle.Render(content) + "\n"
 }
 
 func (m Model) renderTitle() string {
-	title := "Select Environment: " + tui.RenderTextWithCursor(m.filter, m.textCursor, "█")
+	title := "Select Environment: " + m.textInput.View()
 	return tui.TitleStyle.Render(title)
 }
 

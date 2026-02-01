@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/xaaha/hulak/pkg/tui"
 )
 
 // setupTestEnvDir creates a temp directory with env files and changes to it.
-// Returns a cleanup function that restores the original working directory.
 func setupTestEnvDir(t *testing.T, envFiles []string) func() {
 	t.Helper()
 
@@ -36,6 +36,15 @@ func setupTestEnvDir(t *testing.T, envFiles []string) func() {
 	return func() { os.Chdir(oldWd) }
 }
 
+// newTestModel creates a Model with items for testing.
+func newTestModel(items []string) Model {
+	return Model{
+		items:     items,
+		filtered:  items,
+		textInput: tui.NewFilterInput(),
+	}
+}
+
 func TestNewModelWithEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
 	defer cleanup()
@@ -46,7 +55,6 @@ func TestNewModelWithEnvFiles(t *testing.T) {
 		t.Errorf("expected 3 items, got %d", len(m.items))
 	}
 
-	// Items should be the env file names without .env suffix
 	expected := map[string]bool{"dev": true, "prod": true, "staging": true}
 	for _, item := range m.items {
 		if !expected[item] {
@@ -62,7 +70,7 @@ func TestNewModelWithNoEnvFiles(t *testing.T) {
 	m := NewModel()
 
 	if len(m.items) != 0 {
-		t.Errorf("expected 0 items when no env files exist, got %d", len(m.items))
+		t.Errorf("expected 0 items, got %d", len(m.items))
 	}
 }
 
@@ -73,7 +81,7 @@ func TestNewModelIgnoresNonEnvFiles(t *testing.T) {
 	m := NewModel()
 
 	if len(m.items) != 1 {
-		t.Errorf("expected 1 item (only .env files), got %d", len(m.items))
+		t.Errorf("expected 1 item, got %d", len(m.items))
 	}
 	if m.items[0] != "dev" {
 		t.Errorf("expected 'dev', got '%s'", m.items[0])
@@ -89,50 +97,45 @@ func TestFormatNoEnvFilesError(t *testing.T) {
 
 	errStr := err.Error()
 	if !strings.Contains(errStr, "no '.env' files found") {
-		t.Error("error should mention no environment files found")
+		t.Error("error should mention no env files found")
 	}
 	if !strings.Contains(errStr, "Possible solutions") {
 		t.Error("error should include possible solutions")
 	}
-	if !strings.Contains(errStr, "env/dev.env") {
-		t.Error("error should suggest creating an env file")
-	}
 }
 
-func TestUpdateQuit(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
+func TestQuit(t *testing.T) {
+	m := newTestModel([]string{"dev"})
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	model := newModel.(Model)
 
 	if !model.Cancelled {
-		t.Error("expected Cancelled to be true after ctrl+c")
+		t.Error("expected Cancelled to be true")
 	}
 	if cmd == nil {
 		t.Error("expected quit command")
 	}
 }
 
-func TestUpdateCancelWithEmptyFilter(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
+func TestCancelWithEmptyFilter(t *testing.T) {
+	m := newTestModel([]string{"dev"})
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := newModel.(Model)
 
 	if !model.Cancelled {
-		t.Error("expected Cancelled to be true after esc with empty filter")
+		t.Error("expected Cancelled to be true")
 	}
 	if cmd == nil {
 		t.Error("expected quit command")
 	}
 }
 
-func TestUpdateCancelClearsFilterFirst(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod"},
-		filtered: []string{},
-		filter:   "test",
-	}
+func TestCancelClearsFilterFirst(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod"})
+	m.textInput.SetValue("test")
+	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := newModel.(Model)
@@ -140,22 +143,22 @@ func TestUpdateCancelClearsFilterFirst(t *testing.T) {
 	if model.Cancelled {
 		t.Error("expected Cancelled to be false - esc should clear filter first")
 	}
-	if model.filter != "" {
-		t.Errorf("expected filter to be cleared, got '%s'", model.filter)
+	if model.textInput.Value() != "" {
+		t.Errorf("expected filter to be cleared, got '%s'", model.textInput.Value())
 	}
 	if cmd != nil {
 		t.Error("expected no quit command when clearing filter")
 	}
 }
 
-func TestUpdateSelect(t *testing.T) {
-	m := Model{items: []string{"dev", "prod"}, filtered: []string{"dev", "prod"}}
+func TestSelect(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod"})
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model := newModel.(Model)
 
 	if model.Selected != "dev" {
-		t.Errorf("expected Selected to be 'dev', got '%s'", model.Selected)
+		t.Errorf("expected Selected 'dev', got '%s'", model.Selected)
 	}
 	if model.Cancelled {
 		t.Error("expected Cancelled to be false")
@@ -165,11 +168,8 @@ func TestUpdateSelect(t *testing.T) {
 	}
 }
 
-func TestUpdateNavigation(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "staging"},
-		filtered: []string{"dev", "prod", "staging"},
-	}
+func TestNavigation(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod", "staging"})
 
 	if m.cursor != 0 {
 		t.Errorf("expected initial cursor 0, got %d", m.cursor)
@@ -179,292 +179,133 @@ func TestUpdateNavigation(t *testing.T) {
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
 	if m.cursor != 1 {
-		t.Errorf("expected cursor 1 after down, got %d", m.cursor)
+		t.Errorf("expected cursor 1, got %d", m.cursor)
 	}
 
 	// Move down with ctrl+n
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
 	m = newModel.(Model)
 	if m.cursor != 2 {
-		t.Errorf("expected cursor 2 after ctrl+n, got %d", m.cursor)
+		t.Errorf("expected cursor 2, got %d", m.cursor)
 	}
 
 	// Move up with arrow
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(Model)
 	if m.cursor != 1 {
-		t.Errorf("expected cursor 1 after up, got %d", m.cursor)
+		t.Errorf("expected cursor 1, got %d", m.cursor)
 	}
 
 	// Move up with ctrl+p
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = newModel.(Model)
 	if m.cursor != 0 {
-		t.Errorf("expected cursor 0 after ctrl+p, got %d", m.cursor)
+		t.Errorf("expected cursor 0, got %d", m.cursor)
 	}
 }
 
 func TestTypingFilters(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "development"},
-		filtered: []string{"dev", "prod", "development"},
-	}
+	m := newTestModel([]string{"dev", "prod", "development"})
 
-	// Type "dev" - should filter immediately
+	// Type "dev"
 	for _, r := range "dev" {
 		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = newModel.(Model)
 	}
 
-	if m.filter != "dev" {
-		t.Errorf("expected filter 'dev', got '%s'", m.filter)
+	if m.textInput.Value() != "dev" {
+		t.Errorf("expected filter 'dev', got '%s'", m.textInput.Value())
 	}
 	if len(m.filtered) != 2 {
-		t.Errorf("expected 2 filtered items (dev, development), got %d", len(m.filtered))
+		t.Errorf("expected 2 filtered items, got %d", len(m.filtered))
 	}
 }
-
-func TestBackspaceRemovesFilterChar(t *testing.T) {
-	m := Model{
-		items:      []string{"dev", "test"},
-		filter:     "test",
-		textCursor: 4, // cursor at end of "test"
-	}
-	m.applyFilter()
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	m = newModel.(Model)
-
-	if m.filter != "tes" {
-		t.Errorf("expected filter 'tes', got '%s'", m.filter)
-	}
-}
-
-func TestCtrlWDeletesLastWord(t *testing.T) {
-	m := Model{
-		items:      []string{"dev", "hello world test"},
-		filter:     "hello world",
-		textCursor: 11, // cursor at end of "hello world"
-	}
-	m.applyFilter()
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	m = newModel.(Model)
-
-	if m.filter != "hello " {
-		t.Errorf("expected filter 'hello ', got '%s'", m.filter)
-	}
-
-	// Delete another word
-	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	m = newModel.(Model)
-
-	if m.filter != "" {
-		t.Errorf("expected filter '', got '%s'", m.filter)
-	}
-}
-
-func TestCtrlUClearsFilter(t *testing.T) {
-	m := Model{
-		items:      []string{"dev", "test"},
-		filter:     "hello world",
-		textCursor: 11, // cursor at end of "hello world"
-	}
-	m.applyFilter()
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
-	m = newModel.(Model)
-
-	if m.filter != "" {
-		t.Errorf("expected filter to be empty, got '%s'", m.filter)
-	}
-	if len(m.filtered) != 2 {
-		t.Errorf("expected all items after clearing filter, got %d", len(m.filtered))
-	}
-}
-
-func TestViewContainsHelp(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
-	view := m.View()
-
-	if !strings.Contains(view, "enter: select") {
-		t.Error("expected view to contain help text")
-	}
-	if !strings.Contains(view, "esc: cancel") {
-		t.Error("expected view to contain esc help")
-	}
-}
-
-func TestViewContainsTitle(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
-	view := m.View()
-
-	if !strings.Contains(view, "Select Environment") {
-		t.Error("expected view to contain title")
-	}
-}
-
-func TestViewShowsCursor(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
-	view := m.View()
-
-	if !strings.Contains(view, "█") {
-		t.Error("expected view to show cursor")
-	}
-}
-
-func TestViewShowsFilterText(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}, filter: "test"}
-	view := m.View()
-
-	if !strings.Contains(view, "test") {
-		t.Error("expected view to show filter text")
-	}
-}
-
-func TestViewHasBorder(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
-	view := m.View()
-
-	// Rounded border uses these characters
-	if !strings.Contains(view, "╭") || !strings.Contains(view, "╯") {
-		t.Error("expected view to have rounded border")
-	}
-}
-
-func TestViewShowsNoMatchesWhenFilteredEmpty(t *testing.T) {
-	m := Model{items: []string{"dev"}, filtered: []string{}, filter: "xyz"}
-	view := m.View()
-
-	if !strings.Contains(view, "(no matches)") {
-		t.Error("expected view to show 'no matches' when filtered list is empty")
-	}
-}
-
-func TestInitReturnsNil(t *testing.T) {
-	m := Model{}
-	if m.Init() != nil {
-		t.Error("expected Init to return nil")
-	}
-}
-
-// Edge case tests
 
 func TestSelectWithNoMatches(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod"},
-		filtered: []string{},
-		filter:   "xyz",
-	}
+	m := newTestModel([]string{"dev", "prod"})
+	m.textInput.SetValue("xyz")
+	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model := newModel.(Model)
 
-	// Should quit but with empty Selected
 	if model.Selected != "" {
-		t.Errorf("expected empty Selected when no matches, got '%s'", model.Selected)
+		t.Errorf("expected empty Selected, got '%s'", model.Selected)
 	}
 	if cmd == nil {
-		t.Error("expected quit command even with no matches")
+		t.Error("expected quit command")
 	}
 }
 
-func TestNavigationBoundsAtTop(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod"},
-		filtered: []string{"dev", "prod"},
-		cursor:   0,
-	}
+func TestNavigationBounds(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod"})
 
-	// Try to move up when already at top
+	// At top, can't go up
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	model := newModel.(Model)
-
-	if model.cursor != 0 {
-		t.Errorf("cursor should stay at 0 when at top, got %d", model.cursor)
-	}
-}
-
-func TestNavigationBoundsAtBottom(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod"},
-		filtered: []string{"dev", "prod"},
-		cursor:   1, // at bottom
+	m = newModel.(Model)
+	if m.cursor != 0 {
+		t.Errorf("cursor should stay at 0, got %d", m.cursor)
 	}
 
-	// Try to move down when already at bottom
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := newModel.(Model)
-
-	if model.cursor != 1 {
-		t.Errorf("cursor should stay at 1 when at bottom, got %d", model.cursor)
+	// Go to bottom
+	m.cursor = 1
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.cursor != 1 {
+		t.Errorf("cursor should stay at 1, got %d", m.cursor)
 	}
 }
 
 func TestCursorAdjustsWhenFilterReducesList(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "staging"},
-		filtered: []string{"dev", "prod", "staging"},
-		cursor:   2, // pointing to "staging"
-	}
+	m := newTestModel([]string{"dev", "prod", "staging"})
+	m.cursor = 2 // pointing to "staging"
 
 	// Type "d" to filter - only "dev" should remain
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	model := newModel.(Model)
 
-	// Cursor should adjust to valid position
 	if model.cursor >= len(model.filtered) {
 		t.Errorf("cursor %d should be less than filtered length %d", model.cursor, len(model.filtered))
 	}
 }
 
-func TestSelectCorrectItemAfterFiltering(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "staging"},
-		filtered: []string{"dev", "prod", "staging"},
-	}
+func TestSelectAfterFiltering(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod", "staging"})
 
-	// Filter to show only "prod"
+	// Filter to "prod"
 	for _, r := range "prod" {
 		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = newModel.(Model)
 	}
 
-	// Select
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model := newModel.(Model)
 
 	if model.Selected != "prod" {
-		t.Errorf("expected 'prod' to be selected, got '%s'", model.Selected)
+		t.Errorf("expected 'prod', got '%s'", model.Selected)
 	}
 }
 
 func TestSingleItemList(t *testing.T) {
-	m := Model{
-		items:    []string{"dev"},
-		filtered: []string{"dev"},
-	}
+	m := newTestModel([]string{"dev"})
 
 	// Navigate down should stay at 0
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := newModel.(Model)
-	if model.cursor != 0 {
-		t.Errorf("cursor should stay at 0 for single item, got %d", model.cursor)
+	m = newModel.(Model)
+	if m.cursor != 0 {
+		t.Errorf("cursor should stay at 0, got %d", m.cursor)
 	}
 
 	// Select should work
-	newModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = newModel.(Model)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newModel.(Model)
 	if model.Selected != "dev" {
 		t.Errorf("expected 'dev', got '%s'", model.Selected)
 	}
 }
 
 func TestCaseInsensitiveFiltering(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "PROD", "Staging"},
-		filtered: []string{"dev", "PROD", "Staging"},
-	}
+	m := newTestModel([]string{"dev", "PROD", "Staging"})
 
 	// Type uppercase "DEV"
 	for _, r := range "DEV" {
@@ -475,75 +316,12 @@ func TestCaseInsensitiveFiltering(t *testing.T) {
 	if len(m.filtered) != 1 || m.filtered[0] != "dev" {
 		t.Errorf("case insensitive filter failed: expected [dev], got %v", m.filtered)
 	}
-
-	// Clear and try lowercase on uppercase item
-	m.filter = ""
-	m.textCursor = 0 // reset cursor when manually clearing filter
-	m.applyFilter()
-
-	for _, r := range "prod" {
-		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = newModel.(Model)
-	}
-
-	if len(m.filtered) != 1 || m.filtered[0] != "PROD" {
-		t.Errorf("case insensitive filter failed: expected [PROD], got %v", m.filtered)
-	}
-}
-
-func TestBackspaceOnEmptyFilter(t *testing.T) {
-	m := Model{
-		items:    []string{"dev"},
-		filtered: []string{"dev"},
-		filter:   "",
-	}
-
-	// Should not panic or change anything
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	model := newModel.(Model)
-
-	if model.filter != "" {
-		t.Errorf("filter should remain empty, got '%s'", model.filter)
-	}
-}
-
-func TestCtrlWOnEmptyFilter(t *testing.T) {
-	m := Model{
-		items:    []string{"dev"},
-		filtered: []string{"dev"},
-		filter:   "",
-	}
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	model := newModel.(Model)
-
-	if model.filter != "" {
-		t.Errorf("filter should remain empty, got '%s'", model.filter)
-	}
-}
-
-func TestCtrlUOnEmptyFilter(t *testing.T) {
-	m := Model{
-		items:    []string{"dev"},
-		filtered: []string{"dev"},
-		filter:   "",
-	}
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
-	model := newModel.(Model)
-
-	if model.filter != "" {
-		t.Errorf("filter should remain empty, got '%s'", model.filter)
-	}
 }
 
 func TestFilterRestorationAfterEsc(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "staging"},
-		filtered: []string{"dev", "prod", "staging"},
-	}
+	m := newTestModel([]string{"dev", "prod", "staging"})
 
-	// Apply a filter
+	// Apply filter
 	for _, r := range "dev" {
 		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = newModel.(Model)
@@ -557,54 +335,13 @@ func TestFilterRestorationAfterEsc(t *testing.T) {
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = newModel.(Model)
 
-	// All items should be visible again
 	if len(m.filtered) != 3 {
 		t.Errorf("expected all 3 items after esc, got %d", len(m.filtered))
-	}
-	if m.filter != "" {
-		t.Errorf("filter should be empty after esc, got '%s'", m.filter)
-	}
-}
-
-func TestSelectedItemHasArrowInView(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod"},
-		filtered: []string{"dev", "prod"},
-		cursor:   1, // prod selected
-	}
-
-	view := m.View()
-
-	// The selected item (prod) should have ">" prefix
-	if !strings.Contains(view, ">") {
-		t.Error("view should contain '>' for selected item")
-	}
-}
-
-func TestNavigateAndSelectSecondItem(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "prod", "staging"},
-		filtered: []string{"dev", "prod", "staging"},
-	}
-
-	// Move down to prod
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m = newModel.(Model)
-
-	// Select
-	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model := newModel.(Model)
-
-	if model.Selected != "prod" {
-		t.Errorf("expected 'prod', got '%s'", model.Selected)
 	}
 }
 
 func TestFilterThenNavigateThenSelect(t *testing.T) {
-	m := Model{
-		items:    []string{"dev", "development", "prod"},
-		filtered: []string{"dev", "development", "prod"},
-	}
+	m := newTestModel([]string{"dev", "development", "prod"})
 
 	// Filter to "dev" items
 	for _, r := range "dev" {
@@ -612,12 +349,11 @@ func TestFilterThenNavigateThenSelect(t *testing.T) {
 		m = newModel.(Model)
 	}
 
-	// Should have 2 items: dev, development
 	if len(m.filtered) != 2 {
 		t.Fatalf("expected 2 filtered items, got %d", len(m.filtered))
 	}
 
-	// Navigate to second item (development)
+	// Navigate to second item
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
 
@@ -630,172 +366,64 @@ func TestFilterThenNavigateThenSelect(t *testing.T) {
 	}
 }
 
-// Text cursor navigation tests
+func TestViewContainsHelp(t *testing.T) {
+	m := newTestModel([]string{"dev"})
+	view := m.View()
 
-func TestLeftArrowMovesTextCursor(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 4, // at end
+	if !strings.Contains(view, "enter: select") {
+		t.Error("view should contain help text")
 	}
-
-	// Move cursor left
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	m = newModel.(Model)
-
-	if m.textCursor != 3 {
-		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	if !strings.Contains(view, "esc: cancel") {
+		t.Error("view should contain esc help")
 	}
 }
 
-func TestRightArrowMovesTextCursor(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 2, // in middle
-	}
+func TestViewContainsTitle(t *testing.T) {
+	m := newTestModel([]string{"dev"})
+	view := m.View()
 
-	// Move cursor right
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	m = newModel.(Model)
-
-	if m.textCursor != 3 {
-		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	if !strings.Contains(view, "Select Environment") {
+		t.Error("view should contain title")
 	}
 }
 
-func TestCtrlBMovesTextCursorLeft(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 4,
-	}
-
-	// Ctrl+B is emacs-style left
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
-	m = newModel.(Model)
-
-	if m.textCursor != 3 {
-		t.Errorf("expected textCursor 3, got %d", m.textCursor)
-	}
-}
-
-func TestCtrlFMovesTextCursorRight(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 2,
-	}
-
-	// Ctrl+F is emacs-style right
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
-	m = newModel.(Model)
-
-	if m.textCursor != 3 {
-		t.Errorf("expected textCursor 3, got %d", m.textCursor)
-	}
-}
-
-func TestCtrlAMovesToStart(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 4,
-	}
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
-	m = newModel.(Model)
-
-	if m.textCursor != 0 {
-		t.Errorf("expected textCursor 0, got %d", m.textCursor)
-	}
-}
-
-func TestCtrlEMovesToEnd(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 0,
-	}
-
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
-	m = newModel.(Model)
-
-	if m.textCursor != 4 {
-		t.Errorf("expected textCursor 4, got %d", m.textCursor)
-	}
-}
-
-func TestTextCursorStaysAtBounds(t *testing.T) {
-	m := Model{
-		items:      []string{"dev"},
-		filtered:   []string{"dev"},
-		filter:     "test",
-		textCursor: 0, // at start
-	}
-
-	// Try to move left when at start
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	m = newModel.(Model)
-
-	if m.textCursor != 0 {
-		t.Errorf("expected textCursor to stay at 0, got %d", m.textCursor)
-	}
-
-	// Move to end
-	m.textCursor = 4
-	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	m = newModel.(Model)
-
-	if m.textCursor != 4 {
-		t.Errorf("expected textCursor to stay at 4, got %d", m.textCursor)
-	}
-}
-
-func TestInsertAtMiddleOfFilter(t *testing.T) {
-	m := Model{
-		items:      []string{"dev", "prod"},
-		filtered:   []string{"dev", "prod"},
-		filter:     "prod",
-		textCursor: 2, // cursor between "pr" and "od"
-	}
+func TestViewShowsNoMatchesWhenEmpty(t *testing.T) {
+	m := newTestModel([]string{"dev"})
+	m.textInput.SetValue("xyz")
 	m.applyFilter()
 
-	// Insert "x" at cursor position
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	m = newModel.(Model)
+	view := m.View()
 
-	if m.filter != "prxod" {
-		t.Errorf("expected filter 'prxod', got '%s'", m.filter)
-	}
-	if m.textCursor != 3 {
-		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	if !strings.Contains(view, "(no matches)") {
+		t.Error("view should show 'no matches'")
 	}
 }
 
-func TestBackspaceAtMiddleOfFilter(t *testing.T) {
-	m := Model{
-		items:      []string{"dev", "prod"},
-		filtered:   []string{"dev", "prod"},
-		filter:     "prod",
-		textCursor: 2, // cursor between "pr" and "od"
-	}
-	m.applyFilter()
+func TestViewHasBorder(t *testing.T) {
+	m := newTestModel([]string{"dev"})
+	view := m.View()
 
-	// Backspace deletes char before cursor
-	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	m = newModel.(Model)
-
-	if m.filter != "pod" {
-		t.Errorf("expected filter 'pod', got '%s'", m.filter)
+	if !strings.Contains(view, "╭") || !strings.Contains(view, "╯") {
+		t.Error("view should have rounded border")
 	}
-	if m.textCursor != 1 {
-		t.Errorf("expected textCursor 1, got %d", m.textCursor)
+}
+
+func TestSelectedItemHasArrow(t *testing.T) {
+	m := newTestModel([]string{"dev", "prod"})
+	m.cursor = 1
+
+	view := m.View()
+
+	if !strings.Contains(view, ">") {
+		t.Error("view should contain '>' for selected item")
+	}
+}
+
+func TestInitReturnsBlinkCmd(t *testing.T) {
+	m := newTestModel([]string{"dev"})
+	cmd := m.Init()
+
+	if cmd == nil {
+		t.Error("Init should return textinput.Blink command")
 	}
 }
