@@ -344,3 +344,284 @@ func TestInitReturnsNil(t *testing.T) {
 		t.Error("expected Init to return nil")
 	}
 }
+
+// Edge case tests
+
+func TestSelectWithNoMatches(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod"},
+		filtered: []string{},
+		filter:   "xyz",
+	}
+
+	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newModel.(Model)
+
+	// Should quit but with empty Selected
+	if model.Selected != "" {
+		t.Errorf("expected empty Selected when no matches, got '%s'", model.Selected)
+	}
+	if cmd == nil {
+		t.Error("expected quit command even with no matches")
+	}
+}
+
+func TestNavigationBoundsAtTop(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod"},
+		filtered: []string{"dev", "prod"},
+		cursor:   0,
+	}
+
+	// Try to move up when already at top
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	model := newModel.(Model)
+
+	if model.cursor != 0 {
+		t.Errorf("cursor should stay at 0 when at top, got %d", model.cursor)
+	}
+}
+
+func TestNavigationBoundsAtBottom(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod"},
+		filtered: []string{"dev", "prod"},
+		cursor:   1, // at bottom
+	}
+
+	// Try to move down when already at bottom
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model := newModel.(Model)
+
+	if model.cursor != 1 {
+		t.Errorf("cursor should stay at 1 when at bottom, got %d", model.cursor)
+	}
+}
+
+func TestCursorAdjustsWhenFilterReducesList(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod", "staging"},
+		filtered: []string{"dev", "prod", "staging"},
+		cursor:   2, // pointing to "staging"
+	}
+
+	// Type "d" to filter - only "dev" should remain
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	model := newModel.(Model)
+
+	// Cursor should adjust to valid position
+	if model.cursor >= len(model.filtered) {
+		t.Errorf("cursor %d should be less than filtered length %d", model.cursor, len(model.filtered))
+	}
+}
+
+func TestSelectCorrectItemAfterFiltering(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod", "staging"},
+		filtered: []string{"dev", "prod", "staging"},
+	}
+
+	// Filter to show only "prod"
+	for _, r := range "prod" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	// Select
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newModel.(Model)
+
+	if model.Selected != "prod" {
+		t.Errorf("expected 'prod' to be selected, got '%s'", model.Selected)
+	}
+}
+
+func TestSingleItemList(t *testing.T) {
+	m := Model{
+		items:    []string{"dev"},
+		filtered: []string{"dev"},
+	}
+
+	// Navigate down should stay at 0
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model := newModel.(Model)
+	if model.cursor != 0 {
+		t.Errorf("cursor should stay at 0 for single item, got %d", model.cursor)
+	}
+
+	// Select should work
+	newModel, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = newModel.(Model)
+	if model.Selected != "dev" {
+		t.Errorf("expected 'dev', got '%s'", model.Selected)
+	}
+}
+
+func TestCaseInsensitiveFiltering(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "PROD", "Staging"},
+		filtered: []string{"dev", "PROD", "Staging"},
+	}
+
+	// Type uppercase "DEV"
+	for _, r := range "DEV" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	if len(m.filtered) != 1 || m.filtered[0] != "dev" {
+		t.Errorf("case insensitive filter failed: expected [dev], got %v", m.filtered)
+	}
+
+	// Clear and try lowercase on uppercase item
+	m.filter = ""
+	m.applyFilter()
+
+	for _, r := range "prod" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	if len(m.filtered) != 1 || m.filtered[0] != "PROD" {
+		t.Errorf("case insensitive filter failed: expected [PROD], got %v", m.filtered)
+	}
+}
+
+func TestBackspaceOnEmptyFilter(t *testing.T) {
+	m := Model{
+		items:    []string{"dev"},
+		filtered: []string{"dev"},
+		filter:   "",
+	}
+
+	// Should not panic or change anything
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	model := newModel.(Model)
+
+	if model.filter != "" {
+		t.Errorf("filter should remain empty, got '%s'", model.filter)
+	}
+}
+
+func TestCtrlWOnEmptyFilter(t *testing.T) {
+	m := Model{
+		items:    []string{"dev"},
+		filtered: []string{"dev"},
+		filter:   "",
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+	model := newModel.(Model)
+
+	if model.filter != "" {
+		t.Errorf("filter should remain empty, got '%s'", model.filter)
+	}
+}
+
+func TestCtrlUOnEmptyFilter(t *testing.T) {
+	m := Model{
+		items:    []string{"dev"},
+		filtered: []string{"dev"},
+		filter:   "",
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	model := newModel.(Model)
+
+	if model.filter != "" {
+		t.Errorf("filter should remain empty, got '%s'", model.filter)
+	}
+}
+
+func TestFilterRestorationAfterEsc(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod", "staging"},
+		filtered: []string{"dev", "prod", "staging"},
+	}
+
+	// Apply a filter
+	for _, r := range "dev" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	if len(m.filtered) == 3 {
+		t.Error("filter should have reduced the list")
+	}
+
+	// Press esc to clear filter
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = newModel.(Model)
+
+	// All items should be visible again
+	if len(m.filtered) != 3 {
+		t.Errorf("expected all 3 items after esc, got %d", len(m.filtered))
+	}
+	if m.filter != "" {
+		t.Errorf("filter should be empty after esc, got '%s'", m.filter)
+	}
+}
+
+func TestSelectedItemHasArrowInView(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod"},
+		filtered: []string{"dev", "prod"},
+		cursor:   1, // prod selected
+	}
+
+	view := m.View()
+
+	// The selected item (prod) should have ">" prefix
+	if !strings.Contains(view, ">") {
+		t.Error("view should contain '>' for selected item")
+	}
+}
+
+func TestNavigateAndSelectSecondItem(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "prod", "staging"},
+		filtered: []string{"dev", "prod", "staging"},
+	}
+
+	// Move down to prod
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+
+	// Select
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newModel.(Model)
+
+	if model.Selected != "prod" {
+		t.Errorf("expected 'prod', got '%s'", model.Selected)
+	}
+}
+
+func TestFilterThenNavigateThenSelect(t *testing.T) {
+	m := Model{
+		items:    []string{"dev", "development", "prod"},
+		filtered: []string{"dev", "development", "prod"},
+	}
+
+	// Filter to "dev" items
+	for _, r := range "dev" {
+		newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = newModel.(Model)
+	}
+
+	// Should have 2 items: dev, development
+	if len(m.filtered) != 2 {
+		t.Fatalf("expected 2 filtered items, got %d", len(m.filtered))
+	}
+
+	// Navigate to second item (development)
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+
+	// Select
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := newModel.(Model)
+
+	if model.Selected != "development" {
+		t.Errorf("expected 'development', got '%s'", model.Selected)
+	}
+}
