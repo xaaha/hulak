@@ -1,12 +1,27 @@
 package envselect
 
 import (
+	"errors"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// ErrNoEnvFiles is returned when no .env files are found in the env directory.
+var ErrNoEnvFiles = errors.New("no environment files found")
+
+// FormatNoEnvFilesError creates a user-friendly error message when no env files exist.
+func FormatNoEnvFilesError() error {
+	errMsg := `no '.env' files found in "env/" directory
+
+Possible solutions:
+  - Create an env file: echo "KEY=value" > env/dev.env
+  - Run "hulak init" to create the env directory structure`
+
+	return utils.ColorError(errMsg)
+}
 
 // Model is a lightweight environment selector.
 type Model struct {
@@ -20,11 +35,10 @@ type Model struct {
 
 // NewModel creates a new env selector model.
 func NewModel() Model {
-	items := []string{"global"}
+	items := []string{}
 	if files, err := utils.GetEnvFiles(); err == nil {
-		for _, f := range files {
-			name := strings.TrimSuffix(f, ".env")
-			if name != "global" {
+		for _, file := range files {
+			if name, ok := strings.CutSuffix(file, ".env"); ok {
 				items = append(items, name)
 			}
 		}
@@ -145,15 +159,23 @@ func (m Model) renderList() string {
 }
 
 // RunEnvSelector runs the environment selector and returns the selected environment.
+// Returns ErrNoEnvFiles if no .env files are found in the env directory.
 func RunEnvSelector() (string, error) {
-	m, err := tea.NewProgram(NewModel()).Run()
+	model := NewModel()
+
+	// Check if there are any env files before showing the selector
+	if len(model.items) == 0 {
+		return "", FormatNoEnvFilesError()
+	}
+
+	m, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return "", err
 	}
 
-	model := m.(Model)
-	if model.Cancelled {
+	result := m.(Model)
+	if result.Cancelled {
 		return "", nil
 	}
-	return model.Selected, nil
+	return result.Selected, nil
 }

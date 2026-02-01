@@ -9,50 +9,98 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestNewModelHasGlobal(t *testing.T) {
-	m := NewModel()
+// setupTestEnvDir creates a temp directory with env files and changes to it.
+// Returns a cleanup function that restores the original working directory.
+func setupTestEnvDir(t *testing.T, envFiles []string) func() {
+	t.Helper()
 
-	if len(m.items) == 0 {
-		t.Fatal("expected at least one item")
-	}
-	if m.items[0] != "global" {
-		t.Errorf("expected first item to be 'global', got '%s'", m.items[0])
-	}
-}
-
-func TestNewModelWithEnvFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	envDir := filepath.Join(tmpDir, "env")
 	if err := os.MkdirAll(envDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"global.env", "dev.env", "prod.env"} {
+	for _, name := range envFiles {
 		f, err := os.Create(filepath.Join(envDir, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		f.Close()
+		_ = f.Close()
 	}
 
 	oldWd, _ := os.Getwd()
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+
+	return func() { os.Chdir(oldWd) }
+}
+
+func TestNewModelWithEnvFiles(t *testing.T) {
+	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
+	defer cleanup()
 
 	m := NewModel()
 
-	if len(m.items) < 1 {
-		t.Errorf("expected at least 1 item, got %d", len(m.items))
+	if len(m.items) != 3 {
+		t.Errorf("expected 3 items, got %d", len(m.items))
 	}
-	if m.items[0] != "global" {
-		t.Errorf("expected first item 'global', got '%s'", m.items[0])
+
+	// Items should be the env file names without .env suffix
+	expected := map[string]bool{"dev": true, "prod": true, "staging": true}
+	for _, item := range m.items {
+		if !expected[item] {
+			t.Errorf("unexpected item: %s", item)
+		}
+	}
+}
+
+func TestNewModelWithNoEnvFiles(t *testing.T) {
+	cleanup := setupTestEnvDir(t, []string{})
+	defer cleanup()
+
+	m := NewModel()
+
+	if len(m.items) != 0 {
+		t.Errorf("expected 0 items when no env files exist, got %d", len(m.items))
+	}
+}
+
+func TestNewModelIgnoresNonEnvFiles(t *testing.T) {
+	cleanup := setupTestEnvDir(t, []string{"dev.env", "readme.txt", "config.yaml"})
+	defer cleanup()
+
+	m := NewModel()
+
+	if len(m.items) != 1 {
+		t.Errorf("expected 1 item (only .env files), got %d", len(m.items))
+	}
+	if m.items[0] != "dev" {
+		t.Errorf("expected 'dev', got '%s'", m.items[0])
+	}
+}
+
+func TestFormatNoEnvFilesError(t *testing.T) {
+	err := FormatNoEnvFilesError()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "no '.env' files found") {
+		t.Error("error should mention no environment files found")
+	}
+	if !strings.Contains(errStr, "Possible solutions") {
+		t.Error("error should include possible solutions")
+	}
+	if !strings.Contains(errStr, "env/dev.env") {
+		t.Error("error should suggest creating an env file")
 	}
 }
 
 func TestUpdateQuit(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	model := newModel.(Model)
@@ -66,7 +114,7 @@ func TestUpdateQuit(t *testing.T) {
 }
 
 func TestUpdateCancelWithEmptyFilter(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := newModel.(Model)
@@ -80,9 +128,11 @@ func TestUpdateCancelWithEmptyFilter(t *testing.T) {
 }
 
 func TestUpdateCancelClearsFilterFirst(t *testing.T) {
-	m := NewModel()
-	m.filter = "test"
-	m.filtered = []string{}
+	m := Model{
+		items:    []string{"dev", "prod"},
+		filtered: []string{},
+		filter:   "test",
+	}
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := newModel.(Model)
@@ -99,13 +149,13 @@ func TestUpdateCancelClearsFilterFirst(t *testing.T) {
 }
 
 func TestUpdateSelect(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev", "prod"}, filtered: []string{"dev", "prod"}}
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model := newModel.(Model)
 
-	if model.Selected != "global" {
-		t.Errorf("expected Selected to be 'global', got '%s'", model.Selected)
+	if model.Selected != "dev" {
+		t.Errorf("expected Selected to be 'dev', got '%s'", model.Selected)
 	}
 	if model.Cancelled {
 		t.Error("expected Cancelled to be false")
@@ -116,9 +166,10 @@ func TestUpdateSelect(t *testing.T) {
 }
 
 func TestUpdateNavigation(t *testing.T) {
-	m := NewModel()
-	m.items = []string{"global", "dev", "prod"}
-	m.filtered = m.items
+	m := Model{
+		items:    []string{"dev", "prod", "staging"},
+		filtered: []string{"dev", "prod", "staging"},
+	}
 
 	if m.cursor != 0 {
 		t.Errorf("expected initial cursor 0, got %d", m.cursor)
@@ -154,9 +205,10 @@ func TestUpdateNavigation(t *testing.T) {
 }
 
 func TestTypingFilters(t *testing.T) {
-	m := NewModel()
-	m.items = []string{"global", "dev", "prod", "development"}
-	m.filtered = m.items
+	m := Model{
+		items:    []string{"dev", "prod", "development"},
+		filtered: []string{"dev", "prod", "development"},
+	}
 
 	// Type "dev" - should filter immediately
 	for _, r := range "dev" {
@@ -173,9 +225,10 @@ func TestTypingFilters(t *testing.T) {
 }
 
 func TestBackspaceRemovesFilterChar(t *testing.T) {
-	m := NewModel()
-	m.filter = "test"
-	m.items = []string{"global", "test"}
+	m := Model{
+		items:  []string{"dev", "test"},
+		filter: "test",
+	}
 	m.applyFilter()
 
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
@@ -187,9 +240,10 @@ func TestBackspaceRemovesFilterChar(t *testing.T) {
 }
 
 func TestCtrlWDeletesLastWord(t *testing.T) {
-	m := NewModel()
-	m.items = []string{"global", "hello world test"}
-	m.filter = "hello world"
+	m := Model{
+		items:  []string{"dev", "hello world test"},
+		filter: "hello world",
+	}
 	m.applyFilter()
 
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
@@ -209,9 +263,10 @@ func TestCtrlWDeletesLastWord(t *testing.T) {
 }
 
 func TestCtrlUClearsFilter(t *testing.T) {
-	m := NewModel()
-	m.items = []string{"global", "test"}
-	m.filter = "hello world"
+	m := Model{
+		items:  []string{"dev", "test"},
+		filter: "hello world",
+	}
 	m.applyFilter()
 
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
@@ -226,7 +281,7 @@ func TestCtrlUClearsFilter(t *testing.T) {
 }
 
 func TestViewContainsHelp(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 	view := m.View()
 
 	if !strings.Contains(view, "enter: select") {
@@ -238,7 +293,7 @@ func TestViewContainsHelp(t *testing.T) {
 }
 
 func TestViewContainsTitle(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 	view := m.View()
 
 	if !strings.Contains(view, "Select Environment") {
@@ -247,7 +302,7 @@ func TestViewContainsTitle(t *testing.T) {
 }
 
 func TestViewShowsCursor(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 	view := m.View()
 
 	if !strings.Contains(view, "█") {
@@ -256,8 +311,7 @@ func TestViewShowsCursor(t *testing.T) {
 }
 
 func TestViewShowsFilterText(t *testing.T) {
-	m := NewModel()
-	m.filter = "test"
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}, filter: "test"}
 	view := m.View()
 
 	if !strings.Contains(view, "test") {
@@ -266,7 +320,7 @@ func TestViewShowsFilterText(t *testing.T) {
 }
 
 func TestViewHasBorder(t *testing.T) {
-	m := NewModel()
+	m := Model{items: []string{"dev"}, filtered: []string{"dev"}}
 	view := m.View()
 
 	// Rounded border uses these characters
@@ -275,8 +329,17 @@ func TestViewHasBorder(t *testing.T) {
 	}
 }
 
+func TestViewShowsNoMatchesWhenFilteredEmpty(t *testing.T) {
+	m := Model{items: []string{"dev"}, filtered: []string{}, filter: "xyz"}
+	view := m.View()
+
+	if !strings.Contains(view, "(no matches)") {
+		t.Error("expected view to show 'no matches' when filtered list is empty")
+	}
+}
+
 func TestInitReturnsNil(t *testing.T) {
-	m := NewModel()
+	m := Model{}
 	if m.Init() != nil {
 		t.Error("expected Init to return nil")
 	}
