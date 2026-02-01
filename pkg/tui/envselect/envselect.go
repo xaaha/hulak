@@ -4,15 +4,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
-
-var boxStyle = lipgloss.NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(tui.ColorMuted).
-	Padding(1, 2)
 
 // Model is a lightweight environment selector.
 type Model struct {
@@ -126,7 +120,7 @@ func (m Model) View() string {
 	help := tui.HelpStyle.Render("enter: select • esc: cancel • ↑/↓: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
-	return "\n" + boxStyle.Render(content) + "\n"
+	return "\n" + tui.BoxStyle.Render(content) + "\n"
 }
 
 func (m Model) renderTitle() string {

@@ -71,6 +71,11 @@ var (
 			Foreground(ColorPrimary)
 )
 
+var BoxStyle = lipgloss.NewStyle().
+	Border(lipgloss.RoundedBorder()).
+	BorderForeground(ColorMuted).
+	Padding(1, 2)
+
 // RenderHelp creates a consistently styled help line
 func RenderHelp(text string) string {
 	return HelpStyle.Render(text)
