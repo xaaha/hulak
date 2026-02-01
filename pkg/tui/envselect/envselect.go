@@ -38,7 +38,7 @@ func NewModel() Model {
 	items := []string{}
 	if files, err := utils.GetEnvFiles(); err == nil {
 		for _, file := range files {
-			if name, ok := strings.CutSuffix(file, ".env"); ok {
+			if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
 				items = append(items, name)
 			}
 		}
