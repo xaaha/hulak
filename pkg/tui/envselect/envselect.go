@@ -77,34 +77,26 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case tui.KeyUp, tui.KeyCtrlP:
-		if m.cursor > 0 {
-			m.cursor--
-		}
+		m.cursor = tui.MoveCursorUp(m.cursor)
 
 	case tui.KeyDown, tui.KeyCtrlN:
-		if m.cursor < len(m.filtered)-1 {
-			m.cursor++
-		}
+		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 
-	case "backspace", "ctrl+h":
-		if len(m.filter) > 0 {
-			m.filter = m.filter[:len(m.filter)-1]
-			m.applyFilter()
-		}
+	case tui.KeyBackspace, tui.KeyCtrlH:
+		m.filter = tui.DeleteChar(m.filter)
+		m.applyFilter()
 
-	case "ctrl+w":
+	case tui.KeyCtrlW:
 		m.filter = tui.DeleteLastWord(m.filter)
 		m.applyFilter()
 
-	case "ctrl+u":
+	case tui.KeyCtrlU:
 		m.filter = tui.ClearLine()
 		m.applyFilter()
 
 	default:
-		if len(msg.Runes) > 0 {
-			m.filter += string(msg.Runes)
-			m.applyFilter()
-		}
+		m.filter = tui.AppendRunes(m.filter, msg.Runes)
+		m.applyFilter()
 	}
 	return m, nil
 }
@@ -112,20 +104,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) applyFilter() {
 	if m.filter == "" {
 		m.filtered = m.items
-		return
-	}
-
-	m.filtered = nil
-	lower := strings.ToLower(m.filter)
-	for _, item := range m.items {
-		if strings.Contains(strings.ToLower(item), lower) {
-			m.filtered = append(m.filtered, item)
+	} else {
+		m.filtered = nil
+		lower := strings.ToLower(m.filter)
+		for _, item := range m.items {
+			if strings.Contains(strings.ToLower(item), lower) {
+				m.filtered = append(m.filtered, item)
+			}
 		}
 	}
-
-	if m.cursor >= len(m.filtered) {
-		m.cursor = max(0, len(m.filtered)-1)
-	}
+	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
 }
 
 func (m Model) View() string {
