@@ -25,12 +25,13 @@ Possible solutions:
 
 // Model is a lightweight environment selector.
 type Model struct {
-	items     []string
-	filtered  []string
-	cursor    int
-	filter    string
-	Selected  string
-	Cancelled bool
+	items      []string
+	filtered   []string
+	cursor     int    // list cursor
+	filter     string // filter text
+	textCursor int    // cursor position within filter text
+	Selected   string
+	Cancelled  bool
 }
 
 // NewModel creates a new env selector model.
@@ -64,6 +65,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyCancel:
 		if m.filter != "" {
 			m.filter = ""
+			m.textCursor = 0
 			m.applyFilter()
 			return m, nil
 		}
@@ -76,27 +78,44 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 
+	// List navigation
 	case tui.KeyUp, tui.KeyCtrlP:
 		m.cursor = tui.MoveCursorUp(m.cursor)
 
 	case tui.KeyDown, tui.KeyCtrlN:
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 
+	// Text cursor navigation
+	case tui.KeyLeft, tui.KeyCtrlB:
+		m.textCursor = tui.TextCursorLeft(m.textCursor)
+
+	case tui.KeyRight, tui.KeyCtrlF:
+		m.textCursor = tui.TextCursorRight(m.textCursor, len(m.filter))
+
+	case tui.KeyCtrlA:
+		m.textCursor = tui.TextCursorStart()
+
+	case tui.KeyCtrlE:
+		m.textCursor = tui.TextCursorEnd(len(m.filter))
+
+	// Text editing
 	case tui.KeyBackspace, tui.KeyCtrlH:
-		m.filter = tui.DeleteChar(m.filter)
+		m.filter, m.textCursor = tui.DeleteCharAtCursor(m.filter, m.textCursor)
 		m.applyFilter()
 
 	case tui.KeyCtrlW:
-		m.filter = tui.DeleteLastWord(m.filter)
+		m.filter, m.textCursor = tui.DeleteWordAtCursor(m.filter, m.textCursor)
 		m.applyFilter()
 
 	case tui.KeyCtrlU:
-		m.filter = tui.ClearLine()
+		m.filter, m.textCursor = tui.ClearToStart(m.filter, m.textCursor)
 		m.applyFilter()
 
 	default:
-		m.filter = tui.AppendRunes(m.filter, msg.Runes)
-		m.applyFilter()
+		if len(msg.Runes) > 0 {
+			m.filter, m.textCursor = tui.InsertAtCursor(m.filter, m.textCursor, msg.Runes)
+			m.applyFilter()
+		}
 	}
 	return m, nil
 }
@@ -126,7 +145,7 @@ func (m Model) View() string {
 }
 
 func (m Model) renderTitle() string {
-	title := "Select Environment: " + m.filter + "█"
+	title := "Select Environment: " + tui.RenderTextWithCursor(m.filter, m.textCursor, "█")
 	return tui.TitleStyle.Render(title)
 }
 

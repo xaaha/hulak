@@ -226,8 +226,9 @@ func TestTypingFilters(t *testing.T) {
 
 func TestBackspaceRemovesFilterChar(t *testing.T) {
 	m := Model{
-		items:  []string{"dev", "test"},
-		filter: "test",
+		items:      []string{"dev", "test"},
+		filter:     "test",
+		textCursor: 4, // cursor at end of "test"
 	}
 	m.applyFilter()
 
@@ -241,8 +242,9 @@ func TestBackspaceRemovesFilterChar(t *testing.T) {
 
 func TestCtrlWDeletesLastWord(t *testing.T) {
 	m := Model{
-		items:  []string{"dev", "hello world test"},
-		filter: "hello world",
+		items:      []string{"dev", "hello world test"},
+		filter:     "hello world",
+		textCursor: 11, // cursor at end of "hello world"
 	}
 	m.applyFilter()
 
@@ -264,8 +266,9 @@ func TestCtrlWDeletesLastWord(t *testing.T) {
 
 func TestCtrlUClearsFilter(t *testing.T) {
 	m := Model{
-		items:  []string{"dev", "test"},
-		filter: "hello world",
+		items:      []string{"dev", "test"},
+		filter:     "hello world",
+		textCursor: 11, // cursor at end of "hello world"
 	}
 	m.applyFilter()
 
@@ -475,6 +478,7 @@ func TestCaseInsensitiveFiltering(t *testing.T) {
 
 	// Clear and try lowercase on uppercase item
 	m.filter = ""
+	m.textCursor = 0 // reset cursor when manually clearing filter
 	m.applyFilter()
 
 	for _, r := range "prod" {
@@ -623,5 +627,175 @@ func TestFilterThenNavigateThenSelect(t *testing.T) {
 
 	if model.Selected != "development" {
 		t.Errorf("expected 'development', got '%s'", model.Selected)
+	}
+}
+
+// Text cursor navigation tests
+
+func TestLeftArrowMovesTextCursor(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 4, // at end
+	}
+
+	// Move cursor left
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m = newModel.(Model)
+
+	if m.textCursor != 3 {
+		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	}
+}
+
+func TestRightArrowMovesTextCursor(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 2, // in middle
+	}
+
+	// Move cursor right
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = newModel.(Model)
+
+	if m.textCursor != 3 {
+		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	}
+}
+
+func TestCtrlBMovesTextCursorLeft(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 4,
+	}
+
+	// Ctrl+B is emacs-style left
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+	m = newModel.(Model)
+
+	if m.textCursor != 3 {
+		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	}
+}
+
+func TestCtrlFMovesTextCursorRight(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 2,
+	}
+
+	// Ctrl+F is emacs-style right
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = newModel.(Model)
+
+	if m.textCursor != 3 {
+		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	}
+}
+
+func TestCtrlAMovesToStart(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 4,
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
+	m = newModel.(Model)
+
+	if m.textCursor != 0 {
+		t.Errorf("expected textCursor 0, got %d", m.textCursor)
+	}
+}
+
+func TestCtrlEMovesToEnd(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 0,
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m = newModel.(Model)
+
+	if m.textCursor != 4 {
+		t.Errorf("expected textCursor 4, got %d", m.textCursor)
+	}
+}
+
+func TestTextCursorStaysAtBounds(t *testing.T) {
+	m := Model{
+		items:      []string{"dev"},
+		filtered:   []string{"dev"},
+		filter:     "test",
+		textCursor: 0, // at start
+	}
+
+	// Try to move left when at start
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m = newModel.(Model)
+
+	if m.textCursor != 0 {
+		t.Errorf("expected textCursor to stay at 0, got %d", m.textCursor)
+	}
+
+	// Move to end
+	m.textCursor = 4
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = newModel.(Model)
+
+	if m.textCursor != 4 {
+		t.Errorf("expected textCursor to stay at 4, got %d", m.textCursor)
+	}
+}
+
+func TestInsertAtMiddleOfFilter(t *testing.T) {
+	m := Model{
+		items:      []string{"dev", "prod"},
+		filtered:   []string{"dev", "prod"},
+		filter:     "prod",
+		textCursor: 2, // cursor between "pr" and "od"
+	}
+	m.applyFilter()
+
+	// Insert "x" at cursor position
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m = newModel.(Model)
+
+	if m.filter != "prxod" {
+		t.Errorf("expected filter 'prxod', got '%s'", m.filter)
+	}
+	if m.textCursor != 3 {
+		t.Errorf("expected textCursor 3, got %d", m.textCursor)
+	}
+}
+
+func TestBackspaceAtMiddleOfFilter(t *testing.T) {
+	m := Model{
+		items:      []string{"dev", "prod"},
+		filtered:   []string{"dev", "prod"},
+		filter:     "prod",
+		textCursor: 2, // cursor between "pr" and "od"
+	}
+	m.applyFilter()
+
+	// Backspace deletes char before cursor
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m = newModel.(Model)
+
+	if m.filter != "pod" {
+		t.Errorf("expected filter 'pod', got '%s'", m.filter)
+	}
+	if m.textCursor != 1 {
+		t.Errorf("expected textCursor 1, got %d", m.textCursor)
 	}
 }
