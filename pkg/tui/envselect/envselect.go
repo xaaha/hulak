@@ -1,98 +1,170 @@
 package envselect
 
 import (
-	"fmt"
-	"io"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type item string
+// FormatNoEnvFilesError creates a user-friendly error message when no env files exist.
+func FormatNoEnvFilesError() error {
+	errMsg := `no '.env' files found in "env/" directory
 
-func (i item) FilterValue() string { return string(i) }
+Possible solutions:
+  - Create an env file: echo "KEY=value" > env/dev.env
+  - Run "hulak init" to create the env directory structure`
 
-type delegate struct{}
-
-func (d delegate) Height() int                             { return 1 }
-func (d delegate) Spacing() int                            { return 0 }
-func (d delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d delegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
-	s := li.FilterValue()
-	if index == m.Index() {
-		_, _ = fmt.Fprint(w, tui.SubtitleStyle.Render("> "+s))
-	} else {
-		_, _ = fmt.Fprint(w, "  "+s)
-	}
+	return utils.ColorError(errMsg)
 }
 
+// Model is a lightweight environment selector.
 type Model struct {
-	list      list.Model
+	items     []string
+	filtered  []string
+	cursor    int
+	textInput textinput.Model
 	Selected  string
 	Cancelled bool
 }
 
+// NewModel creates a new env selector model if `env/` dir exists and contains `.env` files
 func NewModel() Model {
-	items := []list.Item{item("global")}
+	items := []string{}
 	if files, err := utils.GetEnvFiles(); err == nil {
-		for _, f := range files {
-			name := strings.TrimSuffix(f, ".env")
-			if name != "global" {
-				items = append(items, item(name))
+		for _, file := range files {
+			if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
+				items = append(items, name)
 			}
 		}
 	}
-
-	l := list.New(items, delegate{}, 30, min(len(items)+2, 10))
-	l.Title = "Select Environment"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
-	l.DisableQuitKeybindings()
-	l.SetShowPagination(len(items) > 8)
-	l.SetShowHelp(false)
-	l.Styles.Title = tui.TitleStyle
-	l.Styles.FilterPrompt = tui.FilterStyle
-	l.Styles.FilterCursor = tui.FilterCursor
-
-	return Model{list: l}
+	return Model{
+		items:     items,
+		filtered:  items,
+		textInput: tui.NewFilterInput(),
+	}
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd {
+	return nil
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
-		if quit, cancelled := tui.HandleQuitCancelWithFilter(msg, m.list.SettingFilter()); quit {
-			m.Cancelled = cancelled
-			return m, tea.Quit
-		}
-		if tui.IsConfirmKey(msg) && !m.list.SettingFilter() {
-			m.Selected = string(m.list.SelectedItem().(item))
-			return m, tea.Quit
-		}
+		return m.handleKey(msg)
 	}
+	return m, nil
+}
+
+func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case tui.KeyQuit:
+		m.Cancelled = true
+		return m, tea.Quit
+
+	case tui.KeyCancel:
+		if m.textInput.Value() != "" {
+			m.textInput.Reset()
+			m.applyFilter()
+			return m, nil
+		}
+		m.Cancelled = true
+		return m, tea.Quit
+
+	case tui.KeyEnter:
+		if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+			m.Selected = m.filtered[m.cursor]
+		}
+		return m, tea.Quit
+
+	case tui.KeyUp, tui.KeyCtrlP:
+		m.cursor = tui.MoveCursorUp(m.cursor)
+		return m, nil
+
+	case tui.KeyDown, tui.KeyCtrlN:
+		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
+		return m, nil
+	}
+
+	// Delegate all other keys to textinput
+	prevValue := m.textInput.Value()
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.textInput, cmd = m.textInput.Update(msg)
+
+	if m.textInput.Value() != prevValue {
+		m.applyFilter()
+	}
+
 	return m, cmd
 }
 
-func (m Model) View() string {
-	help := tui.HelpStyle.
-		Render("enter: select • esc: cancel • ctrl+c: quit • /: filter")
-	return fmt.Sprintf("\n %s \n %s", m.list.View(), help)
+// applyFilter matches the user's input text against list items
+func (m *Model) applyFilter() {
+	userInput := m.textInput.Value()
+	if userInput == "" {
+		m.filtered = m.items
+	} else {
+		m.filtered = nil
+		lower := strings.ToLower(userInput)
+		for _, item := range m.items {
+			if strings.Contains(strings.ToLower(item), lower) {
+				m.filtered = append(m.filtered, item)
+			}
+		}
+	}
+	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
 }
 
+func (m Model) View() string {
+	title := m.renderTitle()
+	list := m.renderList()
+	help := tui.HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
+
+	content := title + "\n\n" + list + "\n" + help
+	return "\n" + tui.BoxStyle.Render(content) + "\n"
+}
+
+func (m Model) renderTitle() string {
+	title := "Select Environment: " + m.textInput.View()
+	return tui.TitleStyle.Render(title)
+}
+
+func (m Model) renderList() string {
+	if len(m.filtered) == 0 {
+		return tui.HelpStyle.Render("   (no matches)")
+	}
+
+	var lines []string
+	for i, item := range m.filtered {
+		if i == m.cursor {
+			lines = append(lines, tui.SubtitleStyle.Render(">  "+item))
+		} else {
+			lines = append(lines, "   "+item)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// RunEnvSelector runs the environment selector and returns the selected environment.
+// Returns ErrNoEnvFiles if no .env files are found in the env directory.
 func RunEnvSelector() (string, error) {
-	final, err := tea.NewProgram(NewModel()).Run()
+	model := NewModel()
+
+	// Check if there are any env files before showing the selector
+	if len(model.items) == 0 {
+		return "", FormatNoEnvFilesError()
+	}
+
+	m, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return "", err
 	}
-	m := final.(Model)
-	if m.Cancelled {
+
+	result := m.(Model)
+	if result.Cancelled {
 		return "", nil
 	}
-	return m.Selected, nil
+	return result.Selected, nil
 }

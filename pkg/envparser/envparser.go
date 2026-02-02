@@ -244,7 +244,13 @@ func mergeCustomEnvVars(
 // (interactive prompts for missing env files, console output, setting OS env vars).
 // Returns merged map of global.env + {envName}.env variables, where custom env values override global.
 // Use this for TUI flows where environment selection has already been handled separately.
+// Creates global.env if it doesn't exist.
 func LoadSecretsMap(envName string) (map[string]any, error) {
+	// Ensure global.env exists (create if missing)
+	if err := CreateDefaultEnvs(nil); err != nil {
+		return nil, utils.ColorError("failed to create global.env", err)
+	}
+
 	// Load global environment variables
 	globalMap, err := loadEnvFile(utils.DefaultEnvVal + utils.DefaultEnvFileSuffix)
 	if err != nil {
