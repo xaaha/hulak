@@ -265,7 +265,11 @@ func TestCursorAdjustsWhenFilterReducesList(t *testing.T) {
 	model := newModel.(Model)
 
 	if model.cursor >= len(model.filtered) {
-		t.Errorf("cursor %d should be less than filtered length %d", model.cursor, len(model.filtered))
+		t.Errorf(
+			"cursor %d should be less than filtered length %d",
+			model.cursor,
+			len(model.filtered),
+		)
 	}
 }
 
@@ -423,7 +427,7 @@ func TestInitReturnsBlinkCmd(t *testing.T) {
 	m := newTestModel([]string{"dev"})
 	cmd := m.Init()
 
-	if cmd == nil {
-		t.Error("Init should return textinput.Blink command")
+	if cmd != nil {
+		t.Error("Init should return nil")
 	}
 }

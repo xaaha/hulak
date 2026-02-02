@@ -1,7 +1,6 @@
 package envselect
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -9,9 +8,6 @@ import (
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
-
-// ErrNoEnvFiles is returned when no .env files are found in the env directory.
-var ErrNoEnvFiles = errors.New("no environment files found")
 
 // FormatNoEnvFilesError creates a user-friendly error message when no env files exist.
 func FormatNoEnvFilesError() error {
@@ -34,7 +30,7 @@ type Model struct {
 	Cancelled bool
 }
 
-// NewModel creates a new env selector model.
+// NewModel creates a new env selector model if `env/` dir exists and contains `.env` files
 func NewModel() Model {
 	items := []string{}
 	if files, err := utils.GetEnvFiles(); err == nil {
@@ -52,7 +48,7 @@ func NewModel() Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
