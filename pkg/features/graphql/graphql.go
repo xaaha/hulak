@@ -17,10 +17,15 @@ import (
 
 // Introspect is the CLI handler for 'hulak gql' subcommand.
 // Supported usage:
-//   - hulak gql           (shows help)
-//   - hulak gql .         (directory mode - find all GraphQL files)
-//   - hulak gql <path>    (file mode - validate specific file)
-func Introspect(args []string) {
+//   - hulak gql                     (shows help)
+//   - hulak gql .                   (directory mode - interactive env selector)
+//   - hulak gql -env prod .         (directory mode - uses 'prod' env)
+//   - hulak gql <path>              (file mode - interactive env selector)
+//   - hulak gql -env staging <path>  (file mode - uses 'staging' env)
+//
+// The env parameter is optional. If empty, shows the interactive env selector.
+// If provided, skips the selector and uses the specified environment.
+func Introspect(args []string, env string) {
 	if len(args) == 0 {
 		utils.PrintGQLUsage()
 		return
@@ -28,14 +33,15 @@ func Introspect(args []string) {
 
 	firstArg := args[0]
 	if firstArg == "." {
-		handleDirectoryMode()
+		handleDirectoryMode(env)
 	} else {
-		handleFileMode(firstArg)
+		handleFileMode(firstArg, env)
 	}
 }
 
 // handleDirectoryMode finds all GraphQL files in CWD and processes them concurrently.
-func handleDirectoryMode() {
+// If env is provided, uses that environment. Otherwise shows the interactive selector.
+func handleDirectoryMode(env string) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		utils.PanicRedAndExit("Error getting current directory: %v", err)
@@ -52,8 +58,8 @@ func handleDirectoryMode() {
 		filePaths = append(filePaths, fp)
 	}
 
-	// Get secrets if any file needs template resolution
-	secretsMap := getSecretsIfNeeded(urlToFileMap)
+	// Get secrets - use provided env or show selector if needed
+	secretsMap := getSecretsForEnv(urlToFileMap, env)
 	if secretsMap == nil {
 		return // User cancelled
 	}
@@ -149,7 +155,8 @@ func fetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
 }
 
 // handleFileMode validates and processes a specific GraphQL file.
-func handleFileMode(arg string) {
+// If env is provided, uses that environment. Otherwise shows the interactive selector.
+func handleFileMode(arg string, env string) {
 	filePath := filepath.Clean(arg)
 
 	// Validate the file has kind: GraphQL and a URL
@@ -161,10 +168,10 @@ func handleFileMode(arg string) {
 		utils.PanicRedAndExit("File validation failed unexpectedly")
 	}
 
-	// Get secrets if template resolution is needed
+	// Get secrets - use provided env or show selector if needed
 	var secretsMap map[string]any
 	if strings.Contains(rawURL, "{{") {
-		secretsMap, _ = loadSecretsWithEnvSelector()
+		secretsMap = loadSecretsForEnv(env)
 		if secretsMap == nil {
 			return // User cancelled
 		}
@@ -198,37 +205,49 @@ func handleFileMode(arg string) {
 	fmt.Println("\n✓ Schema introspection completed successfully")
 }
 
-// getSecretsIfNeeded checks if any URL needs template resolution and loads secrets.
+// getSecretsForEnv checks if any URL needs template resolution and loads secrets.
+// If env is provided, uses that environment directly.
+// If env is empty and templates are needed, shows the interactive selector.
 // Returns empty map if no templates needed, nil if user cancelled.
-func getSecretsIfNeeded(urlToFileMap map[string]string) map[string]any {
+func getSecretsForEnv(urlToFileMap map[string]string, env string) map[string]any {
+	// If env is explicitly provided, always load it (user knows what they want)
+	if env != "" {
+		return loadSecretsForEnv(env)
+	}
+
+	// No env provided - check if we need secrets at all
 	if !NeedsEnvResolution(urlToFileMap) {
 		return map[string]any{}
 	}
 
-	secretsMap, cancelled := loadSecretsWithEnvSelector()
-	if cancelled {
-		return nil
-	}
-	return secretsMap
+	// Need secrets but no env provided - show interactive selector
+	return loadSecretsForEnv("")
 }
 
-// loadSecretsWithEnvSelector shows the env selector TUI and loads secrets.
-// Returns the secrets map and a boolean indicating if selection was cancelled.
-func loadSecretsWithEnvSelector() (map[string]any, bool) {
-	selectedEnv, err := envselect.RunEnvSelector()
-	if err != nil {
-		utils.PanicRedAndExit("Environment selector error: %v", err)
-	}
+// loadSecretsForEnv loads secrets from the specified environment.
+// If env is empty, shows the interactive env selector TUI.
+// Returns nil if user cancelled the selector.
+func loadSecretsForEnv(env string) map[string]any {
+	selectedEnv := env
+
+	// If no env provided, show the interactive selector
 	if selectedEnv == "" {
-		fmt.Println("Environment selection cancelled.")
-		return nil, true
+		var err error
+		selectedEnv, err = envselect.RunEnvSelector()
+		if err != nil {
+			utils.PanicRedAndExit("Environment selector error: %v", err)
+		}
+		if selectedEnv == "" {
+			fmt.Println("Environment selection cancelled.")
+			return nil
+		}
 	}
 
-	// Load secrets from selected environment (no interactive prompts)
+	// Load secrets from the environment
 	secretsMap, err := envparser.LoadSecretsMap(selectedEnv)
 	if err != nil {
 		utils.PanicRedAndExit("Failed to load environment '%s': %v", selectedEnv, err)
 	}
 
-	return secretsMap, false
+	return secretsMap
 }

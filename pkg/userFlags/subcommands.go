@@ -31,12 +31,15 @@ var (
 
 	// Flag to indicate if environments should be created
 	createEnvs *bool
+	// gqlEnv is the environment flag for the gql subcommand
+	gqlEnv *string
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
 	gql = flag.NewFlagSet(GraphQL, flag.ExitOnError)
+	gqlEnv = gql.String("env", "", "Environment file to use (skips interactive selector)")
 
 	initialize = flag.NewFlagSet(Init, flag.ExitOnError)
 	createEnvs = initialize.Bool(
@@ -80,7 +83,7 @@ func HandleSubcommands() error {
 			return fmt.Errorf("\n invalid subcommand after gql %v", err)
 		}
 		paths := gql.Args()
-		graphql.Introspect(paths)
+		graphql.Introspect(paths, *gqlEnv)
 		os.Exit(0)
 
 	default:
