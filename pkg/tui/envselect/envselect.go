@@ -100,13 +100,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// applyFilter matches the user's input text against list items
 func (m *Model) applyFilter() {
-	filter := m.textInput.Value()
-	if filter == "" {
+	userInput := m.textInput.Value()
+	if userInput == "" {
 		m.filtered = m.items
 	} else {
 		m.filtered = nil
-		lower := strings.ToLower(filter)
+		lower := strings.ToLower(userInput)
 		for _, item := range m.items {
 			if strings.Contains(strings.ToLower(item), lower) {
 				m.filtered = append(m.filtered, item)
