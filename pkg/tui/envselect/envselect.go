@@ -43,7 +43,7 @@ func NewModel() Model {
 	return Model{
 		items:     items,
 		filtered:  items,
-		textInput: tui.NewFilterInput(),
+		textInput: tui.NewFilterInput("Select Environment: "),
 	}
 }
 
@@ -127,7 +127,7 @@ func (m Model) View() string {
 }
 
 func (m Model) renderTitle() string {
-	title := "Select Environment: " + m.textInput.View()
+	title := m.textInput.View()
 	return tui.TitleStyle.Render(title)
 }
 
