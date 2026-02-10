@@ -8,10 +8,11 @@ import (
 // NewFilterInput creates a textinput configured for filtering lists.
 // Suggestion keys (up/down/ctrl+p/ctrl+n) are disabled so they can be
 // used for list navigation instead.
-func NewFilterInput(prompt string) textinput.Model {
+func NewFilterInput(prompt string, placeholder string) textinput.Model {
 	ti := textinput.New()
 	ti.Prompt = prompt
-	ti.Placeholder = ""
+	ti.Placeholder = placeholder
+	ti.Width = len(placeholder)
 	ti.Focus()
 
 	// Disable suggestion navigation keys so up/down work for list navigation

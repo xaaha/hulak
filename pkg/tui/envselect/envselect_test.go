@@ -45,7 +45,7 @@ func newTestModel(items []string) Model {
 	return Model{
 		items:     items,
 		filtered:  items,
-		textInput: tui.NewFilterInput("Select Environment: "),
+		textInput: tui.NewFilterInput("Select Environment: ", ""),
 	}
 }
 
