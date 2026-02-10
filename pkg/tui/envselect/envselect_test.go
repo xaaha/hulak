@@ -32,8 +32,12 @@ func setupTestEnvDir(t *testing.T, envFiles []string) func() {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-
-	return func() { os.Chdir(oldWd) }
+	return func() {
+		err := os.Chdir(oldWd)
+		if err != nil {
+			t.Errorf("error on setupTestEnvDir: %v", err)
+		}
+	}
 }
 
 // newTestModel creates a Model with items for testing.
@@ -41,7 +45,7 @@ func newTestModel(items []string) Model {
 	return Model{
 		items:     items,
 		filtered:  items,
-		textInput: tui.NewFilterInput(),
+		textInput: tui.NewFilterInput("Select Environment: "),
 	}
 }
 
