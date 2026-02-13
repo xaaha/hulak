@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
 )
 
@@ -98,7 +99,18 @@ func (m Model) View() string {
 	list := m.renderList()
 	help := tui.HelpStyle.Render("esc: quit | arrows: navigate | type to filter")
 
-	return search + "\n" + count + "\n\n" + list + "\n\n" + help
+	content := fmt.Sprintf("%s \n %s \n\n %s \n\n %s", search, count, list, help)
+
+	// TODOs: Reminder, we might have to clean this up
+	// Border consumes 2 cols and 2 rows;
+	// 	size the box to the terminal.
+	border := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(tui.ColorMuted).
+		Width(m.width - 2).
+		Height(m.height - 2)
+
+	return border.Render(content)
 }
 
 func (m Model) renderList() string {
@@ -106,7 +118,7 @@ func (m Model) renderList() string {
 		return tui.HelpStyle.Render("  (no matches)")
 	}
 
-	listHeight := m.height - 7
+	listHeight := m.height - 9
 	if listHeight < 1 {
 		listHeight = 10
 	}
