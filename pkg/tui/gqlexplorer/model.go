@@ -95,13 +95,34 @@ func (m *Model) applyFilter() {
 	query := m.search.Model.Value()
 	if query == "" {
 		m.filtered = m.operations
-	} else {
-		m.filtered = nil
-		lower := strings.ToLower(query)
-		for _, op := range m.operations {
-			if strings.Contains(strings.ToLower(op.Name), lower) {
-				m.filtered = append(m.filtered, op)
-			}
+		m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
+		return
+	}
+
+	var typeFilter OperationType
+	searchTerm := strings.ToLower(query)
+
+	if len(query) >= 2 && query[1] == ':' {
+		switch query[0] {
+		case 'q', 'Q':
+			typeFilter = TypeQuery
+			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
+		case 'm', 'M':
+			typeFilter = TypeMutation
+			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
+		case 's', 'S':
+			typeFilter = TypeSubscription
+			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
+		}
+	}
+
+	m.filtered = nil
+	for _, op := range m.operations {
+		if typeFilter != "" && op.Type != typeFilter {
+			continue
+		}
+		if searchTerm == "" || strings.Contains(strings.ToLower(op.Name), searchTerm) {
+			m.filtered = append(m.filtered, op)
 		}
 	}
 	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
@@ -109,23 +130,22 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
+	filterHint := tui.HelpStyle.Render("  q: queries | m: mutations | s: subscriptions")
 	count := tui.HelpStyle.Render(
 		fmt.Sprintf("  %d/%d operations", len(m.filtered), len(m.operations)),
 	)
 
 	list := m.renderList()
-	help := tui.HelpStyle.Render("esc: quit | arrows: navigate | type to filter")
+	help := tui.HelpStyle.Render("esc: quit | ↑/↓: navigate | type to filter")
 
-	content := fmt.Sprintf("%s \n %s \n\n %s \n\n %s", search, count, list, help)
+	content := fmt.Sprintf("%s\n%s\n%s\n\n%s\n\n%s", search, filterHint, count, list, help)
 
-	// TODOs: Reminder, we might have to clean this up
-	// Border consumes 2 cols and 2 rows;
-	// 	size the box to the terminal.
 	border := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(tui.ColorMuted).
-		Width(m.width - 2).
-		Height(m.height - 2)
+		Padding(1, 2).
+		Width(m.width - 2 - 4).
+		Height(m.height - 2 - 2)
 
 	return border.Render(content)
 }
@@ -135,7 +155,7 @@ func (m Model) renderList() string {
 		return tui.HelpStyle.Render("  (no matches)")
 	}
 
-	listHeight := m.height - 9
+	listHeight := m.height - 16
 	if listHeight < 1 {
 		listHeight = 10
 	}
@@ -145,6 +165,8 @@ func (m Model) renderList() string {
 		start = m.cursor - listHeight + 1
 	}
 	end := min(start+listHeight, len(m.filtered))
+
+	detailStyle := lipgloss.NewStyle().Foreground(tui.ColorMuted)
 
 	var lines []string
 	var currentType OperationType
@@ -160,6 +182,12 @@ func (m Model) renderList() string {
 		}
 		if i == m.cursor {
 			lines = append(lines, tui.SubtitleStyle.Render("  > "+op.Name))
+			if op.Description != "" {
+				lines = append(lines, detailStyle.Render("      "+op.Description))
+			}
+			if op.Endpoint != "" {
+				lines = append(lines, detailStyle.Render("      "+op.Endpoint))
+			}
 		} else {
 			lines = append(lines, "    "+op.Name)
 		}

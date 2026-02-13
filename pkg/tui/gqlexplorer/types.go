@@ -13,23 +13,31 @@ const (
 
 // UnifiedOperation pairs a named operation with its type and source endpoint.
 type UnifiedOperation struct {
-	Name     string
-	Type     OperationType
-	Endpoint string
+	Name        string
+	Description string
+	Type        OperationType
+	Endpoint    string
 }
 
-// CollectOperations flattens a schema's queries, mutations, and subscriptions
-// into a single slice tagged by type and source endpoint.
 func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperation {
 	var ops []UnifiedOperation
 	for _, q := range schema.Queries {
-		ops = append(ops, UnifiedOperation{Name: q.Name, Type: TypeQuery, Endpoint: endpoint})
+		ops = append(ops, UnifiedOperation{
+			Name: q.Name, Description: q.Description,
+			Type: TypeQuery, Endpoint: endpoint,
+		})
 	}
 	for _, m := range schema.Mutations {
-		ops = append(ops, UnifiedOperation{Name: m.Name, Type: TypeMutation, Endpoint: endpoint})
+		ops = append(ops, UnifiedOperation{
+			Name: m.Name, Description: m.Description,
+			Type: TypeMutation, Endpoint: endpoint,
+		})
 	}
 	for _, s := range schema.Subscriptions {
-		ops = append(ops, UnifiedOperation{Name: s.Name, Type: TypeSubscription, Endpoint: endpoint})
+		ops = append(ops, UnifiedOperation{
+			Name: s.Name, Description: s.Description,
+			Type: TypeSubscription, Endpoint: endpoint,
+		})
 	}
 	return ops
 }
