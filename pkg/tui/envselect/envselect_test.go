@@ -431,7 +431,7 @@ func TestInitReturnsBlinkCmd(t *testing.T) {
 	m := newTestModel([]string{"dev"})
 	cmd := m.Init()
 
-	if cmd != nil {
-		t.Error("Init should return nil")
+	if cmd == nil {
+		t.Error("Init should return a blink command")
 	}
 }
