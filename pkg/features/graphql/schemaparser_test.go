@@ -472,6 +472,67 @@ func TestDisplaySchema_WithInputTypes(t *testing.T) {
 	}
 }
 
+func TestConvertToSchemaExtractsEnumTypes(t *testing.T) {
+	deprecationReason := "Use ACTIVE instead"
+	queryType := createQueryType()
+
+	introspectionSchema := &introspection.Schema{
+		QueryType: queryType,
+		Types: []*introspection.FullType{
+			&queryType,
+			{
+				Kind:        introspection.ENUM,
+				Name:        "Status",
+				Description: "User status",
+				EnumValues: []introspection.EnumValue{
+					{Name: "ACTIVE", Description: "Active user"},
+					{Name: "INACTIVE", Description: "Inactive user", IsDeprecated: true, DeprecationReason: &deprecationReason},
+				},
+			},
+			{
+				Kind: introspection.ENUM,
+				Name: "__DirectiveLocation",
+				EnumValues: []introspection.EnumValue{
+					{Name: "QUERY"},
+				},
+			},
+		},
+	}
+
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(schema.EnumTypes) != 1 {
+		t.Fatalf("Expected 1 enum type, got %d", len(schema.EnumTypes))
+	}
+
+	statusEnum, ok := schema.EnumTypes["Status"]
+	if !ok {
+		t.Fatal("Expected 'Status' enum type")
+	}
+	if statusEnum.Description != "User status" {
+		t.Errorf("Expected description 'User status', got %q", statusEnum.Description)
+	}
+	if len(statusEnum.Values) != 2 {
+		t.Fatalf("Expected 2 enum values, got %d", len(statusEnum.Values))
+	}
+	if statusEnum.Values[0].Name != "ACTIVE" {
+		t.Errorf("Expected first value 'ACTIVE', got %q", statusEnum.Values[0].Name)
+	}
+	if statusEnum.Values[1].IsDeprecated != true {
+		t.Error("Expected INACTIVE to be deprecated")
+	}
+	if statusEnum.Values[1].DeprecationReason != "Use ACTIVE instead" {
+		t.Errorf("Expected deprecation reason, got %q", statusEnum.Values[1].DeprecationReason)
+	}
+
+	if _, ok := schema.EnumTypes["__DirectiveLocation"]; ok {
+		t.Error("Built-in enum __DirectiveLocation should be filtered out")
+	}
+}
+
 // Helper functions
 
 func stringPtr(s string) *string {
