@@ -58,6 +58,7 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 
 	schema := Schema{
 		InputTypes: make(map[string]InputType),
+		EnumTypes:  make(map[string]EnumType),
 	}
 
 	// Extract input types (for TUI form building)
@@ -69,6 +70,17 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 				Fields:      convertInputFields(t.InputFields),
 			}
 			schema.InputTypes[t.Name] = inputType
+		}
+	}
+
+	// Extract enum types (for TUI dropdown inputs)
+	for _, t := range introspectionSchema.Types {
+		if t.Kind == introspection.ENUM && t.Name != "" && !strings.HasPrefix(t.Name, "__") {
+			schema.EnumTypes[t.Name] = EnumType{
+				Name:        t.Name,
+				Description: t.Description,
+				Values:      convertEnumValues(t.EnumValues),
+			}
 		}
 	}
 
@@ -156,6 +168,24 @@ func convertInputFields(fields []introspection.InputValue) []InputField {
 		inputFields = append(inputFields, f)
 	}
 	return inputFields
+}
+
+func convertEnumValues(values []introspection.EnumValue) []EnumValue {
+	enumValues := make([]EnumValue, 0, len(values))
+	for _, v := range values {
+		deprecationReason := ""
+		if v.DeprecationReason != nil {
+			deprecationReason = *v.DeprecationReason
+		}
+
+		enumValues = append(enumValues, EnumValue{
+			Name:              v.Name,
+			Description:       v.Description,
+			IsDeprecated:      v.IsDeprecated,
+			DeprecationReason: deprecationReason,
+		})
+	}
+	return enumValues
 }
 
 // formatType recursively formats a TypeRef into a readable GraphQL type string.
