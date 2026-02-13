@@ -59,7 +59,7 @@ func handleDirectoryMode(env string) {
 	}
 
 	// Get secrets - use provided env or show selector if needed
-	secretsMap := getSecretsForEnv(urlToFileMap, env)
+	secretsMap := GetSecretsForEnv(urlToFileMap, env)
 	if secretsMap == nil {
 		return // User cancelled
 	}
@@ -85,7 +85,7 @@ func handleDirectoryMode(env string) {
 		fmt.Println(strings.Repeat("-", 60))
 
 		// Fetch and display schema
-		schema, err := fetchAndParseSchema(result.ApiInfo)
+		schema, err := FetchAndParseSchema(result.ApiInfo)
 		if err != nil {
 			fmt.Printf("❌ Failed to fetch schema: %v\n", err)
 			continue
@@ -99,10 +99,10 @@ func handleDirectoryMode(env string) {
 	fmt.Printf("\n✓ Successfully fetched %d/%d schema(s)\n", successCount, len(results))
 }
 
-// fetchAndParseSchema makes an introspection query and parses the schema.
+// FetchAndParseSchema makes an introspection query and parses the schema.
 // It takes an ApiInfo, sets the introspection query as the body, makes the HTTP call,
 // parses the response, and converts it to our domain Schema model.
-func fetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
+func FetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
 	// Prepare introspection query body
 	introspectionBody := map[string]any{"query": IntrospectionQuery}
 	jsonData, err := json.Marshal(introspectionBody)
@@ -196,7 +196,7 @@ func handleFileMode(arg string, env string) {
 	fmt.Printf("\nFetching schema from: %s\n", result.ApiInfo.Url)
 
 	// Fetch and display schema
-	schema, err := fetchAndParseSchema(result.ApiInfo)
+	schema, err := FetchAndParseSchema(result.ApiInfo)
 	if err != nil {
 		utils.PanicRedAndExit("Failed to fetch schema: %v", err)
 	}
@@ -205,11 +205,11 @@ func handleFileMode(arg string, env string) {
 	fmt.Println("\n✓ Schema introspection completed successfully")
 }
 
-// getSecretsForEnv checks if any URL needs template resolution and loads secrets.
+// GetSecretsForEnv checks if any URL needs template resolution and loads secrets.
 // If env is provided, uses that environment directly.
 // If env is empty and templates are needed, shows the interactive selector.
 // Returns empty map if no templates needed, nil if user cancelled.
-func getSecretsForEnv(urlToFileMap map[string]string, env string) map[string]any {
+func GetSecretsForEnv(urlToFileMap map[string]string, env string) map[string]any {
 	// If env is explicitly provided, always load it (user knows what they want)
 	if env != "" {
 		return loadSecretsForEnv(env)
