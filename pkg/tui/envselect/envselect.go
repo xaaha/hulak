@@ -3,7 +3,6 @@ package envselect
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -25,7 +24,7 @@ type Model struct {
 	items     []string
 	filtered  []string
 	cursor    int
-	textInput textinput.Model
+	textInput tui.FilterInput
 	Selected  string
 	Cancelled bool
 }
@@ -48,7 +47,7 @@ func NewModel() Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	return m.textInput.Init()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -67,8 +66,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case tui.KeyCancel:
-		if m.textInput.Value() != "" {
-			m.textInput.Reset()
+		if m.textInput.Model.Value() != "" {
+			m.textInput.Model.Reset()
 			m.applyFilter()
 			return m, nil
 		}
@@ -91,11 +90,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate all other keys to textinput
-	prevValue := m.textInput.Value()
+	prevValue := m.textInput.Model.Value()
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
 
-	if m.textInput.Value() != prevValue {
+	if m.textInput.Model.Value() != prevValue {
 		m.applyFilter()
 	}
 
@@ -104,7 +103,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // applyFilter matches the user's input text against list items
 func (m *Model) applyFilter() {
-	userInput := m.textInput.Value()
+	userInput := m.textInput.Model.Value()
 	if userInput == "" {
 		m.filtered = m.items
 	} else {
@@ -120,17 +119,12 @@ func (m *Model) applyFilter() {
 }
 
 func (m Model) View() string {
-	title := m.renderTitle()
+	title := m.textInput.ViewTitle()
 	list := m.renderList()
 	help := tui.HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
 	return "\n" + tui.BoxStyle.Render(content) + "\n"
-}
-
-func (m Model) renderTitle() string {
-	title := m.textInput.View()
-	return tui.BorderStyle.Padding(0, 1).Render(title)
 }
 
 func (m Model) renderList() string {

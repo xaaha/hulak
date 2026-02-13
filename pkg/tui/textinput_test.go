@@ -9,30 +9,30 @@ import (
 func TestNewFilterInputPrompt(t *testing.T) {
 	ti := NewFilterInput("Filter: ", "")
 
-	if ti.Prompt != "Filter: " {
-		t.Errorf("expected prompt 'Filter: ', got %q", ti.Prompt)
+	if ti.Model.Prompt != "Filter: " {
+		t.Errorf("expected prompt 'Filter: ', got %q", ti.Model.Prompt)
 	}
 }
 
 func TestNewFilterInputEmptyPlaceholder(t *testing.T) {
 	ti := NewFilterInput("Filter: ", "")
 
-	if ti.Placeholder != "" {
-		t.Errorf("expected empty placeholder, got %q", ti.Placeholder)
+	if ti.Model.Placeholder != "" {
+		t.Errorf("expected empty placeholder, got %q", ti.Model.Placeholder)
 	}
-	if ti.Width != 0 {
-		t.Errorf("expected width 0 for empty placeholder, got %d", ti.Width)
+	if ti.Model.Width != 0 {
+		t.Errorf("expected width 0 for empty placeholder, got %d", ti.Model.Width)
 	}
 }
 
 func TestNewFilterInputCustomPlaceholder(t *testing.T) {
 	ti := NewFilterInput("Search: ", "type to search")
 
-	if ti.Placeholder != "type to search" {
-		t.Errorf("expected placeholder 'type to search', got %q", ti.Placeholder)
+	if ti.Model.Placeholder != "type to search" {
+		t.Errorf("expected placeholder 'type to search', got %q", ti.Model.Placeholder)
 	}
-	if ti.Width != len("type to search") {
-		t.Errorf("expected width %d, got %d", len("type to search"), ti.Width)
+	if ti.Model.Width != len("type to search") {
+		t.Errorf("expected width %d, got %d", len("type to search"), ti.Model.Width)
 	}
 }
 
@@ -51,8 +51,8 @@ func TestNewFilterInputWidthMatchesPlaceholderLength(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ti := NewFilterInput("> ", tc.placeholder)
-			if ti.Width != tc.wantWidth {
-				t.Errorf("placeholder %q: expected width %d, got %d", tc.placeholder, tc.wantWidth, ti.Width)
+			if ti.Model.Width != tc.wantWidth {
+				t.Errorf("placeholder %q: expected width %d, got %d", tc.placeholder, tc.wantWidth, ti.Model.Width)
 			}
 		})
 	}
@@ -61,7 +61,7 @@ func TestNewFilterInputWidthMatchesPlaceholderLength(t *testing.T) {
 func TestNewFilterInputIsFocused(t *testing.T) {
 	ti := NewFilterInput("> ", "")
 
-	if !ti.Focused() {
+	if !ti.Model.Focused() {
 		t.Error("expected textinput to be focused")
 	}
 }
@@ -69,12 +69,12 @@ func TestNewFilterInputIsFocused(t *testing.T) {
 func TestNewFilterInputSuggestionKeysDisabled(t *testing.T) {
 	ti := NewFilterInput("> ", "")
 
-	before := ti.Value()
+	before := ti.Model.Value()
 
 	ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyUp})
 	ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyDown})
 
-	after := ti.Value()
+	after := ti.Model.Value()
 	if before != after {
 		t.Errorf("suggestion keys should be disabled, but value changed from %q to %q", before, after)
 	}
@@ -87,7 +87,7 @@ func TestNewFilterInputAcceptsTypedText(t *testing.T) {
 		ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
-	if ti.Value() != "hello" {
-		t.Errorf("expected value 'hello', got %q", ti.Value())
+	if ti.Model.Value() != "hello" {
+		t.Errorf("expected value 'hello', got %q", ti.Model.Value())
 	}
 }

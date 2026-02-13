@@ -138,7 +138,7 @@ func TestCancelWithEmptyFilter(t *testing.T) {
 
 func TestCancelClearsFilterFirst(t *testing.T) {
 	m := newTestModel([]string{"dev", "prod"})
-	m.textInput.SetValue("test")
+	m.textInput.Model.SetValue("test")
 	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -147,8 +147,8 @@ func TestCancelClearsFilterFirst(t *testing.T) {
 	if model.Cancelled {
 		t.Error("expected Cancelled to be false - esc should clear filter first")
 	}
-	if model.textInput.Value() != "" {
-		t.Errorf("expected filter to be cleared, got '%s'", model.textInput.Value())
+	if model.textInput.Model.Value() != "" {
+		t.Errorf("expected filter to be cleared, got '%s'", model.textInput.Model.Value())
 	}
 	if cmd != nil {
 		t.Error("expected no quit command when clearing filter")
@@ -217,8 +217,8 @@ func TestTypingFilters(t *testing.T) {
 		m = newModel.(Model)
 	}
 
-	if m.textInput.Value() != "dev" {
-		t.Errorf("expected filter 'dev', got '%s'", m.textInput.Value())
+	if m.textInput.Model.Value() != "dev" {
+		t.Errorf("expected filter 'dev', got '%s'", m.textInput.Model.Value())
 	}
 	if len(m.filtered) != 2 {
 		t.Errorf("expected 2 filtered items, got %d", len(m.filtered))
@@ -227,7 +227,7 @@ func TestTypingFilters(t *testing.T) {
 
 func TestSelectWithNoMatches(t *testing.T) {
 	m := newTestModel([]string{"dev", "prod"})
-	m.textInput.SetValue("xyz")
+	m.textInput.Model.SetValue("xyz")
 	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -397,7 +397,7 @@ func TestViewContainsTitle(t *testing.T) {
 
 func TestViewShowsNoMatchesWhenEmpty(t *testing.T) {
 	m := newTestModel([]string{"dev"})
-	m.textInput.SetValue("xyz")
+	m.textInput.Model.SetValue("xyz")
 	m.applyFilter()
 
 	view := m.View()
