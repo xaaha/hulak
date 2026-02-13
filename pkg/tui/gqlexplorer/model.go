@@ -2,6 +2,7 @@ package gqlexplorer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,10 +22,26 @@ type Model struct {
 
 // NewModel creates an explorer model from a flat list of operations.
 func NewModel(operations []UnifiedOperation) Model {
+	sort.Slice(operations, func(i, j int) bool {
+		return typeOrder(operations[i].Type) < typeOrder(operations[j].Type)
+	})
 	return Model{
 		operations: operations,
 		filtered:   operations,
 		search:     tui.NewFilterInput("Search: ", "filter operations..."),
+	}
+}
+
+func typeOrder(t OperationType) int {
+	switch t {
+	case TypeQuery:
+		return 0
+	case TypeMutation:
+		return 1
+	case TypeSubscription:
+		return 2
+	default:
+		return 3
 	}
 }
 
@@ -130,13 +147,21 @@ func (m Model) renderList() string {
 	end := min(start+listHeight, len(m.filtered))
 
 	var lines []string
+	var currentType OperationType
 	for i := start; i < end; i++ {
 		op := m.filtered[i]
-		badge := tui.RenderBadge(string(op.Type), badgeColorIndex(op.Type))
+		if op.Type != currentType {
+			currentType = op.Type
+			header := tui.RenderBadge(string(currentType), badgeColorIndex(currentType))
+			if len(lines) > 0 {
+				lines = append(lines, "")
+			}
+			lines = append(lines, header)
+		}
 		if i == m.cursor {
-			lines = append(lines, tui.SubtitleStyle.Render("> "+op.Name)+" "+badge)
+			lines = append(lines, tui.SubtitleStyle.Render("  > "+op.Name))
 		} else {
-			lines = append(lines, "  "+op.Name+" "+badge)
+			lines = append(lines, "    "+op.Name)
 		}
 	}
 	return strings.Join(lines, "\n")
