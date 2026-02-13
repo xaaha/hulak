@@ -128,7 +128,7 @@ func (m Model) View() string {
 
 func (m Model) renderTitle() string {
 	title := m.textInput.View()
-	return tui.TitleStyle.Render(title)
+	return tui.BorderStyle.Padding(0, 1).Render(title)
 }
 
 func (m Model) renderList() string {
