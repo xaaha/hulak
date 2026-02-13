@@ -6,9 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
+	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -82,8 +85,18 @@ func HandleSubcommands() error {
 		if err != nil {
 			return fmt.Errorf("\n invalid subcommand after gql %v", err)
 		}
-		paths := gql.Args()
-		graphql.Introspect(paths, *gqlEnv)
+		args := gql.Args()
+		if len(args) == 0 {
+			utils.PrintGQLUsage()
+			os.Exit(0)
+		}
+		operations := loadGraphQLOperations(args[0], *gqlEnv)
+		if operations == nil {
+			os.Exit(0)
+		}
+		if err := gqlexplorer.RunExplorer(operations); err != nil {
+			utils.PanicRedAndExit("TUI error: %v", err)
+		}
 		os.Exit(0)
 
 	default:
@@ -92,4 +105,60 @@ func HandleSubcommands() error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+// handles single file mode and directory mode along with unifying the operation
+func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperation {
+	var results []graphql.ProcessResult
+
+	if arg == "." {
+		cwd, err := os.Getwd()
+		if err != nil {
+			utils.PanicRedAndExit("Error getting current directory: %v", err)
+		}
+		urlToFileMap, err := graphql.FindGraphQLFiles(cwd)
+		if err != nil {
+			utils.PanicRedAndExit("%v", err)
+		}
+		filePaths := make([]string, 0, len(urlToFileMap))
+		for _, fp := range urlToFileMap {
+			filePaths = append(filePaths, fp)
+		}
+		secretsMap := graphql.GetSecretsForEnv(urlToFileMap, env)
+		if secretsMap == nil {
+			return nil
+		}
+		results = graphql.ProcessFilesConcurrent(filePaths, secretsMap)
+	} else {
+		filePath := filepath.Clean(arg)
+		rawURL, _, err := graphql.ValidateGraphQLFile(filePath)
+		if err != nil {
+			utils.PanicRedAndExit("%v", err)
+		}
+		var secretsMap map[string]any
+		if strings.Contains(rawURL, "{{") {
+			secretsMap = graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
+			if secretsMap == nil {
+				return nil
+			}
+		} else {
+			secretsMap = map[string]any{}
+		}
+		results = graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
+	}
+
+	var operations []gqlexplorer.UnifiedOperation
+	for _, result := range results {
+		if result.Error != nil {
+			continue
+		}
+		schema, err := graphql.FetchAndParseSchema(result.ApiInfo)
+		if err != nil {
+			continue
+		}
+		operations = append(
+			operations,
+			gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+	}
+	return operations
 }
