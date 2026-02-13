@@ -24,7 +24,7 @@ type Model struct {
 	items     []string
 	filtered  []string
 	cursor    int
-	textInput tui.FilterInput
+	textInput tui.TextInput
 	Selected  string
 	Cancelled bool
 }
