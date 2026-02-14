@@ -8,12 +8,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 const (
 	itemPadding   = 4
 	detailPadding = 6
-	cursorMarker  = "> "
 
 	noMatchesLabel  = "(no matches)"
 	helpFilter      = "q: queries | m: mutations | s: subscriptions"
@@ -169,11 +169,11 @@ func (m Model) View() string {
 func (m Model) renderList() string {
 	itemPrefix := strings.Repeat(" ", itemPadding)
 	detailPrefix := strings.Repeat(" ", detailPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(cursorMarker)) + cursorMarker
+	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + utils.CursorMarker
 
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
-			strings.Repeat(" ", itemPadding-len(cursorMarker)) + noMatchesLabel,
+			strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + noMatchesLabel,
 		)
 	}
 
