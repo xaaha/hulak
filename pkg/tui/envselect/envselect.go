@@ -42,9 +42,13 @@ func NewModel() Model {
 		}
 	}
 	return Model{
-		items:     items,
-		filtered:  items,
-		textInput: tui.NewFilterInput("Select Environment: ", placeholder),
+		items:    items,
+		filtered: items,
+		textInput: tui.NewFilterInput(tui.TextInputOpts{
+			Prompt:      "Select Environment: ",
+			Placeholder: placeholder,
+			MinWidth:    20,
+		}),
 	}
 }
 

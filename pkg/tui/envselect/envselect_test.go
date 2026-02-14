@@ -43,9 +43,12 @@ func setupTestEnvDir(t *testing.T, envFiles []string) func() {
 // newTestModel creates a Model with items for testing.
 func newTestModel(items []string) Model {
 	return Model{
-		items:     items,
-		filtered:  items,
-		textInput: tui.NewFilterInput("Select Environment: ", ""),
+		items:    items,
+		filtered: items,
+		textInput: tui.NewFilterInput(tui.TextInputOpts{
+			Prompt:      "Select Environment: ",
+			Placeholder: "",
+		}),
 	}
 }
 
