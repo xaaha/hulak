@@ -151,7 +151,9 @@ func (m *Model) applyFilter() {
 func (m Model) View() string {
 	search := m.search.ViewTitle()
 	filterHint := tui.HelpStyle.Render(" " + helpFilter)
-	count := tui.HelpStyle.Render(" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)))
+	count := tui.HelpStyle.Render(
+		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
+	)
 
 	list := m.renderList()
 	help := tui.HelpStyle.Render(helpNavigation)
@@ -170,7 +172,9 @@ func (m Model) renderList() string {
 	selectedPrefix := strings.Repeat(" ", itemPadding-len(cursorMarker)) + cursorMarker
 
 	if len(m.filtered) == 0 {
-		return tui.HelpStyle.Render(strings.Repeat(" ", itemPadding-len(cursorMarker)) + noMatchesLabel)
+		return tui.HelpStyle.Render(
+			strings.Repeat(" ", itemPadding-len(cursorMarker)) + noMatchesLabel,
+		)
 	}
 
 	listHeight := m.height - 16
