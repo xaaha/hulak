@@ -10,6 +10,23 @@ import (
 	"github.com/xaaha/hulak/pkg/tui"
 )
 
+const (
+	itemPadding   = 4
+	detailPadding = 6
+	cursorMarker  = "> "
+
+	noMatchesLabel  = "(no matches)"
+	helpFilter      = "q: queries | m: mutations | s: subscriptions"
+	helpNavigation  = "esc: quit | ↑/↓: navigate | type to filter"
+	operationFormat = "%d/%d operations"
+)
+
+var badgeColor = map[OperationType]lipgloss.AdaptiveColor{
+	TypeQuery:        {Light: "21", Dark: "39"},
+	TypeMutation:     {Light: "130", Dark: "214"},
+	TypeSubscription: {Light: "30", Dark: "87"},
+}
+
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
 	operations []UnifiedOperation
@@ -133,29 +150,27 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
-	filterHint := tui.HelpStyle.Render(" q: queries | m: mutations | s: subscriptions")
-	count := tui.HelpStyle.Render(
-		fmt.Sprintf(" %d/%d operations", len(m.filtered), len(m.operations)),
-	)
+	filterHint := tui.HelpStyle.Render(" " + helpFilter)
+	count := tui.HelpStyle.Render(" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)))
 
 	list := m.renderList()
-	help := tui.HelpStyle.Render("esc: quit | ↑/↓: navigate | type to filter")
+	help := tui.HelpStyle.Render(helpNavigation)
 
 	content := fmt.Sprintf("%s\n%s\n%s\n\n%s\n\n%s", search, filterHint, count, list, help)
 
-	border := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(tui.ColorMuted).
-		Padding(1, 2).
+	return tui.BoxStyle.
 		Width(m.width - 2 - 4).
-		Height(m.height - 2 - 2)
-
-	return border.Render(content)
+		Height(m.height - 2 - 2).
+		Render(content)
 }
 
 func (m Model) renderList() string {
+	itemPrefix := strings.Repeat(" ", itemPadding)
+	detailPrefix := strings.Repeat(" ", detailPadding)
+	selectedPrefix := strings.Repeat(" ", itemPadding-len(cursorMarker)) + cursorMarker
+
 	if len(m.filtered) == 0 {
-		return tui.HelpStyle.Render("  (no matches)")
+		return tui.HelpStyle.Render(strings.Repeat(" ", itemPadding-len(cursorMarker)) + noMatchesLabel)
 	}
 
 	listHeight := m.height - 16
@@ -169,46 +184,30 @@ func (m Model) renderList() string {
 	}
 	end := min(start+listHeight, len(m.filtered))
 
-	detailStyle := lipgloss.NewStyle().Foreground(tui.ColorMuted)
-
 	var lines []string
 	var currentType OperationType
 	for i := start; i < end; i++ {
 		op := m.filtered[i]
 		if op.Type != currentType {
 			currentType = op.Type
-			header := tui.RenderBadge(string(currentType), badgeColorIndex(currentType))
 			if len(lines) > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, header)
+			lines = append(lines, tui.RenderBadge(string(currentType), badgeColor[currentType]))
 		}
 		if i == m.cursor {
-			lines = append(lines, tui.SubtitleStyle.Render("  > "+op.Name))
+			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
 			if op.Description != "" {
-				lines = append(lines, detailStyle.Render("      "+op.Description))
+				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Description))
 			}
 			if op.Endpoint != "" {
-				lines = append(lines, detailStyle.Render("      "+op.Endpoint))
+				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Endpoint))
 			}
 		} else {
-			lines = append(lines, "    "+op.Name)
+			lines = append(lines, itemPrefix+op.Name)
 		}
 	}
 	return strings.Join(lines, "\n")
-}
-
-func badgeColorIndex(t OperationType) int {
-	switch t {
-	case TypeQuery:
-		return 0
-	case TypeMutation:
-		return 3
-	case TypeSubscription:
-		return 5
-	default:
-		return 0
-	}
 }
 
 // RunExplorer launches the full-screen explorer TUI.

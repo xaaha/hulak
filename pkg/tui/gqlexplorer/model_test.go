@@ -511,22 +511,11 @@ func TestTypeOrderSorting(t *testing.T) {
 	}
 }
 
-func TestBadgeColorIndex(t *testing.T) {
-	tests := []struct {
-		name     string
-		opType   OperationType
-		expected int
-	}{
-		{"query", TypeQuery, 0},
-		{"mutation", TypeMutation, 3},
-		{"subscription", TypeSubscription, 5},
-		{"unknown", OperationType("unknown"), 0},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := badgeColorIndex(tc.opType); got != tc.expected {
-				t.Errorf("badgeColorIndex(%q) = %d, want %d", tc.opType, got, tc.expected)
+func TestBadgeColorMapping(t *testing.T) {
+	for _, opType := range []OperationType{TypeQuery, TypeMutation, TypeSubscription} {
+		t.Run(string(opType), func(t *testing.T) {
+			if _, ok := badgeColor[opType]; !ok {
+				t.Errorf("badgeColor missing entry for %q", opType)
 			}
 		})
 	}

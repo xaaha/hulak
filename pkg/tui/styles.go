@@ -86,9 +86,8 @@ func RenderError(text string) string {
 	return ErrorStyle.Render(text)
 }
 
-// RenderBadge creates a colored badge for endpoint tags
-func RenderBadge(text string, colorIndex int) string {
-	color := BadgeColors[colorIndex%len(BadgeColors)]
+// RenderBadge creates a colored badge with the given foreground color.
+func RenderBadge(text string, color lipgloss.AdaptiveColor) string {
 	bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}
 	return lipgloss.NewStyle().
 		Foreground(color).
