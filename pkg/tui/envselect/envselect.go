@@ -1,6 +1,7 @@
 package envselect
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -123,7 +124,7 @@ func (m Model) View() string {
 	list := m.renderList()
 	help := tui.HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
-	content := title + "\n\n" + list + "\n" + help
+	content := fmt.Sprintf("%s \n\n %s \n %s", title, list, help)
 	return "\n" + tui.BoxStyle.Render(content) + "\n"
 }
 
