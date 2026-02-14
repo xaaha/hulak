@@ -28,7 +28,10 @@ func NewModel(operations []UnifiedOperation) Model {
 	return Model{
 		operations: operations,
 		filtered:   operations,
-		search:     tui.NewFilterInput("Search: ", "filter operations..."),
+		search: tui.NewFilterInput(tui.TextInputOpts{
+			Prompt:      "Search: ",
+			Placeholder: "filter operations...",
+		}),
 	}
 }
 
@@ -130,9 +133,9 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
-	filterHint := tui.HelpStyle.Render("  q: queries | m: mutations | s: subscriptions")
+	filterHint := tui.HelpStyle.Render(" q: queries | m: mutations | s: subscriptions")
 	count := tui.HelpStyle.Render(
-		fmt.Sprintf("  %d/%d operations", len(m.filtered), len(m.operations)),
+		fmt.Sprintf(" %d/%d operations", len(m.filtered), len(m.operations)),
 	)
 
 	list := m.renderList()
