@@ -16,6 +16,8 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
+	scrollMargin = 3 // leave some space before and after the cursor
+
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
@@ -141,8 +143,8 @@ func (m *Model) syncViewport() {
 	h := m.viewport.Height
 	if cursorLine < m.viewport.YOffset {
 		m.viewport.SetYOffset(max(0, cursorLine-1))
-	} else if cursorLine >= m.viewport.YOffset+h {
-		m.viewport.SetYOffset(cursorLine - h + 1)
+	} else if cursorLine+scrollMargin >= m.viewport.YOffset+h {
+		m.viewport.SetYOffset(cursorLine - h + 1 + scrollMargin)
 	}
 }
 
