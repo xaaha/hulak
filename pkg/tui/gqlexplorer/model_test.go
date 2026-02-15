@@ -355,6 +355,9 @@ func TestWindowSizeMsg(t *testing.T) {
 	if model.height != 40 {
 		t.Errorf("expected height 40, got %d", model.height)
 	}
+	if !model.ready {
+		t.Error("viewport should be initialized after WindowSizeMsg")
+	}
 }
 
 func TestViewContainsSearchPrompt(t *testing.T) {

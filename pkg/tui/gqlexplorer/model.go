@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -17,7 +18,7 @@ const (
 
 	noMatchesLabel  = "(no matches)"
 	helpFilter      = "q: queries | m: mutations | s: subscriptions"
-	helpNavigation  = "esc: quit | ↑/↓: navigate | type to filter"
+	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
 )
 
@@ -39,6 +40,8 @@ type Model struct {
 	filtered   []UnifiedOperation
 	cursor     int
 	search     tui.TextInput
+	viewport   viewport.Model
+	ready      bool
 	width      int
 	height     int
 }
@@ -68,13 +71,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		listHeight := m.height - 16
+		if listHeight < 1 {
+			listHeight = 10
+		}
+		if !m.ready {
+			m.viewport = viewport.New(m.width, listHeight)
+			m.viewport.MouseWheelEnabled = true
+			m.ready = true
+		} else {
+			m.viewport.Width = m.width
+			m.viewport.Height = listHeight
+		}
+		m.viewport.SetContent(m.renderList())
 		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
+
+	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
-	return m, cmd
+	cmds = append(cmds, cmd)
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -85,14 +106,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.search.Model.Value() != "" {
 			m.search.Model.Reset()
 			m.applyFilter()
+			m.viewport.SetContent(m.renderList())
+			m.viewport.GotoTop()
 			return m, nil
 		}
 		return m, tea.Quit
 	case tui.KeyUp, tui.KeyCtrlP:
 		m.cursor = tui.MoveCursorUp(m.cursor)
+		m.viewport.SetContent(m.renderList())
 		return m, nil
 	case tui.KeyDown, tui.KeyCtrlN:
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
+		m.viewport.SetContent(m.renderList())
 		return m, nil
 	}
 
@@ -101,6 +126,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.search, cmd = m.search.Update(msg)
 	if m.search.Model.Value() != prevValue {
 		m.applyFilter()
+		m.viewport.SetContent(m.renderList())
+		m.viewport.GotoTop()
 	}
 	return m, cmd
 }
@@ -149,10 +176,22 @@ func (m Model) View() string {
 		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
 	)
 
-	list := m.renderList()
+	var list string
+	if m.ready {
+		list = m.viewport.View()
+	} else {
+		list = m.renderList()
+	}
 	help := tui.HelpStyle.Render(helpNavigation)
 
-	content := fmt.Sprintf("%s\n%s\n%s\n\n%s\n\n%s", search, filterHint, count, list, help)
+	scrollPct := tui.HelpStyle.Render(
+		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
+	)
+
+	content := fmt.Sprintf(
+		"%s\n%s\n%s\n\n%s\n\n%s  %s",
+		search, filterHint, count, list, help, scrollPct,
+	)
 
 	return tui.BoxStyle.
 		Width(m.width - 2 - 4).
@@ -171,21 +210,9 @@ func (m Model) renderList() string {
 		)
 	}
 
-	listHeight := m.height - 16
-	if listHeight < 1 {
-		listHeight = 10
-	}
-
-	start := 0
-	if m.cursor >= listHeight {
-		start = m.cursor - listHeight + 1
-	}
-	end := min(start+listHeight, len(m.filtered))
-
 	var lines []string
 	var currentType OperationType
-	for i := start; i < end; i++ {
-		op := m.filtered[i]
+	for i, op := range m.filtered {
 		if op.Type != currentType {
 			currentType = op.Type
 			if len(lines) > 0 {
@@ -210,7 +237,11 @@ func (m Model) renderList() string {
 
 // RunExplorer launches the full-screen explorer TUI.
 func RunExplorer(operations []UnifiedOperation) error {
-	p := tea.NewProgram(NewModel(operations), tea.WithAltScreen())
+	p := tea.NewProgram(
+		NewModel(operations),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 	_, err := p.Run()
 	return err
 }
