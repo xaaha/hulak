@@ -48,6 +48,7 @@ func NewModel(operations []UnifiedOperation) Model {
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
+			MinWidth:    32,
 		}),
 	}
 }
