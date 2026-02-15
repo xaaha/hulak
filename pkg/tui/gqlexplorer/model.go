@@ -193,10 +193,13 @@ func (m Model) View() string {
 		search, filterHint, count, list, help, scrollPct,
 	)
 
-	return tui.BoxStyle.
-		Width(m.width - 2 - 4).
-		Height(m.height - 2 - 2).
+	box := tui.BoxStyle.
+		Width(m.width - 4).
+		Height(m.height - 4).
 		Render(content)
+
+	// "place" box in the center
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
 
 func (m Model) renderList() string {
