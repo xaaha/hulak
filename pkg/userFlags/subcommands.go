@@ -110,42 +110,18 @@ func HandleSubcommands() error {
 
 // handles single file mode and directory mode along with unifying the operation
 func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperation {
+	resolved := resolveGQLPath(arg)
 	var results []graphql.ProcessResult
 
-	if arg == "." {
-		cwd, err := os.Getwd()
-		if err != nil {
-			utils.PanicRedAndExit("Error getting current directory: %v", err)
-		}
-		urlToFileMap, err := graphql.FindGraphQLFiles(cwd)
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
-		}
-		filePaths := make([]string, 0, len(urlToFileMap))
-		for _, fp := range urlToFileMap {
-			filePaths = append(filePaths, fp)
-		}
-		secretsMap := graphql.GetSecretsForEnv(urlToFileMap, env)
-		if secretsMap == nil {
-			return nil
-		}
-		results = graphql.ProcessFilesConcurrent(filePaths, secretsMap)
+	info, err := os.Stat(resolved)
+	if err != nil {
+		utils.PanicRedAndExit("cannot access %q: %v", arg, err)
+	}
+
+	if info.IsDir() {
+		results = loadFromDirectory(resolved, env)
 	} else {
-		filePath := filepath.Clean(arg)
-		rawURL, _, err := graphql.ValidateGraphQLFile(filePath)
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
-		}
-		var secretsMap map[string]any
-		if strings.Contains(rawURL, "{{") {
-			secretsMap = graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
-			if secretsMap == nil {
-				return nil
-			}
-		} else {
-			secretsMap = map[string]any{}
-		}
-		results = graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
+		results = loadFromFile(resolved, env)
 	}
 
 	// load spinner while waiting
@@ -180,4 +156,48 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
 	return operations
+}
+
+func resolveGQLPath(arg string) string {
+	if arg == "." {
+		cwd, err := os.Getwd()
+		if err != nil {
+			utils.PanicRedAndExit("error getting current directory: %v", err)
+		}
+		return cwd
+	}
+	return filepath.Clean(arg)
+}
+
+func loadFromDirectory(dir string, env string) []graphql.ProcessResult {
+	urlToFileMap, err := graphql.FindGraphQLFiles(dir)
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+	filePaths := make([]string, 0, len(urlToFileMap))
+	for _, fp := range urlToFileMap {
+		filePaths = append(filePaths, fp)
+	}
+	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, env)
+	if secretsMap == nil {
+		return nil
+	}
+	return graphql.ProcessFilesConcurrent(filePaths, secretsMap)
+}
+
+func loadFromFile(filePath string, env string) []graphql.ProcessResult {
+	rawURL, _, err := graphql.ValidateGraphQLFile(filePath)
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+	var secretsMap map[string]any
+	if strings.Contains(rawURL, "{{") {
+		secretsMap = graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
+		if secretsMap == nil {
+			return nil
+		}
+	} else {
+		secretsMap = map[string]any{}
+	}
+	return graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
 }
