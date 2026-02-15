@@ -17,7 +17,6 @@ const (
 	detailPadding = 6
 
 	noMatchesLabel  = "(no matches)"
-	helpFilter      = "q: queries | m: mutations | s: subscriptions"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
 )
@@ -145,6 +144,24 @@ func (m *Model) syncViewport() {
 	}
 }
 
+func (m Model) filterHelpText() string {
+	hasType := make(map[OperationType]bool)
+	for _, op := range m.operations {
+		hasType[op.Type] = true
+	}
+	var parts []string
+	if hasType[TypeQuery] {
+		parts = append(parts, "q: queries")
+	}
+	if hasType[TypeMutation] {
+		parts = append(parts, "m: mutations")
+	}
+	if hasType[TypeSubscription] {
+		parts = append(parts, "s: subscriptions")
+	}
+	return strings.Join(parts, " | ")
+}
+
 func (m *Model) applyFilter() {
 	query := m.search.Model.Value()
 	if query == "" {
@@ -184,7 +201,7 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
-	filterHint := tui.HelpStyle.Render(" " + helpFilter)
+	filterHint := tui.HelpStyle.Render(" " + m.filterHelpText())
 	count := tui.HelpStyle.Render(
 		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
 	)

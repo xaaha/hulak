@@ -388,6 +388,53 @@ func TestViewContainsFilterHint(t *testing.T) {
 	}
 }
 
+func TestFilterHelpTextOmitsMissingTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		ops     []UnifiedOperation
+		want    []string
+		wantNot []string
+	}{
+		{
+			name:    "queries only",
+			ops:     []UnifiedOperation{{Name: "getUser", Type: TypeQuery}},
+			want:    []string{"q: queries"},
+			wantNot: []string{"m: mutations", "s: subscriptions"},
+		},
+		{
+			name: "queries and mutations",
+			ops: []UnifiedOperation{
+				{Name: "getUser", Type: TypeQuery},
+				{Name: "createUser", Type: TypeMutation},
+			},
+			want:    []string{"q: queries", "m: mutations"},
+			wantNot: []string{"s: subscriptions"},
+		},
+		{
+			name:    "empty operations",
+			ops:     nil,
+			wantNot: []string{"q: queries", "m: mutations", "s: subscriptions"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(tc.ops)
+			hint := m.filterHelpText()
+			for _, s := range tc.want {
+				if !strings.Contains(hint, s) {
+					t.Errorf("expected %q in hint %q", s, hint)
+				}
+			}
+			for _, s := range tc.wantNot {
+				if strings.Contains(hint, s) {
+					t.Errorf("unexpected %q in hint %q", s, hint)
+				}
+			}
+		})
+	}
+}
+
 func TestViewContainsOperationCount(t *testing.T) {
 	m := NewModel(sampleOps())
 	m.width = 80
