@@ -149,6 +149,9 @@ func (m Model) filterHelpText() string {
 	for _, op := range m.operations {
 		hasType[op.Type] = true
 	}
+	if len(hasType) < 2 {
+		return ""
+	}
 	var parts []string
 	if hasType[TypeQuery] {
 		parts = append(parts, "q: queries")
@@ -159,7 +162,7 @@ func (m Model) filterHelpText() string {
 	if hasType[TypeSubscription] {
 		parts = append(parts, "s: subscriptions")
 	}
-	return strings.Join(parts, " | ")
+	return tui.HelpStyle.Render(" " + strings.Join(parts, " | "))
 }
 
 func (m *Model) applyFilter() {
@@ -201,7 +204,7 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
-	filterHint := tui.HelpStyle.Render(" " + m.filterHelpText())
+	filterHint := m.filterHelpText()
 	count := tui.HelpStyle.Render(
 		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
 	)
@@ -219,9 +222,13 @@ func (m Model) View() string {
 		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
 	)
 
+	header := search
+	if filterHint != "" {
+		header += "\n" + filterHint
+	}
 	content := fmt.Sprintf(
-		"%s\n%s\n%s\n\n%s\n\n%s  %s",
-		search, filterHint, count, list, help, scrollPct,
+		"%s\n%s\n\n%s\n\n%s  %s",
+		header, count, list, help, scrollPct,
 	)
 
 	box := tui.BoxStyle.

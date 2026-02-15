@@ -388,7 +388,7 @@ func TestViewContainsFilterHint(t *testing.T) {
 	}
 }
 
-func TestFilterHelpTextOmitsMissingTypes(t *testing.T) {
+func TestFilterHelpText(t *testing.T) {
 	tests := []struct {
 		name    string
 		ops     []UnifiedOperation
@@ -396,13 +396,17 @@ func TestFilterHelpTextOmitsMissingTypes(t *testing.T) {
 		wantNot []string
 	}{
 		{
-			name:    "queries only",
+			name:    "single type returns empty",
 			ops:     []UnifiedOperation{{Name: "getUser", Type: TypeQuery}},
-			want:    []string{"q: queries"},
-			wantNot: []string{"m: mutations", "s: subscriptions"},
+			wantNot: []string{"q: queries", "m: mutations", "s: subscriptions"},
 		},
 		{
-			name: "queries and mutations",
+			name:    "empty operations returns empty",
+			ops:     nil,
+			wantNot: []string{"q: queries", "m: mutations", "s: subscriptions"},
+		},
+		{
+			name: "two types shows both",
 			ops: []UnifiedOperation{
 				{Name: "getUser", Type: TypeQuery},
 				{Name: "createUser", Type: TypeMutation},
@@ -411,9 +415,13 @@ func TestFilterHelpTextOmitsMissingTypes(t *testing.T) {
 			wantNot: []string{"s: subscriptions"},
 		},
 		{
-			name:    "empty operations",
-			ops:     nil,
-			wantNot: []string{"q: queries", "m: mutations", "s: subscriptions"},
+			name: "all three types shows all",
+			ops: []UnifiedOperation{
+				{Name: "getUser", Type: TypeQuery},
+				{Name: "createUser", Type: TypeMutation},
+				{Name: "onMsg", Type: TypeSubscription},
+			},
+			want: []string{"q: queries", "m: mutations", "s: subscriptions"},
 		},
 	}
 
