@@ -27,6 +27,12 @@ var badgeColor = map[OperationType]lipgloss.AdaptiveColor{
 	TypeSubscription: {Light: "30", Dark: "87"},
 }
 
+var typeRank = map[OperationType]int{
+	TypeQuery:        0,
+	TypeMutation:     1,
+	TypeSubscription: 2,
+}
+
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
 	operations []UnifiedOperation
@@ -40,7 +46,7 @@ type Model struct {
 // NewModel creates an explorer model from a flat list of operations.
 func NewModel(operations []UnifiedOperation) Model {
 	sort.Slice(operations, func(i, j int) bool {
-		return typeOrder(operations[i].Type) < typeOrder(operations[j].Type)
+		return typeRank[operations[i].Type] < typeRank[operations[j].Type]
 	})
 	return Model{
 		operations: operations,
@@ -50,19 +56,6 @@ func NewModel(operations []UnifiedOperation) Model {
 			Placeholder: "filter operations...",
 			MinWidth:    32,
 		}),
-	}
-}
-
-func typeOrder(t OperationType) int {
-	switch t {
-	case TypeQuery:
-		return 0
-	case TypeMutation:
-		return 1
-	case TypeSubscription:
-		return 2
-	default:
-		return 3
 	}
 }
 

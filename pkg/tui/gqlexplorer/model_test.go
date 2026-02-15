@@ -490,7 +490,7 @@ func TestViewFilteredCountUpdates(t *testing.T) {
 	}
 }
 
-func TestTypeOrderSorting(t *testing.T) {
+func TestTypeRank(t *testing.T) {
 	tests := []struct {
 		name     string
 		opType   OperationType
@@ -499,16 +499,21 @@ func TestTypeOrderSorting(t *testing.T) {
 		{"query", TypeQuery, 0},
 		{"mutation", TypeMutation, 1},
 		{"subscription", TypeSubscription, 2},
-		{"unknown", OperationType("unknown"), 3},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := typeOrder(tc.opType); got != tc.expected {
-				t.Errorf("typeOrder(%q) = %d, want %d", tc.opType, got, tc.expected)
+			if got := typeRank[tc.opType]; got != tc.expected {
+				t.Errorf("typeRank[%q] = %d, want %d", tc.opType, got, tc.expected)
 			}
 		})
 	}
+
+	t.Run("unknown type defaults to zero value", func(t *testing.T) {
+		if got := typeRank[OperationType("unknown")]; got != 0 {
+			t.Errorf("typeRank[unknown] = %d, want 0", got)
+		}
+	})
 }
 
 func TestBadgeColorMapping(t *testing.T) {
