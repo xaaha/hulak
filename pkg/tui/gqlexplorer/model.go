@@ -71,7 +71,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		listHeight := m.height - 16
+		// controls the viewport height for the operations
+		listHeight := m.height - 30
 		if listHeight < 1 {
 			listHeight = 10
 		}
@@ -83,7 +84,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.Width = m.width
 			m.viewport.Height = listHeight
 		}
-		m.viewport.SetContent(m.renderList())
+		// sync viewport and cursor
+		m.syncViewport()
 		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -106,18 +108,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.search.Model.Value() != "" {
 			m.search.Model.Reset()
 			m.applyFilter()
-			m.viewport.SetContent(m.renderList())
 			m.viewport.GotoTop()
+			m.syncViewport()
 			return m, nil
 		}
 		return m, tea.Quit
 	case tui.KeyUp, tui.KeyCtrlP:
 		m.cursor = tui.MoveCursorUp(m.cursor)
-		m.viewport.SetContent(m.renderList())
+		m.syncViewport()
 		return m, nil
 	case tui.KeyDown, tui.KeyCtrlN:
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
-		m.viewport.SetContent(m.renderList())
+		m.syncViewport()
 		return m, nil
 	}
 
@@ -126,10 +128,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.search, cmd = m.search.Update(msg)
 	if m.search.Model.Value() != prevValue {
 		m.applyFilter()
-		m.viewport.SetContent(m.renderList())
 		m.viewport.GotoTop()
+		m.syncViewport()
 	}
 	return m, cmd
+}
+
+func (m *Model) syncViewport() {
+	content, cursorLine := m.renderList()
+	m.viewport.SetContent(content)
+	h := m.viewport.Height
+	if cursorLine < m.viewport.YOffset {
+		m.viewport.SetYOffset(max(0, cursorLine-1))
+	} else if cursorLine >= m.viewport.YOffset+h {
+		m.viewport.SetYOffset(cursorLine - h + 1)
+	}
 }
 
 func (m *Model) applyFilter() {
@@ -180,7 +193,8 @@ func (m Model) View() string {
 	if m.ready {
 		list = m.viewport.View()
 	} else {
-		list = m.renderList()
+		content, _ := m.renderList()
+		list = content
 	}
 	help := tui.HelpStyle.Render(helpNavigation)
 
@@ -202,7 +216,7 @@ func (m Model) View() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
 
-func (m Model) renderList() string {
+func (m Model) renderList() (string, int) {
 	itemPrefix := strings.Repeat(" ", itemPadding)
 	detailPrefix := strings.Repeat(" ", detailPadding)
 	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + utils.CursorMarker
@@ -210,10 +224,11 @@ func (m Model) renderList() string {
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
 			strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + noMatchesLabel,
-		)
+		), 0
 	}
 
 	var lines []string
+	cursorLine := 0
 	var currentType OperationType
 	for i, op := range m.filtered {
 		if op.Type != currentType {
@@ -224,6 +239,7 @@ func (m Model) renderList() string {
 			lines = append(lines, tui.RenderBadge(string(currentType), badgeColor[currentType]))
 		}
 		if i == m.cursor {
+			cursorLine = len(lines)
 			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
 			if op.Description != "" {
 				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Description))
@@ -235,7 +251,7 @@ func (m Model) renderList() string {
 			lines = append(lines, itemPrefix+op.Name)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), cursorLine
 }
 
 // RunExplorer launches the full-screen explorer TUI.
