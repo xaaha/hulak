@@ -11,6 +11,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -147,18 +148,24 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 		results = graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
 	}
 
-	var operations []gqlexplorer.UnifiedOperation
-	for _, result := range results {
-		if result.Error != nil {
-			continue
+	// load spinner while waiting
+	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
+		var ops []gqlexplorer.UnifiedOperation
+		for _, result := range results {
+			if result.Error != nil {
+				continue
+			}
+			schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
+			if schemaErr != nil {
+				continue
+			}
+			ops = append(ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
 		}
-		schema, err := graphql.FetchAndParseSchema(result.ApiInfo)
-		if err != nil {
-			continue
-		}
-		operations = append(
-			operations,
-			gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+		return ops, nil
+	})
+	if err != nil {
+		utils.PanicRedAndExit("Schema fetch error: %v", err)
 	}
+	operations, _ := raw.([]gqlexplorer.UnifiedOperation)
 	return operations
 }
