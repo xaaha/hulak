@@ -61,25 +61,24 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 		EnumTypes:  make(map[string]EnumType),
 	}
 
-	// Extract input types (for TUI form building)
 	for _, t := range introspectionSchema.Types {
-		if t.Kind == introspection.INPUTOBJECT && t.Name != "" {
-			inputType := InputType{
+		if t.Name == "" {
+			continue
+		}
+		switch t.Kind {
+		case introspection.INPUTOBJECT:
+			schema.InputTypes[t.Name] = InputType{
 				Name:        t.Name,
 				Description: t.Description,
 				Fields:      convertInputFields(t.InputFields),
 			}
-			schema.InputTypes[t.Name] = inputType
-		}
-	}
-
-	// Extract enum types (for TUI dropdown inputs)
-	for _, t := range introspectionSchema.Types {
-		if t.Kind == introspection.ENUM && t.Name != "" && !strings.HasPrefix(t.Name, "__") {
-			schema.EnumTypes[t.Name] = EnumType{
-				Name:        t.Name,
-				Description: t.Description,
-				Values:      convertEnumValues(t.EnumValues),
+		case introspection.ENUM:
+			if !strings.HasPrefix(t.Name, "__") {
+				schema.EnumTypes[t.Name] = EnumType{
+					Name:        t.Name,
+					Description: t.Description,
+					Values:      convertEnumValues(t.EnumValues),
+				}
 			}
 		}
 	}

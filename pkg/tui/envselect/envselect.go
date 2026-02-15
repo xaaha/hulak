@@ -31,15 +31,17 @@ type Model struct {
 
 // NewModel creates a new env selector model if `env/` dir exists and contains `.env` files
 func NewModel() Model {
-	items := []string{}
-	var placeholder string
+	var items []string
 	if files, err := utils.GetEnvFiles(); err == nil {
 		for _, file := range files {
 			if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
 				items = append(items, name)
-				placeholder = items[0]
 			}
 		}
+	}
+	var placeholder string
+	if len(items) > 0 {
+		placeholder = items[0]
 	}
 	return Model{
 		items:    items,

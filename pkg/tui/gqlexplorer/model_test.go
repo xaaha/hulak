@@ -428,7 +428,7 @@ func TestFilterHelpText(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := NewModel(tc.ops)
-			hint := m.filterHelpText()
+			hint := m.filterHint
 			for _, s := range tc.want {
 				if !strings.Contains(hint, s) {
 					t.Errorf("expected %q in hint %q", s, hint)

@@ -151,21 +151,33 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 	// load spinner while waiting
 	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
 		var ops []gqlexplorer.UnifiedOperation
+		var errors []string
 		for _, result := range results {
 			if result.Error != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, result.Error))
 				continue
 			}
 			schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
 			if schemaErr != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, schemaErr))
 				continue
 			}
 			ops = append(ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+		}
+		if len(ops) == 0 && len(errors) > 0 {
+			return nil, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(errors, "\n  "))
+		}
+		for _, e := range errors {
+			utils.PrintWarning("schema fetch warning: " + e)
 		}
 		return ops, nil
 	})
 	if err != nil {
 		utils.PanicRedAndExit("Schema fetch error: %v", err)
 	}
-	operations, _ := raw.([]gqlexplorer.UnifiedOperation)
+	operations, ok := raw.([]gqlexplorer.UnifiedOperation)
+	if !ok && raw != nil {
+		utils.PanicRedAndExit("unexpected result type from schema fetch")
+	}
 	return operations
 }

@@ -21,23 +21,20 @@ type UnifiedOperation struct {
 
 func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperation {
 	var ops []UnifiedOperation
-	for _, q := range schema.Queries {
-		ops = append(ops, UnifiedOperation{
-			Name: q.Name, Description: q.Description,
-			Type: TypeQuery, Endpoint: endpoint,
-		})
-	}
-	for _, m := range schema.Mutations {
-		ops = append(ops, UnifiedOperation{
-			Name: m.Name, Description: m.Description,
-			Type: TypeMutation, Endpoint: endpoint,
-		})
-	}
-	for _, s := range schema.Subscriptions {
-		ops = append(ops, UnifiedOperation{
-			Name: s.Name, Description: s.Description,
-			Type: TypeSubscription, Endpoint: endpoint,
-		})
+	for _, pair := range []struct {
+		ops  []graphql.Operation
+		kind OperationType
+	}{
+		{schema.Queries, TypeQuery},
+		{schema.Mutations, TypeMutation},
+		{schema.Subscriptions, TypeSubscription},
+	} {
+		for _, op := range pair.ops {
+			ops = append(ops, UnifiedOperation{
+				Name: op.Name, Description: op.Description,
+				Type: pair.kind, Endpoint: endpoint,
+			})
+		}
 	}
 	return ops
 }

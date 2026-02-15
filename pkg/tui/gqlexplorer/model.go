@@ -38,6 +38,7 @@ type Model struct {
 	operations []UnifiedOperation
 	filtered   []UnifiedOperation
 	cursor     int
+	filterHint string
 	search     tui.TextInput
 	viewport   viewport.Model
 	ready      bool
@@ -53,6 +54,7 @@ func NewModel(operations []UnifiedOperation) Model {
 	return Model{
 		operations: operations,
 		filtered:   operations,
+		filterHint: buildFilterHint(operations),
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
@@ -144,9 +146,9 @@ func (m *Model) syncViewport() {
 	}
 }
 
-func (m Model) filterHelpText() string {
+func buildFilterHint(operations []UnifiedOperation) string {
 	hasType := make(map[OperationType]bool)
-	for _, op := range m.operations {
+	for _, op := range operations {
 		hasType[op.Type] = true
 	}
 	if len(hasType) < 2 {
@@ -180,12 +182,12 @@ func (m *Model) applyFilter() {
 		switch query[0] {
 		case 'q', 'Q':
 			typeFilter = TypeQuery
-			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
 		case 'm', 'M':
 			typeFilter = TypeMutation
-			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
 		case 's', 'S':
 			typeFilter = TypeSubscription
+		}
+		if typeFilter != "" {
 			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
 		}
 	}
@@ -204,7 +206,7 @@ func (m *Model) applyFilter() {
 
 func (m Model) View() string {
 	search := m.search.ViewTitle()
-	filterHint := m.filterHelpText()
+	filterHint := m.filterHint
 	count := tui.HelpStyle.Render(
 		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
 	)
