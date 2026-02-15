@@ -1,6 +1,6 @@
 # description: fetch real gql schema for countries
 ---
 kind: GraphQL
-url: https://countries.trevorblades.com/nonsense
+url: https://countries.trevorblades.com/
 headers:
   Content-Type: application/json
