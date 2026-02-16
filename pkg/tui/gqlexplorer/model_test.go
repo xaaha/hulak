@@ -14,7 +14,12 @@ func sampleOps() []UnifiedOperation {
 		{Name: "listUsers", Type: TypeQuery, Endpoint: "http://api/gql"},
 		{Name: "createUser", Type: TypeMutation, Endpoint: "http://api/gql"},
 		{Name: "deleteUser", Type: TypeMutation, Endpoint: "http://api/gql"},
-		{Name: "onMessage", Type: TypeSubscription, Description: "new messages", Endpoint: "http://api/gql"},
+		{
+			Name:        "onMessage",
+			Type:        TypeSubscription,
+			Description: "new messages",
+			Endpoint:    "http://api/gql",
+		},
 	}
 }
 
@@ -22,9 +27,17 @@ func multiEndpointOps() []UnifiedOperation {
 	return []UnifiedOperation{
 		{Name: "getUser", Type: TypeQuery, Endpoint: "https://api.spacex.com/graphql"},
 		{Name: "listRockets", Type: TypeQuery, Endpoint: "https://api.spacex.com/graphql"},
-		{Name: "getCountry", Type: TypeQuery, Endpoint: "https://countries.trevorblades.com/graphql"},
+		{
+			Name:     "getCountry",
+			Type:     TypeQuery,
+			Endpoint: "https://countries.trevorblades.com/graphql",
+		},
 		{Name: "createPost", Type: TypeMutation, Endpoint: "https://api.spacex.com/graphql"},
-		{Name: "updateCountry", Type: TypeMutation, Endpoint: "https://countries.trevorblades.com/graphql"},
+		{
+			Name:     "updateCountry",
+			Type:     TypeMutation,
+			Endpoint: "https://countries.trevorblades.com/graphql",
+		},
 	}
 }
 
