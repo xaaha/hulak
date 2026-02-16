@@ -79,7 +79,7 @@ func NewModel(operations []UnifiedOperation) Model {
 }
 
 func (m Model) leftPanelWidth() int {
-	return m.width * tui.LeftPanelPct / 100
+	return tui.LeftPanelWidth(m.width)
 }
 
 func (m Model) Init() tea.Cmd {
@@ -229,6 +229,7 @@ func (m Model) View() string {
 	)
 
 	box := tui.BoxStyle.
+		Padding(0, 1).
 		Width(m.width - 4).
 		Height(m.height - 4).
 		Render(content)

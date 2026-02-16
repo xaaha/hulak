@@ -34,11 +34,18 @@ func (m Model) renderList() (string, int) {
 		if i == m.cursor {
 			cursorLine = len(lines)
 			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+			wrapW := m.leftPanelWidth() - detailPadding
 			if op.Description != "" {
-				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Description))
+				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Description)
+				for _, line := range strings.Split(wrapped, "\n") {
+					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
+				}
 			}
 			if op.Endpoint != "" {
-				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Endpoint))
+				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Endpoint)
+				for _, line := range strings.Split(wrapped, "\n") {
+					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
+				}
 			}
 		} else {
 			lines = append(lines, itemPrefix+op.Name)
