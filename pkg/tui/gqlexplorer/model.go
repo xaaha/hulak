@@ -16,6 +16,9 @@ const (
 
 	scrollMargin = 3
 
+	// ViewTitle border+padding (4) + len("Search: ") (8)
+	searchBoxOverhead = 12
+
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
@@ -67,9 +70,12 @@ func NewModel(operations []UnifiedOperation) Model {
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
-			MinWidth:    32,
 		}),
 	}
+}
+
+func (m Model) leftPanelWidth() int {
+	return m.width * tui.LeftPanelPct / 100
 }
 
 func (m Model) Init() tea.Cmd {
@@ -81,11 +87,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		panelW := m.leftPanelWidth()
 		// controls the viewport height for the operations
 		listHeight := m.height - 30
 		if listHeight < 1 {
 			listHeight = 10
 		}
+		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(m.width, listHeight)
 			m.viewport.MouseWheelEnabled = true

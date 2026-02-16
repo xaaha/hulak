@@ -44,6 +44,12 @@ var BoxStyle = lipgloss.NewStyle().
 	BorderForeground(ColorMuted).
 	Padding(1, 1)
 
+// Layout split percentages for the two-column explorer layout.
+const (
+	LeftPanelPct  = 40
+	RightPanelPct = 60
+)
+
 // RenderBadge creates a colored badge with the given foreground color.
 func RenderBadge(text string, color lipgloss.AdaptiveColor) string {
 	bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}

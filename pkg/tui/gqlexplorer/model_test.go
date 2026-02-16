@@ -499,7 +499,7 @@ func TestViewContainsHelpText(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, "esc: quit") {
+	if !strings.Contains(view, helpNavigation) {
 		t.Error("view should contain help text")
 	}
 }
