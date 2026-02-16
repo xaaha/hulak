@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,6 +15,16 @@ func sampleOps() []UnifiedOperation {
 		{Name: "createUser", Type: TypeMutation, Endpoint: "http://api/gql"},
 		{Name: "deleteUser", Type: TypeMutation, Endpoint: "http://api/gql"},
 		{Name: "onMessage", Type: TypeSubscription, Description: "new messages", Endpoint: "http://api/gql"},
+	}
+}
+
+func multiEndpointOps() []UnifiedOperation {
+	return []UnifiedOperation{
+		{Name: "getUser", Type: TypeQuery, Endpoint: "https://api.spacex.com/graphql"},
+		{Name: "listRockets", Type: TypeQuery, Endpoint: "https://api.spacex.com/graphql"},
+		{Name: "getCountry", Type: TypeQuery, Endpoint: "https://countries.trevorblades.com/graphql"},
+		{Name: "createPost", Type: TypeMutation, Endpoint: "https://api.spacex.com/graphql"},
+		{Name: "updateCountry", Type: TypeMutation, Endpoint: "https://countries.trevorblades.com/graphql"},
 	}
 }
 
@@ -581,5 +592,313 @@ func TestBadgeColorMapping(t *testing.T) {
 				t.Errorf("badgeColor missing entry for %q", opType)
 			}
 		})
+	}
+}
+
+func TestCollectEndpoints(t *testing.T) {
+	t.Run("single endpoint", func(t *testing.T) {
+		eps := collectEndpoints(sampleOps())
+		if len(eps) != 1 {
+			t.Errorf("expected 1 endpoint, got %d", len(eps))
+		}
+	})
+
+	t.Run("multiple endpoints sorted", func(t *testing.T) {
+		eps := collectEndpoints(multiEndpointOps())
+		if len(eps) != 2 {
+			t.Fatalf("expected 2 endpoints, got %d", len(eps))
+		}
+		if !sort.StringsAreSorted(eps) {
+			t.Errorf("endpoints should be sorted, got %v", eps)
+		}
+	})
+
+	t.Run("empty operations", func(t *testing.T) {
+		eps := collectEndpoints(nil)
+		if len(eps) != 0 {
+			t.Errorf("expected 0 endpoints, got %d", len(eps))
+		}
+	})
+}
+
+func TestFilterHintEndpoints(t *testing.T) {
+	t.Run("single endpoint hides e: endpoints", func(t *testing.T) {
+		m := NewModel(sampleOps())
+		if strings.Contains(m.filterHint, "e: endpoints") {
+			t.Error("should not show 'e: endpoints' with single endpoint")
+		}
+	})
+
+	t.Run("multiple endpoints shows e: endpoints", func(t *testing.T) {
+		m := NewModel(multiEndpointOps())
+		if !strings.Contains(m.filterHint, "e: endpoints") {
+			t.Errorf("should show 'e: endpoints' with multiple endpoints, got %q", m.filterHint)
+		}
+	})
+}
+
+func TestEndpointFilterCombinesWithTypeFilter(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.activeEndpoints = map[string]bool{
+		"https://api.spacex.com/graphql": true,
+	}
+	m.search.Model.SetValue("q:")
+	m.applyFilter()
+
+	for _, op := range m.filtered {
+		if op.Type != TypeQuery {
+			t.Errorf("expected only queries, got %q (%s)", op.Name, op.Type)
+		}
+		if op.Endpoint != "https://api.spacex.com/graphql" {
+			t.Errorf("expected spacex endpoint, got %q", op.Endpoint)
+		}
+	}
+	if len(m.filtered) != 2 {
+		t.Errorf("expected 2 results (getUser, listRockets), got %d", len(m.filtered))
+	}
+}
+
+func TestEndpointFilterAlone(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.activeEndpoints = map[string]bool{
+		"https://countries.trevorblades.com/graphql": true,
+	}
+	m.applyFilter()
+
+	if len(m.filtered) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(m.filtered))
+	}
+	for _, op := range m.filtered {
+		if op.Endpoint != "https://countries.trevorblades.com/graphql" {
+			t.Errorf("expected countries endpoint, got %q", op.Endpoint)
+		}
+	}
+}
+
+func TestEndpointFilterMultipleSelected(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.activeEndpoints = map[string]bool{
+		"https://api.spacex.com/graphql":             true,
+		"https://countries.trevorblades.com/graphql": true,
+	}
+	m.applyFilter()
+
+	if len(m.filtered) != len(m.operations) {
+		t.Errorf("with all endpoints selected, expected %d, got %d",
+			len(m.operations), len(m.filtered))
+	}
+}
+
+func TestEndpointFilterEmptyRestoresAll(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.activeEndpoints = map[string]bool{}
+	m.applyFilter()
+
+	if len(m.filtered) != len(m.operations) {
+		t.Errorf("empty endpoint filter should show all, expected %d, got %d",
+			len(m.operations), len(m.filtered))
+	}
+}
+
+func TestEnterEndpointPicker(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+
+	if !m.pickingEndpoints {
+		t.Error("expected pickingEndpoints to be true")
+	}
+	if m.endpointCursor != 0 {
+		t.Errorf("expected endpointCursor 0, got %d", m.endpointCursor)
+	}
+	if m.pendingEndpoints == nil {
+		t.Error("expected pendingEndpoints to be initialized")
+	}
+}
+
+func TestEndpointPickerToggle(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+
+	spaceKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	result, _ := m.Update(spaceKey)
+	model := result.(Model)
+
+	ep := model.endpoints[0]
+	if !model.pendingEndpoints[ep] {
+		t.Errorf("expected endpoint %q to be toggled on", ep)
+	}
+
+	result, _ = model.Update(spaceKey)
+	model = result.(Model)
+
+	if model.pendingEndpoints[ep] {
+		t.Errorf("expected endpoint %q to be toggled off", ep)
+	}
+}
+
+func TestEndpointPickerConfirm(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+	m.pendingEndpoints[m.endpoints[0]] = true
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := result.(Model)
+
+	if model.pickingEndpoints {
+		t.Error("expected picker to close on enter")
+	}
+	if !model.activeEndpoints[model.endpoints[0]] {
+		t.Error("expected confirmed endpoint to be active")
+	}
+}
+
+func TestEndpointPickerCancel(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.activeEndpoints["https://api.spacex.com/graphql"] = true
+	m.enterEndpointPicker()
+	m.pendingEndpoints[m.endpoints[1]] = true
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := result.(Model)
+
+	if model.pickingEndpoints {
+		t.Error("expected picker to close on esc")
+	}
+	if len(model.activeEndpoints) != 1 || !model.activeEndpoints["https://api.spacex.com/graphql"] {
+		t.Error("cancel should preserve original active endpoints")
+	}
+}
+
+func TestEndpointPickerNavigation(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model := result.(Model)
+	if model.endpointCursor != 1 {
+		t.Errorf("expected cursor 1, got %d", model.endpointCursor)
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	model = result.(Model)
+	if model.endpointCursor != 0 {
+		t.Errorf("expected cursor 0, got %d", model.endpointCursor)
+	}
+}
+
+func TestEndpointPickerVimNavigation(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	model := result.(Model)
+	if model.endpointCursor != 1 {
+		t.Errorf("j should move down, expected cursor 1, got %d", model.endpointCursor)
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	model = result.(Model)
+	if model.endpointCursor != 0 {
+		t.Errorf("k should move up, expected cursor 0, got %d", model.endpointCursor)
+	}
+}
+
+func TestShortenEndpoint(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"https://api.spacex.com/graphql", "api.spacex.com"},
+		{"http://localhost:4000/graphql", "localhost:4000"},
+		{"https://countries.trevorblades.com/gql", "countries.trevorblades.com"},
+		{"https://example.com/api/v2", "example.com/api/v2"},
+		{"http://api/gql", "api"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := shortenEndpoint(tc.input)
+			if got != tc.expected {
+				t.Errorf("shortenEndpoint(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestShouldEnterEndpointPicker(t *testing.T) {
+	t.Run("triggers on e:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps())
+		if !m.shouldEnterEndpointPicker("e:") {
+			t.Error("should trigger on 'e:'")
+		}
+	})
+
+	t.Run("triggers on E:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps())
+		if !m.shouldEnterEndpointPicker("E:") {
+			t.Error("should trigger on 'E:'")
+		}
+	})
+
+	t.Run("triggers after type prefix q:e:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps())
+		if !m.shouldEnterEndpointPicker("q:e:") {
+			t.Error("should trigger on 'q:e:'")
+		}
+	})
+
+	t.Run("no trigger with single endpoint", func(t *testing.T) {
+		m := NewModel(sampleOps())
+		if m.shouldEnterEndpointPicker("e:") {
+			t.Error("should not trigger with single endpoint")
+		}
+	})
+
+	t.Run("no trigger on plain text", func(t *testing.T) {
+		m := NewModel(multiEndpointOps())
+		if m.shouldEnterEndpointPicker("get") {
+			t.Error("should not trigger on plain text")
+		}
+	})
+}
+
+func TestStripEndpointPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"just e:", "e:", ""},
+		{"type then e:", "q:e:", "q:"},
+		{"text then e:", "hello e:", "hello"},
+		{"no e:", "hello", "hello"},
+		{"empty", "", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(multiEndpointOps())
+			m.search.Model.SetValue(tc.input)
+			m.stripEndpointPrefix()
+			got := m.search.Model.Value()
+			if got != tc.expected {
+				t.Errorf("stripEndpointPrefix(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestRenderEndpointPicker(t *testing.T) {
+	m := NewModel(multiEndpointOps())
+	m.enterEndpointPicker()
+	m.pendingEndpoints[m.endpoints[0]] = true
+
+	content, _ := m.renderEndpointPicker()
+
+	for _, ep := range m.endpoints {
+		if !strings.Contains(content, ep) {
+			t.Errorf("picker should contain endpoint %q", ep)
+		}
+	}
+	if !strings.Contains(content, checkMark) {
+		t.Error("picker should show check mark for selected endpoint")
 	}
 }
