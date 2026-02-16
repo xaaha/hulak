@@ -3,7 +3,6 @@ package envselect
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -25,14 +24,14 @@ type Model struct {
 	items     []string
 	filtered  []string
 	cursor    int
-	textInput textinput.Model
+	textInput tui.TextInput
 	Selected  string
 	Cancelled bool
 }
 
 // NewModel creates a new env selector model if `env/` dir exists and contains `.env` files
 func NewModel() Model {
-	items := []string{}
+	var items []string
 	if files, err := utils.GetEnvFiles(); err == nil {
 		for _, file := range files {
 			if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
@@ -40,22 +39,32 @@ func NewModel() Model {
 			}
 		}
 	}
+	var placeholder string
+	if len(items) > 0 {
+		placeholder = items[0]
+	}
 	return Model{
-		items:     items,
-		filtered:  items,
-		textInput: tui.NewFilterInput(),
+		items:    items,
+		filtered: items,
+		textInput: tui.NewFilterInput(tui.TextInputOpts{
+			Prompt:      "Select Environment: ",
+			Placeholder: placeholder,
+			MinWidth:    20,
+		}),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.textInput.Init()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		return m.handleKey(msg)
 	}
-	return m, nil
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -65,8 +74,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case tui.KeyCancel:
-		if m.textInput.Value() != "" {
-			m.textInput.Reset()
+		if m.textInput.Model.Value() != "" {
+			m.textInput.Model.Reset()
 			m.applyFilter()
 			return m, nil
 		}
@@ -89,11 +98,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate all other keys to textinput
-	prevValue := m.textInput.Value()
+	prevValue := m.textInput.Model.Value()
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
 
-	if m.textInput.Value() != prevValue {
+	if m.textInput.Model.Value() != prevValue {
 		m.applyFilter()
 	}
 
@@ -102,7 +111,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // applyFilter matches the user's input text against list items
 func (m *Model) applyFilter() {
-	userInput := m.textInput.Value()
+	userInput := m.textInput.Model.Value()
 	if userInput == "" {
 		m.filtered = m.items
 	} else {
@@ -118,17 +127,12 @@ func (m *Model) applyFilter() {
 }
 
 func (m Model) View() string {
-	title := m.renderTitle()
+	title := m.textInput.ViewTitle()
 	list := m.renderList()
 	help := tui.HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
 	return "\n" + tui.BoxStyle.Render(content) + "\n"
-}
-
-func (m Model) renderTitle() string {
-	title := "Select Environment: " + m.textInput.View()
-	return tui.TitleStyle.Render(title)
 }
 
 func (m Model) renderList() string {
@@ -139,7 +143,7 @@ func (m Model) renderList() string {
 	var lines []string
 	for i, item := range m.filtered {
 		if i == m.cursor {
-			lines = append(lines, tui.SubtitleStyle.Render(">  "+item))
+			lines = append(lines, tui.SubtitleStyle.Render(utils.CursorMarker+" "+item))
 		} else {
 			lines = append(lines, "   "+item)
 		}

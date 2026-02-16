@@ -1,9 +1,6 @@
 package graphql
 
 import (
-	"bytes"
-	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -211,264 +208,64 @@ func TestFormatType(t *testing.T) {
 	}
 }
 
-func TestFormatSignature(t *testing.T) {
-	tests := []struct {
-		name      string
-		operation Operation
-		expected  string
-	}{
-		{
-			name: "no arguments",
-			operation: Operation{
-				Name:       "hello",
-				Arguments:  []Argument{},
-				ReturnType: "String",
-			},
-			expected: "hello: String",
-		},
-		{
-			name: "single argument",
-			operation: Operation{
-				Name: "user",
-				Arguments: []Argument{
-					{Name: "id", Type: "ID!"},
-				},
-				ReturnType: "User",
-			},
-			expected: "user(id: ID!): User",
-		},
-		{
-			name: "multiple arguments",
-			operation: Operation{
-				Name: "users",
-				Arguments: []Argument{
-					{Name: "limit", Type: "Int"},
-					{Name: "offset", Type: "Int"},
-				},
-				ReturnType: "[User!]!",
-			},
-			expected: "users(limit: Int, offset: Int): [User!]!",
-		},
-		{
-			name: "argument with default value",
-			operation: Operation{
-				Name: "users",
-				Arguments: []Argument{
-					{Name: "limit", Type: "Int", DefaultValue: "10"},
-				},
-				ReturnType: "[User!]!",
-			},
-			expected: "users(limit: Int = 10): [User!]!",
-		},
-	}
+func TestConvertToSchemaExtractsEnumTypes(t *testing.T) {
+	deprecationReason := "Use ACTIVE instead"
+	queryType := createQueryType()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatSignature(tt.operation)
-			if result != tt.expected {
-				t.Errorf("Expected %q but got %q", tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestDisplaySchema(t *testing.T) {
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	schema := Schema{
-		Queries: []Operation{
+	introspectionSchema := &introspection.Schema{
+		QueryType: queryType,
+		Types: []*introspection.FullType{
+			&queryType,
 			{
-				Name:        "user",
-				Description: "Get a user by ID",
-				Arguments: []Argument{
-					{Name: "id", Type: "ID!"},
+				Kind:        introspection.ENUM,
+				Name:        "Status",
+				Description: "User status",
+				EnumValues: []introspection.EnumValue{
+					{Name: "ACTIVE", Description: "Active user"},
+					{Name: "INACTIVE", Description: "Inactive user", IsDeprecated: true, DeprecationReason: &deprecationReason},
 				},
-				ReturnType: "User",
 			},
-		},
-		Mutations: []Operation{
 			{
-				Name:        "createUser",
-				Description: "Create a new user",
-				Arguments: []Argument{
-					{Name: "input", Type: "CreateUserInput!"},
-				},
-				ReturnType: "User!",
-			},
-		},
-		InputTypes: make(map[string]InputType),
-	}
-
-	DisplaySchema(schema)
-
-	// Restore stdout and read captured output
-	w.Close()
-	os.Stdout = oldStdout
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
-
-	// Verify output contains expected sections
-	if !strings.Contains(output, "QUERIES") {
-		t.Error("Output should contain QUERIES section")
-	}
-	if !strings.Contains(output, "MUTATIONS") {
-		t.Error("Output should contain MUTATIONS section")
-	}
-	if !strings.Contains(output, "user(id: ID!): User") {
-		t.Error("Output should contain user query signature")
-	}
-	if !strings.Contains(output, "Get a user by ID") {
-		t.Error("Output should contain user query description")
-	}
-	if !strings.Contains(output, "createUser(input: CreateUserInput!): User!") {
-		t.Error("Output should contain createUser mutation signature")
-	}
-}
-
-func TestDisplaySchema_WithDeprecation(t *testing.T) {
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	schema := Schema{
-		Queries: []Operation{
-			{
-				Name:              "oldQuery",
-				Description:       "Old query",
-				Arguments:         []Argument{},
-				ReturnType:        "String",
-				IsDeprecated:      true,
-				DeprecationReason: "Use newQuery instead",
-			},
-		},
-		InputTypes: make(map[string]InputType),
-	}
-
-	DisplaySchema(schema)
-
-	// Restore stdout and read captured output
-	w.Close()
-	os.Stdout = oldStdout
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
-
-	// Verify deprecation warning
-	if !strings.Contains(output, "DEPRECATED") {
-		t.Error("Output should contain DEPRECATED warning")
-	}
-	if !strings.Contains(output, "Use newQuery instead") {
-		t.Error("Output should contain deprecation reason")
-	}
-}
-
-func TestExtractBaseTypeName(t *testing.T) {
-	tests := []struct {
-		name     string
-		typeStr  string
-		expected string
-	}{
-		{
-			name:     "scalar type",
-			typeStr:  "String",
-			expected: "String",
-		},
-		{
-			name:     "non-null scalar",
-			typeStr:  "String!",
-			expected: "String",
-		},
-		{
-			name:     "list of scalars",
-			typeStr:  "[String]",
-			expected: "String",
-		},
-		{
-			name:     "non-null list of non-null scalars",
-			typeStr:  "[String!]!",
-			expected: "String",
-		},
-		{
-			name:     "input object",
-			typeStr:  "PersonInput",
-			expected: "PersonInput",
-		},
-		{
-			name:     "non-null input object",
-			typeStr:  "PersonInput!",
-			expected: "PersonInput",
-		},
-		{
-			name:     "list of input objects",
-			typeStr:  "[PersonInput!]",
-			expected: "PersonInput",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractBaseTypeName(tt.typeStr)
-			if result != tt.expected {
-				t.Errorf("Expected %q but got %q", tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestDisplaySchema_WithInputTypes(t *testing.T) {
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	schema := Schema{
-		Queries: []Operation{
-			{
-				Name:        "hello",
-				Description: "Say hello",
-				Arguments: []Argument{
-					{Name: "person", Type: "PersonInput"},
-				},
-				ReturnType: "String!",
-			},
-		},
-		InputTypes: map[string]InputType{
-			"PersonInput": {
-				Name: "PersonInput",
-				Fields: []InputField{
-					{Name: "name", Type: "String!", Description: "Person's name"},
-					{Name: "age", Type: "Int"},
+				Kind: introspection.ENUM,
+				Name: "__DirectiveLocation",
+				EnumValues: []introspection.EnumValue{
+					{Name: "QUERY"},
 				},
 			},
 		},
 	}
 
-	DisplaySchema(schema)
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
-	// Restore stdout and read captured output
-	w.Close()
-	os.Stdout = oldStdout
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
+	if len(schema.EnumTypes) != 1 {
+		t.Fatalf("Expected 1 enum type, got %d", len(schema.EnumTypes))
+	}
 
-	// Verify input type details are displayed
-	if !strings.Contains(output, "↳ person fields:") {
-		t.Error("Output should contain input type fields header")
+	statusEnum, ok := schema.EnumTypes["Status"]
+	if !ok {
+		t.Fatal("Expected 'Status' enum type")
 	}
-	if !strings.Contains(output, "- name: String!") {
-		t.Error("Output should contain name field")
+	if statusEnum.Description != "User status" {
+		t.Errorf("Expected description 'User status', got %q", statusEnum.Description)
 	}
-	if !strings.Contains(output, "- age: Int") {
-		t.Error("Output should contain age field")
+	if len(statusEnum.Values) != 2 {
+		t.Fatalf("Expected 2 enum values, got %d", len(statusEnum.Values))
 	}
-	if !strings.Contains(output, "Person's name") {
-		t.Error("Output should contain field description")
+	if statusEnum.Values[0].Name != "ACTIVE" {
+		t.Errorf("Expected first value 'ACTIVE', got %q", statusEnum.Values[0].Name)
+	}
+	if statusEnum.Values[1].IsDeprecated != true {
+		t.Error("Expected INACTIVE to be deprecated")
+	}
+	if statusEnum.Values[1].DeprecationReason != "Use ACTIVE instead" {
+		t.Errorf("Expected deprecation reason, got %q", statusEnum.Values[1].DeprecationReason)
+	}
+
+	if _, ok := schema.EnumTypes["__DirectiveLocation"]; ok {
+		t.Error("Built-in enum __DirectiveLocation should be filtered out")
 	}
 }
 

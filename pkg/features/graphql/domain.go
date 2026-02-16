@@ -8,6 +8,7 @@ type Schema struct {
 	Mutations     []Operation
 	Subscriptions []Operation
 	InputTypes    map[string]InputType // Map of input type name to InputType for TUI lookup
+	EnumTypes     map[string]EnumType  // Map of enum type name to EnumType for TUI lookup
 }
 
 // Operation represents a query, mutation, or subscription field.
@@ -43,4 +44,19 @@ type InputField struct {
 	Type         string
 	Description  string
 	DefaultValue string
+}
+
+// EnumType represents a GraphQL enum type with its possible values.
+type EnumType struct {
+	Name        string
+	Description string
+	Values      []EnumValue
+}
+
+// EnumValue represents a single value within an enum type.
+type EnumValue struct {
+	Name              string
+	Description       string
+	IsDeprecated      bool
+	DeprecationReason string
 }

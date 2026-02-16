@@ -58,17 +58,28 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 
 	schema := Schema{
 		InputTypes: make(map[string]InputType),
+		EnumTypes:  make(map[string]EnumType),
 	}
 
-	// Extract input types (for TUI form building)
 	for _, t := range introspectionSchema.Types {
-		if t.Kind == introspection.INPUTOBJECT && t.Name != "" {
-			inputType := InputType{
+		if t.Name == "" {
+			continue
+		}
+		switch t.Kind {
+		case introspection.INPUTOBJECT:
+			schema.InputTypes[t.Name] = InputType{
 				Name:        t.Name,
 				Description: t.Description,
 				Fields:      convertInputFields(t.InputFields),
 			}
-			schema.InputTypes[t.Name] = inputType
+		case introspection.ENUM:
+			if !strings.HasPrefix(t.Name, "__") {
+				schema.EnumTypes[t.Name] = EnumType{
+					Name:        t.Name,
+					Description: t.Description,
+					Values:      convertEnumValues(t.EnumValues),
+				}
+			}
 		}
 	}
 
@@ -158,6 +169,24 @@ func convertInputFields(fields []introspection.InputValue) []InputField {
 	return inputFields
 }
 
+func convertEnumValues(values []introspection.EnumValue) []EnumValue {
+	enumValues := make([]EnumValue, 0, len(values))
+	for _, v := range values {
+		deprecationReason := ""
+		if v.DeprecationReason != nil {
+			deprecationReason = *v.DeprecationReason
+		}
+
+		enumValues = append(enumValues, EnumValue{
+			Name:              v.Name,
+			Description:       v.Description,
+			IsDeprecated:      v.IsDeprecated,
+			DeprecationReason: deprecationReason,
+		})
+	}
+	return enumValues
+}
+
 // formatType recursively formats a TypeRef into a readable GraphQL type string.
 // Examples:
 //   - "String"
@@ -183,141 +212,4 @@ func formatType(t *introspection.TypeRef) string {
 		}
 		return ""
 	}
-}
-
-// TODO-gql: All display functions below are temporary for Phase 1.
-// Remove once TUI consumes the Schema/Operation/InputType structs directly.
-// The TUI will use schema.Queries, schema.Mutations, schema.InputTypes to build interactive forms.
-
-// DisplaySchema prints a formatted schema to stdout.
-// This provides a readable view of queries, mutations, and subscriptions.
-func DisplaySchema(schema Schema) {
-	if len(schema.Queries) > 0 {
-		displayOperations(schema.Queries, "QUERIES", schema.InputTypes)
-	}
-
-	if len(schema.Mutations) > 0 {
-		displayOperations(schema.Mutations, "MUTATIONS", schema.InputTypes)
-	}
-
-	if len(schema.Subscriptions) > 0 {
-		displayOperations(schema.Subscriptions, "SUBSCRIPTIONS", schema.InputTypes)
-	}
-}
-
-// displayOperations prints a group of operations (queries, mutations, or subscriptions)
-func displayOperations(ops []Operation, title string, inputTypes map[string]InputType) {
-	fmt.Printf("\n=== %s ===\n\n", title)
-	for _, op := range ops {
-		// Print the signature
-		fmt.Printf("  %s\n", formatSignature(op))
-
-		// Print description if available
-		if op.Description != "" {
-			// Indent and wrap description
-			desc := strings.TrimSpace(op.Description)
-			fmt.Printf("    %s\n", desc)
-		}
-
-		// Print deprecation warning if applicable
-		if op.IsDeprecated {
-			reason := "This field is deprecated"
-			if op.DeprecationReason != "" {
-				reason = op.DeprecationReason
-			}
-			fmt.Printf("    ⚠️  DEPRECATED: %s\n", reason)
-		}
-
-		// Print input type details for arguments that are input objects
-		displayInputTypeDetails(op.Arguments, inputTypes, "    ")
-
-		fmt.Println()
-	}
-}
-
-// displayInputTypeDetails shows the fields of input types used in operation arguments.
-// This is crucial for TUI - users need to see what fields to fill in.
-// Shows nested input types up to 2 levels deep to avoid overwhelming output.
-func displayInputTypeDetails(args []Argument, inputTypes map[string]InputType, indent string) {
-	for _, arg := range args {
-		// Extract the base type name (strip !, [], etc.)
-		baseType := extractBaseTypeName(arg.Type)
-
-		// Check if this is an input type we know about
-		if inputType, ok := inputTypes[baseType]; ok {
-			fmt.Printf("%s↳ %s fields:\n", indent, arg.Name)
-			displayInputTypeFields(inputType, inputTypes, indent+"  ", 1)
-		}
-	}
-}
-
-// displayInputTypeFields recursively displays input type fields up to maxDepth.
-func displayInputTypeFields(
-	inputType InputType,
-	inputTypes map[string]InputType,
-	indent string,
-	depth int,
-) {
-	const maxDepth = 2 // Limit nesting to avoid overwhelming output
-
-	for _, field := range inputType.Fields {
-		fieldStr := fmt.Sprintf("%s- %s: %s", indent, field.Name, field.Type)
-		if field.DefaultValue != "" {
-			fieldStr += fmt.Sprintf(" = %s", field.DefaultValue)
-		}
-		fmt.Println(fieldStr)
-		if field.Description != "" {
-			fmt.Printf("%s  %s\n", indent, field.Description)
-		}
-
-		// Recursively display nested input types if within depth limit
-		if depth < maxDepth {
-			nestedBaseType := extractBaseTypeName(field.Type)
-			if nestedInputType, ok := inputTypes[nestedBaseType]; ok {
-				displayInputTypeFields(nestedInputType, inputTypes, indent+"  ", depth+1)
-			}
-		}
-	}
-}
-
-// extractBaseTypeName extracts the base type name from a GraphQL type string.
-// Examples: "[String!]!" -> "String", "PersonInput!" -> "PersonInput"
-func extractBaseTypeName(typeStr string) string {
-	// Remove all wrapping characters: [], !, etc.
-	cleaned := strings.ReplaceAll(typeStr, "[", "")
-	cleaned = strings.ReplaceAll(cleaned, "]", "")
-	cleaned = strings.ReplaceAll(cleaned, "!", "")
-	return strings.TrimSpace(cleaned)
-}
-
-// formatSignature formats an operation signature like "user(id: ID!): User"
-func formatSignature(op Operation) string {
-	var sb strings.Builder
-	sb.WriteString(op.Name)
-
-	// Add arguments
-	if len(op.Arguments) > 0 {
-		sb.WriteString("(")
-		for i, arg := range op.Arguments {
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(arg.Name)
-			sb.WriteString(": ")
-			sb.WriteString(arg.Type)
-
-			// Add default value if present
-			if arg.DefaultValue != "" {
-				sb.WriteString(" = ")
-				sb.WriteString(arg.DefaultValue)
-			}
-		}
-		sb.WriteString(")")
-	}
-
-	// Add return type
-	sb.WriteString(": ")
-	sb.WriteString(op.ReturnType)
-
-	return sb.String()
 }

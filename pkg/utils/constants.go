@@ -68,3 +68,8 @@ const (
 	CheckMark = "\u2713"
 	CrossMark = "\u2717"
 )
+
+// TUIs
+const (
+	CursorMarker = "> "
+)
