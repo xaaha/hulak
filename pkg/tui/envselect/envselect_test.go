@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // setupTestEnvDir creates a temp directory with env files and changes to it.
@@ -425,8 +426,8 @@ func TestSelectedItemHasArrow(t *testing.T) {
 
 	view := m.View()
 
-	if !strings.Contains(view, ">") {
-		t.Error("view should contain '>' for selected item")
+	if !strings.Contains(view, utils.ChevronRight) {
+		t.Error("view should contain chevron for selected item")
 	}
 }
 

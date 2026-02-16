@@ -65,11 +65,8 @@ const (
 
 // tick mark and x for success and failure
 const (
-	CheckMark = "\u2713"
-	CrossMark = "\u2717"
-)
-
-// TUIs
-const (
-	CursorMarker = "> "
+	CheckMark    = "\u2713"  // tick
+	CrossMark    = "\u2717"  // x
+	ChevronRight = "\uf054 " // >
+	ChevronDown  = "\uf078 " //
 )

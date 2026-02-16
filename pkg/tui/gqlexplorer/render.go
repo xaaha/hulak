@@ -12,11 +12,11 @@ import (
 func (m Model) renderList() (string, int) {
 	itemPrefix := strings.Repeat(" ", itemPadding)
 	detailPrefix := strings.Repeat(" ", detailPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + utils.CursorMarker
+	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
 
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
-			strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + noMatchesLabel,
+			strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + noMatchesLabel,
 		), 0
 	}
 
@@ -49,7 +49,7 @@ func (m Model) renderList() (string, int) {
 
 func (m Model) renderEndpointPicker() (string, int) {
 	itemPrefix := strings.Repeat(" ", itemPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + utils.CursorMarker
+	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
 
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0

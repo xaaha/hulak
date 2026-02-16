@@ -143,7 +143,7 @@ func (m Model) renderList() string {
 	var lines []string
 	for i, item := range m.filtered {
 		if i == m.cursor {
-			lines = append(lines, tui.SubtitleStyle.Render(utils.CursorMarker+" "+item))
+			lines = append(lines, tui.SubtitleStyle.Render(utils.ChevronRight+" "+item))
 		} else {
 			lines = append(lines, "   "+item)
 		}

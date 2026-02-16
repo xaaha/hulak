@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func sampleOps() []UnifiedOperation {
@@ -521,8 +523,8 @@ func TestViewShowsSelectedCursor(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, ">") {
-		t.Error("view should contain '>' cursor marker for selected item")
+	if !strings.Contains(view, utils.ChevronRight) {
+		t.Error("view should contain chevron cursor marker for selected item")
 	}
 }
 
