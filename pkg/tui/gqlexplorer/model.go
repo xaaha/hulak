@@ -19,6 +19,15 @@ const (
 	// ViewTitle border+padding (4) + len("Search: ") (8)
 	searchBoxOverhead = 12
 
+	// Lines the search ViewTitle occupies: top border + input + bottom border
+	searchBoxLines = 3
+
+	// Fixed lines around the viewport in View():
+	//   above: "\n" + statusLine + "\n\n"  = 2 content + 1 blank
+	//   below: "\n\n" + helpText+scrollPct = 1 blank  + 1 content
+	//   box:   border top/bottom (2) + outer margin (4)
+	viewportFrameLines = 10
+
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
@@ -82,6 +91,18 @@ func (m Model) leftPanelWidth() int {
 	return tui.LeftPanelWidth(m.width)
 }
 
+func (m Model) viewportHeight() int {
+	headerLines := searchBoxLines
+	if len(m.activeEndpoints) > 0 {
+		headerLines++
+	}
+	if m.filterHint != "" {
+		headerLines++
+	}
+	h := max(m.height-viewportFrameLines-headerLines, 1)
+	return h
+}
+
 func (m Model) Init() tea.Cmd {
 	return m.search.Init()
 }
@@ -92,11 +113,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		panelW := m.leftPanelWidth()
-		// controls the viewport height for the operations
-		listHeight := m.height - 30
-		if listHeight < 1 {
-			listHeight = 10
-		}
+		listHeight := m.viewportHeight()
 		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(m.width, listHeight)
