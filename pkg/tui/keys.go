@@ -17,6 +17,10 @@ const (
 	KeyCtrlF = "ctrl+f" // forward (right)
 	KeyCtrlB = "ctrl+b" // backward (left)
 
+	// Vim-style navigation (use only when text input is inactive)
+	KeyJ = "j"
+	KeyK = "k"
+
 	// Actions
 	KeyEnter  = "enter"
 	KeyTab    = "tab"
