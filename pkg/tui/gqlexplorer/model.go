@@ -206,10 +206,10 @@ func (m Model) View() string {
 
 	var statusLine string
 	if m.pickingEndpoints {
-		statusLine = tui.HelpStyle.Render(" " + endpointPickerTitle)
+		statusLine = tui.HelpStyle.Render(tui.KeySpace + endpointPickerTitle)
 	} else {
 		statusLine = tui.HelpStyle.Render(
-			" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
+			tui.KeySpace + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
 		)
 	}
 

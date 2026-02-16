@@ -52,7 +52,7 @@ func buildFilterHint(operations []UnifiedOperation, endpoints []string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return tui.HelpStyle.Render(" " + strings.Join(parts, " | "))
+	return tui.HelpStyle.Render(tui.KeySpace + strings.Join(parts, " | "))
 }
 
 func (m *Model) applyFilter() {
@@ -129,7 +129,7 @@ func (m Model) handleEndpointPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.endpointCursor = tui.MoveCursorDown(m.endpointCursor, len(m.endpoints)-1)
 		m.syncViewport()
 		return m, nil
-	case " ":
+	case tui.KeySpace:
 		ep := m.endpoints[m.endpointCursor]
 		m.pendingEndpoints[ep] = !m.pendingEndpoints[ep]
 		if !m.pendingEndpoints[ep] {

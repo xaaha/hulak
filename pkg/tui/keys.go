@@ -24,7 +24,7 @@ const (
 	// Actions
 	KeyEnter  = "enter"
 	KeyTab    = "tab"
-	KeySpace  = "space"
+	KeySpace  = " "
 	KeyQuit   = "ctrl+c" // Force quit - always works
 	KeyCancel = "esc"    // Cancel/back - context aware
 

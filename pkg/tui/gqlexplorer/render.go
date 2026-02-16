@@ -10,13 +10,13 @@ import (
 )
 
 func (m Model) renderList() (string, int) {
-	itemPrefix := strings.Repeat(" ", itemPadding)
-	detailPrefix := strings.Repeat(" ", detailPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
+	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
+	detailPrefix := strings.Repeat(tui.KeySpace, detailPadding)
+	selectedPrefix := strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
 
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
-			strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + noMatchesLabel,
+			strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + noMatchesLabel,
 		), 0
 	}
 
@@ -55,8 +55,8 @@ func (m Model) renderList() (string, int) {
 }
 
 func (m Model) renderEndpointPicker() (string, int) {
-	itemPrefix := strings.Repeat(" ", itemPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
+	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
+	selectedPrefix := strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
 
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
@@ -70,9 +70,9 @@ func (m Model) renderEndpointPicker() (string, int) {
 			prefix = selectedPrefix
 			cursorLine = len(lines)
 		}
-		toggle := "  "
+		toggle := strings.Repeat(tui.KeySpace, 2)
 		if m.pendingEndpoints[ep] {
-			toggle = checkMark + " "
+			toggle = checkMark + tui.KeySpace
 		}
 		style := lipgloss.NewStyle()
 		if i == m.endpointCursor {
@@ -96,11 +96,11 @@ func (m Model) renderBadges() string {
 		badge := tui.RenderBadge(s, tui.ColorMuted)
 		candidate := result
 		if candidate != "" {
-			candidate += " "
+			candidate += tui.KeySpace
 		}
 		candidate += badge
 		if lipgloss.Width(candidate) > maxW && i > 0 {
-			result += " " + tui.HelpStyle.Render("…")
+			result += tui.KeySpace + tui.HelpStyle.Render("…")
 			break
 		}
 		result = candidate
