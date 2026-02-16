@@ -734,20 +734,21 @@ func TestEndpointPickerToggle(t *testing.T) {
 	m := NewModel(multiEndpointOps())
 	m.enterEndpointPicker()
 
+	ep := m.endpoints[0]
 	spaceKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+
+	// all endpoints start selected, first toggle turns off
 	result, _ := m.Update(spaceKey)
 	model := result.(Model)
-
-	ep := model.endpoints[0]
-	if !model.pendingEndpoints[ep] {
-		t.Errorf("expected endpoint %q to be toggled on", ep)
-	}
-
-	result, _ = model.Update(spaceKey)
-	model = result.(Model)
-
 	if model.pendingEndpoints[ep] {
 		t.Errorf("expected endpoint %q to be toggled off", ep)
+	}
+
+	// second toggle turns back on
+	result, _ = model.Update(spaceKey)
+	model = result.(Model)
+	if !model.pendingEndpoints[ep] {
+		t.Errorf("expected endpoint %q to be toggled on", ep)
 	}
 }
 
@@ -769,8 +770,12 @@ func TestEndpointPickerConfirm(t *testing.T) {
 
 func TestEndpointPickerCancel(t *testing.T) {
 	m := NewModel(multiEndpointOps())
-	m.activeEndpoints["https://api.spacex.com/graphql"] = true
+	// deselect one endpoint before opening picker
+	delete(m.activeEndpoints, m.endpoints[1])
+	originalCount := len(m.activeEndpoints)
+
 	m.enterEndpointPicker()
+	// toggle an extra endpoint in pending
 	m.pendingEndpoints[m.endpoints[1]] = true
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -779,8 +784,11 @@ func TestEndpointPickerCancel(t *testing.T) {
 	if model.pickingEndpoints {
 		t.Error("expected picker to close on esc")
 	}
-	if len(model.activeEndpoints) != 1 || !model.activeEndpoints["https://api.spacex.com/graphql"] {
+	if len(model.activeEndpoints) != originalCount {
 		t.Error("cancel should preserve original active endpoints")
+	}
+	if model.activeEndpoints[m.endpoints[1]] {
+		t.Error("cancel should not apply pending changes")
 	}
 }
 

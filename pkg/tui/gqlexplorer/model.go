@@ -61,12 +61,16 @@ func NewModel(operations []UnifiedOperation) Model {
 		return typeRank[operations[i].Type] < typeRank[operations[j].Type]
 	})
 	endpoints := collectEndpoints(operations)
+	active := make(map[string]bool, len(endpoints))
+	for _, ep := range endpoints {
+		active[ep] = true
+	}
 	return Model{
 		operations:      operations,
 		filtered:        operations,
 		filterHint:      buildFilterHint(operations, endpoints),
 		endpoints:       endpoints,
-		activeEndpoints: make(map[string]bool),
+		activeEndpoints: active,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
@@ -179,6 +183,7 @@ func (m *Model) syncViewport() {
 }
 
 func (m Model) View() string {
+	badges := m.renderBadges()
 	search := m.search.ViewTitle()
 	filterHint := m.filterHint
 
@@ -186,13 +191,9 @@ func (m Model) View() string {
 	if m.pickingEndpoints {
 		statusLine = tui.HelpStyle.Render(" " + endpointPickerTitle)
 	} else {
-		badges := m.renderBadges()
-		count := fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations))
-		if badges != "" {
-			statusLine = tui.HelpStyle.Render(" "+count) + "  " + badges
-		} else {
-			statusLine = tui.HelpStyle.Render(" " + count)
-		}
+		statusLine = tui.HelpStyle.Render(
+			" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
+		)
 	}
 
 	var list string
@@ -214,7 +215,11 @@ func (m Model) View() string {
 		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
 	)
 
-	header := search
+	var header string
+	if badges != "" {
+		header += badges + "\n"
+	}
+	header += search
 	if filterHint != "" {
 		header += "\n" + filterHint
 	}

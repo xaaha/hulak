@@ -77,12 +77,28 @@ func (m Model) renderEndpointPicker() (string, int) {
 }
 
 func (m Model) renderBadges() string {
-	var badges []string
+	var shortened []string
 	for ep := range m.activeEndpoints {
-		badges = append(badges, tui.RenderBadge(shortenEndpoint(ep), tui.ColorPrimary))
+		shortened = append(shortened, shortenEndpoint(ep))
 	}
-	sort.Strings(badges)
-	return strings.Join(badges, " ")
+	sort.Strings(shortened)
+
+	maxW := m.leftPanelWidth()
+	var result string
+	for i, s := range shortened {
+		badge := tui.RenderBadge(s, tui.ColorMuted)
+		candidate := result
+		if candidate != "" {
+			candidate += " "
+		}
+		candidate += badge
+		if lipgloss.Width(candidate) > maxW && i > 0 {
+			result += " " + tui.HelpStyle.Render("…")
+			break
+		}
+		result = candidate
+	}
+	return result
 }
 
 func shortenEndpoint(url string) string {
