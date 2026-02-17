@@ -17,10 +17,14 @@ const (
 	KeyCtrlF = "ctrl+f" // forward (right)
 	KeyCtrlB = "ctrl+b" // backward (left)
 
+	// Vim-style navigation (use only when text input is inactive)
+	KeyJ = "j"
+	KeyK = "k"
+
 	// Actions
 	KeyEnter  = "enter"
 	KeyTab    = "tab"
-	KeySpace  = "space"
+	KeySpace  = " "
 	KeyQuit   = "ctrl+c" // Force quit - always works
 	KeyCancel = "esc"    // Cancel/back - context aware
 

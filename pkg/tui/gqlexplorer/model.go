@@ -3,20 +3,31 @@ package gqlexplorer
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/tui"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 const (
 	itemPadding   = 4
 	detailPadding = 6
 
-	scrollMargin = 3 // leave some space before and after the cursor
+	// leave some space before and after the cursor
+	scrollMargin = 3
+
+	// ViewTitle border+padding (4) + len("Search: ") (8)
+	searchBoxOverhead = 12
+
+	// Lines the search ViewTitle occupies: top border + input + bottom border
+	searchBoxLines = 3
+
+	// Fixed lines around the viewport in View():
+	//   above: "\n" + statusLine + "\n\n"  = 2 content + 1 blank
+	//   below: "\n\n" + helpText+scrollPct = 1 blank  + 1 content
+	//   box:   border top/bottom (2) + outer margin (4)
+	viewportFrameLines = 10
 
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
@@ -46,6 +57,12 @@ type Model struct {
 	ready      bool
 	width      int
 	height     int
+
+	endpoints        []string
+	activeEndpoints  map[string]bool
+	pickingEndpoints bool
+	endpointCursor   int
+	pendingEndpoints map[string]bool
 }
 
 // NewModel creates an explorer model from a flat list of operations.
@@ -53,16 +70,38 @@ func NewModel(operations []UnifiedOperation) Model {
 	sort.Slice(operations, func(i, j int) bool {
 		return typeRank[operations[i].Type] < typeRank[operations[j].Type]
 	})
+	endpoints := collectEndpoints(operations)
+	active := make(map[string]bool, len(endpoints))
+	for _, ep := range endpoints {
+		active[ep] = true
+	}
 	return Model{
-		operations: operations,
-		filtered:   operations,
-		filterHint: buildFilterHint(operations),
+		operations:      operations,
+		filtered:        operations,
+		filterHint:      buildFilterHint(operations, endpoints),
+		endpoints:       endpoints,
+		activeEndpoints: active,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
-			MinWidth:    32,
 		}),
 	}
+}
+
+func (m Model) leftPanelWidth() int {
+	return tui.LeftPanelWidth(m.width)
+}
+
+func (m Model) viewportHeight() int {
+	headerLines := searchBoxLines
+	if len(m.activeEndpoints) > 0 {
+		headerLines++
+	}
+	if m.filterHint != "" {
+		headerLines++
+	}
+	h := max(m.height-viewportFrameLines-headerLines, 1)
+	return h
 }
 
 func (m Model) Init() tea.Cmd {
@@ -74,11 +113,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// controls the viewport height for the operations
-		listHeight := m.height - 30
-		if listHeight < 1 {
-			listHeight = 10
-		}
+		panelW := m.leftPanelWidth()
+		listHeight := m.viewportHeight()
+		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(m.width, listHeight)
 			m.viewport.MouseWheelEnabled = true
@@ -104,6 +141,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.pickingEndpoints {
+		return m.handleEndpointPickerKey(msg)
+	}
+
 	switch msg.String() {
 	case tui.KeyQuit:
 		return m, tea.Quit
@@ -129,7 +170,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	prevValue := m.search.Model.Value()
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
-	if m.search.Model.Value() != prevValue {
+	newValue := m.search.Model.Value()
+	if newValue != prevValue {
+		if m.shouldEnterEndpointPicker(newValue) {
+			m.enterEndpointPicker()
+			return m, nil
+		}
 		m.applyFilter()
 		m.viewport.GotoTop()
 		m.syncViewport()
@@ -138,7 +184,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) syncViewport() {
-	content, cursorLine := m.renderList()
+	var content string
+	var cursorLine int
+	if m.pickingEndpoints {
+		content, cursorLine = m.renderEndpointPicker()
+	} else {
+		content, cursorLine = m.renderList()
+	}
 	m.viewport.SetContent(content)
 	h := m.viewport.Height
 	if cursorLine < m.viewport.YOffset {
@@ -148,70 +200,19 @@ func (m *Model) syncViewport() {
 	}
 }
 
-func buildFilterHint(operations []UnifiedOperation) string {
-	hasType := make(map[OperationType]bool)
-	for _, op := range operations {
-		hasType[op.Type] = true
-	}
-	if len(hasType) < 2 {
-		return ""
-	}
-	var parts []string
-	if hasType[TypeQuery] {
-		parts = append(parts, "q: queries")
-	}
-	if hasType[TypeMutation] {
-		parts = append(parts, "m: mutations")
-	}
-	if hasType[TypeSubscription] {
-		parts = append(parts, "s: subscriptions")
-	}
-	return tui.HelpStyle.Render(" " + strings.Join(parts, " | "))
-}
-
-func (m *Model) applyFilter() {
-	query := m.search.Model.Value()
-	if query == "" {
-		m.filtered = m.operations
-		m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
-		return
-	}
-
-	var typeFilter OperationType
-	searchTerm := strings.ToLower(query)
-
-	if len(query) >= 2 && query[1] == ':' {
-		switch query[0] {
-		case 'q', 'Q':
-			typeFilter = TypeQuery
-		case 'm', 'M':
-			typeFilter = TypeMutation
-		case 's', 'S':
-			typeFilter = TypeSubscription
-		}
-		if typeFilter != "" {
-			searchTerm = strings.ToLower(strings.TrimSpace(query[2:]))
-		}
-	}
-
-	m.filtered = nil
-	for _, op := range m.operations {
-		if typeFilter != "" && op.Type != typeFilter {
-			continue
-		}
-		if searchTerm == "" || strings.Contains(strings.ToLower(op.Name), searchTerm) {
-			m.filtered = append(m.filtered, op)
-		}
-	}
-	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
-}
-
 func (m Model) View() string {
+	badges := m.renderBadges()
 	search := m.search.ViewTitle()
 	filterHint := m.filterHint
-	count := tui.HelpStyle.Render(
-		" " + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
-	)
+
+	var statusLine string
+	if m.pickingEndpoints {
+		statusLine = tui.HelpStyle.Render(tui.KeySpace + endpointPickerTitle)
+	} else {
+		statusLine = tui.HelpStyle.Render(
+			tui.KeySpace + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
+		)
+	}
 
 	var list string
 	if m.ready {
@@ -220,66 +221,38 @@ func (m Model) View() string {
 		content, _ := m.renderList()
 		list = content
 	}
-	help := tui.HelpStyle.Render(helpNavigation)
+
+	var helpText string
+	if m.pickingEndpoints {
+		helpText = tui.HelpStyle.Render(helpEndpointPicker)
+	} else {
+		helpText = tui.HelpStyle.Render(helpNavigation)
+	}
 
 	scrollPct := tui.HelpStyle.Render(
 		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
 	)
 
-	header := search
+	var header string
+	if badges != "" {
+		header += badges + "\n"
+	}
+	header += search
 	if filterHint != "" {
 		header += "\n" + filterHint
 	}
 	content := fmt.Sprintf(
 		"%s\n%s\n\n%s\n\n%s  %s",
-		header, count, list, help, scrollPct,
+		header, statusLine, list, helpText, scrollPct,
 	)
 
 	box := tui.BoxStyle.
+		Padding(0, 1).
 		Width(m.width - 4).
 		Height(m.height - 4).
 		Render(content)
 
-	// "place" box in the center
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
-}
-
-func (m Model) renderList() (string, int) {
-	itemPrefix := strings.Repeat(" ", itemPadding)
-	detailPrefix := strings.Repeat(" ", detailPadding)
-	selectedPrefix := strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + utils.CursorMarker
-
-	if len(m.filtered) == 0 {
-		return tui.HelpStyle.Render(
-			strings.Repeat(" ", itemPadding-len(utils.CursorMarker)) + noMatchesLabel,
-		), 0
-	}
-
-	var lines []string
-	cursorLine := 0
-	var currentType OperationType
-	for i, op := range m.filtered {
-		if op.Type != currentType {
-			currentType = op.Type
-			if len(lines) > 0 {
-				lines = append(lines, "")
-			}
-			lines = append(lines, tui.RenderBadge(string(currentType), badgeColor[currentType]))
-		}
-		if i == m.cursor {
-			cursorLine = len(lines)
-			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
-			if op.Description != "" {
-				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Description))
-			}
-			if op.Endpoint != "" {
-				lines = append(lines, tui.HelpStyle.Render(detailPrefix+op.Endpoint))
-			}
-		} else {
-			lines = append(lines, itemPrefix+op.Name)
-		}
-	}
-	return strings.Join(lines, "\n"), cursorLine
 }
 
 // RunExplorer launches the full-screen explorer TUI.
