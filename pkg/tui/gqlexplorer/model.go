@@ -14,6 +14,7 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
+	// leave some space before and after the cursor
 	scrollMargin = 3
 
 	// ViewTitle border+padding (4) + len("Search: ") (8)
