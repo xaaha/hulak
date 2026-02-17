@@ -12,7 +12,10 @@ import (
 func (m Model) renderList() (string, int) {
 	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
 	detailPrefix := strings.Repeat(tui.KeySpace, detailPadding)
-	selectedPrefix := strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
+	selectedPrefix := strings.Repeat(
+		tui.KeySpace,
+		itemPadding-len(utils.ChevronRight),
+	) + utils.ChevronRight
 
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
@@ -37,13 +40,13 @@ func (m Model) renderList() (string, int) {
 			wrapW := m.leftPanelWidth() - detailPadding
 			if op.Description != "" {
 				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Description)
-				for _, line := range strings.Split(wrapped, "\n") {
+				for line := range strings.SplitSeq(wrapped, "\n") {
 					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
 				}
 			}
 			if op.Endpoint != "" {
 				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Endpoint)
-				for _, line := range strings.Split(wrapped, "\n") {
+				for line := range strings.SplitSeq(wrapped, "\n") {
 					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
 				}
 			}
@@ -56,7 +59,10 @@ func (m Model) renderList() (string, int) {
 
 func (m Model) renderEndpointPicker() (string, int) {
 	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
-	selectedPrefix := strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + utils.ChevronRight
+	selectedPrefix := strings.Repeat(
+		tui.KeySpace,
+		itemPadding-len(utils.ChevronRight),
+	) + utils.ChevronRight
 
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
