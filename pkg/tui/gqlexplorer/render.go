@@ -1,10 +1,12 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -112,6 +114,149 @@ func (m Model) renderBadges() string {
 		result = candidate
 	}
 	return result
+}
+
+func renderDetail(
+	op UnifiedOperation,
+	width int,
+	inputTypes map[string]graphql.InputType,
+) string {
+	pad := strings.Repeat(tui.KeySpace, 2)
+	argPad := strings.Repeat(tui.KeySpace, 4)
+
+	var lines []string
+
+	lines = append(lines, tui.SubtitleStyle.Render(utils.ChevronRight+op.Name))
+	lines = append(lines, "")
+
+	if op.ReturnType != "" {
+		lines = append(lines, pad+tui.HelpStyle.Render("Returns: ")+op.ReturnType)
+		lines = append(lines, "")
+	}
+
+	if len(op.Arguments) > 0 {
+		lines = append(lines, pad+tui.HelpStyle.Render("Arguments:"))
+
+		nameW, typeW := 0, 0
+		for _, arg := range op.Arguments {
+			if len(arg.Name) > nameW {
+				nameW = len(arg.Name)
+			}
+			if len(arg.Type) > typeW {
+				typeW = len(arg.Type)
+			}
+		}
+
+		for _, arg := range op.Arguments {
+			required := ""
+			if strings.HasSuffix(arg.Type, "!") {
+				required = tui.KeySpace + tui.HelpStyle.Render("(required)")
+			}
+			name := fmt.Sprintf("%-*s", nameW, arg.Name)
+			typStr := fmt.Sprintf("%-*s", typeW, arg.Type)
+			lines = append(lines, argPad+name+tui.KeySpace+tui.KeySpace+typStr+required)
+
+			base := ExtractBaseType(arg.Type)
+			if it, ok := inputTypes[base]; ok {
+				lines = appendInputTypeFields(lines, it, argPad+strings.Repeat(tui.KeySpace, 2), inputTypes, 1)
+			}
+		}
+		lines = append(lines, "")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+const maxInputTypeDepth = 3
+
+func appendInputTypeFields(
+	lines []string,
+	it graphql.InputType,
+	indent string,
+	inputTypes map[string]graphql.InputType,
+	depth int,
+) []string {
+	for i, f := range it.Fields {
+		connector := "├─"
+		if i == len(it.Fields)-1 {
+			connector = "└─"
+		}
+		line := indent + tui.HelpStyle.Render(connector) +
+			tui.KeySpace + f.Name +
+			tui.KeySpace + tui.KeySpace + tui.HelpStyle.Render(f.Type)
+		lines = append(lines, line)
+
+		if depth < maxInputTypeDepth {
+			base := ExtractBaseType(f.Type)
+			if nested, ok := inputTypes[base]; ok {
+				childIndent := indent + tui.KeySpace + tui.KeySpace
+				if i < len(it.Fields)-1 {
+					childIndent = indent + tui.HelpStyle.Render("│") + tui.KeySpace
+				}
+				lines = appendInputTypeFields(lines, nested, childIndent, inputTypes, depth+1)
+			}
+		}
+	}
+	return lines
+}
+
+func (m Model) renderLeftContent() string {
+	badges := m.renderBadges()
+	search := tui.BorderStyle.
+		Padding(0, 1).
+		Width(m.leftPanelWidth() - 2).
+		Render(m.search.Model.View())
+
+	var statusLine string
+	if m.pickingEndpoints {
+		statusLine = tui.HelpStyle.Render(tui.KeySpace + endpointPickerTitle)
+	} else {
+		statusLine = tui.HelpStyle.Render(
+			tui.KeySpace + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
+		)
+	}
+
+	var list string
+	if m.ready {
+		list = m.viewport.View()
+	} else {
+		content, _ := m.renderList()
+		list = content
+	}
+
+	var helpText string
+	if m.pickingEndpoints {
+		helpText = tui.HelpStyle.Render(helpEndpointPicker)
+	} else {
+		helpText = tui.HelpStyle.Render(helpNavigation)
+	}
+
+	scrollPct := tui.HelpStyle.Render(
+		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
+	)
+
+	var header string
+	if badges != "" {
+		header += badges + "\n"
+	}
+	header += search
+	if m.filterHint != "" {
+		header += "\n" + m.filterHint
+	}
+	return fmt.Sprintf(
+		"%s\n%s\n\n%s\n\n%s  %s",
+		header, statusLine, list, helpText, scrollPct,
+	)
+}
+
+func renderDivider(height int) string {
+	style := lipgloss.NewStyle().Foreground(tui.ColorMuted)
+	line := style.Render(" │ ")
+	lines := make([]string, max(height, 1))
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func shortenEndpoint(url string) string {

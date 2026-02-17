@@ -151,6 +151,69 @@ func TestCollectOperationsPreservesDescription(t *testing.T) {
 	}
 }
 
+func TestCollectOperationsPreservesArgumentsAndReturnType(t *testing.T) {
+	schema := graphql.Schema{
+		Queries: []graphql.Operation{
+			{
+				Name:       "getUser",
+				ReturnType: "User!",
+				Arguments: []graphql.Argument{
+					{Name: "id", Type: "ID!"},
+					{Name: "name", Type: "String", DefaultValue: "anon"},
+				},
+			},
+			{
+				Name:       "listUsers",
+				ReturnType: "[User!]!",
+			},
+		},
+	}
+	ops := CollectOperations(schema, "http://api.test/gql")
+
+	if ops[0].ReturnType != "User!" {
+		t.Errorf("expected ReturnType 'User!', got %q", ops[0].ReturnType)
+	}
+	if len(ops[0].Arguments) != 2 {
+		t.Fatalf("expected 2 arguments, got %d", len(ops[0].Arguments))
+	}
+	if ops[0].Arguments[0].Name != "id" || ops[0].Arguments[0].Type != "ID!" {
+		t.Errorf("unexpected first arg: %+v", ops[0].Arguments[0])
+	}
+	if ops[0].Arguments[1].DefaultValue != "anon" {
+		t.Errorf("expected default 'anon', got %q", ops[0].Arguments[1].DefaultValue)
+	}
+	if ops[1].ReturnType != "[User!]!" {
+		t.Errorf("expected ReturnType '[User!]!', got %q", ops[1].ReturnType)
+	}
+	if len(ops[1].Arguments) != 0 {
+		t.Errorf("expected 0 arguments, got %d", len(ops[1].Arguments))
+	}
+}
+
+func TestExtractBaseType(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"String", "String"},
+		{"String!", "String"},
+		{"[String]", "String"},
+		{"[String!]", "String"},
+		{"[String!]!", "String"},
+		{"[PersonInput!]!", "PersonInput"},
+		{"ID!", "ID"},
+		{"Int", "Int"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := ExtractBaseType(tc.input)
+			if got != tc.expected {
+				t.Errorf("ExtractBaseType(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestOperationTypeConstants(t *testing.T) {
 	tests := []struct {
 		name     string

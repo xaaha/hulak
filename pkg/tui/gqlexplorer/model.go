@@ -1,12 +1,12 @@
 package gqlexplorer
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
 )
 
@@ -28,6 +28,8 @@ const (
 	//   below: "\n\n" + helpText+scrollPct = 1 blank  + 1 content
 	//   box:   border top/bottom (2) + outer margin (4)
 	viewportFrameLines = 10
+
+	dividerWidth = 3 // " │ " between left and right panels
 
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
@@ -58,6 +60,10 @@ type Model struct {
 	width      int
 	height     int
 
+	detailVP   viewport.Model
+	inputTypes map[string]graphql.InputType
+	enumTypes  map[string]graphql.EnumType
+
 	endpoints        []string
 	activeEndpoints  map[string]bool
 	pickingEndpoints bool
@@ -65,8 +71,11 @@ type Model struct {
 	pendingEndpoints map[string]bool
 }
 
-// NewModel creates an explorer model from a flat list of operations.
-func NewModel(operations []UnifiedOperation) Model {
+func NewModel(
+	operations []UnifiedOperation,
+	inputTypes map[string]graphql.InputType,
+	enumTypes map[string]graphql.EnumType,
+) Model {
 	sort.Slice(operations, func(i, j int) bool {
 		return typeRank[operations[i].Type] < typeRank[operations[j].Type]
 	})
@@ -81,6 +90,8 @@ func NewModel(operations []UnifiedOperation) Model {
 		filterHint:      buildFilterHint(operations, endpoints),
 		endpoints:       endpoints,
 		activeEndpoints: active,
+		inputTypes:      inputTypes,
+		enumTypes:       enumTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: "filter operations...",
@@ -89,7 +100,11 @@ func NewModel(operations []UnifiedOperation) Model {
 }
 
 func (m Model) leftPanelWidth() int {
-	return tui.LeftPanelWidth(m.width)
+	return max((m.width-6)*tui.LeftPanelPct/100, 0)
+}
+
+func (m Model) rightPanelWidth() int {
+	return max(m.width-6-m.leftPanelWidth()-dividerWidth, 0)
 }
 
 func (m Model) viewportHeight() int {
@@ -115,14 +130,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
+		rightW := m.rightPanelWidth()
+		detailH := max(m.height-4, 1)
 		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
-			m.viewport = viewport.New(m.width, listHeight)
+			m.viewport = viewport.New(panelW, listHeight)
 			m.viewport.MouseWheelEnabled = true
+			m.detailVP = viewport.New(rightW, detailH)
 			m.ready = true
 		} else {
-			m.viewport.Width = m.width
+			m.viewport.Width = panelW
 			m.viewport.Height = listHeight
+			m.detailVP.Width = rightW
+			m.detailVP.Height = detailH
 		}
 		// sync viewport and cursor
 		m.syncViewport()
@@ -198,67 +218,46 @@ func (m *Model) syncViewport() {
 	} else if cursorLine+scrollMargin >= m.viewport.YOffset+h {
 		m.viewport.SetYOffset(cursorLine - h + 1 + scrollMargin)
 	}
+
+	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+		m.detailVP.SetContent(
+			renderDetail(m.filtered[m.cursor], m.rightPanelWidth(), m.inputTypes),
+		)
+		m.detailVP.GotoTop()
+	} else {
+		m.detailVP.SetContent("")
+	}
 }
 
 func (m Model) View() string {
-	badges := m.renderBadges()
-	search := m.search.ViewTitle()
-	filterHint := m.filterHint
+	leftCol := lipgloss.NewStyle().
+		Width(m.leftPanelWidth()).
+		Render(m.renderLeftContent())
 
-	var statusLine string
-	if m.pickingEndpoints {
-		statusLine = tui.HelpStyle.Render(tui.KeySpace + endpointPickerTitle)
-	} else {
-		statusLine = tui.HelpStyle.Render(
-			tui.KeySpace + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
-		)
-	}
+	divider := renderDivider(max(m.height-4, 1))
 
-	var list string
-	if m.ready {
-		list = m.viewport.View()
-	} else {
-		content, _ := m.renderList()
-		list = content
-	}
+	rightCol := lipgloss.NewStyle().
+		Width(m.rightPanelWidth()).
+		Render(m.detailVP.View())
 
-	var helpText string
-	if m.pickingEndpoints {
-		helpText = tui.HelpStyle.Render(helpEndpointPicker)
-	} else {
-		helpText = tui.HelpStyle.Render(helpNavigation)
-	}
-
-	scrollPct := tui.HelpStyle.Render(
-		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
-	)
-
-	var header string
-	if badges != "" {
-		header += badges + "\n"
-	}
-	header += search
-	if filterHint != "" {
-		header += "\n" + filterHint
-	}
-	content := fmt.Sprintf(
-		"%s\n%s\n\n%s\n\n%s  %s",
-		header, statusLine, list, helpText, scrollPct,
-	)
+	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, divider, rightCol)
 
 	box := tui.BoxStyle.
 		Padding(0, 1).
 		Width(m.width - 4).
 		Height(m.height - 4).
-		Render(content)
+		Render(combined)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
 
-// RunExplorer launches the full-screen explorer TUI.
-func RunExplorer(operations []UnifiedOperation) error {
+func RunExplorer(
+	operations []UnifiedOperation,
+	inputTypes map[string]graphql.InputType,
+	enumTypes map[string]graphql.EnumType,
+) error {
 	p := tea.NewProgram(
-		NewModel(operations),
+		NewModel(operations, inputTypes, enumTypes),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

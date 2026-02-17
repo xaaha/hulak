@@ -91,11 +91,11 @@ func HandleSubcommands() error {
 			utils.PrintGQLUsage()
 			os.Exit(0)
 		}
-		operations := loadGraphQLOperations(args[0], *gqlEnv)
+		operations, inputTypes, enumTypes := loadGraphQLOperations(args[0], *gqlEnv)
 		if operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorer(operations); err != nil {
+		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -109,7 +109,11 @@ func HandleSubcommands() error {
 }
 
 // handles single file mode and directory mode along with unifying the operation
-func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperation {
+func loadGraphQLOperations(arg string, env string) (
+	[]gqlexplorer.UnifiedOperation,
+	map[string]graphql.InputType,
+	map[string]graphql.EnumType,
+) {
 	resolved := resolveGQLPath(arg)
 	var results []graphql.ProcessResult
 
@@ -124,9 +128,18 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 		results = loadFromFile(resolved, env)
 	}
 
+	type schemaResult struct {
+		ops        []gqlexplorer.UnifiedOperation
+		inputTypes map[string]graphql.InputType
+		enumTypes  map[string]graphql.EnumType
+	}
+
 	// load spinner while waiting
 	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
-		var ops []gqlexplorer.UnifiedOperation
+		sr := schemaResult{
+			inputTypes: make(map[string]graphql.InputType),
+			enumTypes:  make(map[string]graphql.EnumType),
+		}
 		var errors []string
 		for _, result := range results {
 			if result.Error != nil {
@@ -138,24 +151,30 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, schemaErr))
 				continue
 			}
-			ops = append(ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+			sr.ops = append(sr.ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+			for k, v := range schema.InputTypes {
+				sr.inputTypes[k] = v
+			}
+			for k, v := range schema.EnumTypes {
+				sr.enumTypes[k] = v
+			}
 		}
-		if len(ops) == 0 && len(errors) > 0 {
+		if len(sr.ops) == 0 && len(errors) > 0 {
 			return nil, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(errors, "\n  "))
 		}
 		for _, e := range errors {
 			utils.PrintWarning("schema fetch warning: " + e)
 		}
-		return ops, nil
+		return sr, nil
 	})
 	if err != nil {
 		utils.PanicRedAndExit("Schema fetch error: %v", err)
 	}
-	operations, ok := raw.([]gqlexplorer.UnifiedOperation)
+	sr, ok := raw.(schemaResult)
 	if !ok && raw != nil {
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
-	return operations
+	return sr.ops, sr.inputTypes, sr.enumTypes
 }
 
 func resolveGQLPath(arg string) string {
