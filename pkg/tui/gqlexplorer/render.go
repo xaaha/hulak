@@ -121,7 +121,6 @@ func (m Model) renderBadges() string {
 
 func renderDetail(
 	op UnifiedOperation,
-	width int,
 	inputTypes map[string]graphql.InputType,
 ) string {
 	pad := strings.Repeat(tui.KeySpace, 2)
@@ -161,7 +160,14 @@ func renderDetail(
 
 			base := ExtractBaseType(arg.Type)
 			if it, ok := resolveInputType(inputTypes, op.Endpoint, base); ok {
-				lines = appendInputTypeFields(lines, it, argPad+strings.Repeat(tui.KeySpace, 2), inputTypes, op.Endpoint, 1)
+				lines = appendInputTypeFields(
+					lines,
+					it,
+					argPad+strings.Repeat(tui.KeySpace, 2),
+					inputTypes,
+					op.Endpoint,
+					1,
+				)
 			}
 		}
 		lines = append(lines, "")
@@ -209,7 +215,14 @@ func appendInputTypeFields(
 				if i < len(it.Fields)-1 {
 					childIndent = indent + tui.HelpStyle.Render("│") + tui.KeySpace
 				}
-				lines = appendInputTypeFields(lines, nested, childIndent, inputTypes, endpoint, depth+1)
+				lines = appendInputTypeFields(
+					lines,
+					nested,
+					childIndent,
+					inputTypes,
+					endpoint,
+					depth+1,
+				)
 			}
 		}
 	}
@@ -223,14 +236,13 @@ func (m Model) renderLeftContent() string {
 		Width(m.leftPanelWidth() - 2).
 		Render(m.search.Model.View())
 
-	var statusLine string
+	content := "\n" + tui.KeySpace
 	if m.pickingEndpoints {
-		statusLine = tui.HelpStyle.Render(tui.KeySpace + endpointPickerTitle)
+		content += endpointPickerTitle
 	} else {
-		statusLine = tui.HelpStyle.Render(
-			tui.KeySpace + fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations)),
-		)
+		content += fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations))
 	}
+	statusLine := tui.HelpStyle.Render(content)
 
 	var list string
 	if m.ready {

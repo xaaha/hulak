@@ -951,7 +951,7 @@ func opsWithArgs() []UnifiedOperation {
 
 func TestRenderDetailShowsOperationName(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if !strings.Contains(detail, "getUser") {
 		t.Error("detail should contain operation name")
 	}
@@ -959,7 +959,7 @@ func TestRenderDetailShowsOperationName(t *testing.T) {
 
 func TestRenderDetailShowsReturnType(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if !strings.Contains(detail, "User!") {
 		t.Error("detail should contain return type")
 	}
@@ -967,7 +967,7 @@ func TestRenderDetailShowsReturnType(t *testing.T) {
 
 func TestRenderDetailShowsArguments(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if !strings.Contains(detail, "Arguments:") {
 		t.Error("detail should contain Arguments header")
 	}
@@ -981,7 +981,7 @@ func TestRenderDetailShowsArguments(t *testing.T) {
 
 func TestRenderDetailOmitsEndpoint(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if strings.Contains(detail, "Endpoint:") {
 		t.Error("detail should not show Endpoint (already in badges and list)")
 	}
@@ -989,7 +989,7 @@ func TestRenderDetailOmitsEndpoint(t *testing.T) {
 
 func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 	op := opsWithArgs()[1]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if strings.Contains(detail, "Arguments:") {
 		t.Error("detail should not show Arguments section when empty")
 	}
@@ -997,7 +997,7 @@ func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 
 func TestRenderDetailOptionalArgHasNoRequiredMarker(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	lines := strings.Split(detail, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "name") && strings.Contains(line, "String") {
@@ -1060,7 +1060,7 @@ func TestRenderDetailExpandsInputType(t *testing.T) {
 			{Name: "input", Type: "PersonInput!"},
 		},
 	}
-	detail := renderDetail(op, 60, inputTypes)
+	detail := renderDetail(op, inputTypes)
 	if !strings.Contains(detail, "name") || !strings.Contains(detail, "String!") {
 		t.Error("detail should expand PersonInput fields showing name and type")
 	}
@@ -1096,7 +1096,7 @@ func TestRenderDetailNestedInputType(t *testing.T) {
 			{Name: "input", Type: "CreateUserInput!"},
 		},
 	}
-	detail := renderDetail(op, 80, inputTypes)
+	detail := renderDetail(op, inputTypes)
 	if !strings.Contains(detail, "person") {
 		t.Error("detail should show nested input type field 'person'")
 	}
@@ -1132,7 +1132,7 @@ func TestRenderDetailNilInputTypes(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}
-	detail := renderDetail(op, 60, nil)
+	detail := renderDetail(op, nil)
 	if !strings.Contains(detail, "id") {
 		t.Error("detail should still render arguments with nil inputTypes")
 	}

@@ -242,7 +242,7 @@ func (m *Model) syncViewport() {
 		op := m.filtered[m.cursor]
 		detailKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
 		if detailKey != m.detailCacheKey {
-			m.detailCacheValue = renderDetail(op, m.rightPanelWidth(), m.inputTypes)
+			m.detailCacheValue = renderDetail(op, m.inputTypes)
 			m.detailCacheKey = detailKey
 			m.detailVP.SetContent(m.detailCacheValue)
 			m.detailVP.GotoTop()
