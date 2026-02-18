@@ -656,7 +656,7 @@ func TestFilterHintEndpoints(t *testing.T) {
 func TestEndpointFilterCombinesWithTypeFilter(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil)
 	m.activeEndpoints = map[string]bool{
-		"https://api.spacex.com/graphql": true,
+		"api.spacex.com": true,
 	}
 	m.search.Model.SetValue("q:")
 	m.applyFilter()
@@ -677,7 +677,7 @@ func TestEndpointFilterCombinesWithTypeFilter(t *testing.T) {
 func TestEndpointFilterAlone(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil)
 	m.activeEndpoints = map[string]bool{
-		"https://countries.trevorblades.com/graphql": true,
+		"countries.trevorblades.com": true,
 	}
 	m.applyFilter()
 
@@ -694,8 +694,8 @@ func TestEndpointFilterAlone(t *testing.T) {
 func TestEndpointFilterMultipleSelected(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil)
 	m.activeEndpoints = map[string]bool{
-		"https://api.spacex.com/graphql":             true,
-		"https://countries.trevorblades.com/graphql": true,
+		"api.spacex.com":             true,
+		"countries.trevorblades.com": true,
 	}
 	m.applyFilter()
 
