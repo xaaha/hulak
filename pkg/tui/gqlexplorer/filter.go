@@ -20,7 +20,10 @@ func collectEndpoints(operations []UnifiedOperation) []string {
 	seen := make(map[string]bool)
 	var endpoints []string
 	for _, op := range operations {
-		shortEndpoint := shortenEndpoint(op.Endpoint)
+		shortEndpoint := op.EndpointShort
+		if shortEndpoint == "" {
+			shortEndpoint = shortenEndpoint(op.Endpoint)
+		}
 		if shortEndpoint != "" && !seen[shortEndpoint] {
 			seen[shortEndpoint] = true
 			endpoints = append(endpoints, shortEndpoint)
@@ -88,10 +91,10 @@ func (m *Model) applyFilter() {
 		if typeFilter != "" && op.Type != typeFilter {
 			continue
 		}
-		if hasEndpointFilter && !m.activeEndpoints[shortenEndpoint(op.Endpoint)] {
+		if hasEndpointFilter && !m.activeEndpoints[op.EndpointShort] {
 			continue
 		}
-		if searchTerm == "" || strings.Contains(strings.ToLower(op.Name), searchTerm) {
+		if searchTerm == "" || strings.Contains(op.NameLower, searchTerm) {
 			m.filtered = append(m.filtered, op)
 		}
 	}

@@ -55,6 +55,11 @@ func init() {
 
 // HandleSubcommands loops through all the subcommands
 func HandleSubcommands() error {
+	if len(os.Args) < 2 {
+		utils.PrintHelp()
+		os.Exit(0)
+	}
+
 	switch os.Args[1] {
 	case Version:
 		getVersion()
@@ -153,10 +158,10 @@ func loadGraphQLOperations(arg string, env string) (
 			}
 			sr.ops = append(sr.ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
 			for k, v := range schema.InputTypes {
-				sr.inputTypes[k] = v
+				sr.inputTypes[gqlexplorer.ScopedTypeKey(result.ApiInfo.Url, k)] = v
 			}
 			for k, v := range schema.EnumTypes {
-				sr.enumTypes[k] = v
+				sr.enumTypes[gqlexplorer.ScopedTypeKey(result.ApiInfo.Url, k)] = v
 			}
 		}
 		if len(sr.ops) == 0 && len(errors) > 0 {

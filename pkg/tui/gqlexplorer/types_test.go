@@ -38,8 +38,22 @@ func TestCollectOperationsQueriesOnly(t *testing.T) {
 	if ops[0].Name != "getUser" || ops[0].Description != "fetch a user" {
 		t.Errorf("unexpected first op: %+v", ops[0])
 	}
+	if ops[0].NameLower != "getuser" {
+		t.Errorf("expected NameLower 'getuser', got %q", ops[0].NameLower)
+	}
+	if ops[0].EndpointShort != "api.test" {
+		t.Errorf("expected EndpointShort 'api.test', got %q", ops[0].EndpointShort)
+	}
 	if ops[1].Name != "listUsers" || ops[1].Description != "" {
 		t.Errorf("unexpected second op: %+v", ops[1])
+	}
+}
+
+func TestScopedTypeKey(t *testing.T) {
+	got := ScopedTypeKey("https://api.test/graphql", "PersonInput")
+	want := "https://api.test/graphql\x1fPersonInput"
+	if got != want {
+		t.Errorf("ScopedTypeKey mismatch: got %q, want %q", got, want)
 	}
 }
 

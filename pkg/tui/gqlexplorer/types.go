@@ -19,12 +19,18 @@ const (
 // Arguments and ReturnType come from the introspection schema so the detail
 // panel can display the full operation signature without a second lookup.
 type UnifiedOperation struct {
-	Name        string
-	Description string
-	Type        OperationType
-	Endpoint    string
-	Arguments   []graphql.Argument
-	ReturnType  string
+	Name          string
+	NameLower     string
+	Description   string
+	Type          OperationType
+	Endpoint      string
+	EndpointShort string
+	Arguments     []graphql.Argument
+	ReturnType    string
+}
+
+func ScopedTypeKey(endpoint string, typeName string) string {
+	return endpoint + "\x1f" + typeName
 }
 
 func ExtractBaseType(t string) string {
@@ -47,8 +53,8 @@ func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperatio
 	} {
 		for _, op := range pair.ops {
 			ops = append(ops, UnifiedOperation{
-				Name: op.Name, Description: op.Description,
-				Type: pair.kind, Endpoint: endpoint,
+				Name: op.Name, NameLower: strings.ToLower(op.Name), Description: op.Description,
+				Type: pair.kind, Endpoint: endpoint, EndpointShort: shortenEndpoint(endpoint),
 				Arguments: op.Arguments, ReturnType: op.ReturnType,
 			})
 		}

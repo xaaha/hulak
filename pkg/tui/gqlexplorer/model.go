@@ -2,6 +2,8 @@ package gqlexplorer
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -69,6 +71,8 @@ type Model struct {
 	pickingEndpoints bool
 	endpointCursor   int
 	pendingEndpoints map[string]bool
+	detailCacheKey   string
+	detailCacheValue string
 }
 
 func NewModel(
@@ -76,6 +80,15 @@ func NewModel(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 ) Model {
+	for i := range operations {
+		if operations[i].NameLower == "" {
+			operations[i].NameLower = strings.ToLower(operations[i].Name)
+		}
+		if operations[i].EndpointShort == "" {
+			operations[i].EndpointShort = shortenEndpoint(operations[i].Endpoint)
+		}
+	}
+
 	sort.Slice(operations, func(i, j int) bool {
 		return typeRank[operations[i].Type] < typeRank[operations[j].Type]
 	})
@@ -171,9 +184,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyCancel:
 		if m.search.Model.Value() != "" {
 			m.search.Model.Reset()
-			m.applyFilter()
-			m.viewport.GotoTop()
-			m.syncViewport()
+			m.applyFilterAndReset()
 			return m, nil
 		}
 		return m, tea.Quit
@@ -196,11 +207,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.enterEndpointPicker()
 			return m, nil
 		}
-		m.applyFilter()
-		m.viewport.GotoTop()
-		m.syncViewport()
+		m.applyFilterAndReset()
 	}
 	return m, cmd
+}
+
+func (m *Model) applyFilterAndReset() {
+	m.applyFilter()
+	m.viewport.GotoTop()
+	m.syncViewport()
 }
 
 func (m *Model) syncViewport() {
@@ -219,12 +234,22 @@ func (m *Model) syncViewport() {
 		m.viewport.SetYOffset(cursorLine - h + 1 + scrollMargin)
 	}
 
+	if m.pickingEndpoints {
+		return
+	}
+
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-		m.detailVP.SetContent(
-			renderDetail(m.filtered[m.cursor], m.rightPanelWidth(), m.inputTypes),
-		)
-		m.detailVP.GotoTop()
+		op := m.filtered[m.cursor]
+		detailKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
+		if detailKey != m.detailCacheKey {
+			m.detailCacheValue = renderDetail(op, m.rightPanelWidth(), m.inputTypes)
+			m.detailCacheKey = detailKey
+			m.detailVP.SetContent(m.detailCacheValue)
+			m.detailVP.GotoTop()
+		}
 	} else {
+		m.detailCacheKey = ""
+		m.detailCacheValue = ""
 		m.detailVP.SetContent("")
 	}
 }

@@ -2,6 +2,7 @@ package gqlexplorer
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -11,13 +12,29 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func (m Model) renderList() (string, int) {
+func buildPrefixes() (string, string, string) {
 	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
-	detailPrefix := strings.Repeat(tui.KeySpace, detailPadding)
 	selectedPrefix := strings.Repeat(
 		tui.KeySpace,
 		itemPadding-len(utils.ChevronRight),
 	) + utils.ChevronRight
+	detailPrefix := strings.Repeat(tui.KeySpace, detailPadding)
+	return itemPrefix, selectedPrefix, detailPrefix
+}
+
+func appendWrappedHelpLines(lines []string, text string, width int, prefix string) []string {
+	if text == "" {
+		return lines
+	}
+	wrapped := lipgloss.NewStyle().Width(width).Render(text)
+	for line := range strings.SplitSeq(wrapped, "\n") {
+		lines = append(lines, tui.HelpStyle.Render(prefix+line))
+	}
+	return lines
+}
+
+func (m Model) renderList() (string, int) {
+	itemPrefix, selectedPrefix, detailPrefix := buildPrefixes()
 
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
@@ -40,18 +57,8 @@ func (m Model) renderList() (string, int) {
 			cursorLine = len(lines)
 			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
 			wrapW := m.leftPanelWidth() - detailPadding
-			if op.Description != "" {
-				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Description)
-				for line := range strings.SplitSeq(wrapped, "\n") {
-					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
-				}
-			}
-			if op.Endpoint != "" {
-				wrapped := lipgloss.NewStyle().Width(wrapW).Render(op.Endpoint)
-				for line := range strings.SplitSeq(wrapped, "\n") {
-					lines = append(lines, tui.HelpStyle.Render(detailPrefix+line))
-				}
-			}
+			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
+			lines = appendWrappedHelpLines(lines, op.Endpoint, wrapW, detailPrefix)
 		} else {
 			lines = append(lines, itemPrefix+op.Name)
 		}
@@ -60,11 +67,7 @@ func (m Model) renderList() (string, int) {
 }
 
 func (m Model) renderEndpointPicker() (string, int) {
-	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
-	selectedPrefix := strings.Repeat(
-		tui.KeySpace,
-		itemPadding-len(utils.ChevronRight),
-	) + utils.ChevronRight
+	itemPrefix, selectedPrefix, _ := buildPrefixes()
 
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
@@ -94,7 +97,7 @@ func (m Model) renderEndpointPicker() (string, int) {
 func (m Model) renderBadges() string {
 	var shortened []string
 	for ep := range m.activeEndpoints {
-		shortened = append(shortened, shortenEndpoint(ep))
+		shortened = append(shortened, ep)
 	}
 	sort.Strings(shortened)
 
@@ -157,14 +160,26 @@ func renderDetail(
 			lines = append(lines, argPad+name+tui.KeySpace+tui.KeySpace+typStr+required)
 
 			base := ExtractBaseType(arg.Type)
-			if it, ok := inputTypes[base]; ok {
-				lines = appendInputTypeFields(lines, it, argPad+strings.Repeat(tui.KeySpace, 2), inputTypes, 1)
+			if it, ok := resolveInputType(inputTypes, op.Endpoint, base); ok {
+				lines = appendInputTypeFields(lines, it, argPad+strings.Repeat(tui.KeySpace, 2), inputTypes, op.Endpoint, 1)
 			}
 		}
 		lines = append(lines, "")
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func resolveInputType(
+	inputTypes map[string]graphql.InputType,
+	endpoint string,
+	baseType string,
+) (graphql.InputType, bool) {
+	if it, ok := inputTypes[ScopedTypeKey(endpoint, baseType)]; ok {
+		return it, true
+	}
+	it, ok := inputTypes[baseType]
+	return it, ok
 }
 
 const maxInputTypeDepth = 3
@@ -174,6 +189,7 @@ func appendInputTypeFields(
 	it graphql.InputType,
 	indent string,
 	inputTypes map[string]graphql.InputType,
+	endpoint string,
 	depth int,
 ) []string {
 	for i, f := range it.Fields {
@@ -188,12 +204,12 @@ func appendInputTypeFields(
 
 		if depth < maxInputTypeDepth {
 			base := ExtractBaseType(f.Type)
-			if nested, ok := inputTypes[base]; ok {
+			if nested, ok := resolveInputType(inputTypes, endpoint, base); ok {
 				childIndent := indent + tui.KeySpace + tui.KeySpace
 				if i < len(it.Fields)-1 {
 					childIndent = indent + tui.HelpStyle.Render("│") + tui.KeySpace
 				}
-				lines = appendInputTypeFields(lines, nested, childIndent, inputTypes, depth+1)
+				lines = appendInputTypeFields(lines, nested, childIndent, inputTypes, endpoint, depth+1)
 			}
 		}
 	}
@@ -259,11 +275,32 @@ func renderDivider(height int) string {
 	return strings.Join(lines, "\n")
 }
 
-func shortenEndpoint(url string) string {
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimSuffix(url, "/graphql")
-	url = strings.TrimSuffix(url, "/gql")
-	url = strings.TrimSuffix(url, "/")
-	return url
+func shortenEndpoint(rawURL string) string {
+	if strings.Contains(rawURL, "://") {
+		if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
+			path := parsed.Path
+			path = strings.TrimSuffix(path, "/graphql")
+			path = strings.TrimSuffix(path, "/gql")
+			path = strings.TrimSuffix(path, "/")
+			if path == "" {
+				return parsed.Host
+			}
+			if strings.HasPrefix(path, "/") {
+				return parsed.Host + path
+			}
+			return parsed.Host + "/" + path
+		}
+	}
+	rawURL = strings.TrimPrefix(rawURL, "https://")
+	rawURL = strings.TrimPrefix(rawURL, "http://")
+	if q := strings.IndexByte(rawURL, '?'); q >= 0 {
+		rawURL = rawURL[:q]
+	}
+	if h := strings.IndexByte(rawURL, '#'); h >= 0 {
+		rawURL = rawURL[:h]
+	}
+	rawURL = strings.TrimSuffix(rawURL, "/graphql")
+	rawURL = strings.TrimSuffix(rawURL, "/gql")
+	rawURL = strings.TrimSuffix(rawURL, "/")
+	return rawURL
 }

@@ -837,6 +837,7 @@ func TestShortenEndpoint(t *testing.T) {
 		{"https://countries.trevorblades.com/gql", "countries.trevorblades.com"},
 		{"https://example.com/api/v2", "example.com/api/v2"},
 		{"http://api/gql", "api"},
+		{"https://api.spacex.com/graphql?token=123", "api.spacex.com"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
@@ -1114,7 +1115,7 @@ func TestAppendInputTypeFieldsDepthCap(t *testing.T) {
 		},
 	}
 	lines := appendInputTypeFields(
-		nil, selfRef["Recursive"], "", selfRef, 1,
+		nil, selfRef["Recursive"], "", selfRef, "", 1,
 	)
 	// depths 1→2→3 each emit one line, then recursion stops at maxInputTypeDepth
 	if len(lines) != maxInputTypeDepth {
