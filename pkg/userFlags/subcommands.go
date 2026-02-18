@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
@@ -141,29 +143,73 @@ func loadGraphQLOperations(arg string, env string) (
 
 	// load spinner while waiting
 	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
+		type fetchResult struct {
+			url    string
+			schema graphql.Schema
+			err    error
+		}
+
 		sr := schemaResult{
 			inputTypes: make(map[string]graphql.InputType),
 			enumTypes:  make(map[string]graphql.EnumType),
 		}
 		var errors []string
+		endpointResults := make(map[string]graphql.ProcessResult)
 		for _, result := range results {
 			if result.Error != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, result.Error))
 				continue
 			}
-			schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
-			if schemaErr != nil {
-				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, schemaErr))
-				continue
+			endpointResults[result.ApiInfo.Url] = result
+		}
+
+		if len(endpointResults) > 0 {
+			jobs := make(chan graphql.ProcessResult, len(endpointResults))
+			fetched := make(chan fetchResult, len(endpointResults))
+			endpointResultsLen := len(endpointResults)
+			workerCount := utils.GetWorkers(&endpointResultsLen)
+
+			var wg sync.WaitGroup
+			for range workerCount {
+				wg.Go(func() {
+					for result := range jobs {
+						schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
+						fetched <- fetchResult{url: result.ApiInfo.Url, schema: schema, err: schemaErr}
+					}
+				})
 			}
-			sr.ops = append(sr.ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
-			for k, v := range schema.InputTypes {
-				sr.inputTypes[gqlexplorer.ScopedTypeKey(result.ApiInfo.Url, k)] = v
+
+			for _, result := range endpointResults {
+				jobs <- result
 			}
-			for k, v := range schema.EnumTypes {
-				sr.enumTypes[gqlexplorer.ScopedTypeKey(result.ApiInfo.Url, k)] = v
+			close(jobs)
+			wg.Wait()
+			close(fetched)
+
+			merged := make([]fetchResult, 0, len(endpointResults))
+			for result := range fetched {
+				merged = append(merged, result)
+			}
+
+			sort.Slice(merged, func(i, j int) bool {
+				return merged[i].url < merged[j].url
+			})
+
+			for _, result := range merged {
+				if result.err != nil {
+					errors = append(errors, fmt.Sprintf("%s: %v", result.url, result.err))
+					continue
+				}
+				sr.ops = append(sr.ops, gqlexplorer.CollectOperations(result.schema, result.url)...)
+				for k, v := range result.schema.InputTypes {
+					sr.inputTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
+				for k, v := range result.schema.EnumTypes {
+					sr.enumTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
 			}
 		}
+
 		if len(sr.ops) == 0 && len(errors) > 0 {
 			return nil, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(errors, "\n  "))
 		}
