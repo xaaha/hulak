@@ -827,6 +827,163 @@ func TestNeedsEnvResolution(t *testing.T) {
 	}
 }
 
+func TestFileHasTemplateVars(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	testCases := []struct {
+		name     string
+		content  string
+		expected bool
+	}{
+		{
+			name:     "env_var_in_header",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_with_spaces",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: \"Bearer {{ .token }}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_in_url",
+			content:  "---\nkind: GraphQL\nurl: \"{{.graphqlUrl}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_in_body",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    variables:\n      name: \"{{.userName}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "only_getFile_no_env_vars",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
+			expected: false,
+		},
+		{
+			name:     "only_getValueOf_no_env_vars",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{getValueOf \"token\" \"auth.json\"}}'\n",
+			expected: false,
+		},
+		{
+			name:     "no_templates_at_all",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n",
+			expected: false,
+		},
+		{
+			name:     "mixed_env_var_and_getFile",
+			content:  "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
+			expected: true,
+		},
+		{
+			name:     "multiple_env_vars",
+			content:  "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			filePath := filepath.Join(tempDir, tc.name+".yaml")
+			err := os.WriteFile(filePath, []byte(tc.content), 0o644)
+			if err != nil {
+				t.Fatalf("Failed to create test file: %v", err)
+			}
+			result := FileHasTemplateVars(filePath)
+			if result != tc.expected {
+				t.Errorf("Expected %v, got %v for content:\n%s", tc.expected, result, tc.content)
+			}
+		})
+	}
+}
+
+func TestFileHasTemplateVars_NonexistentFile(t *testing.T) {
+	result := FileHasTemplateVars("/nonexistent/path/file.yaml")
+	if result != false {
+		t.Errorf("Expected false for nonexistent file, got true")
+	}
+}
+
+func TestNeedsEnvResolution_FileContentCheck(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	t.Run("plain_url_with_env_var_in_header", func(t *testing.T) {
+		content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n"
+		filePath := filepath.Join(tempDir, "header_template.yaml")
+		err := os.WriteFile(filePath, []byte(content), 0o644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		urlToFileMap := map[string]string{
+			"http://example.com/graphql": filePath,
+		}
+		result := NeedsEnvResolution(urlToFileMap)
+		if !result {
+			t.Errorf("Expected true when file has env vars in headers, got false")
+		}
+	})
+
+	t.Run("plain_url_no_templates_in_file", func(t *testing.T) {
+		content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n"
+		filePath := filepath.Join(tempDir, "no_template.yaml")
+		err := os.WriteFile(filePath, []byte(content), 0o644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		urlToFileMap := map[string]string{
+			"http://example.com/graphql": filePath,
+		}
+		result := NeedsEnvResolution(urlToFileMap)
+		if result {
+			t.Errorf("Expected false when no templates exist anywhere, got true")
+		}
+	})
+
+	t.Run("plain_url_only_getFile_in_file", func(t *testing.T) {
+		content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n"
+		filePath := filepath.Join(tempDir, "getfile_only.yaml")
+		err := os.WriteFile(filePath, []byte(content), 0o644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		urlToFileMap := map[string]string{
+			"http://example.com/graphql": filePath,
+		}
+		result := NeedsEnvResolution(urlToFileMap)
+		if result {
+			t.Errorf("Expected false when file only has getFile (no env vars), got true")
+		}
+	})
+
+	t.Run("mixed_files_one_has_env_vars", func(t *testing.T) {
+		plainContent := "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n"
+		plainPath := filepath.Join(tempDir, "plain.yaml")
+		err := os.WriteFile(plainPath, []byte(plainContent), 0o644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		authContent := "---\nkind: GraphQL\nurl: http://api.test.com/graphql\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n"
+		authPath := filepath.Join(tempDir, "with_auth.yaml")
+		err = os.WriteFile(authPath, []byte(authContent), 0o644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		urlToFileMap := map[string]string{
+			"http://example.com/graphql":  plainPath,
+			"http://api.test.com/graphql": authPath,
+		}
+		result := NeedsEnvResolution(urlToFileMap)
+		if !result {
+			t.Errorf("Expected true when at least one file has env vars, got false")
+		}
+	})
+}
+
 // Benchmark tests
 
 func BenchmarkFindGraphQLFiles(b *testing.B) {

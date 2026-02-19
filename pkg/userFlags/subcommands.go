@@ -260,14 +260,9 @@ func loadFromFile(filePath string, env string) []graphql.ProcessResult {
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
-	var secretsMap map[string]any
-	if strings.Contains(rawURL, "{{") {
-		secretsMap = graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
-		if secretsMap == nil {
-			return nil
-		}
-	} else {
-		secretsMap = map[string]any{}
+	secretsMap := graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
+	if secretsMap == nil {
+		return nil
 	}
 	return graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
 }
