@@ -31,7 +31,7 @@ func main() {
 	hasFileFlags := fp != "" || fileName != ""
 
 	if !hasFileFlags && !hasDirFlags {
-		fp = runInteractiveFlow(&env)
+		fp = runInteractiveFlow(&env, flags.EnvSet)
 		hasFileFlags = true
 	}
 
@@ -63,8 +63,8 @@ runInteractiveFlow prompts the user to select an environment and file
 when no file or directory flags are provided.
 It updates env in-place if the user picks one, and returns the selected file path.
 */
-func runInteractiveFlow(env *string) string {
-	if *env == utils.DefaultEnvVal {
+func runInteractiveFlow(env *string, envSet bool) string {
+	if !envSet {
 		selected, err := envselect.RunEnvSelector()
 		if err != nil {
 			utils.PanicRedAndExit("%v", err)

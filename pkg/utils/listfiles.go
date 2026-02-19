@@ -39,7 +39,15 @@ func WithRespectDotDirs(respect bool) ListFilesOption {
 // defaultOptions are the sane defaults list file will ignore
 func defaultOptions() listFilesOptions {
 	return listFilesOptions{
-		skipDirs:       []string{"node_modules", ".git", ".svn", ".hg", ".idea", ".vscode"},
+		skipDirs: []string{
+			"node_modules",
+			".git",
+			".svn",
+			".hg",
+			".idea",
+			".vscode",
+			".github",
+		},
 		respectDotDirs: true,
 	}
 }

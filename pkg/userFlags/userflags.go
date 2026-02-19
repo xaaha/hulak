@@ -9,6 +9,7 @@ import (
 // AllFlags  All user flags and subcommands
 type AllFlags struct {
 	Env      string
+	EnvSet   bool
 	FilePath string
 	File     string
 	Debug    bool
@@ -29,8 +30,16 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		}
 	}
 
+	envSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "env" {
+			envSet = true
+		}
+	})
+
 	return &AllFlags{
 		Env:      Env(),
+		EnvSet:   envSet,
 		FilePath: FilePath(),
 		File:     File(),
 		Debug:    Debug(),
