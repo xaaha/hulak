@@ -613,14 +613,23 @@ func TestBadgeColorMapping(t *testing.T) {
 
 func TestCollectEndpoints(t *testing.T) {
 	t.Run("single endpoint", func(t *testing.T) {
-		eps := collectEndpoints(sampleOps())
+		// collectEndpoints expects EndpointShort to be pre-populated (done by NewModel).
+		ops := []UnifiedOperation{
+			{Name: "a", EndpointShort: "api"},
+			{Name: "b", EndpointShort: "api"},
+		}
+		eps := collectEndpoints(ops)
 		if len(eps) != 1 {
 			t.Errorf("expected 1 endpoint, got %d", len(eps))
 		}
 	})
 
 	t.Run("multiple endpoints sorted", func(t *testing.T) {
-		eps := collectEndpoints(multiEndpointOps())
+		ops := []UnifiedOperation{
+			{Name: "a", EndpointShort: "beta.example.com"},
+			{Name: "b", EndpointShort: "alpha.example.com"},
+		}
+		eps := collectEndpoints(ops)
 		if len(eps) != 2 {
 			t.Fatalf("expected 2 endpoints, got %d", len(eps))
 		}

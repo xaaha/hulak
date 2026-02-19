@@ -44,18 +44,13 @@ var BoxStyle = lipgloss.NewStyle().
 	BorderForeground(ColorMuted).
 	Padding(1, 1)
 
-// Two-column layout: left panel holds the operation list and filters,
-// right panel (future) holds detail views. All width-dependent UI
-// (search input, badges, text wrapping) should use LeftPanelWidth()
+// Two-column layout split ratio. All width-dependent UI
+// (search input, badges, text wrapping) should derive from these
 // so the split ratio is defined in one place.
 const (
 	LeftPanelPct  = 40
 	RightPanelPct = 60
 )
-
-func LeftPanelWidth(terminalWidth int) int {
-	return terminalWidth * LeftPanelPct / 100
-}
 
 // RenderBadge creates a colored badge with the given foreground color.
 func RenderBadge(text string, color lipgloss.AdaptiveColor) string {

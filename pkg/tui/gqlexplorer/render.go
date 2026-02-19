@@ -12,15 +12,16 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func buildPrefixes() (string, string, string) {
-	itemPrefix := strings.Repeat(tui.KeySpace, itemPadding)
-	selectedPrefix := strings.Repeat(
+var (
+	itemPrefix     = strings.Repeat(tui.KeySpace, itemPadding)
+	selectedPrefix = strings.Repeat(
 		tui.KeySpace,
 		itemPadding-len(utils.ChevronRight),
 	) + utils.ChevronRight
-	detailPrefix := strings.Repeat(tui.KeySpace, detailPadding)
-	return itemPrefix, selectedPrefix, detailPrefix
-}
+	detailPrefix = strings.Repeat(tui.KeySpace, detailPadding)
+	toggleOff    = strings.Repeat(tui.KeySpace, 2)
+	toggleOn     = checkMark + tui.KeySpace
+)
 
 func appendWrappedHelpLines(lines []string, text string, width int, prefix string) []string {
 	if text == "" {
@@ -34,8 +35,6 @@ func appendWrappedHelpLines(lines []string, text string, width int, prefix strin
 }
 
 func (m Model) renderList() (string, int) {
-	itemPrefix, selectedPrefix, detailPrefix := buildPrefixes()
-
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
 			strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + noMatchesLabel,
@@ -58,6 +57,7 @@ func (m Model) renderList() (string, int) {
 			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
 			wrapW := m.leftPanelWidth() - detailPadding
 			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
+			// Full URL shown intentionally; badges/filters use shortened form.
 			lines = appendWrappedHelpLines(lines, op.Endpoint, wrapW, detailPrefix)
 		} else {
 			lines = append(lines, itemPrefix+op.Name)
@@ -67,8 +67,6 @@ func (m Model) renderList() (string, int) {
 }
 
 func (m Model) renderEndpointPicker() (string, int) {
-	itemPrefix, selectedPrefix, _ := buildPrefixes()
-
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
 	}
@@ -81,9 +79,9 @@ func (m Model) renderEndpointPicker() (string, int) {
 			prefix = selectedPrefix
 			cursorLine = len(lines)
 		}
-		toggle := strings.Repeat(tui.KeySpace, 2)
+		toggle := toggleOff
 		if m.pendingEndpoints[ep] {
-			toggle = checkMark + tui.KeySpace
+			toggle = toggleOn
 		}
 		style := lipgloss.NewStyle()
 		if i == m.endpointCursor {
@@ -230,7 +228,7 @@ func appendInputTypeFields(
 }
 
 func (m Model) renderLeftContent() string {
-	badges := m.renderBadges()
+	badges := m.badgeCache
 	search := tui.BorderStyle.
 		Padding(0, 1).
 		Width(m.leftPanelWidth() - 2).

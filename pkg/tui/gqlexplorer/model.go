@@ -64,7 +64,7 @@ type Model struct {
 
 	detailVP   viewport.Model
 	inputTypes map[string]graphql.InputType
-	enumTypes  map[string]graphql.EnumType
+	enumTypes  map[string]graphql.EnumType // TODO: wire into detail panel for enum expansion
 
 	endpoints        []string
 	activeEndpoints  map[string]bool
@@ -73,6 +73,8 @@ type Model struct {
 	pendingEndpoints map[string]bool
 	detailCacheKey   string
 	detailCacheValue string
+	badgeCache       string
+	dividerCache     string
 }
 
 func NewModel(
@@ -120,6 +122,18 @@ func (m Model) rightPanelWidth() int {
 	return max(m.width-6-m.leftPanelWidth()-dividerWidth, 0)
 }
 
+func (m Model) detailHeight() int {
+	return max(m.height-4, 1)
+}
+
+func (m *Model) updateBadgeCache() {
+	m.badgeCache = m.renderBadges()
+}
+
+func (m *Model) updateDividerCache() {
+	m.dividerCache = renderDivider(m.detailHeight())
+}
+
 func (m Model) viewportHeight() int {
 	headerLines := searchBoxLines
 	if len(m.activeEndpoints) > 0 {
@@ -144,7 +158,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
 		rightW := m.rightPanelWidth()
-		detailH := max(m.height-4, 1)
+		detailH := m.detailHeight()
 		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(panelW, listHeight)
@@ -157,7 +171,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.detailVP.Width = rightW
 			m.detailVP.Height = detailH
 		}
-		// sync viewport and cursor
+		m.updateBadgeCache()
+		m.updateDividerCache()
 		m.syncViewport()
 		return m, nil
 	case tea.KeyMsg:
@@ -240,6 +255,8 @@ func (m *Model) syncViewport() {
 
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := m.filtered[m.cursor]
+		// inputTypes is immutable for the program lifetime, so it's safe
+		// to omit from the cache key.
 		detailKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
 		if detailKey != m.detailCacheKey {
 			m.detailCacheValue = renderDetail(op, m.inputTypes)
@@ -259,7 +276,7 @@ func (m Model) View() string {
 		Width(m.leftPanelWidth()).
 		Render(m.renderLeftContent())
 
-	divider := renderDivider(max(m.height-4, 1))
+	divider := m.dividerCache
 
 	rightCol := lipgloss.NewStyle().
 		Width(m.rightPanelWidth()).
