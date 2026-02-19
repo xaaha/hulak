@@ -1,6 +1,10 @@
 package gqlexplorer
 
-import "github.com/xaaha/hulak/pkg/features/graphql"
+import (
+	"strings"
+
+	"github.com/xaaha/hulak/pkg/features/graphql"
+)
 
 // OperationType identifies whether an operation is a query, mutation, or subscription.
 type OperationType string
@@ -12,11 +16,29 @@ const (
 )
 
 // UnifiedOperation pairs a named operation with its type and source endpoint.
+// Arguments and ReturnType come from the introspection schema so the detail
+// panel can display the full operation signature without a second lookup.
 type UnifiedOperation struct {
-	Name        string
-	Description string
-	Type        OperationType
-	Endpoint    string
+	Name          string
+	NameLower     string
+	Description   string
+	Type          OperationType
+	Endpoint      string
+	EndpointShort string
+	Arguments     []graphql.Argument
+	ReturnType    string
+}
+
+func ScopedTypeKey(endpoint string, typeName string) string {
+	return endpoint + "\x1f" + typeName
+}
+
+func ExtractBaseType(t string) string {
+	t = strings.TrimSuffix(t, "!")
+	t = strings.TrimPrefix(t, "[")
+	t = strings.TrimSuffix(t, "]")
+	t = strings.TrimSuffix(t, "!")
+	return t
 }
 
 func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperation {
@@ -31,8 +53,9 @@ func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperatio
 	} {
 		for _, op := range pair.ops {
 			ops = append(ops, UnifiedOperation{
-				Name: op.Name, Description: op.Description,
-				Type: pair.kind, Endpoint: endpoint,
+				Name: op.Name, NameLower: strings.ToLower(op.Name), Description: op.Description,
+				Type: pair.kind, Endpoint: endpoint, EndpointShort: shortenEndpoint(endpoint),
+				Arguments: op.Arguments, ReturnType: op.ReturnType,
 			})
 		}
 	}

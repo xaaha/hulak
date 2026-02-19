@@ -20,9 +20,10 @@ func collectEndpoints(operations []UnifiedOperation) []string {
 	seen := make(map[string]bool)
 	var endpoints []string
 	for _, op := range operations {
-		if op.Endpoint != "" && !seen[op.Endpoint] {
-			seen[op.Endpoint] = true
-			endpoints = append(endpoints, op.Endpoint)
+		ep := op.EndpointShort // populated by NewModel before this is called
+		if ep != "" && !seen[ep] {
+			seen[ep] = true
+			endpoints = append(endpoints, ep)
 		}
 	}
 	sort.Strings(endpoints)
@@ -87,10 +88,10 @@ func (m *Model) applyFilter() {
 		if typeFilter != "" && op.Type != typeFilter {
 			continue
 		}
-		if hasEndpointFilter && !m.activeEndpoints[op.Endpoint] {
+		if hasEndpointFilter && !m.activeEndpoints[op.EndpointShort] {
 			continue
 		}
-		if searchTerm == "" || strings.Contains(strings.ToLower(op.Name), searchTerm) {
+		if searchTerm == "" || strings.Contains(op.NameLower, searchTerm) {
 			m.filtered = append(m.filtered, op)
 		}
 	}
@@ -147,6 +148,7 @@ func (m Model) handleEndpointPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.pickingEndpoints = false
 		m.pendingEndpoints = nil
 		m.stripEndpointPrefix()
+		m.updateBadgeCache()
 		m.applyFilter()
 		m.viewport.GotoTop()
 		m.syncViewport()

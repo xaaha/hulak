@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
@@ -55,6 +57,11 @@ func init() {
 
 // HandleSubcommands loops through all the subcommands
 func HandleSubcommands() error {
+	if len(os.Args) < 2 {
+		utils.PrintHelp()
+		os.Exit(0)
+	}
+
 	switch os.Args[1] {
 	case Version:
 		getVersion()
@@ -91,11 +98,11 @@ func HandleSubcommands() error {
 			utils.PrintGQLUsage()
 			os.Exit(0)
 		}
-		operations := loadGraphQLOperations(args[0], *gqlEnv)
+		operations, inputTypes, enumTypes := loadGraphQLOperations(args[0], *gqlEnv)
 		if operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorer(operations); err != nil {
+		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -109,7 +116,11 @@ func HandleSubcommands() error {
 }
 
 // handles single file mode and directory mode along with unifying the operation
-func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperation {
+func loadGraphQLOperations(arg string, env string) (
+	[]gqlexplorer.UnifiedOperation,
+	map[string]graphql.InputType,
+	map[string]graphql.EnumType,
+) {
 	resolved := resolveGQLPath(arg)
 	var results []graphql.ProcessResult
 
@@ -124,38 +135,97 @@ func loadGraphQLOperations(arg string, env string) []gqlexplorer.UnifiedOperatio
 		results = loadFromFile(resolved, env)
 	}
 
+	type schemaResult struct {
+		ops        []gqlexplorer.UnifiedOperation
+		inputTypes map[string]graphql.InputType
+		enumTypes  map[string]graphql.EnumType
+	}
+
 	// load spinner while waiting
 	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
-		var ops []gqlexplorer.UnifiedOperation
+		type fetchResult struct {
+			url    string
+			schema graphql.Schema
+			err    error
+		}
+
+		sr := schemaResult{
+			inputTypes: make(map[string]graphql.InputType),
+			enumTypes:  make(map[string]graphql.EnumType),
+		}
 		var errors []string
+		endpointResults := make(map[string]graphql.ProcessResult)
 		for _, result := range results {
 			if result.Error != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, result.Error))
 				continue
 			}
-			schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
-			if schemaErr != nil {
-				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, schemaErr))
-				continue
-			}
-			ops = append(ops, gqlexplorer.CollectOperations(schema, result.ApiInfo.Url)...)
+			endpointResults[result.ApiInfo.Url] = result
 		}
-		if len(ops) == 0 && len(errors) > 0 {
+
+		if len(endpointResults) > 0 {
+			jobs := make(chan graphql.ProcessResult, len(endpointResults))
+			fetched := make(chan fetchResult, len(endpointResults))
+			endpointResultsLen := len(endpointResults)
+			workerCount := utils.GetWorkers(&endpointResultsLen)
+
+			var wg sync.WaitGroup
+			for range workerCount {
+				wg.Go(func() {
+					for result := range jobs {
+						schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
+						fetched <- fetchResult{url: result.ApiInfo.Url, schema: schema, err: schemaErr}
+					}
+				})
+			}
+
+			for _, result := range endpointResults {
+				jobs <- result
+			}
+			close(jobs)
+			wg.Wait()
+			close(fetched)
+
+			merged := make([]fetchResult, 0, len(endpointResults))
+			for result := range fetched {
+				merged = append(merged, result)
+			}
+
+			sort.Slice(merged, func(i, j int) bool {
+				return merged[i].url < merged[j].url
+			})
+
+			for _, result := range merged {
+				if result.err != nil {
+					errors = append(errors, fmt.Sprintf("%s: %v", result.url, result.err))
+					continue
+				}
+				sr.ops = append(sr.ops, gqlexplorer.CollectOperations(result.schema, result.url)...)
+				for k, v := range result.schema.InputTypes {
+					sr.inputTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
+				for k, v := range result.schema.EnumTypes {
+					sr.enumTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
+			}
+		}
+
+		if len(sr.ops) == 0 && len(errors) > 0 {
 			return nil, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(errors, "\n  "))
 		}
 		for _, e := range errors {
 			utils.PrintWarning("schema fetch warning: " + e)
 		}
-		return ops, nil
+		return sr, nil
 	})
 	if err != nil {
 		utils.PanicRedAndExit("Schema fetch error: %v", err)
 	}
-	operations, ok := raw.([]gqlexplorer.UnifiedOperation)
+	sr, ok := raw.(schemaResult)
 	if !ok && raw != nil {
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
-	return operations
+	return sr.ops, sr.inputTypes, sr.enumTypes
 }
 
 func resolveGQLPath(arg string) string {
