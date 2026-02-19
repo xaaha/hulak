@@ -4,6 +4,7 @@ NAME
        hulak - File Based API client for terminal nerds 
 
 SYNOPSIS
+       hulak
        hulak [OPTIONS] -f <file>
        hulak [OPTIONS] -fp <file_path>
        hulak [OPTIONS] -dir <directory_path>
@@ -12,6 +13,8 @@ SYNOPSIS
 
 DESCRIPTION
        Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
+
+       When run without flags, hulak enters interactive mode: it prompts for an environment and then a file to run. If only -env is provided without a file, hulak prompts for the file interactively.
 
 OPTIONS
        -env <environment>
@@ -79,6 +82,14 @@ SCHEMA
             https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json 
 
 EXAMPLES
+       Interactive mode:
+
+              # Select environment and file interactively
+              hulak
+
+              # Select file interactively with a specific environment
+              hulak -env staging
+
        Basic API call:
 
               # test.yaml
