@@ -43,6 +43,7 @@ var (
 	InputStyle = BorderStyle.Padding(0, 1)
 )
 
+// BoxStyle for full-screen content containers with rounded border and padding.
 var BoxStyle = lipgloss.NewStyle().
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(ColorMuted).
