@@ -3,6 +3,7 @@ package apicaller
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -17,8 +18,24 @@ const (
 
 type helperPane struct {
 	tui.FilterableList
-	title  string
-	prompt string
+	title       string
+	prompt      string
+	vp          viewport.Model
+	vpReady     bool
+	vpAllocated int
+}
+
+func (p *helperPane) syncViewport() {
+	if !p.vpReady {
+		return
+	}
+	content, cursorLine := p.RenderItems()
+	contentLines := 0
+	if content != "" {
+		contentLines = strings.Count(content, "\n") + 1
+	}
+	p.vp.Height = min(p.vpAllocated, max(contentLines, 1))
+	tui.SyncViewport(&p.vp, content, cursorLine, tui.DefaultScrollMargin)
 }
 
 type SingleFileSelection struct {
@@ -65,8 +82,17 @@ func (p helperPane) renderList(isLocked bool, lockedValue string) string {
 	if isLocked {
 		return tui.SubtitleStyle.Render(utils.ChevronRight + tui.KeySpace + lockedValue)
 	}
-	return p.RenderItems()
+	if p.vpReady {
+		return p.vp.View()
+	}
+	content, _ := p.RenderItems()
+	return content
 }
+
+const (
+	paneOverhead  = 5 // title (1) + bordered input (3) + newline separator (1)
+	frameOverhead = 5 // leading \n (1) + section gap (1) + pre-help gap (1) + help line (1) + trailing \n (1)
+)
 
 type filePathModel struct {
 	envPane      helperPane
@@ -76,6 +102,41 @@ type filePathModel struct {
 	envLocked    bool
 	selectedEnv  string
 	selectedFile string
+	width        int
+	height       int
+}
+
+func (m *filePathModel) resizeViewports() {
+	overhead := frameOverhead + 2*paneOverhead
+	if m.envLocked {
+		overhead++
+	}
+	available := max(m.height-overhead, 4)
+
+	var envH, fileH int
+	if m.envLocked {
+		envH = 1
+		fileH = max(available-1, 1)
+	} else {
+		envH = max(available/3, 1)
+		fileH = max(available-envH, 1)
+	}
+
+	initOrResizeVP(&m.envPane, m.width, envH)
+	initOrResizeVP(&m.filePane, m.width, fileH)
+	m.envPane.syncViewport()
+	m.filePane.syncViewport()
+}
+
+func initOrResizeVP(p *helperPane, w, h int) {
+	p.vpAllocated = h
+	if !p.vpReady {
+		p.vp = viewport.New(w, h)
+		p.vpReady = true
+	} else {
+		p.vp.Width = w
+		p.vp.Height = h
+	}
 }
 
 func newFilePathModel(
@@ -115,11 +176,19 @@ func (m filePathModel) Init() tea.Cmd {
 }
 
 func (m filePathModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resizeViewports()
+		return m, nil
+	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
 
-	return m, m.focusedPane().UpdateInput(msg)
+	cmd := m.focusedPane().UpdateInput(msg)
+	m.focusedPane().syncViewport()
+	return m, cmd
 }
 
 func (m *filePathModel) focusedPane() *helperPane {
@@ -169,18 +238,24 @@ func (m filePathModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyUp, tui.KeyCtrlP:
 		p := m.focusedPane()
 		p.Cursor = tui.MoveCursorUp(p.Cursor)
+		p.syncViewport()
 		return m, nil
 	case tui.KeyDown, tui.KeyCtrlN:
 		p := m.focusedPane()
 		p.Cursor = tui.MoveCursorDown(p.Cursor, len(p.Filtered)-1)
+		p.syncViewport()
 		return m, nil
 	}
 
 	if m.focus == focusEnv && !m.envLocked {
-		return m, m.envPane.UpdateInput(msg)
+		cmd := m.envPane.UpdateInput(msg)
+		m.envPane.syncViewport()
+		return m, cmd
 	}
 
-	return m, m.filePane.UpdateInput(msg)
+	cmd := m.filePane.UpdateInput(msg)
+	m.filePane.syncViewport()
+	return m, cmd
 }
 
 func (m filePathModel) handleCancel() (tea.Model, tea.Cmd) {
@@ -189,6 +264,7 @@ func (m filePathModel) handleCancel() (tea.Model, tea.Cmd) {
 	if m.focus == focusEnv {
 		if p.HasFilterValue() && !m.envLocked {
 			p.ClearFilter()
+			p.syncViewport()
 			return m, nil
 		}
 		m.cancelled = true
@@ -197,6 +273,7 @@ func (m filePathModel) handleCancel() (tea.Model, tea.Cmd) {
 
 	if p.HasFilterValue() {
 		p.ClearFilter()
+		p.syncViewport()
 		return m, nil
 	}
 
