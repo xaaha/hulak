@@ -357,9 +357,8 @@ func (m singleFileHelperModel) View() string {
 	helpLine := HelpStyle.Render(
 		"enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
 	)
-	title := TitleStyle.Render("Hulak")
 
-	parts := []string{title}
+	parts := []string{}
 	if lockedNote != "" {
 		parts = append(parts, lockedNote)
 	}
