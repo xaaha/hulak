@@ -117,6 +117,9 @@ func TestSingleFileHelperViewContainsSections(t *testing.T) {
 	m := newSingleFileHelperModel([]string{"dev"}, []string{"a.yaml"}, "", false)
 	view := m.View()
 
+	if !strings.Contains(view, "Hulak") {
+		t.Fatal("expected header title")
+	}
 	if !strings.Contains(view, "Environment") {
 		t.Fatal("expected environment section title")
 	}

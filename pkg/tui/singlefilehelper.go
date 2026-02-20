@@ -354,15 +354,18 @@ func (m singleFileHelperModel) View() string {
 		)
 	}
 
-	helpLine := HelpStyle.Render("enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate")
+	helpLine := HelpStyle.Render(
+		"enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
+	)
+	title := TitleStyle.Render("Hulak")
 
-	parts := []string{}
+	parts := []string{title}
 	if lockedNote != "" {
 		parts = append(parts, lockedNote)
 	}
 	parts = append(parts, envSection, "", fileSection, "", helpLine)
 
-	return "\n" + BoxStyle.Render(strings.Join(parts, "\n")) + "\n"
+	return "\n" + strings.Join(parts, "\n") + "\n"
 }
 
 // RunSingleFileHelper runs the combined interactive selector and returns selections.
