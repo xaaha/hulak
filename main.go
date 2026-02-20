@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
-	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/tui/apicaller"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/tui/fileselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
@@ -90,7 +90,7 @@ func runInteractiveFlow(env *string, envSet bool) string {
 		utils.PanicRedAndExit("%v", fileselect.NoFilesError())
 	}
 
-	selection, err := tui.RunSingleFileHelper(envItems, fileItems, *env, envSet)
+	selection, err := apicaller.RunFilePath(envItems, fileItems, *env, envSet)
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
