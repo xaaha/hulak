@@ -10,12 +10,13 @@ import (
 // SelectorModel is a generic filterable list selector.
 // Provide items and a prompt, get back the user's selection.
 type SelectorModel struct {
-	items     []string
-	filtered  []string
-	cursor    int
-	textInput TextInput
-	Selected  string
-	Cancelled bool
+	items      []string
+	lowerItems []string
+	filtered   []string
+	cursor     int
+	textInput  TextInput
+	Selected   string
+	Cancelled  bool
 }
 
 // NewSelector creates a SelectorModel with the given items and prompt.
@@ -24,9 +25,16 @@ func NewSelector(items []string, prompt string) SelectorModel {
 	if len(items) > 0 {
 		placeholder = items[0]
 	}
+
+	lowerItems := make([]string, len(items))
+	for i, item := range items {
+		lowerItems[i] = strings.ToLower(item)
+	}
+
 	return SelectorModel{
-		items:    items,
-		filtered: items,
+		items:      items,
+		lowerItems: lowerItems,
+		filtered:   items,
 		textInput: NewFilterInput(TextInputOpts{
 			Prompt:      prompt,
 			Placeholder: placeholder,
@@ -68,9 +76,10 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case KeyEnter:
-		if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-			m.Selected = m.filtered[m.cursor]
+		if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+			return m, nil
 		}
+		m.Selected = m.filtered[m.cursor]
 		return m, tea.Quit
 
 	case KeyUp, KeyCtrlP:
@@ -98,11 +107,11 @@ func (m *SelectorModel) applyFilter() {
 	if userInput == "" {
 		m.filtered = m.items
 	} else {
-		m.filtered = nil
+		m.filtered = make([]string, 0, len(m.items))
 		lower := strings.ToLower(userInput)
-		for _, item := range m.items {
-			if strings.Contains(strings.ToLower(item), lower) {
-				m.filtered = append(m.filtered, item)
+		for i, lowerItem := range m.lowerItems {
+			if strings.Contains(lowerItem, lower) {
+				m.filtered = append(m.filtered, m.items[i])
 			}
 		}
 	}
@@ -123,12 +132,13 @@ func (m SelectorModel) renderList() string {
 		return HelpStyle.Render("   (no matches)")
 	}
 
-	var lines []string
+	lines := make([]string, 0, len(m.filtered))
+	padding := strings.Repeat(KeySpace, 3)
 	for i, item := range m.filtered {
 		if i == m.cursor {
 			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+item))
 		} else {
-			lines = append(lines, strings.Repeat(KeySpace, 3)+item)
+			lines = append(lines, padding+item)
 		}
 	}
 	return strings.Join(lines, "\n")

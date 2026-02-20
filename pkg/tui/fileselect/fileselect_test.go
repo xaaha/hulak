@@ -41,7 +41,10 @@ func TestFileItemsWithFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"collection/get_users.yaml", "collection/post_data.yml"})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(items))
@@ -62,7 +65,10 @@ func TestFileItemsWithNoFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items, got %d", len(items))
@@ -73,7 +79,10 @@ func TestFileItemsFiltersResponseFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "api_response.json"})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -87,7 +96,10 @@ func TestFileItemsFiltersJsonFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "data.json"})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -101,7 +113,10 @@ func TestFileItemsFiltersEnvDir(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "env/global.env"})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -115,7 +130,10 @@ func TestFileItemsShowsRelativePaths(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"collection/get_users.yaml"})
 	defer cleanup()
 
-	items := fileItems()
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -126,6 +144,27 @@ func TestFileItemsShowsRelativePaths(t *testing.T) {
 	}
 	if items[0] != filepath.Join("collection", "get_users.yaml") {
 		t.Errorf("expected 'collection/get_users.yaml', got '%s'", items[0])
+	}
+}
+
+func TestFileItemsKeepsYamlWithResponseInName(t *testing.T) {
+	cleanup := setupTestDir(t, []string{"create_response.yaml", "plain.yaml"})
+	defer cleanup()
+
+	items, err := fileItems()
+	if err != nil {
+		t.Fatalf("fileItems returned error: %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+
+	expected := map[string]bool{"create_response.yaml": true, "plain.yaml": true}
+	for _, item := range items {
+		if !expected[item] {
+			t.Errorf("unexpected item: %s", item)
+		}
 	}
 }
 

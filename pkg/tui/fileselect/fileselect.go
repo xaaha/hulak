@@ -1,6 +1,7 @@
 package fileselect
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,40 +20,51 @@ Possible solutions:
 	return utils.ColorError(errMsg)
 }
 
-func fileItems() []string {
+func fileItems() ([]string, error) {
 	var items []string
 
 	files, err := utils.ListFiles(".")
 	if err != nil {
-		return nil
+		if errors.Is(err, utils.ErrNoFiles) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	envPrefix := utils.EnvironmentFolder + string(filepath.Separator)
+	items = make([]string, 0, len(files))
+
 	for _, file := range files {
 		relPath, err := filepath.Rel(cwd, file)
 		if err != nil {
 			continue
 		}
 
-		lower := strings.ToLower(relPath)
+		lower := strings.ToLower(filepath.Ext(relPath))
 		if !strings.HasSuffix(lower, utils.YAML) && !strings.HasSuffix(lower, utils.YML) {
 			continue
 		}
 
-		if strings.Contains(relPath, utils.ResponseBase) {
-			continue
-		}
-
-		if strings.HasPrefix(relPath, utils.EnvironmentFolder+string(filepath.Separator)) {
+		if strings.HasPrefix(relPath, envPrefix) {
 			continue
 		}
 
 		items = append(items, relPath)
 	}
-	return items
+	return items, nil
 }
 
 // RunFileSelector runs the file selector and returns the selected file path.
 func RunFileSelector() (string, error) {
-	return tui.RunSelector(fileItems(), "Select File: ", formatNoFilesError())
+	items, err := fileItems()
+	if err != nil {
+		return "", err
+	}
+
+	return tui.RunSelector(items, "Select File: ", formatNoFilesError())
 }

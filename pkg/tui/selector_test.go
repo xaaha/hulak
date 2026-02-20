@@ -136,8 +136,8 @@ func TestSelectorSelectWithNoMatches(t *testing.T) {
 	if model.Selected != "" {
 		t.Errorf("expected empty Selected, got '%s'", model.Selected)
 	}
-	if cmd == nil {
-		t.Error("expected quit command")
+	if cmd != nil {
+		t.Error("expected no quit command when there are no matches")
 	}
 }
 
