@@ -37,6 +37,13 @@ var (
 	BorderStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorMuted)
+
+	// FocusedInputStyle for the actively focused input field
+	FocusedInputStyle = BorderStyle.Padding(0, 1).
+				BorderForeground(ColorPrimary)
+
+	// InputStyle for unfocused/locked input fields
+	InputStyle = BorderStyle.Padding(0, 1)
 )
 
 var BoxStyle = lipgloss.NewStyle().
