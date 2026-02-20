@@ -148,7 +148,7 @@ func (m singleFileHelperModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if !m.hasEnvSelection() {
+		if m.selectedEnv == "" {
 			m.setFocus(focusEnv)
 			return m, nil
 		}
@@ -227,10 +227,6 @@ func (m *singleFileHelperModel) setFocus(f helperFocus) {
 	}
 	m.envPane.textInput.Model.Blur()
 	m.filePane.textInput.Model.Focus()
-}
-
-func (m singleFileHelperModel) hasEnvSelection() bool {
-	return m.selectedEnv != ""
 }
 
 func (m singleFileHelperModel) View() string {
