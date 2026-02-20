@@ -19,7 +19,6 @@ const (
 type helperPane struct {
 	tui.FilterableList
 	title       string
-	prompt      string
 	vp          viewport.Model
 	vpReady     bool
 	vpAllocated int
@@ -57,21 +56,22 @@ func newHelperPane(
 	return helperPane{
 		FilterableList: tui.NewFilterableList(items, prompt, placeholder, requireInput),
 		title:          title,
-		prompt:         prompt,
 	}
 }
 
 func (p helperPane) renderSection(isFocused bool, isLocked bool, lockedValue string) string {
-	title := tui.MutedTitleStyle.Render(p.title)
-	inputLine := p.TextInput.ViewTitle()
-	if isFocused {
+	var title, inputLine string
+
+	switch {
+	case isLocked:
+		title = tui.MutedTitleStyle.Render(p.title)
+		inputLine = tui.InputStyle.Render(p.TextInput.Model.Prompt + lockedValue)
+	case isFocused:
 		title = tui.TitleStyle.Render(p.title)
-	}
-	if isFocused {
 		inputLine = tui.FocusedInputStyle.Render(p.TextInput.Model.View())
-	}
-	if isLocked {
-		inputLine = tui.InputStyle.Render(p.prompt + lockedValue)
+	default:
+		title = tui.MutedTitleStyle.Render(p.title)
+		inputLine = p.TextInput.ViewTitle()
 	}
 
 	list := p.renderList(isLocked, lockedValue)
