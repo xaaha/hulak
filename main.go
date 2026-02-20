@@ -32,6 +32,12 @@ func main() {
 	hasFileFlags := fp != "" || fileName != ""
 
 	if !hasFileFlags && !hasDirFlags {
+		if !isInteractiveTerminal() {
+			utils.PanicRedAndExit(
+				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
+			)
+		}
+
 		if !flags.EnvSet {
 			if err = envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PanicRedAndExit("%v", err)
@@ -89,4 +95,21 @@ func runInteractiveFlow(env *string, envSet bool) string {
 		os.Exit(0)
 	}
 	return selected
+}
+
+func isInteractiveTerminal() bool {
+	stdinInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+
+	stdoutInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
+	stdinTTY := (stdinInfo.Mode() & os.ModeCharDevice) != 0
+	stdoutTTY := (stdoutInfo.Mode() & os.ModeCharDevice) != 0
+
+	return stdinTTY && stdoutTTY
 }
