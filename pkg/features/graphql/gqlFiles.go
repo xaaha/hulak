@@ -70,13 +70,22 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 // contains "{{." which indicates an env variable reference.
 func mapHasEnvVars(data map[string]any) bool {
 	for _, val := range data {
-		switch v := val.(type) {
-		case string:
-			if strings.Contains(v, "{{.") {
-				return true
-			}
-		case map[string]any:
-			if mapHasEnvVars(v) {
+		if hasEnvVar(val) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasEnvVar(val any) bool {
+	switch v := val.(type) {
+	case string:
+		return strings.Contains(v, "{{.")
+	case map[string]any:
+		return mapHasEnvVars(v)
+	case []any:
+		for _, item := range v {
+			if hasEnvVar(item) {
 				return true
 			}
 		}

@@ -243,6 +243,16 @@ func TestPeekFileInfo_NeedsEnv(t *testing.T) {
 			content:  "---\nkind: GraphQL\nurl: \"http://example.com\"\nbody:\n  graphql:\n    query: \"query { user(id: \\\"{{.userId}}\\\") { name } }\"\n",
 			needsEnv: true,
 		},
+		{
+			name:     "template_in_array",
+			content:  "---\nkind: GraphQL\nurl: \"http://example.com\"\nbody:\n  graphql:\n    variables:\n      tags:\n        - \"{{.tag1}}\"\n        - \"plain\"\n",
+			needsEnv: true,
+		},
+		{
+			name:     "no_template_in_array",
+			content:  "---\nkind: GraphQL\nurl: \"http://example.com\"\nbody:\n  graphql:\n    variables:\n      tags:\n        - \"plain1\"\n        - \"plain2\"\n",
+			needsEnv: false,
+		},
 	}
 
 	for _, tc := range testCases {
