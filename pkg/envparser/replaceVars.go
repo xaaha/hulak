@@ -43,19 +43,13 @@ func formatMissingKeyError(keyName string) error {
 		env = utils.DefaultEnvVal
 	}
 
-	errMsg := fmt.Sprintf(
-		`key "%s" not found in environment "%s"
-
-Possible solutions:
-  - Add "%s=<value>" to env/%s.env
-  - Use a different environment: hulak -env <environment-name>`,
+	return fmt.Errorf(
+		`key "%s" not found in environment "%s". Add "%s=<value>" to env/%s.env or use a different environment with -env flag`,
 		keyName,
 		env,
 		keyName,
 		env,
 	)
-
-	return fmt.Errorf("%s", errMsg)
 }
 
 func replaceVariables(
