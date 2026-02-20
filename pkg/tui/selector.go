@@ -4,8 +4,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// SelectorModel is a generic filterable list selector.
-// Provide items and a prompt, get back the user's selection.
+// SelectorModel is a complete Bubble Tea program built on FilterableList.
+// It adds key handling, selection, and cancellation to create a ready-to-run
+// "pick one item" TUI. Used by envselect.RunEnvSelector for single-list prompts.
 type SelectorModel struct {
 	FilterableList
 	Selected  string

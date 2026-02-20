@@ -7,6 +7,10 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// FilterableList is a headless data component that manages a string list with
+// text-based filtering, cursor tracking, and item rendering. It does not implement
+// tea.Model; embed it in a Bubble Tea model (like SelectorModel or apicaller.helperPane)
+// to build interactive selectors on top.
 type FilterableList struct {
 	items        []string
 	lowerItems   []string
