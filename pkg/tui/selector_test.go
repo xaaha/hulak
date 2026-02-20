@@ -289,14 +289,6 @@ func TestSelectorInitReturnsBlinkCmd(t *testing.T) {
 	}
 }
 
-func TestSelectorItems(t *testing.T) {
-	m := NewSelector([]string{"item1", "item2", "item3"}, "Test: ")
-
-	if m.Items() != 3 {
-		t.Errorf("expected Items() to return 3, got %d", m.Items())
-	}
-}
-
 func TestSelectorSingleItemList(t *testing.T) {
 	m := NewSelector([]string{"item1"}, "Test: ")
 

@@ -8,14 +8,8 @@ const (
 	// Navigation
 	KeyUp    = "up"
 	KeyDown  = "down"
-	KeyLeft  = "left"
-	KeyRight = "right"
-
-	// Emacs-style navigation
 	KeyCtrlP = "ctrl+p" // up
 	KeyCtrlN = "ctrl+n" // down
-	KeyCtrlF = "ctrl+f" // forward (right)
-	KeyCtrlB = "ctrl+b" // backward (left)
 
 	// Vim-style navigation (use only when text input is inactive)
 	KeyJ = "j"
@@ -27,19 +21,6 @@ const (
 	KeySpace  = " "
 	KeyQuit   = "ctrl+c" // Force quit - always works
 	KeyCancel = "esc"    // Cancel/back - context aware
-
-	// Text editing
-	KeyBackspace = "backspace"
-	KeyCtrlH     = "ctrl+h" // Alternative backspace
-	KeyCtrlW     = "ctrl+w" // Delete word
-	KeyCtrlU     = "ctrl+u" // Clear line
-	KeyCtrlA     = "ctrl+a" // Beginning of line
-	KeyCtrlE     = "ctrl+e" // End of line
-	KeyCtrlK     = "ctrl+k" // Kill to end of line
-
-	// Search/filter
-	KeySlash = "/" // Start filter/search
-	KeyHelp  = "?" // Show help
 
 	// Rendering
 	listPadding = "   " // 3-space indent for non-selected list items

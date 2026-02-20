@@ -24,10 +24,6 @@ func NewSelector(items []string, prompt string) SelectorModel {
 	}
 }
 
-func (m SelectorModel) Items() int {
-	return len(m.items)
-}
-
 func (m SelectorModel) Init() tea.Cmd {
 	return m.TextInput.Init()
 }

@@ -8,11 +8,7 @@ import "github.com/charmbracelet/lipgloss"
 var (
 	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
 	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
-	ColorSuccess   = lipgloss.AdaptiveColor{Light: "22", Dark: "78"}   // Green
-	ColorWarning   = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Orange
-	ColorError     = lipgloss.AdaptiveColor{Light: "124", Dark: "196"} // Red
 	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
-	ColorHighlight = lipgloss.AdaptiveColor{Light: "125", Dark: "212"} // Pink
 )
 
 var (
@@ -33,10 +29,6 @@ var (
 	// HelpStyle for help text at bottom
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted)
-
-	// ErrorStyle for error messages
-	ErrorStyle = lipgloss.NewStyle().
-			Foreground(ColorError)
 
 	// BorderStyle for boxes with borders
 	BorderStyle = lipgloss.NewStyle().
@@ -60,8 +52,7 @@ var BoxStyle = lipgloss.NewStyle().
 // (search input, badges, text wrapping) should derive from these
 // so the split ratio is defined in one place.
 const (
-	LeftPanelPct  = 40
-	RightPanelPct = 60
+	LeftPanelPct = 40
 )
 
 // RenderBadge creates a colored badge with the given foreground color.
