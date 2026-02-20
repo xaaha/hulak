@@ -8,48 +8,46 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Spinner wraps a spinner.Model with a message label.
-// Embed it in other Bubble Tea models for loading states.
-// Access the inner Model directly for custom spinner styles.
-type Spinner struct {
+// spinnerModel wraps a spinner.Model with a message label.
+type spinnerModel struct {
 	Model   spinner.Model
 	Message string
 }
 
-// NewSpinner creates a Spinner with the Dot style and primary color.
-func NewSpinner(message string) Spinner {
+// newSpinner creates a spinnerModel with the Dot style and primary color.
+func newSpinner(message string) spinnerModel {
 	s := spinner.New(
 		spinner.WithSpinner(spinner.Dot),
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(ColorPrimary)),
 	)
-	return Spinner{Model: s, Message: message}
+	return spinnerModel{Model: s, Message: message}
 }
 
 // Init returns the tick command to start the spinner animation.
-func (s Spinner) Init() tea.Cmd {
+func (s spinnerModel) Init() tea.Cmd {
 	return s.Model.Tick
 }
 
 // Update forwards messages to the inner spinner model.
-func (s Spinner) Update(msg tea.Msg) (Spinner, tea.Cmd) {
+func (s spinnerModel) Update(msg tea.Msg) (spinnerModel, tea.Cmd) {
 	var cmd tea.Cmd
 	s.Model, cmd = s.Model.Update(msg)
 	return s, cmd
 }
 
 // View renders the spinner animation followed by the message.
-func (s Spinner) View() string {
+func (s spinnerModel) View() string {
 	return fmt.Sprintf("%s %s", s.Model.View(), s.Message)
 }
 
-// TaskDoneMsg signals that a background task completed.
-type TaskDoneMsg struct {
+// taskDoneMsg signals that a background task completed.
+type taskDoneMsg struct {
 	Result any
 	Err    error
 }
 
 type spinnerTaskModel struct {
-	spinner Spinner
+	spinner spinnerModel
 	result  any
 	err     error
 	task    func() (any, error)
@@ -58,13 +56,13 @@ type spinnerTaskModel struct {
 func (m spinnerTaskModel) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Init(), func() tea.Msg {
 		result, err := m.task()
-		return TaskDoneMsg{Result: result, Err: err}
+		return taskDoneMsg{Result: result, Err: err}
 	})
 }
 
 func (m spinnerTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case TaskDoneMsg:
+	case taskDoneMsg:
 		m.result = msg.Result
 		m.err = msg.Err
 		return m, tea.Quit
@@ -86,7 +84,7 @@ func (m spinnerTaskModel) View() string {
 // RunWithSpinner displays a spinner while task executes in the background.
 func RunWithSpinner(message string, task func() (any, error)) (any, error) {
 	model := spinnerTaskModel{
-		spinner: NewSpinner(message),
+		spinner: newSpinner(message),
 		task:    task,
 	}
 	p := tea.NewProgram(model)
