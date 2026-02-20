@@ -21,6 +21,11 @@ var (
 			Bold(true).
 			Foreground(ColorPrimary)
 
+	// MutedTitleStyle for unfocused section titles
+	MutedTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorMuted)
+
 	// SubtitleStyle for secondary titles
 	SubtitleStyle = lipgloss.NewStyle().
 			Foreground(ColorSecondary)

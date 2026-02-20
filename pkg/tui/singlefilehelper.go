@@ -44,8 +44,11 @@ func newHelperPane(
 }
 
 func (p helperPane) renderSection(isFocused bool, isLocked bool, lockedValue string) string {
-	title := TitleStyle.Render(p.title)
+	title := MutedTitleStyle.Render(p.title)
 	inputLine := p.textInput.ViewTitle()
+	if isFocused {
+		title = TitleStyle.Render(p.title)
+	}
 	if isFocused {
 		inputLine = FocusedInputStyle.Render(p.textInput.Model.View())
 	}
