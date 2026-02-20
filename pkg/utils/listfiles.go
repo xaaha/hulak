@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"slices"
 	"strings"
 )
+
+var ErrNoFiles = errors.New("no matching files found")
 
 // --- Options ----
 
@@ -130,7 +133,7 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("no files [.yaml, .yml, or .json] in '%s'", abs)
+		return nil, fmt.Errorf("%w in '%s'", ErrNoFiles, abs)
 	}
 
 	return result, nil
