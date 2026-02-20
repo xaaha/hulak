@@ -67,23 +67,20 @@ func FetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
 	return schema, nil
 }
 
-// GetSecretsForEnv checks if any URL needs template resolution and loads secrets.
-// If env is provided, uses that environment directly.
-// If env is empty and templates are needed, shows the interactive selector.
-// Returns empty map if no templates needed, nil if user cancelled.
-func GetSecretsForEnv(urlToFileMap map[string]string, env string) map[string]any {
-	// If env is explicitly provided, always load it (user knows what they want)
+// GetSecretsForEnv loads secrets based on whether templates exist in the files.
+// If env is provided, uses that directly. If templates are detected (in URLs,
+// headers, or body), shows the interactive env selector. Otherwise returns
+// an empty map so processing can proceed without env resolution.
+func GetSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) map[string]any {
 	if env != "" {
 		return loadSecretsForEnv(env)
 	}
 
-	// No env provided - check if we need secrets at all
-	if !NeedsEnvResolution(urlToFileMap) {
-		return map[string]any{}
+	if NeedsEnvResolution(urlToFileMap) || needsEnv {
+		return loadSecretsForEnv("")
 	}
 
-	// Need secrets but no env provided - show interactive selector
-	return loadSecretsForEnv("")
+	return map[string]any{}
 }
 
 // loadSecretsForEnv loads secrets from the specified environment.

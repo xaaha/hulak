@@ -31,169 +31,130 @@ func NeedsEnvResolution(urlToFileMap map[string]string) bool {
 	return false
 }
 
-// peekKindField reads a YAML file and extracts only the 'kind' field
-// without performing template substitution. This prevents template
-// substitution errors from being displayed for non-GraphQL files.
-func peekKindField(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", fmt.Errorf("cannot open file: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-
-	var data map[string]any
-	dec := yaml.NewDecoder(file)
-	if err := dec.Decode(&data); err != nil {
-		return "", fmt.Errorf("cannot decode YAML: %w", err)
-	}
-
-	// Convert keys to lowercase (consistent with yamlparser)
-	data = utils.ConvertKeysToLowerCase(data)
-
-	// Extract kind field
-	kindValue, exists := data["kind"]
-	if !exists {
-		return "", nil // No error, just no kind field
-	}
-
-	// Return kind as string (lowercase for consistency)
-	if kind, ok := kindValue.(string); ok {
-		return strings.ToLower(kind), nil
-	}
-
-	return "", nil // Kind exists but not a string
+type fileInfo struct {
+	kind     string
+	url      string
+	needsEnv bool
 }
 
-// peekURLField reads a YAML file and extracts only the 'url' field
-// without performing template substitution. Returns the raw URL value
-// which could be a template string like "{{.baseUrl}}" or a full URL.
-func peekURLField(filePath string) (string, error) {
+// peekFileInfo decodes a YAML file once and extracts kind, url, and whether
+// any string value contains env variable references ({{.key}}).
+// No template substitution is performed.
+func peekFileInfo(filePath string) (fileInfo, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", fmt.Errorf("cannot open file: %w", err)
+		return fileInfo{}, fmt.Errorf("cannot open file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
 	var data map[string]any
 	dec := yaml.NewDecoder(file)
 	if err := dec.Decode(&data); err != nil {
-		return "", fmt.Errorf("cannot decode YAML: %w", err)
+		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", err)
 	}
 
-	// Convert keys to lowercase (consistent with yamlparser)
 	data = utils.ConvertKeysToLowerCase(data)
 
-	// Extract url field
-	urlValue, exists := data["url"]
-	if !exists {
-		return "", nil // No url field
+	var info fileInfo
+	if v, ok := data["kind"].(string); ok {
+		info.kind = strings.ToLower(v)
 	}
-
-	// Return URL as string (could be template or full URL)
-	if url, ok := urlValue.(string); ok {
-		return strings.TrimSpace(url), nil
+	if v, ok := data["url"].(string); ok {
+		info.url = strings.TrimSpace(v)
 	}
+	info.needsEnv = mapHasEnvVars(data)
+	return info, nil
+}
 
-	return "", nil // URL exists but not a string
+// mapHasEnvVars recursively checks if any string value in the map
+// contains "{{." which indicates an env variable reference.
+func mapHasEnvVars(data map[string]any) bool {
+	for _, val := range data {
+		switch v := val.(type) {
+		case string:
+			if strings.Contains(v, "{{.") {
+				return true
+			}
+		case map[string]any:
+			if mapHasEnvVars(v) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
 // in the given directory and its subdirectories.
-// Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths.
-// This ensures each unique URL/template is only represented once.
-// NOTE: This function does NOT perform template substitution - URLs are returned as-is.
-func FindGraphQLFiles(dirPath string) (map[string]string, error) {
-	// Get all YAML/JSON files recursively
+// Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths,
+// along with a bool indicating whether any file contains env variable references.
+func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 	allFiles, err := utils.ListFiles(dirPath)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	// Map of URL -> filePath to ensure uniqueness
 	graphqlFiles := make(map[string]string)
+	needsEnv := false
 
 	for _, filePath := range allFiles {
-		// Skip response files early (performance optimization)
 		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) ||
 			strings.Contains(filepath.Base(filePath), utils.ApiOptions) {
 			continue
 		}
 
-		// Lightweight peek at kind field - no template substitution
-		kind, err := peekKindField(filePath)
+		info, err := peekFileInfo(filePath)
 		if err != nil {
-			// Silently skip malformed files
 			continue
 		}
 
-		// Only process GraphQL files, and skip non Graphql files
-		if !strings.EqualFold(kind, string(yamlparser.KindGraphQL)) {
+		if !strings.EqualFold(info.kind, string(yamlparser.KindGraphQL)) {
+			continue
+		}
+		if info.url == "" {
 			continue
 		}
 
-		// Peek at URL field - no template substitution
-		url, err := peekURLField(filePath)
-		if err != nil {
-			// Silently skip files we can't read
-			continue
+		graphqlFiles[info.url] = filePath
+		if info.needsEnv {
+			needsEnv = true
 		}
-
-		// Skip files with empty URL (silently)
-		if url == "" {
-			continue
-		}
-
-		// Valid GraphQL file with non-empty URL (template or full URL)
-		// Store URL -> filePath mapping (later files with same URL will overwrite)
-		graphqlFiles[url] = filePath
 	}
 
 	if len(graphqlFiles) == 0 {
-		return nil, fmt.Errorf(
+		return nil, false, fmt.Errorf(
 			"no files with 'kind: GraphQL' and non-empty 'url' field found in directory: %s",
 			dirPath,
 		)
 	}
 
-	return graphqlFiles, nil
+	return graphqlFiles, needsEnv, nil
 }
 
 // ValidateGraphQLFile checks if a file exists, has kind: GraphQL, and has a non-empty url field.
-// Returns the raw URL (template or full URL) without performing template substitution.
-// This ensures consistent behavior with FindGraphQLFiles (Phase 1 - discovery only).
+// Returns the raw URL (template or full URL) and whether env variable references were found,
+// without performing template substitution.
 func ValidateGraphQLFile(filePath string) (string, bool, error) {
-	// Clean the path
 	filePath = filepath.Clean(filePath)
 
-	// Check if file exists
 	if !utils.FileExists(filePath) {
 		return "", false, fmt.Errorf("file not found: %s", filePath)
 	}
 
-	// Peek at kind (fast check, no template substitution)
-	kind, err := peekKindField(filePath)
+	info, err := peekFileInfo(filePath)
 	if err != nil {
 		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
 	}
 
-	// Check if kind is GraphQL
-	if !strings.EqualFold(kind, "GraphQL") {
+	if !strings.EqualFold(info.kind, "GraphQL") {
 		return "", false, fmt.Errorf("file '%s' does not have 'kind: GraphQL'", filePath)
 	}
 
-	// Peek at URL field (no template substitution)
-	url, err := peekURLField(filePath)
-	if err != nil {
-		return "", false, fmt.Errorf("error reading URL from file '%s': %w", filePath, err)
-	}
-
-	// Check URL is non-empty
-	if url == "" {
+	if info.url == "" {
 		return "", false, fmt.Errorf("file '%s' has empty or missing 'url' field", filePath)
 	}
 
-	// Return raw URL (could be template like {{.graphqlUrl}} or full URL)
-	return url, true, nil
+	return info.url, info.needsEnv, nil
 }
 
 // ProcessGraphQLFile fully processes a GraphQL YAML file with template resolution.
