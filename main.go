@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/tui/fileselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
@@ -76,25 +77,33 @@ when no file or directory flags are provided.
 It updates env in-place if the user picks one, and returns the selected file path.
 */
 func runInteractiveFlow(env *string, envSet bool) string {
-	if !envSet {
-		selected, err := envselect.RunEnvSelector()
-		if err != nil {
-			utils.PanicRedAndExit("%v", err)
-		}
-		if selected == "" {
-			os.Exit(0)
-		}
-		*env = selected
+	envItems := envselect.EnvItems()
+	if !envSet && len(envItems) == 0 {
+		utils.PanicRedAndExit("%v", envselect.NoEnvFilesError())
 	}
 
-	selected, err := fileselect.RunFileSelector()
+	fileItems, err := fileselect.FileItems()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
-	if selected == "" {
+	if len(fileItems) == 0 {
+		utils.PanicRedAndExit("%v", fileselect.NoFilesError())
+	}
+
+	selection, err := tui.RunSingleFileHelper(envItems, fileItems, *env, envSet)
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+
+	if selection.Cancelled || selection.File == "" {
 		os.Exit(0)
 	}
-	return selected
+
+	if selection.Env != "" {
+		*env = selection.Env
+	}
+
+	return selection.File
 }
 
 func isInteractiveTerminal() bool {

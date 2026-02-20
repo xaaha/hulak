@@ -14,7 +14,9 @@ SYNOPSIS
 DESCRIPTION
        Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
 
-       When run without flags, hulak enters interactive mode: it prompts for an environment and then a file to run. If only -env is provided without a file, hulak prompts for the file interactively.
+       When run without flags, hulak launches an interactive single-file helper where you pick an environment and one file in the same UI.
+       Use -f for multi-match concurrent runs, -dir for directory concurrent runs, and -dirseq for directory sequential runs.
+       If only -env is provided without a file, hulak opens the helper with the environment locked to that value.
 
 OPTIONS
        -env <environment>

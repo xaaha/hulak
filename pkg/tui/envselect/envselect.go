@@ -29,6 +29,16 @@ func envItems() []string {
 	return items
 }
 
+// EnvItems returns available environment names without the .env suffix.
+func EnvItems() []string {
+	return envItems()
+}
+
+// NoEnvFilesError returns a formatted error for missing env files.
+func NoEnvFilesError() error {
+	return formatNoEnvFilesError()
+}
+
 // RunEnvSelector runs the environment selector and returns the selected environment.
 func RunEnvSelector() (string, error) {
 	return tui.RunSelector(envItems(), "Select Environment: ", formatNoEnvFilesError())

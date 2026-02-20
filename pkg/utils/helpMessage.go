@@ -39,8 +39,14 @@ func PrintHelpSubCommands() {
 func PrintHelp() {
 	PrintWarning("Api Usage:")
 	_ = WriteCommandHelp([]*CommandHelp{
-		{Command: "hulak", Description: "Interactive mode: select environment and file"},
-		{Command: "hulak -env staging", Description: "Interactive file picker with staging environment"},
+		{
+			Command:     "hulak",
+			Description: "Interactive single-file caller: select environment and one file",
+		},
+		{
+			Command:     "hulak -env staging",
+			Description: "Interactive file picker with staging environment",
+		},
 		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{
 			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",

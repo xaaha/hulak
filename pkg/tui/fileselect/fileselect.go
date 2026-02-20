@@ -10,7 +10,7 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func formatNoFilesError() error {
+func NoFilesError() error {
 	errMsg := `no '.yaml' or '.yml' files found in current directory
 
 Possible solutions:
@@ -20,7 +20,7 @@ Possible solutions:
 	return utils.ColorError(errMsg)
 }
 
-func fileItems() ([]string, error) {
+func FileItems() ([]string, error) {
 	var items []string
 
 	files, err := utils.ListFiles(".")
@@ -61,10 +61,10 @@ func fileItems() ([]string, error) {
 
 // RunFileSelector runs the file selector and returns the selected file path.
 func RunFileSelector() (string, error) {
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		return "", err
 	}
 
-	return tui.RunSelector(items, "Select File: ", formatNoFilesError())
+	return tui.RunSelector(items, "Select File: ", NoFilesError())
 }

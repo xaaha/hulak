@@ -41,7 +41,7 @@ func TestFileItemsWithFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"collection/get_users.yaml", "collection/post_data.yml"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestFileItemsWithNoFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestFileItemsFiltersResponseFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "api_response.json"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestFileItemsFiltersJsonFiles(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "data.json"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestFileItemsFiltersEnvDir(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"api.yaml", "env/global.env"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestFileItemsShowsRelativePaths(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"collection/get_users.yaml"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestFileItemsKeepsYamlWithResponseInName(t *testing.T) {
 	cleanup := setupTestDir(t, []string{"create_response.yaml", "plain.yaml"})
 	defer cleanup()
 
-	items, err := fileItems()
+	items, err := FileItems()
 	if err != nil {
 		t.Fatalf("fileItems returned error: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestFileItemsKeepsYamlWithResponseInName(t *testing.T) {
 }
 
 func TestFormatNoFilesError(t *testing.T) {
-	err := formatNoFilesError()
+	err := NoFilesError()
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
