@@ -92,21 +92,26 @@ func (f *FilterableList) UpdateInput(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (f FilterableList) RenderItems() string {
+// RenderItems renders the filtered list with a cursor indicator on the
+// selected item. It returns the rendered content and the line number of
+// the cursor, which callers can pass to [SyncViewport] for scroll tracking.
+func (f FilterableList) RenderItems() (string, int) {
 	if len(f.Filtered) == 0 {
 		if f.requireInput && !f.HasFilterValue() {
-			return ""
+			return "", 0
 		}
-		return HelpStyle.Render(listPadding + "(no matches)")
+		return HelpStyle.Render(listPadding + "(no matches)"), 0
 	}
 
+	cursorLine := 0
 	lines := make([]string, 0, len(f.Filtered))
 	for i, item := range f.Filtered {
 		if i == f.Cursor {
+			cursorLine = len(lines)
 			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+item))
 		} else {
 			lines = append(lines, listPadding+item)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), cursorLine
 }

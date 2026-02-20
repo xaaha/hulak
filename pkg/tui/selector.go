@@ -71,7 +71,7 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m SelectorModel) View() string {
 	title := m.TextInput.ViewTitle()
-	list := m.RenderItems()
+	list, _ := m.RenderItems()
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
