@@ -38,7 +38,7 @@ func TestSelectorCancelWithEmptyFilter(t *testing.T) {
 
 func TestSelectorCancelClearsFilterFirst(t *testing.T) {
 	m := NewSelector([]string{"item1", "item2"}, "Test: ")
-	m.textInput.Model.SetValue("test")
+	m.TextInput.Model.SetValue("test")
 	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -47,8 +47,8 @@ func TestSelectorCancelClearsFilterFirst(t *testing.T) {
 	if model.Cancelled {
 		t.Error("expected Cancelled to be false - esc should clear filter first")
 	}
-	if model.textInput.Model.Value() != "" {
-		t.Errorf("expected filter to be cleared, got '%s'", model.textInput.Model.Value())
+	if model.TextInput.Model.Value() != "" {
+		t.Errorf("expected filter to be cleared, got '%s'", model.TextInput.Model.Value())
 	}
 	if cmd != nil {
 		t.Error("expected no quit command when clearing filter")
@@ -75,36 +75,36 @@ func TestSelectorSelect(t *testing.T) {
 func TestSelectorNavigation(t *testing.T) {
 	m := NewSelector([]string{"item1", "item2", "item3"}, "Test: ")
 
-	if m.cursor != 0 {
-		t.Errorf("expected initial cursor 0, got %d", m.cursor)
+	if m.Cursor != 0 {
+		t.Errorf("expected initial cursor 0, got %d", m.Cursor)
 	}
 
 	// Move down with arrow
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(SelectorModel)
-	if m.cursor != 1 {
-		t.Errorf("expected cursor 1, got %d", m.cursor)
+	if m.Cursor != 1 {
+		t.Errorf("expected cursor 1, got %d", m.Cursor)
 	}
 
 	// Move down with ctrl+n
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
 	m = newModel.(SelectorModel)
-	if m.cursor != 2 {
-		t.Errorf("expected cursor 2, got %d", m.cursor)
+	if m.Cursor != 2 {
+		t.Errorf("expected cursor 2, got %d", m.Cursor)
 	}
 
 	// Move up with arrow
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(SelectorModel)
-	if m.cursor != 1 {
-		t.Errorf("expected cursor 1, got %d", m.cursor)
+	if m.Cursor != 1 {
+		t.Errorf("expected cursor 1, got %d", m.Cursor)
 	}
 
 	// Move up with ctrl+p
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = newModel.(SelectorModel)
-	if m.cursor != 0 {
-		t.Errorf("expected cursor 0, got %d", m.cursor)
+	if m.Cursor != 0 {
+		t.Errorf("expected cursor 0, got %d", m.Cursor)
 	}
 }
 
@@ -117,17 +117,17 @@ func TestSelectorTypingFilters(t *testing.T) {
 		m = newModel.(SelectorModel)
 	}
 
-	if m.textInput.Model.Value() != "item" {
-		t.Errorf("expected filter 'item', got '%s'", m.textInput.Model.Value())
+	if m.TextInput.Model.Value() != "item" {
+		t.Errorf("expected filter 'item', got '%s'", m.TextInput.Model.Value())
 	}
-	if len(m.filtered) != 2 {
-		t.Errorf("expected 2 filtered items, got %d", len(m.filtered))
+	if len(m.Filtered) != 2 {
+		t.Errorf("expected 2 filtered items, got %d", len(m.Filtered))
 	}
 }
 
 func TestSelectorSelectWithNoMatches(t *testing.T) {
 	m := NewSelector([]string{"item1", "item2"}, "Test: ")
-	m.textInput.Model.SetValue("xyz")
+	m.TextInput.Model.SetValue("xyz")
 	m.applyFilter()
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -147,32 +147,32 @@ func TestSelectorNavigationBounds(t *testing.T) {
 	// At top, can't go up
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(SelectorModel)
-	if m.cursor != 0 {
-		t.Errorf("cursor should stay at 0, got %d", m.cursor)
+	if m.Cursor != 0 {
+		t.Errorf("cursor should stay at 0, got %d", m.Cursor)
 	}
 
 	// Go to bottom
-	m.cursor = 1
+	m.Cursor = 1
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(SelectorModel)
-	if m.cursor != 1 {
-		t.Errorf("cursor should stay at 1, got %d", m.cursor)
+	if m.Cursor != 1 {
+		t.Errorf("cursor should stay at 1, got %d", m.Cursor)
 	}
 }
 
 func TestSelectorCursorAdjustsWhenFilterReducesList(t *testing.T) {
 	m := NewSelector([]string{"item1", "item2", "item3"}, "Test: ")
-	m.cursor = 2 // pointing to "item3"
+	m.Cursor = 2 // pointing to "item3"
 
 	// Type "1" to filter - only "item1" should remain
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
 	model := newModel.(SelectorModel)
 
-	if model.cursor >= len(model.filtered) {
+	if model.Cursor >= len(model.Filtered) {
 		t.Errorf(
 			"cursor %d should be less than filtered length %d",
-			model.cursor,
-			len(model.filtered),
+			model.Cursor,
+			len(model.Filtered),
 		)
 	}
 }
@@ -203,8 +203,8 @@ func TestSelectorCaseInsensitiveFiltering(t *testing.T) {
 		m = newModel.(SelectorModel)
 	}
 
-	if len(m.filtered) != 3 {
-		t.Errorf("case insensitive filter failed: expected 3 items, got %d", len(m.filtered))
+	if len(m.Filtered) != 3 {
+		t.Errorf("case insensitive filter failed: expected 3 items, got %d", len(m.Filtered))
 	}
 }
 
@@ -217,7 +217,7 @@ func TestSelectorFilterRestorationAfterEsc(t *testing.T) {
 		m = newModel.(SelectorModel)
 	}
 
-	if len(m.filtered) == 3 {
+	if len(m.Filtered) == 3 {
 		t.Error("filter should have reduced the list")
 	}
 
@@ -225,8 +225,8 @@ func TestSelectorFilterRestorationAfterEsc(t *testing.T) {
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = newModel.(SelectorModel)
 
-	if len(m.filtered) != 3 {
-		t.Errorf("expected all 3 items after esc, got %d", len(m.filtered))
+	if len(m.Filtered) != 3 {
+		t.Errorf("expected all 3 items after esc, got %d", len(m.Filtered))
 	}
 }
 
@@ -239,8 +239,8 @@ func TestSelectorFilterThenNavigateThenSelect(t *testing.T) {
 		m = newModel.(SelectorModel)
 	}
 
-	if len(m.filtered) != 2 {
-		t.Fatalf("expected 2 filtered items, got %d", len(m.filtered))
+	if len(m.Filtered) != 2 {
+		t.Fatalf("expected 2 filtered items, got %d", len(m.Filtered))
 	}
 
 	// Navigate to second item
@@ -270,7 +270,7 @@ func TestSelectorViewContainsHelp(t *testing.T) {
 
 func TestSelectorViewShowsNoMatchesWhenEmpty(t *testing.T) {
 	m := NewSelector([]string{"item1"}, "Test: ")
-	m.textInput.Model.SetValue("xyz")
+	m.TextInput.Model.SetValue("xyz")
 	m.applyFilter()
 
 	view := m.View()
@@ -303,8 +303,8 @@ func TestSelectorSingleItemList(t *testing.T) {
 	// Navigate down should stay at 0
 	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(SelectorModel)
-	if m.cursor != 0 {
-		t.Errorf("cursor should stay at 0, got %d", m.cursor)
+	if m.Cursor != 0 {
+		t.Errorf("cursor should stay at 0, got %d", m.Cursor)
 	}
 
 	// Select should work
@@ -326,7 +326,7 @@ func TestSelectorViewHasBorder(t *testing.T) {
 
 func TestSelectorSelectedItemHasArrow(t *testing.T) {
 	m := NewSelector([]string{"item1", "item2"}, "Test: ")
-	m.cursor = 1
+	m.Cursor = 1
 
 	view := m.View()
 

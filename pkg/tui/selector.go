@@ -7,12 +7,11 @@ import (
 // SelectorModel is a generic filterable list selector.
 // Provide items and a prompt, get back the user's selection.
 type SelectorModel struct {
-	filterableList
+	FilterableList
 	Selected  string
 	Cancelled bool
 }
 
-// NewSelector creates a SelectorModel with the given items and prompt.
 func NewSelector(items []string, prompt string) SelectorModel {
 	var placeholder string
 	if len(items) > 0 {
@@ -20,7 +19,7 @@ func NewSelector(items []string, prompt string) SelectorModel {
 	}
 
 	return SelectorModel{
-		filterableList: newFilterableList(items, prompt, placeholder, false),
+		FilterableList: NewFilterableList(items, prompt, placeholder, false),
 	}
 }
 
@@ -29,14 +28,14 @@ func (m SelectorModel) Items() int {
 }
 
 func (m SelectorModel) Init() tea.Cmd {
-	return m.textInput.Init()
+	return m.TextInput.Init()
 }
 
 func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		return m.handleKey(msg)
 	}
-	return m, m.updateInput(msg)
+	return m, m.UpdateInput(msg)
 }
 
 func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -46,15 +45,15 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case KeyCancel:
-		if m.hasFilterValue() {
-			m.clearFilter()
+		if m.HasFilterValue() {
+			m.ClearFilter()
 			return m, nil
 		}
 		m.Cancelled = true
 		return m, tea.Quit
 
 	case KeyEnter:
-		val, ok := m.selectCurrent()
+		val, ok := m.SelectCurrent()
 		if !ok {
 			return m, nil
 		}
@@ -62,20 +61,20 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case KeyUp, KeyCtrlP:
-		m.cursor = MoveCursorUp(m.cursor)
+		m.Cursor = MoveCursorUp(m.Cursor)
 		return m, nil
 
 	case KeyDown, KeyCtrlN:
-		m.cursor = MoveCursorDown(m.cursor, len(m.filtered)-1)
+		m.Cursor = MoveCursorDown(m.Cursor, len(m.Filtered)-1)
 		return m, nil
 	}
 
-	return m, m.updateInput(msg)
+	return m, m.UpdateInput(msg)
 }
 
 func (m SelectorModel) View() string {
-	title := m.textInput.ViewTitle()
-	list := m.renderItems()
+	title := m.TextInput.ViewTitle()
+	list := m.RenderItems()
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help

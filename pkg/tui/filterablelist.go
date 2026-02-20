@@ -7,20 +7,20 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type filterableList struct {
+type FilterableList struct {
 	items        []string
 	lowerItems   []string
-	filtered     []string
-	cursor       int
-	textInput    TextInput
+	Filtered     []string
+	Cursor       int
+	TextInput    TextInput
 	requireInput bool
 }
 
-func newFilterableList(
+func NewFilterableList(
 	items []string,
 	prompt, placeholder string,
 	requireInput bool,
-) filterableList {
+) FilterableList {
 	lowerItems := make([]string, len(items))
 	for i, item := range items {
 		lowerItems[i] = strings.ToLower(item)
@@ -31,74 +31,74 @@ func newFilterableList(
 		filtered = items
 	}
 
-	return filterableList{
+	return FilterableList{
 		items:      items,
 		lowerItems: lowerItems,
-		filtered:   filtered,
-		textInput: NewFilterInput(
+		Filtered:   filtered,
+		TextInput: NewFilterInput(
 			TextInputOpts{Prompt: prompt, Placeholder: placeholder, MinWidth: 20},
 		),
 		requireInput: requireInput,
 	}
 }
 
-func (f *filterableList) applyFilter() {
-	val := f.textInput.Model.Value()
+func (f *FilterableList) applyFilter() {
+	val := f.TextInput.Model.Value()
 	if val == "" {
 		if f.requireInput {
-			f.filtered = nil
+			f.Filtered = nil
 		} else {
-			f.filtered = f.items
+			f.Filtered = f.items
 		}
 	} else {
-		f.filtered = make([]string, 0, len(f.items))
+		f.Filtered = make([]string, 0, len(f.items))
 		lower := strings.ToLower(val)
 		for i, item := range f.lowerItems {
 			if strings.Contains(item, lower) {
-				f.filtered = append(f.filtered, f.items[i])
+				f.Filtered = append(f.Filtered, f.items[i])
 			}
 		}
 	}
-	f.cursor = ClampCursor(f.cursor, len(f.filtered)-1)
+	f.Cursor = ClampCursor(f.Cursor, len(f.Filtered)-1)
 }
 
-func (f *filterableList) clearFilter() {
-	f.textInput.Model.Reset()
+func (f *FilterableList) ClearFilter() {
+	f.TextInput.Model.Reset()
 	f.applyFilter()
 }
 
-func (f filterableList) hasFilterValue() bool {
-	return f.textInput.Model.Value() != ""
+func (f FilterableList) HasFilterValue() bool {
+	return f.TextInput.Model.Value() != ""
 }
 
-func (f filterableList) selectCurrent() (string, bool) {
-	if len(f.filtered) == 0 || f.cursor >= len(f.filtered) {
+func (f FilterableList) SelectCurrent() (string, bool) {
+	if len(f.Filtered) == 0 || f.Cursor >= len(f.Filtered) {
 		return "", false
 	}
-	return f.filtered[f.cursor], true
+	return f.Filtered[f.Cursor], true
 }
 
-func (f *filterableList) updateInput(msg tea.Msg) tea.Cmd {
-	prev := f.textInput.Model.Value()
-	updated, cmd := f.textInput.Update(msg)
-	f.textInput = updated
-	if f.textInput.Model.Value() != prev {
+func (f *FilterableList) UpdateInput(msg tea.Msg) tea.Cmd {
+	prev := f.TextInput.Model.Value()
+	updated, cmd := f.TextInput.Update(msg)
+	f.TextInput = updated
+	if f.TextInput.Model.Value() != prev {
 		f.applyFilter()
 	}
 	return cmd
 }
 
-func (f filterableList) renderItems() string {
-	if len(f.filtered) == 0 {
-		if f.requireInput && !f.hasFilterValue() {
+func (f FilterableList) RenderItems() string {
+	if len(f.Filtered) == 0 {
+		if f.requireInput && !f.HasFilterValue() {
 			return ""
 		}
 		return HelpStyle.Render(listPadding + "(no matches)")
 	}
 
-	lines := make([]string, 0, len(f.filtered))
-	for i, item := range f.filtered {
-		if i == f.cursor {
+	lines := make([]string, 0, len(f.Filtered))
+	for i, item := range f.Filtered {
+		if i == f.Cursor {
 			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+item))
 		} else {
 			lines = append(lines, listPadding+item)
