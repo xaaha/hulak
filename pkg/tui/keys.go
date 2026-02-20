@@ -40,4 +40,7 @@ const (
 	// Search/filter
 	KeySlash = "/" // Start filter/search
 	KeyHelp  = "?" // Show help
+
+	// Rendering
+	listPadding = "   " // 3-space indent for non-selected list items
 )

@@ -7,7 +7,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func formatNoEnvFilesError() error {
+// NoEnvFilesError returns a formatted error for missing env files.
+func NoEnvFilesError() error {
 	errMsg := `no '.env' files found in "env/" directory
 
 Possible solutions:
@@ -17,7 +18,8 @@ Possible solutions:
 	return utils.ColorError(errMsg)
 }
 
-func envItems() []string {
+// EnvItems returns available environment names without the .env suffix.
+func EnvItems() []string {
 	var items []string
 	if files, err := utils.GetEnvFiles(); err == nil {
 		for _, file := range files {
@@ -29,17 +31,7 @@ func envItems() []string {
 	return items
 }
 
-// EnvItems returns available environment names without the .env suffix.
-func EnvItems() []string {
-	return envItems()
-}
-
-// NoEnvFilesError returns a formatted error for missing env files.
-func NoEnvFilesError() error {
-	return formatNoEnvFilesError()
-}
-
 // RunEnvSelector runs the environment selector and returns the selected environment.
 func RunEnvSelector() (string, error) {
-	return tui.RunSelector(envItems(), "Select Environment: ", formatNoEnvFilesError())
+	return tui.RunSelector(EnvItems(), "Select Environment: ", NoEnvFilesError())
 }

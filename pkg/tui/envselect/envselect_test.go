@@ -40,7 +40,7 @@ func TestEnvItemsWithEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
 	defer cleanup()
 
-	items := envItems()
+	items := EnvItems()
 
 	if len(items) != 3 {
 		t.Errorf("expected 3 items, got %d", len(items))
@@ -58,7 +58,7 @@ func TestEnvItemsWithNoEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{})
 	defer cleanup()
 
-	items := envItems()
+	items := EnvItems()
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items, got %d", len(items))
@@ -69,7 +69,7 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "readme.txt", "config.yaml"})
 	defer cleanup()
 
-	items := envItems()
+	items := EnvItems()
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -80,7 +80,7 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 }
 
 func TestFormatNoEnvFilesError(t *testing.T) {
-	err := formatNoEnvFilesError()
+	err := NoEnvFilesError()
 
 	if err == nil {
 		t.Fatal("expected error, got nil")

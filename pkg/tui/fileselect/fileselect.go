@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -57,14 +56,4 @@ func FileItems() ([]string, error) {
 		items = append(items, relPath)
 	}
 	return items, nil
-}
-
-// RunFileSelector runs the file selector and returns the selected file path.
-func RunFileSelector() (string, error) {
-	items, err := FileItems()
-	if err != nil {
-		return "", err
-	}
-
-	return tui.RunSelector(items, "Select File: ", NoFilesError())
 }

@@ -181,3 +181,87 @@ func TestSingleFileHelperFileListStartsEmptyUntilTyping(t *testing.T) {
 		t.Fatal("expected matching file entries after typing")
 	}
 }
+
+func TestSingleFileHelperCtrlCQuits(t *testing.T) {
+	m := newSingleFileHelperModel([]string{"dev"}, []string{"a.yaml"}, "", false)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	next := updated.(singleFileHelperModel)
+
+	if !next.cancelled {
+		t.Fatal("expected cancelled after ctrl+c")
+	}
+	if cmd == nil {
+		t.Fatal("expected quit command")
+	}
+}
+
+func TestSingleFileHelperArrowNavigation(t *testing.T) {
+	m := newSingleFileHelperModel([]string{"dev", "prod", "staging"}, []string{"a.yaml"}, "", false)
+	for _, r := range "d" {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(singleFileHelperModel)
+	}
+
+	if m.envPane.cursor != 0 {
+		t.Fatalf("expected cursor 0, got %d", m.envPane.cursor)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(singleFileHelperModel)
+	if m.envPane.cursor != 1 {
+		t.Fatalf("expected cursor 1 after down, got %d", m.envPane.cursor)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updated.(singleFileHelperModel)
+	if m.envPane.cursor != 0 {
+		t.Fatalf("expected cursor 0 after up, got %d", m.envPane.cursor)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updated.(singleFileHelperModel)
+	if m.envPane.cursor != 0 {
+		t.Fatal("cursor should not go below 0")
+	}
+}
+
+func TestSingleFileHelperEnterOnFileWithoutEnvRedirects(t *testing.T) {
+	m := newSingleFileHelperModel([]string{"dev"}, []string{"a.yaml"}, "", false)
+	m.setFocus(focusFile)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	next := updated.(singleFileHelperModel)
+
+	if cmd != nil {
+		t.Fatal("expected no quit command when env not selected")
+	}
+	if next.focus != focusEnv {
+		t.Fatalf("expected redirect to env focus, got %v", next.focus)
+	}
+}
+
+func TestSingleFileHelperEnvLockedEscQuits(t *testing.T) {
+	m := newSingleFileHelperModel([]string{"dev"}, []string{"a.yaml"}, "prod", true)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next := updated.(singleFileHelperModel)
+
+	if !next.cancelled {
+		t.Fatal("expected cancellation on esc with locked env")
+	}
+	if cmd == nil {
+		t.Fatal("expected quit command")
+	}
+}
+
+func TestSingleFileHelperEnvLockedTabStaysOnFile(t *testing.T) {
+	m := newSingleFileHelperModel([]string{"dev"}, []string{"a.yaml"}, "prod", true)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	next := updated.(singleFileHelperModel)
+
+	if next.focus != focusFile {
+		t.Fatalf("expected tab to stay on file when env locked, got %v", next.focus)
+	}
+}

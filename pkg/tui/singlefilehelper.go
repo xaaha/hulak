@@ -21,15 +21,9 @@ type SingleFileSelection struct {
 }
 
 type helperPane struct {
-	title        string
-	prompt       string
-	items        []string
-	lowerItems   []string
-	filtered     []string
-	cursor       int
-	textInput    TextInput
-	selected     string
-	requireInput bool
+	filterableList
+	title  string
+	prompt string
 }
 
 func newHelperPane(
@@ -42,86 +36,21 @@ func newHelperPane(
 		placeholder = items[0]
 	}
 
-	lowerItems := make([]string, len(items))
-	for i, item := range items {
-		lowerItems[i] = strings.ToLower(item)
-	}
-
-	filtered := items
-	if requireInput {
-		filtered = []string{}
-	}
-
 	return helperPane{
-		title:      title,
-		prompt:     prompt,
-		items:      items,
-		lowerItems: lowerItems,
-		filtered:   filtered,
-		textInput: NewFilterInput(
-			TextInputOpts{Prompt: prompt, Placeholder: placeholder, MinWidth: 20},
-		),
-		requireInput: requireInput,
+		filterableList: newFilterableList(items, prompt, placeholder, requireInput),
+		title:          title,
+		prompt:         prompt,
 	}
-}
-
-func (p *helperPane) applyFilter() {
-	userInput := p.textInput.Model.Value()
-	if userInput == "" {
-		if p.requireInput {
-			p.filtered = []string{}
-		} else {
-			p.filtered = p.items
-		}
-	} else {
-		p.filtered = make([]string, 0, len(p.items))
-		lower := strings.ToLower(userInput)
-		for i, item := range p.lowerItems {
-			if strings.Contains(item, lower) {
-				p.filtered = append(p.filtered, p.items[i])
-			}
-		}
-	}
-	p.cursor = ClampCursor(p.cursor, len(p.filtered)-1)
-}
-
-func (p *helperPane) clearFilter() {
-	p.textInput.Model.Reset()
-	p.applyFilter()
-}
-
-func (p *helperPane) hasFilterValue() bool {
-	return p.textInput.Model.Value() != ""
-}
-
-func (p *helperPane) selectCurrent() bool {
-	if len(p.filtered) == 0 || p.cursor >= len(p.filtered) {
-		return false
-	}
-	p.selected = p.filtered[p.cursor]
-	return true
-}
-
-func (p *helperPane) updateInput(msg tea.Msg) tea.Cmd {
-	prev := p.textInput.Model.Value()
-	updated, cmd := p.textInput.Update(msg)
-	p.textInput = updated
-	if p.textInput.Model.Value() != prev {
-		p.applyFilter()
-	}
-	return cmd
 }
 
 func (p helperPane) renderSection(isFocused bool, isLocked bool, lockedValue string) string {
 	title := TitleStyle.Render(p.title)
 	inputLine := p.textInput.ViewTitle()
 	if isFocused {
-		inputLine = BorderStyle.Padding(0, 1).
-			BorderForeground(ColorPrimary).
-			Render(p.textInput.Model.View())
+		inputLine = FocusedInputStyle.Render(p.textInput.Model.View())
 	}
 	if isLocked {
-		inputLine = BorderStyle.Padding(0, 1).Render(p.prompt + lockedValue)
+		inputLine = InputStyle.Render(p.prompt + lockedValue)
 	}
 
 	list := p.renderList(isLocked, lockedValue)
@@ -132,25 +61,7 @@ func (p helperPane) renderList(isLocked bool, lockedValue string) string {
 	if isLocked {
 		return SubtitleStyle.Render(utils.ChevronRight + KeySpace + lockedValue)
 	}
-
-	if len(p.filtered) == 0 {
-		if p.requireInput && p.textInput.Model.Value() == "" {
-			return ""
-		}
-		return HelpStyle.Render("   (no matches)")
-	}
-
-	lines := make([]string, 0, len(p.filtered))
-	padding := strings.Repeat(KeySpace, 3)
-	for i, item := range p.filtered {
-		if i == p.cursor {
-			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+item))
-		} else {
-			lines = append(lines, padding+item)
-		}
-	}
-
-	return strings.Join(lines, "\n")
+	return p.renderItems()
 }
 
 type singleFileHelperModel struct {
@@ -182,9 +93,8 @@ func newSingleFileHelperModel(
 			fileItems,
 			true,
 		),
-		envLocked:    envLocked,
-		selectedEnv:  initialEnv,
-		selectedFile: "",
+		envLocked:   envLocked,
+		selectedEnv: initialEnv,
 	}
 
 	if envLocked {
@@ -197,11 +107,7 @@ func newSingleFileHelperModel(
 }
 
 func (m singleFileHelperModel) Init() tea.Cmd {
-	return textBlinkBatch(m.envPane.textInput.Init(), m.filePane.textInput.Init())
-}
-
-func textBlinkBatch(cmds ...tea.Cmd) tea.Cmd {
-	return tea.Batch(cmds...)
+	return tea.Batch(m.envPane.textInput.Init(), m.filePane.textInput.Init())
 }
 
 func (m singleFileHelperModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -209,11 +115,14 @@ func (m singleFileHelperModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
-	if m.focus == focusEnv && !m.envLocked {
-		return m, m.envPane.updateInput(msg)
-	}
+	return m, m.focusedPane().updateInput(msg)
+}
 
-	return m, m.filePane.updateInput(msg)
+func (m *singleFileHelperModel) focusedPane() *helperPane {
+	if m.focus == focusEnv {
+		return &m.envPane
+	}
+	return &m.filePane
 }
 
 func (m singleFileHelperModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -230,10 +139,11 @@ func (m singleFileHelperModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.setFocus(focusFile)
 				return m, nil
 			}
-			if !m.envPane.selectCurrent() {
+			val, ok := m.envPane.selectCurrent()
+			if !ok {
 				return m, nil
 			}
-			m.selectedEnv = m.envPane.selected
+			m.selectedEnv = val
 			m.setFocus(focusFile)
 			return m, nil
 		}
@@ -243,19 +153,22 @@ func (m singleFileHelperModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		if !m.filePane.selectCurrent() {
+		val, ok := m.filePane.selectCurrent()
+		if !ok {
 			return m, nil
 		}
 
-		m.selectedFile = m.filePane.selected
+		m.selectedFile = val
 		return m, tea.Quit
 	case KeyCancel:
 		return m.handleCancel()
 	case KeyUp, KeyCtrlP:
-		m.moveUp()
+		p := m.focusedPane()
+		p.cursor = MoveCursorUp(p.cursor)
 		return m, nil
 	case KeyDown, KeyCtrlN:
-		m.moveDown()
+		p := m.focusedPane()
+		p.cursor = MoveCursorDown(p.cursor, len(p.filtered)-1)
 		return m, nil
 	}
 
@@ -267,17 +180,19 @@ func (m singleFileHelperModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m singleFileHelperModel) handleCancel() (tea.Model, tea.Cmd) {
+	p := m.focusedPane()
+
 	if m.focus == focusEnv {
-		if m.envPane.hasFilterValue() && !m.envLocked {
-			m.envPane.clearFilter()
+		if p.hasFilterValue() && !m.envLocked {
+			p.clearFilter()
 			return m, nil
 		}
 		m.cancelled = true
 		return m, tea.Quit
 	}
 
-	if m.filePane.hasFilterValue() {
-		m.filePane.clearFilter()
+	if p.hasFilterValue() {
+		p.clearFilter()
 		return m, nil
 	}
 
@@ -290,29 +205,12 @@ func (m singleFileHelperModel) handleCancel() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *singleFileHelperModel) moveUp() {
-	if m.focus == focusEnv {
-		m.envPane.cursor = MoveCursorUp(m.envPane.cursor)
-		return
-	}
-	m.filePane.cursor = MoveCursorUp(m.filePane.cursor)
-}
-
-func (m *singleFileHelperModel) moveDown() {
-	if m.focus == focusEnv {
-		m.envPane.cursor = MoveCursorDown(m.envPane.cursor, len(m.envPane.filtered)-1)
-		return
-	}
-	m.filePane.cursor = MoveCursorDown(m.filePane.cursor, len(m.filePane.filtered)-1)
-}
-
 func (m *singleFileHelperModel) toggleFocus() {
 	if m.focus == focusEnv {
 		m.setFocus(focusFile)
 		return
 	}
 	if m.envLocked {
-		m.setFocus(focusFile)
 		return
 	}
 	m.setFocus(focusEnv)
