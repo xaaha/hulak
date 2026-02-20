@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/tui/fileselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
@@ -31,6 +32,11 @@ func main() {
 	hasFileFlags := fp != "" || fileName != ""
 
 	if !hasFileFlags && !hasDirFlags {
+		if !flags.EnvSet {
+			if err = envparser.CreateDefaultEnvs(nil); err != nil {
+				utils.PanicRedAndExit("%v", err)
+			}
+		}
 		fp = runInteractiveFlow(&env, flags.EnvSet)
 		hasFileFlags = true
 	}
