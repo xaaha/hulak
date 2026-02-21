@@ -350,7 +350,7 @@ func (m filePathModel) View() string {
 	}
 
 	helpLine := tui.HelpStyle.Render(
-		"enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
+		"\n" + "enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
 	)
 
 	parts := []string{}
