@@ -28,12 +28,8 @@ func (p *helperPane) syncViewport() {
 	if !p.vpReady {
 		return
 	}
-	content, cursorLine := p.RenderItems()
-	contentLines := 0
-	if content != "" {
-		contentLines = strings.Count(content, "\n") + 1
-	}
-	p.vp.Height = min(p.vpAllocated, max(contentLines, 1))
+	content, cursorLine := p.RenderItemsWidth(p.vp.Width)
+	p.vp.Height = max(p.vpAllocated, 1)
 	tui.SyncViewport(&p.vp, content, cursorLine, tui.DefaultScrollMargin)
 }
 
@@ -48,13 +44,8 @@ func newHelperPane(
 	items []string,
 	requireInput bool,
 ) helperPane {
-	placeholder := ""
-	if len(items) > 0 {
-		placeholder = items[0]
-	}
-
 	return helperPane{
-		FilterableList: tui.NewFilterableList(items, prompt, placeholder, requireInput),
+		FilterableList: tui.NewFilterableList(items, prompt, "", requireInput),
 		title:          title,
 	}
 }
@@ -85,13 +76,15 @@ func (p helperPane) renderList(isLocked bool, lockedValue string) string {
 	if p.vpReady {
 		return p.vp.View()
 	}
-	content, _ := p.RenderItems()
+	content, _ := p.RenderItemsWidth(0)
 	return content
 }
 
 const (
-	paneOverhead  = 5 // title (1) + bordered input (3) + newline separator (1)
-	frameOverhead = 5 // leading \n (1) + section gap (1) + pre-help gap (1) + help line (1) + trailing \n (1)
+	paneOverhead  = 5
+	frameOverhead = 4
+	maxEnvListH   = 1 // controls the length of the items shown in initial screen, for env, 1 is enough
+	maxFileListH  = 5 // same as above, at least 5 so that list does not jitter
 )
 
 type filePathModel struct {
@@ -111,15 +104,15 @@ func (m *filePathModel) resizeViewports() {
 	if m.envLocked {
 		overhead++
 	}
-	available := max(m.height-overhead, 4)
+	available := max(m.height-overhead, 2)
 
 	var envH, fileH int
 	if m.envLocked {
 		envH = 1
-		fileH = max(available-1, 1)
+		fileH = min(max(available-1, 1), maxFileListH)
 	} else {
-		envH = max(available/3, 1)
-		fileH = max(available-envH, 1)
+		envH = min(max(available/3, 1), maxEnvListH)
+		fileH = min(max(available-envH, 1), maxFileListH)
 	}
 
 	initOrResizeVP(&m.envPane, m.width, envH)
@@ -132,6 +125,7 @@ func initOrResizeVP(p *helperPane, w, h int) {
 	p.vpAllocated = h
 	if !p.vpReady {
 		p.vp = viewport.New(w, h)
+		p.vp.MouseWheelEnabled = true
 		p.vpReady = true
 	} else {
 		p.vp.Width = w
@@ -186,9 +180,14 @@ func (m filePathModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
-	cmd := m.focusedPane().UpdateInput(msg)
-	m.focusedPane().syncViewport()
-	return m, cmd
+	p := m.focusedPane()
+	cmdInput := p.UpdateInput(msg)
+	var cmdVP tea.Cmd
+	if p.vpReady {
+		p.vp, cmdVP = p.vp.Update(msg)
+	}
+	p.syncViewport()
+	return m, tea.Batch(cmdInput, cmdVP)
 }
 
 func (m *filePathModel) focusedPane() *helperPane {
@@ -337,7 +336,7 @@ func (m filePathModel) View() string {
 	if lockedNote != "" {
 		parts = append(parts, lockedNote)
 	}
-	parts = append(parts, envSection, "", fileSection, "", helpLine)
+	parts = append(parts, envSection, "", fileSection, helpLine)
 
 	return "\n" + strings.Join(parts, "\n") + "\n"
 }

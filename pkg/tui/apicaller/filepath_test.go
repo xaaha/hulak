@@ -129,6 +129,9 @@ func TestFilePathViewContainsSections(t *testing.T) {
 	) {
 		t.Fatal("expected help text at bottom")
 	}
+	if strings.Contains(view, "\n\n\n\n") {
+		t.Fatal("expected compact stacked spacing without excessive blank gaps")
+	}
 }
 
 func TestFilePathEnvLockedStartsOnFile(t *testing.T) {
@@ -263,5 +266,49 @@ func TestFilePathEnvLockedTabStaysOnFile(t *testing.T) {
 
 	if next.focus != focusFile {
 		t.Fatalf("expected tab to stay on file when env locked, got %v", next.focus)
+	}
+}
+
+func TestFilePathViewportHeightStaysStableWhileFiltering(t *testing.T) {
+	m := newFilePathModel(
+		[]string{"dev", "prod", "staging"},
+		[]string{"a.yaml", "b.yaml", "c.yaml"},
+		"",
+		false,
+	)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
+	m = updated.(filePathModel)
+
+	initialEnvHeight := m.envPane.vp.Height
+	initialFileHeight := m.filePane.vp.Height
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m = updated.(filePathModel)
+
+	if m.envPane.vp.Height != initialEnvHeight {
+		t.Fatalf("expected env pane height %d, got %d", initialEnvHeight, m.envPane.vp.Height)
+	}
+	if m.filePane.vp.Height != initialFileHeight {
+		t.Fatalf("expected file pane height %d, got %d", initialFileHeight, m.filePane.vp.Height)
+	}
+}
+
+func TestFilePathViewportHeightsAreCappedForCompactLayout(t *testing.T) {
+	m := newFilePathModel(
+		[]string{"dev", "prod", "staging"},
+		[]string{"a.yaml", "b.yaml", "c.yaml", "d.yaml", "e.yaml", "f.yaml", "g.yaml"},
+		"",
+		false,
+	)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 60})
+	m = updated.(filePathModel)
+
+	if m.envPane.vp.Height > maxEnvListH {
+		t.Fatalf("expected env viewport height <= %d, got %d", maxEnvListH, m.envPane.vp.Height)
+	}
+	if m.filePane.vp.Height > maxFileListH {
+		t.Fatalf("expected file viewport height <= %d, got %d", maxFileListH, m.filePane.vp.Height)
 	}
 }
