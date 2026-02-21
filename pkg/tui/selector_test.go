@@ -326,3 +326,31 @@ func TestSelectorSelectedItemHasArrow(t *testing.T) {
 		t.Error("view should contain chevron for selected item")
 	}
 }
+
+func TestSelectorViewportHeightIsCapped(t *testing.T) {
+	m := NewSelector([]string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}, "Test: ")
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 80})
+	m = updated.(SelectorModel)
+
+	if m.viewport.Height > selectorViewportMaxH {
+		t.Fatalf("expected viewport height <= %d, got %d", selectorViewportMaxH, m.viewport.Height)
+	}
+}
+
+func TestSelectorViewportScrollsOnLongLists(t *testing.T) {
+	items := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"}
+	m := NewSelector(items, "Test: ")
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 10})
+	m = updated.(SelectorModel)
+
+	for i := 0; i < 10; i++ {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = updated.(SelectorModel)
+	}
+
+	if m.viewport.YOffset == 0 {
+		t.Fatal("expected viewport to scroll for long list navigation")
+	}
+}

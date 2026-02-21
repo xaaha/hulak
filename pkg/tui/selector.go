@@ -1,7 +1,15 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+)
+
+const (
+	selectorViewportDefaultW = 40
+	selectorViewportMinW     = 10
+	selectorViewportMaxH     = 8
+	selectorFrameOverhead    = 8
 )
 
 // SelectorModel is a complete Bubble Tea program built on FilterableList.
@@ -11,6 +19,10 @@ type SelectorModel struct {
 	FilterableList
 	Selected  string
 	Cancelled bool
+	viewport  viewport.Model
+	vpReady   bool
+	width     int
+	height    int
 }
 
 func NewSelector(items []string, prompt string) SelectorModel {
@@ -19,9 +31,12 @@ func NewSelector(items []string, prompt string) SelectorModel {
 		placeholder = items[0]
 	}
 
-	return SelectorModel{
+	m := SelectorModel{
 		FilterableList: NewFilterableList(items, prompt, placeholder, false),
 	}
+	m.resizeViewport()
+	m.syncViewport()
+	return m
 }
 
 func (m SelectorModel) Init() tea.Cmd {
@@ -29,10 +44,25 @@ func (m SelectorModel) Init() tea.Cmd {
 }
 
 func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		m.width = ws.Width
+		m.height = ws.Height
+		m.resizeViewport()
+		m.syncViewport()
+		return m, nil
+	}
+
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		return m.handleKey(msg)
 	}
-	return m, m.UpdateInput(msg)
+
+	cmdInput := m.UpdateInput(msg)
+	var cmdVP tea.Cmd
+	if m.vpReady {
+		m.viewport, cmdVP = m.viewport.Update(msg)
+	}
+	m.syncViewport()
+	return m, tea.Batch(cmdInput, cmdVP)
 }
 
 func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -44,6 +74,7 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case KeyCancel:
 		if m.HasFilterValue() {
 			m.ClearFilter()
+			m.syncViewport()
 			return m, nil
 		}
 		m.Cancelled = true
@@ -59,23 +90,65 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case KeyUp, KeyCtrlP:
 		m.Cursor = MoveCursorUp(m.Cursor)
+		m.syncViewport()
 		return m, nil
 
 	case KeyDown, KeyCtrlN:
 		m.Cursor = MoveCursorDown(m.Cursor, len(m.Filtered)-1)
+		m.syncViewport()
 		return m, nil
 	}
 
-	return m, m.UpdateInput(msg)
+	cmd := m.UpdateInput(msg)
+	m.syncViewport()
+	return m, cmd
 }
 
 func (m SelectorModel) View() string {
 	title := m.TextInput.ViewTitle()
-	list, _ := m.RenderItems()
+	list := ""
+	if m.vpReady {
+		vp := m.viewport
+		content, cursorLine := m.RenderItemsWidth(vp.Width)
+		SyncViewport(&vp, content, cursorLine, DefaultScrollMargin)
+		list = vp.View()
+	} else {
+		list, _ = m.RenderItems()
+	}
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
 	return "\n" + BoxStyle.Render(content) + "\n"
+}
+
+func (m *SelectorModel) resizeViewport() {
+	w := selectorViewportDefaultW
+	if m.width > 0 {
+		w = max(min(m.width-8, selectorViewportDefaultW), selectorViewportMinW)
+	}
+
+	h := selectorViewportMaxH
+	if m.height > 0 {
+		h = min(max(m.height-selectorFrameOverhead, 1), selectorViewportMaxH)
+	}
+
+	if !m.vpReady {
+		m.viewport = viewport.New(w, h)
+		m.viewport.MouseWheelEnabled = true
+		m.vpReady = true
+		return
+	}
+
+	m.viewport.Width = w
+	m.viewport.Height = h
+}
+
+func (m *SelectorModel) syncViewport() {
+	if !m.vpReady {
+		return
+	}
+	content, cursorLine := m.RenderItemsWidth(m.viewport.Width)
+	SyncViewport(&m.viewport, content, cursorLine, DefaultScrollMargin)
 }
 
 /*
