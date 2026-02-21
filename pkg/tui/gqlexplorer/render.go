@@ -100,7 +100,7 @@ func (m Model) renderBadges() string {
 	sort.Strings(shortened)
 
 	maxW := m.leftPanelWidth()
-	ellipsis := tui.HelpStyle.Render("...")
+	ellipsis := tui.HelpStyle.Render(utils.Ellipsis)
 	ellipsisW := lipgloss.Width(tui.KeySpace + ellipsis)
 	var result string
 	for i, s := range shortened {

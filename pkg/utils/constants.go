@@ -70,3 +70,5 @@ const (
 	ChevronRight = "\uf054 " // >
 	ChevronDown  = "\uf078 " //
 )
+
+const Ellipsis = "..."
