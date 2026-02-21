@@ -16,9 +16,6 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
-	// leave some space before and after the cursor
-	scrollMargin = 3
-
 	// ViewTitle border+padding (4) + len("Search: ") (8)
 	searchBoxOverhead = 12
 
@@ -241,13 +238,7 @@ func (m *Model) syncViewport() {
 	} else {
 		content, cursorLine = m.renderList()
 	}
-	m.viewport.SetContent(content)
-	h := m.viewport.Height
-	if cursorLine < m.viewport.YOffset {
-		m.viewport.SetYOffset(max(0, cursorLine-1))
-	} else if cursorLine+scrollMargin >= m.viewport.YOffset+h {
-		m.viewport.SetYOffset(cursorLine - h + 1 + scrollMargin)
-	}
+	tui.SyncViewport(&m.viewport, content, cursorLine, tui.DefaultScrollMargin)
 
 	if m.pickingEndpoints {
 		return

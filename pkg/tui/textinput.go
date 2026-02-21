@@ -20,8 +20,8 @@ type TextInput struct {
 	Model textinput.Model
 }
 
-// NewTextInput creates a focused TextInput with cursor blink support.
-func NewTextInput(opts TextInputOpts) TextInput {
+// newTextInput creates a focused TextInput with cursor blink support.
+func newTextInput(opts TextInputOpts) TextInput {
 	ti := textinput.New()
 	ti.Prompt = opts.Prompt
 	ti.Placeholder = opts.Placeholder
@@ -35,7 +35,7 @@ func NewTextInput(opts TextInputOpts) TextInput {
 // Suggestion keys (up/down/ctrl+p/ctrl+n) are disabled so they can be
 // used for list navigation instead.
 func NewFilterInput(opts TextInputOpts) TextInput {
-	f := NewTextInput(opts)
+	f := newTextInput(opts)
 
 	km := textinput.DefaultKeyMap
 	km.NextSuggestion = key.NewBinding()

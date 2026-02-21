@@ -100,6 +100,8 @@ func (m Model) renderBadges() string {
 	sort.Strings(shortened)
 
 	maxW := m.leftPanelWidth()
+	ellipsis := tui.HelpStyle.Render(utils.Ellipsis)
+	ellipsisW := lipgloss.Width(tui.KeySpace + ellipsis)
 	var result string
 	for i, s := range shortened {
 		badge := tui.RenderBadge(s, tui.ColorMuted)
@@ -108,9 +110,12 @@ func (m Model) renderBadges() string {
 			candidate += tui.KeySpace
 		}
 		candidate += badge
-		if lipgloss.Width(candidate) > maxW && i > 0 {
-			result += tui.KeySpace + tui.HelpStyle.Render("…")
+		if i > 0 && lipgloss.Width(candidate)+ellipsisW > maxW {
+			result += tui.KeySpace + ellipsis
 			break
+		}
+		if i == 0 && lipgloss.Width(candidate) > maxW {
+			return ellipsis
 		}
 		result = candidate
 	}

@@ -4,13 +4,12 @@ package userflags
 import (
 	"flag"
 	"os"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // AllFlags  All user flags and subcommands
 type AllFlags struct {
 	Env      string
+	EnvSet   bool
 	FilePath string
 	File     string
 	Debug    bool
@@ -20,27 +19,27 @@ type AllFlags struct {
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*AllFlags, error) {
-	if len(os.Args) < 2 {
-		utils.PrintWarning(
-			"Provide a subcommand or a flag. See full docs at https://github.com/xaaha/hulak",
-		)
-		utils.PrintHelp()
-		os.Exit(1)
-	}
-
-	// hulak expects either a subcommand or user flag
-	// Check if the first argument is a flag (starts with '-')
-	if HasFlag() {
-		flag.Parse()
-	} else {
-		err := HandleSubcommands()
-		if err != nil {
-			return nil, err
+	if len(os.Args) >= 2 {
+		if HasFlag() {
+			flag.Parse()
+		} else {
+			err := HandleSubcommands()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
+	envSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "env" {
+			envSet = true
+		}
+	})
+
 	return &AllFlags{
 		Env:      Env(),
+		EnvSet:   envSet,
 		FilePath: FilePath(),
 		File:     File(),
 		Debug:    Debug(),

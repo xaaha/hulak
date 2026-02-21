@@ -3,7 +3,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/tui/apicaller"
+	"github.com/xaaha/hulak/pkg/tui/envselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -23,12 +28,28 @@ func main() {
 	dir := flags.Dir
 	dirseq := flags.Dirseq
 
-	// Initialize project environment
-	envMap := InitializeProject(env)
-
 	// Which mode are we operating in
 	hasDirFlags := dir != "" || dirseq != ""
 	hasFileFlags := fp != "" || fileName != ""
+
+	if !hasFileFlags && !hasDirFlags {
+		if !isInteractiveTerminal() {
+			utils.PanicRedAndExit(
+				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
+			)
+		}
+
+		if !flags.EnvSet {
+			if err = envparser.CreateDefaultEnvs(nil); err != nil {
+				utils.PanicRedAndExit("%v", err)
+			}
+		}
+		fp = runInteractiveFlow(&env, flags.EnvSet)
+		hasFileFlags = true
+	}
+
+	// Initialize project environment
+	envMap := InitializeProject(env)
 
 	var filePathList []string
 
@@ -47,7 +68,57 @@ func main() {
 
 	if hasFileFlags || hasDirFlags {
 		HandleAPIRequests(envMap, debug, filePathList, dir, dirseq, fp)
-	} else {
-		utils.PrintWarning("No file or directory specified. Use -file, -fp, -dir, or -dirseq flags.")
 	}
+}
+
+/*
+runInteractiveFlow prompts the user to select an environment and file
+when no file or directory flags are provided.
+It updates env in-place if the user picks one, and returns the selected file path.
+*/
+func runInteractiveFlow(env *string, envSet bool) string {
+	envItems := envselect.EnvItems()
+	if !envSet && len(envItems) == 0 {
+		utils.PanicRedAndExit("%v", envselect.NoEnvFilesError())
+	}
+
+	fileItems, err := tui.FileItems()
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+	if len(fileItems) == 0 {
+		utils.PanicRedAndExit("%v", tui.NoFilesError())
+	}
+
+	selection, err := apicaller.RunFilePath(envItems, fileItems, *env, envSet)
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+
+	if selection.Cancelled || selection.File == "" {
+		os.Exit(0)
+	}
+
+	if selection.Env != "" {
+		*env = selection.Env
+	}
+
+	return selection.File
+}
+
+func isInteractiveTerminal() bool {
+	stdinInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+
+	stdoutInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
+	stdinTTY := (stdinInfo.Mode() & os.ModeCharDevice) != 0
+	stdoutTTY := (stdoutInfo.Mode() & os.ModeCharDevice) != 0
+
+	return stdinTTY && stdoutTTY
 }

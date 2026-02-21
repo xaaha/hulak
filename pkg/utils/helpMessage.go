@@ -39,6 +39,14 @@ func PrintHelpSubCommands() {
 func PrintHelp() {
 	PrintWarning("Api Usage:")
 	_ = WriteCommandHelp([]*CommandHelp{
+		{
+			Command:     "hulak",
+			Description: "Interactive single-file caller: select environment and one file",
+		},
+		{
+			Command:     "hulak -env staging",
+			Description: "Interactive file picker with staging environment",
+		},
 		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{
 			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
@@ -49,39 +57,15 @@ func PrintHelp() {
 			Description: "Run in debug mode",
 		},
 		{
-			Command:     "hulak  -fp path/tofile/getUser.yaml -debug",
+			Command:     "hulak -fp path/tofile/getUser.yaml -debug",
 			Description: "Run in global environment with debug mode",
 		},
 		{
-			Command:     "hulak -env prod -dir path/to/dir ",
+			Command:     "hulak -env prod -dir path/to/dir",
 			Description: "Run all files in the directory concurrently",
 		},
 		{
-			Command:     "hulak -env prod -dirseq path/to/dir ",
-			Description: "Run all files in the directory alphabetically",
-		},
-	})
-
-	_ = WriteCommandHelp([]*CommandHelp{
-		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
-		{
-			Command:     "hulak -env staging -fp path/tofile/getUser.yaml",
-			Description: "Run specific file with provided file path",
-		},
-		{
-			Command:     "hulak -env prod -fp path/tofile/getUser.yaml -debug",
-			Description: "Run in debug mode",
-		},
-		{
-			Command:     "hulak  -fp path/tofile/getUser.yaml -debug",
-			Description: "Run in global environment with debug mode",
-		},
-		{
-			Command:     "hulak -env prod -dir path/to/dir ",
-			Description: "Run all files in the directory concurrently",
-		},
-		{
-			Command:     "hulak -env prod -dirseq path/to/dir ",
+			Command:     "hulak -env prod -dirseq path/to/dir",
 			Description: "Run all files in the directory alphabetically",
 		},
 	})

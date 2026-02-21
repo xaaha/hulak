@@ -240,7 +240,7 @@ func resolveGQLPath(arg string) string {
 }
 
 func loadFromDirectory(dir string, env string) []graphql.ProcessResult {
-	urlToFileMap, err := graphql.FindGraphQLFiles(dir)
+	urlToFileMap, needsEnv, err := graphql.FindGraphQLFiles(dir)
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
@@ -248,7 +248,7 @@ func loadFromDirectory(dir string, env string) []graphql.ProcessResult {
 	for _, fp := range urlToFileMap {
 		filePaths = append(filePaths, fp)
 	}
-	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, env)
+	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, needsEnv, env)
 	if secretsMap == nil {
 		return nil
 	}
@@ -256,11 +256,12 @@ func loadFromDirectory(dir string, env string) []graphql.ProcessResult {
 }
 
 func loadFromFile(filePath string, env string) []graphql.ProcessResult {
-	rawURL, _, err := graphql.ValidateGraphQLFile(filePath)
+	rawURL, needsEnv, err := graphql.ValidateGraphQLFile(filePath)
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
-	secretsMap := graphql.GetSecretsForEnv(map[string]string{rawURL: filePath}, env)
+	urlToFileMap := map[string]string{rawURL: filePath}
+	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, needsEnv, env)
 	if secretsMap == nil {
 		return nil
 	}

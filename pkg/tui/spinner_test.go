@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewSpinnerMessage(t *testing.T) {
-	s := NewSpinner("Loading...")
+	s := newSpinner("Loading...")
 
 	if s.Message != "Loading..." {
 		t.Errorf("expected message 'Loading...', got %q", s.Message)
@@ -18,7 +18,7 @@ func TestNewSpinnerMessage(t *testing.T) {
 }
 
 func TestNewSpinnerEmptyMessage(t *testing.T) {
-	s := NewSpinner("")
+	s := newSpinner("")
 
 	if s.Message != "" {
 		t.Errorf("expected empty message, got %q", s.Message)
@@ -26,7 +26,7 @@ func TestNewSpinnerEmptyMessage(t *testing.T) {
 }
 
 func TestNewSpinnerUsesDotStyle(t *testing.T) {
-	s := NewSpinner("test")
+	s := newSpinner("test")
 
 	dotSpinner := spinner.Dot
 	if s.Model.Spinner.FPS != dotSpinner.FPS {
@@ -35,7 +35,7 @@ func TestNewSpinnerUsesDotStyle(t *testing.T) {
 }
 
 func TestSpinnerInitReturnsCmd(t *testing.T) {
-	s := NewSpinner("Loading...")
+	s := newSpinner("Loading...")
 	cmd := s.Init()
 
 	if cmd == nil {
@@ -44,7 +44,7 @@ func TestSpinnerInitReturnsCmd(t *testing.T) {
 }
 
 func TestSpinnerUpdateReturnsCmd(t *testing.T) {
-	s := NewSpinner("Loading...")
+	s := newSpinner("Loading...")
 
 	updated, cmd := s.Update(spinner.TickMsg{})
 	if cmd == nil {
@@ -56,7 +56,7 @@ func TestSpinnerUpdateReturnsCmd(t *testing.T) {
 }
 
 func TestSpinnerViewContainsMessage(t *testing.T) {
-	s := NewSpinner("Fetching schemas...")
+	s := newSpinner("Fetching schemas...")
 	view := s.View()
 
 	if !strings.Contains(view, "Fetching schemas...") {
@@ -76,7 +76,7 @@ func TestSpinnerViewDifferentMessages(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewSpinner(tc.message)
+			s := newSpinner(tc.message)
 			view := s.View()
 			if !strings.Contains(view, tc.message) {
 				t.Errorf("view should contain %q, got %q", tc.message, view)
@@ -87,7 +87,7 @@ func TestSpinnerViewDifferentMessages(t *testing.T) {
 
 func TestSpinnerTaskModelInitReturnsBatchCmd(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return "done", nil },
 	}
 	cmd := m.Init()
@@ -97,13 +97,13 @@ func TestSpinnerTaskModelInitReturnsBatchCmd(t *testing.T) {
 	}
 }
 
-func TestSpinnerTaskModelTaskDoneMsgSetsResult(t *testing.T) {
+func TestSpinnerTaskModeltaskDoneMsgSetsResult(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return nil, nil },
 	}
 
-	updated, cmd := m.Update(TaskDoneMsg{Result: "hello", Err: nil})
+	updated, cmd := m.Update(taskDoneMsg{Result: "hello", Err: nil})
 	model := updated.(spinnerTaskModel)
 
 	if model.result != "hello" {
@@ -117,14 +117,14 @@ func TestSpinnerTaskModelTaskDoneMsgSetsResult(t *testing.T) {
 	}
 }
 
-func TestSpinnerTaskModelTaskDoneMsgSetsError(t *testing.T) {
+func TestSpinnerTaskModeltaskDoneMsgSetsError(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return nil, nil },
 	}
 	taskErr := fmt.Errorf("connection failed")
 
-	updated, cmd := m.Update(TaskDoneMsg{Result: nil, Err: taskErr})
+	updated, cmd := m.Update(taskDoneMsg{Result: nil, Err: taskErr})
 	model := updated.(spinnerTaskModel)
 
 	if model.err == nil || model.err.Error() != "connection failed" {
@@ -140,7 +140,7 @@ func TestSpinnerTaskModelTaskDoneMsgSetsError(t *testing.T) {
 
 func TestSpinnerTaskModelCtrlCInterrupts(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return nil, nil },
 	}
 
@@ -157,7 +157,7 @@ func TestSpinnerTaskModelCtrlCInterrupts(t *testing.T) {
 
 func TestSpinnerTaskModelNonQuitKeyDoesNotQuit(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return nil, nil },
 	}
 
@@ -174,7 +174,7 @@ func TestSpinnerTaskModelNonQuitKeyDoesNotQuit(t *testing.T) {
 
 func TestSpinnerTaskModelTickUpdatesSpinner(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("test"),
+		spinner: newSpinner("test"),
 		task:    func() (any, error) { return nil, nil },
 	}
 
@@ -187,7 +187,7 @@ func TestSpinnerTaskModelTickUpdatesSpinner(t *testing.T) {
 
 func TestSpinnerTaskModelViewContainsMessage(t *testing.T) {
 	m := spinnerTaskModel{
-		spinner: NewSpinner("Fetching schemas..."),
+		spinner: newSpinner("Fetching schemas..."),
 		task:    func() (any, error) { return nil, nil },
 	}
 	view := m.View()
