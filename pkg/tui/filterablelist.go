@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -96,6 +97,10 @@ func (f *FilterableList) UpdateInput(msg tea.Msg) tea.Cmd {
 // selected item. It returns the rendered content and the line number of
 // the cursor, which callers can pass to [SyncViewport] for scroll tracking.
 func (f FilterableList) RenderItems() (string, int) {
+	return f.RenderItemsWidth(0)
+}
+
+func (f FilterableList) RenderItemsWidth(maxWidth int) (string, int) {
 	if len(f.Filtered) == 0 {
 		if f.requireInput && !f.HasFilterValue() {
 			return "", 0
@@ -103,15 +108,57 @@ func (f FilterableList) RenderItems() (string, int) {
 		return HelpStyle.Render(listPadding + "(no matches)"), 0
 	}
 
+	selectedPrefix := utils.ChevronRight + KeySpace
+	selectedAvail := maxWidth - lipgloss.Width(selectedPrefix)
+	listAvail := maxWidth - lipgloss.Width(listPadding)
+
 	cursorLine := 0
 	lines := make([]string, 0, len(f.Filtered))
 	for i, item := range f.Filtered {
+		display := item
+		if maxWidth > 0 {
+			avail := listAvail
+			if i == f.Cursor {
+				avail = selectedAvail
+			}
+			display = truncateWithEllipsis(item, avail)
+		}
+
 		if i == f.Cursor {
 			cursorLine = len(lines)
-			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+item))
+			lines = append(lines, SubtitleStyle.Render(selectedPrefix+display))
 		} else {
-			lines = append(lines, listPadding+item)
+			lines = append(lines, listPadding+display)
 		}
 	}
 	return strings.Join(lines, "\n"), cursorLine
+}
+
+func truncateWithEllipsis(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+
+	if maxWidth <= len(utils.Ellipsis) {
+		return strings.Repeat(".", maxWidth)
+	}
+
+	target := maxWidth - len(utils.Ellipsis)
+	var b strings.Builder
+	used := 0
+
+	for _, r := range s {
+		rw := lipgloss.Width(string(r))
+		if used+rw > target {
+			break
+		}
+		b.WriteRune(r)
+		used += rw
+	}
+
+	return b.String() + utils.Ellipsis
 }
