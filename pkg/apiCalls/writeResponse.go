@@ -12,17 +12,17 @@ import (
 	"golang.org/x/net/html"
 )
 
-func isJSON(str string) bool {
+func IsJSON(str string) bool {
 	var jsBfr json.RawMessage
 	return json.Unmarshal([]byte(str), &jsBfr) == nil
 }
 
-func isXML(str string) bool {
+func IsXML(str string) bool {
 	var v any
 	return xml.Unmarshal([]byte(str), &v) == nil
 }
 
-func isHTML(str string) bool {
+func IsHTML(str string) bool {
 	doc, err := html.Parse(strings.NewReader(str))
 	return err == nil && strings.Contains(str, "</html>") && doc != nil
 }
@@ -45,11 +45,11 @@ func evalAndWriteRes(resBody, path string) error {
 	}
 
 	switch {
-	case isJSON(resBody):
+	case IsJSON(resBody):
 		writeFile(path, ".json", resBody)
-	case isXML(resBody):
+	case IsXML(resBody):
 		writeFile(path, ".xml", resBody)
-	case isHTML(resBody):
+	case IsHTML(resBody):
 		writeFile(path, ".html", resBody)
 	default:
 		writeFile(path, ".txt", resBody)

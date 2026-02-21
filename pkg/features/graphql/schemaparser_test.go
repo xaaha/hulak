@@ -44,6 +44,24 @@ func TestParseIntrospectionResponse(t *testing.T) {
 			wantError: true,
 			errMsg:    "failed to parse",
 		},
+		{
+			name:      "HTML response",
+			jsonData:  `<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>`,
+			wantError: true,
+			errMsg:    "failed to parse",
+		},
+		{
+			name:      "XML response",
+			jsonData:  `<?xml version="1.0"?><error><message>Forbidden</message></error>`,
+			wantError: true,
+			errMsg:    "failed to parse",
+		},
+		{
+			name:      "plain text response",
+			jsonData:  `Internal Server Error`,
+			wantError: true,
+			errMsg:    "failed to parse",
+		},
 	}
 
 	for _, tt := range tests {
@@ -55,6 +73,9 @@ func TestParseIntrospectionResponse(t *testing.T) {
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Error message should contain '%s', got: %s", tt.errMsg, err.Error())
+				}
+				if strings.Contains(tt.errMsg, "failed to parse") && !strings.Contains(err.Error(), "Response preview:") {
+					t.Errorf("Parse error should include response preview, got: %s", err.Error())
 				}
 			} else {
 				if err != nil {
@@ -266,6 +287,97 @@ func TestConvertToSchemaExtractsEnumTypes(t *testing.T) {
 
 	if _, ok := schema.EnumTypes["__DirectiveLocation"]; ok {
 		t.Error("Built-in enum __DirectiveLocation should be filtered out")
+	}
+}
+
+func TestDetectContentType(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		expected string
+	}{
+		{
+			name:     "html_response",
+			body:     `<!DOCTYPE html><html><body>Not Found</body></html>`,
+			expected: "HTML",
+		},
+		{
+			name:     "xml_response",
+			body:     `<?xml version="1.0"?><error>Forbidden</error>`,
+			expected: "XML",
+		},
+		{
+			name:     "plain_text",
+			body:     "Internal Server Error",
+			expected: "non-JSON",
+		},
+		{
+			name:     "empty_body",
+			body:     "",
+			expected: "non-JSON",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := detectContentType(tt.body)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestTruncateBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		maxLen   int
+		contains string
+		exact    bool
+	}{
+		{
+			name:     "short_body_unchanged",
+			body:     "short",
+			maxLen:   100,
+			contains: "short",
+			exact:    true,
+		},
+		{
+			name:     "exact_limit_unchanged",
+			body:     "12345",
+			maxLen:   5,
+			contains: "12345",
+			exact:    true,
+		},
+		{
+			name:     "long_body_truncated",
+			body:     "abcdefghij",
+			maxLen:   5,
+			contains: "... (truncated)",
+		},
+		{
+			name:     "empty_body",
+			body:     "",
+			maxLen:   100,
+			contains: "",
+			exact:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncateBody(tt.body, tt.maxLen)
+			if tt.exact {
+				if result != tt.contains {
+					t.Errorf("Expected exactly %q, got %q", tt.contains, result)
+				}
+			} else {
+				if !strings.Contains(result, tt.contains) {
+					t.Errorf("Expected result to contain %q, got %q", tt.contains, result)
+				}
+			}
+		})
 	}
 }
 

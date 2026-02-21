@@ -52,13 +52,32 @@ func FetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
 		}
 	}
 
-	// Parse introspection response
+	statusCode := resp.Response.StatusCode
+	bodyStr := string(bodyBytes)
+
+	if statusCode < 200 || statusCode >= 300 {
+		return Schema{}, fmt.Errorf(
+			"introspection request returned status %d (%s).\nResponse body:\n%s",
+			statusCode,
+			resp.Response.Status,
+			truncateBody(bodyStr, 500),
+		)
+	}
+
+	if !apicalls.IsJSON(bodyStr) {
+		return Schema{}, fmt.Errorf(
+			"expected JSON response but received %s (status %d).\nResponse body:\n%s",
+			detectContentType(bodyStr),
+			statusCode,
+			truncateBody(bodyStr, 500),
+		)
+	}
+
 	introspectionData, err := ParseIntrospectionResponse(bodyBytes)
 	if err != nil {
 		return Schema{}, err
 	}
 
-	// Convert to domain model
 	schema, err := ConvertToSchema(introspectionData)
 	if err != nil {
 		return Schema{}, err
@@ -67,11 +86,30 @@ func FetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
 	return schema, nil
 }
 
+func detectContentType(body string) string {
+	switch {
+	case apicalls.IsHTML(body):
+		return "HTML"
+	case apicalls.IsXML(body):
+		return "XML"
+	default:
+		return "non-JSON"
+	}
+}
+
+func truncateBody(body string, maxLen int) string {
+	if len(body) <= maxLen {
+		return body
+	}
+	return body[:maxLen] + "\n... (truncated)"
+}
+
 // GetSecretsForEnv loads secrets based on whether templates exist in the files.
-// If env is provided, uses that directly. If templates are detected (in URLs,
-// headers, or body), shows the interactive env selector. Otherwise returns
-// an empty map so processing can proceed without env resolution.
+// If env is provided, uses that environment directly.
+// If env is empty and templates are needed, shows the interactive selector.
+// Returns empty map if no templates needed, nil if user cancelled.
 func GetSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) map[string]any {
+	// If env is explicitly provided, always load it (user knows what they want)
 	if env != "" {
 		return loadSecretsForEnv(env)
 	}

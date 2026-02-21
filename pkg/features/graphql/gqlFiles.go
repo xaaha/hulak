@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -14,6 +15,12 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
+// templateVarPattern matches Go template dot-access patterns like {{.key}} or {{ .key }}.
+// These are env variable references that require the secrets map for resolution.
+// It intentionally does NOT match {{getFile ...}} or {{getValueOf ...}} which work
+// without env secrets.
+var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
+
 // ProcessResult represents the outcome of processing a single GraphQL file
 type ProcessResult struct {
 	FilePath string
@@ -21,10 +28,25 @@ type ProcessResult struct {
 	Error    error
 }
 
-// NeedsEnvResolution checks if any URL in the map contains template variables.
+// FileHasTemplateVars checks if a file contains Go template variable references
+// (e.g., {{.token}}) that require environment variable resolution.
+func FileHasTemplateVars(filePath string) bool {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+	return templateVarPattern.Match(content)
+}
+
+// NeedsEnvResolution checks if any URL or file in the map contains template
+// variables that need environment resolution. It checks both URL strings and
+// the raw file contents for dot-access patterns like {{.key}}.
 func NeedsEnvResolution(urlToFileMap map[string]string) bool {
-	for url := range urlToFileMap {
+	for url, filePath := range urlToFileMap {
 		if strings.Contains(url, "{{") {
+			return true
+		}
+		if FileHasTemplateVars(filePath) {
 			return true
 		}
 	}
