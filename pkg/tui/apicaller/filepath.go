@@ -9,6 +9,14 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+const (
+	paneOverhead  = 5
+	frameOverhead = 4
+	maxEnvListH   = 1 // controls the length of the items shown in initial screen, for env, 1 is enough
+	maxFileListH  = 5 // same as above, at least 5 so that list does not jitter
+	minInputBoxW  = 40
+)
+
 type helperFocus int
 
 const (
@@ -39,13 +47,28 @@ type SingleFileSelection struct {
 	Cancelled bool
 }
 
+func defaultEnvPlaceholder(envItems []string) string {
+	for _, item := range envItems {
+		if item == utils.DefaultEnvVal {
+			return item
+		}
+	}
+	if len(envItems) > 0 {
+		return envItems[0]
+	}
+	return utils.DefaultEnvVal
+}
+
 func newHelperPane(
-	title, prompt string,
+	title, prompt, placeholder string,
 	items []string,
 	requireInput bool,
 ) helperPane {
+	list := tui.NewFilterableList(items, prompt, placeholder, requireInput)
+	list.TextInput.Model.Width = max(list.TextInput.Model.Width, minInputBoxW)
+
 	return helperPane{
-		FilterableList: tui.NewFilterableList(items, prompt, "", requireInput),
+		FilterableList: list,
 		title:          title,
 	}
 }
@@ -79,13 +102,6 @@ func (p helperPane) renderList(isLocked bool, lockedValue string) string {
 	content, _ := p.RenderItemsWidth(0)
 	return content
 }
-
-const (
-	paneOverhead  = 5
-	frameOverhead = 4
-	maxEnvListH   = 1 // controls the length of the items shown in initial screen, for env, 1 is enough
-	maxFileListH  = 5 // same as above, at least 5 so that list does not jitter
-)
 
 type filePathModel struct {
 	envPane      helperPane
@@ -139,16 +155,21 @@ func newFilePathModel(
 	initialEnv string,
 	envLocked bool,
 ) filePathModel {
+	envPlaceholder := defaultEnvPlaceholder(envItems)
+	filePlaceholder := "..."
+
 	m := filePathModel{
 		envPane: newHelperPane(
 			"Environment",
-			"Select Environment: ",
+			"",
+			envPlaceholder,
 			envItems,
 			true,
 		),
 		filePane: newHelperPane(
 			"Request File",
-			"Select File: ",
+			"",
+			filePlaceholder,
 			fileItems,
 			true,
 		),

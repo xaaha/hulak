@@ -15,6 +15,29 @@ func TestFilePathStartsWithEnvFocus(t *testing.T) {
 	}
 }
 
+func TestFilePathInputPromptsAreBlank(t *testing.T) {
+	m := newFilePathModel([]string{"global", "dev"}, []string{"a.yaml"}, "", false)
+
+	if m.envPane.TextInput.Model.Prompt != "" {
+		t.Fatalf("expected empty env prompt, got %q", m.envPane.TextInput.Model.Prompt)
+	}
+	if m.filePane.TextInput.Model.Prompt != "" {
+		t.Fatalf("expected empty file prompt, got %q", m.filePane.TextInput.Model.Prompt)
+	}
+}
+
+func TestFilePathEnvPlaceholderPrefersGlobalThenFirst(t *testing.T) {
+	m := newFilePathModel([]string{"dev", "global", "prod"}, []string{"a.yaml"}, "", false)
+	if m.envPane.TextInput.Model.Placeholder != "global" {
+		t.Fatalf("expected env placeholder global, got %q", m.envPane.TextInput.Model.Placeholder)
+	}
+
+	m = newFilePathModel([]string{"staging", "prod"}, []string{"a.yaml"}, "", false)
+	if m.envPane.TextInput.Model.Placeholder != "staging" {
+		t.Fatalf("expected env placeholder first item, got %q", m.envPane.TextInput.Model.Placeholder)
+	}
+}
+
 func TestFilePathEnterAdvancesFromEnvToFile(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod"}, []string{"a.yaml"}, "", false)
 	for _, r := range "dev" {
