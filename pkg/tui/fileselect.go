@@ -1,4 +1,4 @@
-package fileselect
+package tui
 
 import (
 	"errors"
@@ -8,6 +8,9 @@ import (
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// File selection helpers live in package tui because they provide data for
+// TUI flows but are not standalone Bubble Tea models.
 
 func NoFilesError() error {
 	errMsg := `no '.yaml' or '.yml' files found in current directory

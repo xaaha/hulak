@@ -1,4 +1,4 @@
-package fileselect
+package tui
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func setupTestDir(t *testing.T, files []string) func() {
+func setupFileSelectTestDir(t *testing.T, files []string) func() {
 	t.Helper()
 
 	tmpDir := t.TempDir()
@@ -32,13 +32,13 @@ func setupTestDir(t *testing.T, files []string) func() {
 	return func() {
 		err := os.Chdir(oldWd)
 		if err != nil {
-			t.Errorf("error on setupTestDir: %v", err)
+			t.Errorf("error on setupFileSelectTestDir: %v", err)
 		}
 	}
 }
 
 func TestFileItemsWithFiles(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"collection/get_users.yaml", "collection/post_data.yml"})
+	cleanup := setupFileSelectTestDir(t, []string{"collection/get_users.yaml", "collection/post_data.yml"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -62,7 +62,7 @@ func TestFileItemsWithFiles(t *testing.T) {
 }
 
 func TestFileItemsWithNoFiles(t *testing.T) {
-	cleanup := setupTestDir(t, []string{})
+	cleanup := setupFileSelectTestDir(t, []string{})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -76,7 +76,7 @@ func TestFileItemsWithNoFiles(t *testing.T) {
 }
 
 func TestFileItemsFiltersResponseFiles(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"api.yaml", "api_response.json"})
+	cleanup := setupFileSelectTestDir(t, []string{"api.yaml", "api_response.json"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -92,8 +92,8 @@ func TestFileItemsFiltersResponseFiles(t *testing.T) {
 	}
 }
 
-func TestFileItemsFiltersJsonFiles(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"api.yaml", "data.json"})
+func TestFileItemsFiltersJSONFiles(t *testing.T) {
+	cleanup := setupFileSelectTestDir(t, []string{"api.yaml", "data.json"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -110,7 +110,7 @@ func TestFileItemsFiltersJsonFiles(t *testing.T) {
 }
 
 func TestFileItemsFiltersEnvDir(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"api.yaml", "env/global.env"})
+	cleanup := setupFileSelectTestDir(t, []string{"api.yaml", "env/global.env"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -127,7 +127,7 @@ func TestFileItemsFiltersEnvDir(t *testing.T) {
 }
 
 func TestFileItemsShowsRelativePaths(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"collection/get_users.yaml"})
+	cleanup := setupFileSelectTestDir(t, []string{"collection/get_users.yaml"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -147,8 +147,8 @@ func TestFileItemsShowsRelativePaths(t *testing.T) {
 	}
 }
 
-func TestFileItemsKeepsYamlWithResponseInName(t *testing.T) {
-	cleanup := setupTestDir(t, []string{"create_response.yaml", "plain.yaml"})
+func TestFileItemsKeepsYAMLWithResponseInName(t *testing.T) {
+	cleanup := setupFileSelectTestDir(t, []string{"create_response.yaml", "plain.yaml"})
 	defer cleanup()
 
 	items, err := FileItems()
@@ -168,7 +168,7 @@ func TestFileItemsKeepsYamlWithResponseInName(t *testing.T) {
 	}
 }
 
-func TestFormatNoFilesError(t *testing.T) {
+func TestNoFilesError(t *testing.T) {
 	err := NoFilesError()
 
 	if err == nil {

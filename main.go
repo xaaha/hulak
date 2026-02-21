@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/apicaller"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
-	"github.com/xaaha/hulak/pkg/tui/fileselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -82,12 +82,12 @@ func runInteractiveFlow(env *string, envSet bool) string {
 		utils.PanicRedAndExit("%v", envselect.NoEnvFilesError())
 	}
 
-	fileItems, err := fileselect.FileItems()
+	fileItems, err := tui.FileItems()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
 	if len(fileItems) == 0 {
-		utils.PanicRedAndExit("%v", fileselect.NoFilesError())
+		utils.PanicRedAndExit("%v", tui.NoFilesError())
 	}
 
 	selection, err := apicaller.RunFilePath(envItems, fileItems, *env, envSet)
