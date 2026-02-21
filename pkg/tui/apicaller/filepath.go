@@ -12,7 +12,7 @@ import (
 const (
 	paneOverhead  = 5
 	frameOverhead = 4
-	maxEnvListH   = 1 // controls the length of the items shown in initial screen, for env, 1 is enough
+	maxEnvListH   = 3 // controls the length of the items shown in initial screen,
 	maxFileListH  = 5 // same as above, at least 5 so that list does not jitter
 	minInputBoxW  = 40
 )
@@ -164,14 +164,14 @@ func newFilePathModel(
 			"",
 			envPlaceholder,
 			envItems,
-			true,
+			false,
 		),
 		filePane: newHelperPane(
 			"Request File",
 			"",
 			filePlaceholder,
 			fileItems,
-			true,
+			false,
 		),
 		envLocked:   envLocked,
 		selectedEnv: initialEnv,

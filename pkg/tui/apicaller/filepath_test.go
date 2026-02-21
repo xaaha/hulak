@@ -165,13 +165,13 @@ func TestFilePathEnvLockedStartsOnFile(t *testing.T) {
 	}
 }
 
-func TestFilePathFileListStartsEmptyUntilTyping(t *testing.T) {
+func TestFilePathFileListStartsPopulatedBeforeTyping(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod"}, []string{"a.yaml", "b.yaml"}, "", false)
-	if len(m.envPane.Filtered) != 0 {
-		t.Fatalf("expected empty env list before typing, got %d", len(m.envPane.Filtered))
+	if len(m.envPane.Filtered) != 2 {
+		t.Fatalf("expected populated env list before typing, got %d", len(m.envPane.Filtered))
 	}
-	if len(m.filePane.Filtered) != 0 {
-		t.Fatalf("expected empty file list before typing, got %d", len(m.filePane.Filtered))
+	if len(m.filePane.Filtered) != 2 {
+		t.Fatalf("expected populated file list before typing, got %d", len(m.filePane.Filtered))
 	}
 
 	view := m.View()
