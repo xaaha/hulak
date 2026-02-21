@@ -12,9 +12,9 @@ const (
 	selectorFrameOverhead    = 8
 )
 
-// SelectorModel is a complete Bubble Tea program built on FilterableList.
-// It adds key handling, selection, and cancellation to create a ready-to-run
-// "pick one item" TUI. Used by envselect.RunEnvSelector for single-list prompts.
+// SelectorModel is the shared single-list picker engine for simple selection flows.
+// Use it for one-list prompts (for example env/file pickers); keep multi-pane
+// flows (like combined env+file picker) in dedicated models.
 type SelectorModel struct {
 	FilterableList
 	Selected  string

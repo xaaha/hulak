@@ -60,3 +60,11 @@ func FileItems() ([]string, error) {
 	}
 	return items, nil
 }
+
+func RunFileSelector() (string, error) {
+	items, err := FileItems()
+	if err != nil {
+		return "", err
+	}
+	return RunSelector(items, "Select File: ", NoFilesError())
+}

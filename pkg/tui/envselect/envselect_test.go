@@ -79,7 +79,7 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 	}
 }
 
-func TestFormatNoEnvFilesError(t *testing.T) {
+func TestNoEnvFilesError(t *testing.T) {
 	err := NoEnvFilesError()
 
 	if err == nil {
