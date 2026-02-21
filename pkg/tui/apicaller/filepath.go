@@ -1,6 +1,7 @@
 package apicaller
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -349,9 +350,11 @@ func (m filePathModel) View() string {
 		)
 	}
 
-	helpLine := tui.HelpStyle.Render(
-		"\n" + "enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
-	)
+	helpLine := tui.HelpStyle.Render(fmt.Sprintf(
+		"\n%s\n%s",
+		"enter: select | tab: switch env/file | esc: clear/back/cancel",
+		"Single-file call. Run 'hulak help' to see more",
+	))
 
 	parts := []string{}
 	if lockedNote != "" {

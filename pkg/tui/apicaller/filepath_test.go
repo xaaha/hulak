@@ -148,9 +148,12 @@ func TestFilePathViewContainsSections(t *testing.T) {
 	}
 	if !strings.Contains(
 		view,
-		"enter: select | tab: switch env/file | esc: clear/back/cancel | arrows: navigate",
+		"enter: select | tab: switch env/file | esc: clear/back/cancel",
 	) {
 		t.Fatal("expected help text at bottom")
+	}
+	if !strings.Contains(view, "Single-file call. Run 'hulak help' to see more") {
+		t.Fatal("expected secondary help text at bottom")
 	}
 	if strings.Contains(view, "\n\n\n\n") {
 		t.Fatal("expected compact stacked spacing without excessive blank gaps")
