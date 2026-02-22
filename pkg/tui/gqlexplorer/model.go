@@ -30,6 +30,9 @@ const (
 
 	dividerWidth = 3 // " │ " between left and right panels
 
+	// Horizontal divider between detail and response in the right panel.
+	hDividerLines = 1
+
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
@@ -72,7 +75,17 @@ type Model struct {
 	detailCacheValue string
 	badgeCache       string
 	dividerCache     string
+	hDividerCache    string
+
+	focusedPanel panelFocus
 }
+
+type panelFocus uint8
+
+const (
+	focusLeft panelFocus = iota
+	focusRight
+)
 
 func NewModel(
 	operations []UnifiedOperation,
@@ -123,12 +136,51 @@ func (m Model) detailHeight() int {
 	return max(m.height-4, 1)
 }
 
+// detailTopHeight returns the height allocated to the detail viewport
+// (top half of the right panel).
+func (m Model) detailTopHeight() int {
+	return max(m.detailHeight()/2, 1)
+}
+
+// responseAreaHeight returns the height allocated to the response area
+// (bottom half of the right panel, below the horizontal divider).
+func (m Model) responseAreaHeight() int {
+	top := m.detailTopHeight()
+	return max(m.detailHeight()-top-hDividerLines, 1)
+}
+
 func (m *Model) updateBadgeCache() {
 	m.badgeCache = m.renderBadges()
 }
 
 func (m *Model) updateDividerCache() {
 	m.dividerCache = renderDivider(m.detailHeight())
+	m.hDividerCache = renderHorizontalDivider(m.rightPanelWidth())
+}
+
+func (m *Model) toggleFocus() {
+	if m.focusedPanel == focusLeft {
+		m.focusedPanel = focusRight
+		return
+	}
+	m.focusedPanel = focusLeft
+}
+
+func (m Model) activeScrollPanel() panelFocus {
+	if m.pickingEndpoints {
+		return focusLeft
+	}
+	return m.focusedPanel
+}
+
+func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	if m.activeScrollPanel() == focusLeft {
+		m.viewport, cmd = m.viewport.Update(msg)
+		return cmd
+	}
+	m.detailVP, cmd = m.detailVP.Update(msg)
+	return cmd
 }
 
 func (m Model) viewportHeight() int {
@@ -155,12 +207,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
 		rightW := m.rightPanelWidth()
-		detailH := m.detailHeight()
+		detailH := m.detailTopHeight()
 		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(panelW, listHeight)
 			m.viewport.MouseWheelEnabled = true
 			m.detailVP = viewport.New(rightW, detailH)
+			m.detailVP.MouseWheelEnabled = true
 			m.ready = true
 		} else {
 			m.viewport.Width = panelW
@@ -180,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
 	cmds = append(cmds, cmd)
-	m.viewport, cmd = m.viewport.Update(msg)
+	cmd = m.updateFocusedViewport(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
@@ -201,12 +254,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case tui.KeyUp, tui.KeyCtrlP:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		m.cursor = tui.MoveCursorUp(m.cursor)
 		m.syncViewport()
 		return m, nil
 	case tui.KeyDown, tui.KeyCtrlN:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 		m.syncViewport()
+		return m, nil
+	case tui.KeyLeft, tui.KeyRight:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+	case tui.KeyTab: // add keyEnter if needed to switch focus
+		m.toggleFocus()
 		return m, nil
 	}
 
@@ -269,9 +342,22 @@ func (m Model) View() string {
 
 	divider := m.dividerCache
 
-	rightCol := lipgloss.NewStyle().
-		Width(m.rightPanelWidth()).
+	// Right panel: detail (top half) + horizontal divider + response placeholder (bottom half)
+	rightW := m.rightPanelWidth()
+
+	detailView := lipgloss.NewStyle().
+		Width(rightW).
+		Height(m.detailTopHeight()).
 		Render(m.detailVP.View())
+
+	hDivider := m.hDividerCache
+
+	responsePlaceholder := lipgloss.NewStyle().
+		Width(rightW).
+		Height(m.responseAreaHeight()).
+		Render("")
+
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, hDivider, responsePlaceholder)
 
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, divider, rightCol)
 
