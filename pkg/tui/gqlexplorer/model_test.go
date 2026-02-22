@@ -496,7 +496,7 @@ func TestViewContainsOperationNames(t *testing.T) {
 
 func TestViewContainsHelpText(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.width = 160
+	m.width = 250
 	m.height = 40
 	view := m.View()
 
@@ -1144,5 +1144,82 @@ func TestRenderDetailNilInputTypes(t *testing.T) {
 	detail := renderDetail(op, nil)
 	if !strings.Contains(detail, "id") {
 		t.Error("detail should still render arguments with nil inputTypes")
+	}
+}
+
+func TestDetailTopHeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		want   int
+	}{
+		{"typical terminal", 40, (40 - 4) / 2},
+		{"small terminal", 10, (10 - 4) / 2},
+		{"minimum size", 5, 1},
+		{"zero height", 0, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := Model{height: tc.height}
+			got := m.detailTopHeight()
+			if got != tc.want {
+				t.Errorf("detailTopHeight() = %d, want %d", got, tc.want)
+			}
+			if got < 1 {
+				t.Errorf("detailTopHeight() = %d, must be >= 1", got)
+			}
+		})
+	}
+}
+
+func TestResponseAreaHeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		want   int
+	}{
+		{"typical terminal", 40, 40 - 4 - (40-4)/2 - hDividerLines},
+		{"small terminal", 10, 10 - 4 - (10-4)/2 - hDividerLines},
+		{"zero height", 0, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := Model{height: tc.height}
+			got := m.responseAreaHeight()
+			if got != tc.want {
+				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
+			}
+			if got < 1 {
+				t.Errorf("responseAreaHeight() = %d, must be >= 1", got)
+			}
+		})
+	}
+}
+
+func TestHeightPartitionSumsCorrectly(t *testing.T) {
+	for h := 0; h <= 100; h++ {
+		m := Model{height: h}
+		total := m.detailHeight()
+		top := m.detailTopHeight()
+		bottom := m.responseAreaHeight()
+		sum := top + hDividerLines + bottom
+
+		// For very small heights where max() clamps to 1, the sum may exceed
+		// total. For normal heights the partition should be exact.
+		if total >= 3 && sum != total {
+			t.Errorf("height=%d: top(%d) + divider(%d) + bottom(%d) = %d, want %d",
+				h, top, hDividerLines, bottom, sum, total)
+		}
+	}
+}
+
+func TestViewContainsHorizontalDivider(t *testing.T) {
+	m := NewModel(opsWithArgs(), nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m = result.(Model)
+	view := m.View()
+
+	if !strings.Contains(view, "─") {
+		t.Error("view should contain horizontal divider character")
 	}
 }

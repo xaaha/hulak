@@ -30,6 +30,9 @@ const (
 
 	dividerWidth = 3 // " │ " between left and right panels
 
+	// Horizontal divider between detail and response in the right panel.
+	hDividerLines = 1
+
 	noMatchesLabel  = "(no matches)"
 	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
 	operationFormat = "%d/%d operations"
@@ -72,7 +75,14 @@ type Model struct {
 	detailCacheValue string
 	badgeCache       string
 	dividerCache     string
+
+	focusedPanel int // 0 = left (operations list), 1 = right (detail view)
 }
+
+const (
+	focusLeft  = 0
+	focusRight = 1
+)
 
 func NewModel(
 	operations []UnifiedOperation,
@@ -123,6 +133,19 @@ func (m Model) detailHeight() int {
 	return max(m.height-4, 1)
 }
 
+// detailTopHeight returns the height allocated to the detail viewport
+// (top half of the right panel).
+func (m Model) detailTopHeight() int {
+	return max(m.detailHeight()/2, 1)
+}
+
+// responseAreaHeight returns the height allocated to the response area
+// (bottom half of the right panel, below the horizontal divider).
+func (m Model) responseAreaHeight() int {
+	top := m.detailTopHeight()
+	return max(m.detailHeight()-top-hDividerLines, 1)
+}
+
 func (m *Model) updateBadgeCache() {
 	m.badgeCache = m.renderBadges()
 }
@@ -155,12 +178,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
 		rightW := m.rightPanelWidth()
-		detailH := m.detailHeight()
+		detailH := m.detailTopHeight()
 		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
 		if !m.ready {
 			m.viewport = viewport.New(panelW, listHeight)
 			m.viewport.MouseWheelEnabled = true
 			m.detailVP = viewport.New(rightW, detailH)
+			m.detailVP.MouseWheelEnabled = true
 			m.ready = true
 		} else {
 			m.viewport.Width = panelW
@@ -180,7 +204,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
 	cmds = append(cmds, cmd)
-	m.viewport, cmd = m.viewport.Update(msg)
+	// Only update the focused viewport for scroll events
+	if m.focusedPanel == focusLeft {
+		m.viewport, cmd = m.viewport.Update(msg)
+	} else {
+		m.detailVP, cmd = m.detailVP.Update(msg)
+	}
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
@@ -207,6 +236,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyDown, tui.KeyCtrlN:
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 		m.syncViewport()
+		return m, nil
+	case tui.KeyTab, tui.KeyEnter:
+		// Toggle focus between left and right panels
+		if m.focusedPanel == focusLeft {
+			m.focusedPanel = focusRight
+		} else {
+			m.focusedPanel = focusLeft
+		}
 		return m, nil
 	}
 
@@ -269,9 +306,22 @@ func (m Model) View() string {
 
 	divider := m.dividerCache
 
-	rightCol := lipgloss.NewStyle().
-		Width(m.rightPanelWidth()).
+	// Right panel: detail (top half) + horizontal divider + response placeholder (bottom half)
+	rightW := m.rightPanelWidth()
+
+	detailView := lipgloss.NewStyle().
+		Width(rightW).
+		Height(m.detailTopHeight()).
 		Render(m.detailVP.View())
+
+	hDivider := renderHorizontalDivider(rightW)
+
+	responsePlaceholder := lipgloss.NewStyle().
+		Width(rightW).
+		Height(m.responseAreaHeight()).
+		Render("")
+
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, hDivider, responsePlaceholder)
 
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, divider, rightCol)
 
