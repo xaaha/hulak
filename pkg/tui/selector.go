@@ -118,7 +118,8 @@ func (m SelectorModel) View() string {
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
-	return "\n" + BoxStyle.Render(content) + "\n"
+	// add border by wrapping content: BoxStyle.Render(content)
+	return "\n" + content + "\n"
 }
 
 func (m *SelectorModel) resizeViewport() {
