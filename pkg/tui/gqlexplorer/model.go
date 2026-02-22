@@ -75,13 +75,16 @@ type Model struct {
 	detailCacheValue string
 	badgeCache       string
 	dividerCache     string
+	hDividerCache    string
 
-	focusedPanel int // 0 = left (operations list), 1 = right (detail view)
+	focusedPanel panelFocus
 }
 
+type panelFocus uint8
+
 const (
-	focusLeft  = 0
-	focusRight = 1
+	focusLeft panelFocus = iota
+	focusRight
 )
 
 func NewModel(
@@ -152,6 +155,32 @@ func (m *Model) updateBadgeCache() {
 
 func (m *Model) updateDividerCache() {
 	m.dividerCache = renderDivider(m.detailHeight())
+	m.hDividerCache = renderHorizontalDivider(m.rightPanelWidth())
+}
+
+func (m *Model) toggleFocus() {
+	if m.focusedPanel == focusLeft {
+		m.focusedPanel = focusRight
+		return
+	}
+	m.focusedPanel = focusLeft
+}
+
+func (m Model) activeScrollPanel() panelFocus {
+	if m.pickingEndpoints {
+		return focusLeft
+	}
+	return m.focusedPanel
+}
+
+func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	if m.activeScrollPanel() == focusLeft {
+		m.viewport, cmd = m.viewport.Update(msg)
+		return cmd
+	}
+	m.detailVP, cmd = m.detailVP.Update(msg)
+	return cmd
 }
 
 func (m Model) viewportHeight() int {
@@ -204,12 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
 	cmds = append(cmds, cmd)
-	// Only update the focused viewport for scroll events
-	if m.focusedPanel == focusLeft {
-		m.viewport, cmd = m.viewport.Update(msg)
-	} else {
-		m.detailVP, cmd = m.detailVP.Update(msg)
-	}
+	cmd = m.updateFocusedViewport(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
@@ -237,13 +261,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 		m.syncViewport()
 		return m, nil
-	case tui.KeyTab, tui.KeyEnter:
-		// Toggle focus between left and right panels
-		if m.focusedPanel == focusLeft {
-			m.focusedPanel = focusRight
-		} else {
-			m.focusedPanel = focusLeft
-		}
+	case tui.KeyTab: // add keyEnter if needed to switch focus
+		m.toggleFocus()
 		return m, nil
 	}
 
@@ -314,7 +333,7 @@ func (m Model) View() string {
 		Height(m.detailTopHeight()).
 		Render(m.detailVP.View())
 
-	hDivider := renderHorizontalDivider(rightW)
+	hDivider := m.hDividerCache
 
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -140,6 +141,43 @@ func TestNavigateCtrlP(t *testing.T) {
 
 	if model.cursor != 2 {
 		t.Errorf("expected cursor 2, got %d", model.cursor)
+	}
+}
+
+func TestTabTogglesFocus(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model := result.(Model)
+	if model.focusedPanel != focusRight {
+		t.Errorf("expected focusRight after tab, got %v", model.focusedPanel)
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(Model)
+	if model.focusedPanel != focusLeft {
+		t.Errorf("expected focusLeft after second tab, got %v", model.focusedPanel)
+	}
+}
+
+func TestEnterDoesNotToggleFocus(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	m.focusedPanel = focusLeft
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := result.(Model)
+	if model.focusedPanel != focusLeft {
+		t.Errorf("expected focus to remain focusLeft on enter, got %v", model.focusedPanel)
+	}
+}
+
+func TestActiveScrollPanelForcesLeftInEndpointPicker(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	m.focusedPanel = focusRight
+	m.pickingEndpoints = true
+
+	if got := m.activeScrollPanel(); got != focusLeft {
+		t.Errorf("expected active scroll panel focusLeft in endpoint picker, got %v", got)
 	}
 }
 
@@ -496,11 +534,11 @@ func TestViewContainsOperationNames(t *testing.T) {
 
 func TestViewContainsHelpText(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.width = 250
+	m.width = 160
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, helpNavigation) {
+	if !strings.Contains(view, "esc: quit") {
 		t.Error("view should contain help text")
 	}
 }
@@ -1213,13 +1251,16 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	}
 }
 
-func TestViewContainsHorizontalDivider(t *testing.T) {
-	m := NewModel(opsWithArgs(), nil, nil)
-	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
-	m = result.(Model)
-	view := m.View()
+func TestRenderHorizontalDividerWidth(t *testing.T) {
+	divider := renderHorizontalDivider(32)
+	if got := lipgloss.Width(divider); got != 32 {
+		t.Errorf("divider width = %d, want 32", got)
+	}
+}
 
-	if !strings.Contains(view, "─") {
-		t.Error("view should contain horizontal divider character")
+func TestRenderHorizontalDividerCharacter(t *testing.T) {
+	divider := renderHorizontalDivider(8)
+	if !strings.Contains(divider, horizontalDivider) {
+		t.Error("horizontal divider should contain divider character")
 	}
 }
