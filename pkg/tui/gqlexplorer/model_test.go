@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -1191,8 +1192,8 @@ func TestDetailTopHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		{"typical terminal", 40, (40 - 4) / 2},
-		{"small terminal", 10, (10 - 4) / 2},
+		{"typical terminal", 40, (40 - 4) * tui.DetailTopHeight / 100},
+		{"small terminal", 10, (10 - 4) * tui.DetailTopHeight / 100},
 		{"minimum size", 5, 1},
 		{"zero height", 0, 1},
 	}
@@ -1216,8 +1217,8 @@ func TestResponseAreaHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		{"typical terminal", 40, 40 - 4 - (40-4)/2 - hDividerLines},
-		{"small terminal", 10, 10 - 4 - (10-4)/2 - hDividerLines},
+		{"typical terminal", 40, 40 - 4 - (40-4)*tui.DetailTopHeight/100 - hDividerLines},
+		{"small terminal", 10, 10 - 4 - (10-4)*tui.DetailTopHeight/100 - hDividerLines},
 		{"zero height", 0, 1},
 	}
 	for _, tc := range tests {

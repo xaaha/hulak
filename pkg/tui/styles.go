@@ -53,7 +53,8 @@ var BoxStyle = lipgloss.NewStyle().
 // (search input, badges, text wrapping) should derive from these
 // so the split ratio is defined in one place.
 const (
-	LeftPanelPct = 40
+	LeftPanelPct    = 30
+	DetailTopHeight = 40
 )
 
 // RenderBadge creates a colored badge with the given foreground color.

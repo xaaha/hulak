@@ -139,7 +139,7 @@ func (m Model) detailHeight() int {
 // detailTopHeight returns the height allocated to the detail viewport
 // (top half of the right panel).
 func (m Model) detailTopHeight() int {
-	return max(m.detailHeight()/2, 1)
+	return max(m.detailHeight()*tui.DetailTopHeight/100, 1)
 }
 
 // responseAreaHeight returns the height allocated to the response area
