@@ -10,6 +10,8 @@ const (
 	KeyDown  = "down"
 	KeyCtrlP = "ctrl+p" // up
 	KeyCtrlN = "ctrl+n" // down
+	KeyLeft  = "left"
+	KeyRight = "right"
 
 	// Vim-style navigation (use only when text input is inactive)
 	KeyJ = "j"

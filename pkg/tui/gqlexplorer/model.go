@@ -254,12 +254,29 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case tui.KeyUp, tui.KeyCtrlP:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		m.cursor = tui.MoveCursorUp(m.cursor)
 		m.syncViewport()
 		return m, nil
 	case tui.KeyDown, tui.KeyCtrlN:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 		m.syncViewport()
+		return m, nil
+	case tui.KeyLeft, tui.KeyRight:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 	case tui.KeyTab: // add keyEnter if needed to switch focus
 		m.toggleFocus()
