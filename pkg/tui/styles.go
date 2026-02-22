@@ -55,6 +55,8 @@ var BoxStyle = lipgloss.NewStyle().
 const (
 	LeftPanelPct    = 30
 	DetailTopHeight = 40
+	DetailFocusBoxW = 50
+	DetailFocusBoxH = 100
 )
 
 // RenderBadge creates a colored badge with the given foreground color.

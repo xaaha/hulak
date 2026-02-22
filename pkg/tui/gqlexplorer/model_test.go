@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -1064,9 +1063,6 @@ func TestViewShowsDetailPanel(t *testing.T) {
 	m = result.(Model)
 	view := m.View()
 
-	if !strings.Contains(view, "│") {
-		t.Error("view should contain vertical divider")
-	}
 	if !strings.Contains(view, "Returns:") {
 		t.Error("view should show detail panel with return type")
 	}
@@ -1190,19 +1186,20 @@ func TestDetailTopHeight(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
-		want   int
 	}{
-		{"typical terminal", 40, (40 - 4) * tui.DetailTopHeight / 100},
-		{"small terminal", 10, (10 - 4) * tui.DetailTopHeight / 100},
-		{"minimum size", 5, 1},
-		{"zero height", 0, 1},
+		{"typical terminal", 40},
+		{"small terminal", 10},
+		{"minimum size", 5},
+		{"zero height", 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := Model{height: tc.height}
+			detailBase := max(tc.height-containerStyle().GetVerticalFrameSize(), 1)
+			want := max(detailBase*tui.DetailTopHeight/100, 1)
 			got := m.detailTopHeight()
-			if got != tc.want {
-				t.Errorf("detailTopHeight() = %d, want %d", got, tc.want)
+			if got != want {
+				t.Errorf("detailTopHeight() = %d, want %d", got, want)
 			}
 			if got < 1 {
 				t.Errorf("detailTopHeight() = %d, must be >= 1", got)
@@ -1215,18 +1212,20 @@ func TestResponseAreaHeight(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
-		want   int
 	}{
-		{"typical terminal", 40, 40 - 4 - (40-4)*tui.DetailTopHeight/100 - hDividerLines},
-		{"small terminal", 10, 10 - 4 - (10-4)*tui.DetailTopHeight/100 - hDividerLines},
-		{"zero height", 0, 1},
+		{"typical terminal", 40},
+		{"small terminal", 10},
+		{"zero height", 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := Model{height: tc.height}
+			detailBase := max(tc.height-containerStyle().GetVerticalFrameSize(), 1)
+			top := max(detailBase*tui.DetailTopHeight/100, 1)
+			want := max(detailBase-top, 1)
 			got := m.responseAreaHeight()
-			if got != tc.want {
-				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
+			if got != want {
+				t.Errorf("responseAreaHeight() = %d, want %d", got, want)
 			}
 			if got < 1 {
 				t.Errorf("responseAreaHeight() = %d, must be >= 1", got)
@@ -1241,27 +1240,13 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 		total := m.detailHeight()
 		top := m.detailTopHeight()
 		bottom := m.responseAreaHeight()
-		sum := top + hDividerLines + bottom
+		sum := top + bottom
 
 		// For very small heights where max() clamps to 1, the sum may exceed
 		// total. For normal heights the partition should be exact.
-		if total >= 3 && sum != total {
-			t.Errorf("height=%d: top(%d) + divider(%d) + bottom(%d) = %d, want %d",
-				h, top, hDividerLines, bottom, sum, total)
+		if total >= 2 && sum != total {
+			t.Errorf("height=%d: top(%d) + bottom(%d) = %d, want %d",
+				h, top, bottom, sum, total)
 		}
-	}
-}
-
-func TestRenderHorizontalDividerWidth(t *testing.T) {
-	divider := renderHorizontalDivider(32)
-	if got := lipgloss.Width(divider); got != 32 {
-		t.Errorf("divider width = %d, want 32", got)
-	}
-}
-
-func TestRenderHorizontalDividerCharacter(t *testing.T) {
-	divider := renderHorizontalDivider(8)
-	if !strings.Contains(divider, horizontalDivider) {
-		t.Error("horizontal divider should contain divider character")
 	}
 }

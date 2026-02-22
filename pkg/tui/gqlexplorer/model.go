@@ -16,25 +16,10 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
-	// ViewTitle border+padding (4) + len("Search: ") (8)
-	searchBoxOverhead = 12
-
 	// Lines the search ViewTitle occupies: top border + input + bottom border
-	searchBoxLines = 3
-
-	// Fixed lines around the viewport in View():
-	//   above: "\n" + statusLine + "\n\n"  = 2 content + 1 blank
-	//   below: "\n\n" + helpText+scrollPct = 1 blank  + 1 content
-	//   box:   border top/bottom (2) + outer margin (4)
-	viewportFrameLines = 10
-
-	dividerWidth = 3 // " │ " between left and right panels
-
-	// Horizontal divider between detail and response in the right panel.
-	hDividerLines = 1
-
+	searchBoxLines  = 3
 	noMatchesLabel  = "(no matches)"
-	helpNavigation  = "esc: quit | ↑/↓: navigate | scroll: mouse | type to filter"
+	helpNavigation  = "esc: quit | ↑/↓: navigate"
 	operationFormat = "%d/%d operations"
 )
 
@@ -74,8 +59,6 @@ type Model struct {
 	detailCacheKey   string
 	detailCacheValue string
 	badgeCache       string
-	dividerCache     string
-	hDividerCache    string
 
 	focusedPanel panelFocus
 }
@@ -109,7 +92,7 @@ func NewModel(
 	for _, ep := range endpoints {
 		active[ep] = true
 	}
-	return Model{
+	m := Model{
 		operations:      operations,
 		filtered:        operations,
 		filterHint:      buildFilterHint(operations, endpoints),
@@ -122,18 +105,59 @@ func NewModel(
 			Placeholder: "filter operations...",
 		}),
 	}
+	m.setFocus(focusLeft)
+	return m
 }
 
 func (m Model) leftPanelWidth() int {
-	return max((m.width-6)*tui.LeftPanelPct/100, 0)
+	return max(m.contentWidth()*tui.LeftPanelPct/100, 0)
 }
 
 func (m Model) rightPanelWidth() int {
-	return max(m.width-6-m.leftPanelWidth()-dividerWidth, 0)
+	return max(m.contentWidth()-m.leftPanelWidth(), 0)
+}
+
+func containerStyle() lipgloss.Style {
+	return tui.BoxStyle.Padding(0, 1)
+}
+
+func (m Model) contentWidth() int {
+	return max(m.width-containerStyle().GetHorizontalFrameSize(), 1)
+}
+
+func (m Model) contentHeight() int {
+	return max(m.height-containerStyle().GetVerticalFrameSize(), 1)
+}
+
+func detailFocusStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		Padding(0, 0)
+}
+
+func (m Model) detailOuterWidth() int {
+	return max(m.rightPanelWidth()*tui.DetailFocusBoxW/100, 1)
+}
+
+func (m Model) detailOuterHeight() int {
+	return max(m.detailTopHeight()*tui.DetailFocusBoxH/100, 1)
+}
+
+func (m Model) detailViewportSize() (int, int) {
+	style := detailFocusStyle()
+	w := max(m.detailOuterWidth()-style.GetHorizontalFrameSize(), 0)
+	h := max(m.detailOuterHeight()-style.GetVerticalFrameSize(), 0)
+	return w, h
+}
+
+func (m Model) canRenderDetailBox() bool {
+	style := detailFocusStyle()
+	return m.detailOuterWidth() > style.GetHorizontalFrameSize() &&
+		m.detailOuterHeight() > style.GetVerticalFrameSize()
 }
 
 func (m Model) detailHeight() int {
-	return max(m.height-4, 1)
+	return max(m.contentHeight(), 1)
 }
 
 // detailTopHeight returns the height allocated to the detail viewport
@@ -146,24 +170,28 @@ func (m Model) detailTopHeight() int {
 // (bottom half of the right panel, below the horizontal divider).
 func (m Model) responseAreaHeight() int {
 	top := m.detailTopHeight()
-	return max(m.detailHeight()-top-hDividerLines, 1)
+	return max(m.detailHeight()-top, 1)
 }
 
 func (m *Model) updateBadgeCache() {
 	m.badgeCache = m.renderBadges()
 }
 
-func (m *Model) updateDividerCache() {
-	m.dividerCache = renderDivider(m.detailHeight())
-	m.hDividerCache = renderHorizontalDivider(m.rightPanelWidth())
-}
-
 func (m *Model) toggleFocus() {
 	if m.focusedPanel == focusLeft {
-		m.focusedPanel = focusRight
+		m.setFocus(focusRight)
 		return
 	}
-	m.focusedPanel = focusLeft
+	m.setFocus(focusLeft)
+}
+
+func (m *Model) setFocus(f panelFocus) {
+	m.focusedPanel = f
+	if f == focusLeft {
+		m.search.Model.Focus()
+		return
+	}
+	m.search.Model.Blur()
 }
 
 func (m Model) activeScrollPanel() panelFocus {
@@ -184,15 +212,30 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 }
 
 func (m Model) viewportHeight() int {
+	panelW := max(m.leftPanelWidth(), 1)
 	headerLines := searchBoxLines
 	if len(m.activeEndpoints) > 0 {
 		headerLines++
 	}
 	if m.filterHint != "" {
-		headerLines++
+		headerLines += wrappedLineCount(m.filterHint, panelW)
 	}
-	h := max(m.height-viewportFrameLines-headerLines, 1)
+	// statusLine (always 1) + help line (may wrap)
+	footerLines := 1
+	helpText := helpNavigation
+	if m.pickingEndpoints {
+		helpText = helpEndpointPicker
+	}
+	footerLines += wrappedLineCount(helpText, panelW)
+	h := max(m.contentHeight()-headerLines-footerLines, 1)
 	return h
+}
+
+func wrappedLineCount(text string, width int) int {
+	if width <= 0 || text == "" {
+		return 0
+	}
+	return lipgloss.Height(lipgloss.NewStyle().Width(width).Render(text))
 }
 
 func (m Model) Init() tea.Cmd {
@@ -206,23 +249,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
-		rightW := m.rightPanelWidth()
-		detailH := m.detailTopHeight()
-		m.search.Model.Width = max(panelW-searchBoxOverhead, 10)
+		detailW := max(m.rightPanelWidth(), 1)
+		detailH := max(m.detailTopHeight(), 1)
+		if m.canRenderDetailBox() {
+			detailW, detailH = m.detailViewportSize()
+			detailW = max(detailW, 1)
+			detailH = max(detailH, 1)
+		}
+		searchFrame := tui.InputStyle.GetHorizontalFrameSize()
+		m.search.Model.Width = max(panelW-searchFrame-len(m.search.Model.Prompt), 1)
 		if !m.ready {
 			m.viewport = viewport.New(panelW, listHeight)
 			m.viewport.MouseWheelEnabled = true
-			m.detailVP = viewport.New(rightW, detailH)
+			m.detailVP = viewport.New(detailW, detailH)
 			m.detailVP.MouseWheelEnabled = true
 			m.ready = true
 		} else {
 			m.viewport.Width = panelW
 			m.viewport.Height = listHeight
-			m.detailVP.Width = rightW
+			m.detailVP.Width = detailW
 			m.detailVP.Height = detailH
 		}
 		m.updateBadgeCache()
-		m.updateDividerCache()
 		m.syncViewport()
 		return m, nil
 	case tea.KeyMsg:
@@ -283,6 +331,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.focusedPanel == focusRight {
+		return m, nil
+	}
+
 	prevValue := m.search.Model.Value()
 	var cmd tea.Cmd
 	m.search, cmd = m.search.Update(msg)
@@ -338,36 +390,43 @@ func (m *Model) syncViewport() {
 func (m Model) View() string {
 	leftCol := lipgloss.NewStyle().
 		Width(m.leftPanelWidth()).
+		Height(m.detailHeight()).
 		Render(m.renderLeftContent())
 
-	divider := m.dividerCache
-
-	// Right panel: detail (top half) + horizontal divider + response placeholder (bottom half)
 	rightW := m.rightPanelWidth()
-
-	detailView := lipgloss.NewStyle().
+	detailFrameStyle := lipgloss.NewStyle().
 		Width(rightW).
-		Height(m.detailTopHeight()).
-		Render(m.detailVP.View())
-
-	hDivider := m.hDividerCache
+		Height(m.detailTopHeight())
+	var detailView string
+	if m.canRenderDetailBox() {
+		detailW, detailH := m.detailViewportSize()
+		detailStyle := detailFocusStyle().Width(detailW).Height(detailH)
+		if m.focusedPanel == focusRight {
+			detailStyle = detailStyle.BorderForeground(tui.ColorPrimary)
+		} else {
+			detailStyle = detailStyle.BorderForeground(tui.ColorMuted)
+		}
+		detailView = detailFrameStyle.Render(detailStyle.Render(m.detailVP.View()))
+	} else {
+		detailView = detailFrameStyle.Render(m.detailVP.View())
+	}
 
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.responseAreaHeight()).
 		Render("")
 
-	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, hDivider, responsePlaceholder)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, responsePlaceholder)
 
-	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, divider, rightCol)
+	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 
-	box := tui.BoxStyle.
-		Padding(0, 1).
-		Width(m.width - 4).
-		Height(m.height - 4).
+	boxStyle := containerStyle()
+	box := boxStyle.
+		Width(max(m.width-boxStyle.GetHorizontalFrameSize(), 1)).
+		Height(max(m.height-boxStyle.GetVerticalFrameSize(), 1)).
 		Render(combined)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 }
 
 func RunExplorer(

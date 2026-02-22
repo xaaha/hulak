@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	verticalDivider   = "│"
-	horizontalDivider = "─"
+	verticalDivider = "│"
 )
 
 var (
@@ -27,6 +26,30 @@ var (
 	toggleOff    = strings.Repeat(tui.KeySpace, 2)
 	toggleOn     = checkMark + tui.KeySpace
 )
+
+func truncateToWidth(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	if width == 1 {
+		return utils.Ellipsis
+	}
+	b := strings.Builder{}
+	w := 0
+	for _, r := range s {
+		rw := lipgloss.Width(string(r))
+		if w+rw > width-1 {
+			break
+		}
+		b.WriteRune(r)
+		w += rw
+	}
+	b.WriteString(utils.Ellipsis)
+	return b.String()
+}
 
 func appendWrappedHelpLines(lines []string, text string, width int, prefix string) []string {
 	if text == "" {
@@ -238,19 +261,27 @@ func appendInputTypeFields(
 }
 
 func (m Model) renderLeftContent() string {
+	panelW := max(m.leftPanelWidth(), 1)
 	badges := m.badgeCache
-	search := tui.BorderStyle.
+	if badges != "" {
+		badges = truncateToWidth(badges, panelW)
+	}
+	searchStyle := tui.BorderStyle
+	if m.focusedPanel == focusLeft {
+		searchStyle = tui.FocusedInputStyle
+	}
+	search := searchStyle.
 		Padding(0, 1).
-		Width(m.leftPanelWidth() - 2).
+		Width(max(panelW-2, 1)).
 		Render(m.search.Model.View())
 
-	content := "\n" + tui.KeySpace
+	content := ""
 	if m.pickingEndpoints {
 		content += endpointPickerTitle
 	} else {
 		content += fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations))
 	}
-	statusLine := tui.HelpStyle.Render(content)
+	statusLine := tui.HelpStyle.Render(truncateToWidth(content, panelW))
 
 	var list string
 	if m.ready {
@@ -260,43 +291,27 @@ func (m Model) renderLeftContent() string {
 		list = content
 	}
 
-	var helpText string
+	var rawHelp string
 	if m.pickingEndpoints {
-		helpText = tui.HelpStyle.Render(helpEndpointPicker)
+		rawHelp = helpEndpointPicker
 	} else {
-		helpText = tui.HelpStyle.Render(helpNavigation)
+		rawHelp = helpNavigation
 	}
 
-	scrollPct := tui.HelpStyle.Render(
-		fmt.Sprintf(" %3.f%%", m.viewport.ScrollPercent()*100),
+	helpWithScroll := fmt.Sprintf("%s %3.f%%", rawHelp, m.viewport.ScrollPercent()*100)
+	helpLine := tui.HelpStyle.Render(
+		lipgloss.NewStyle().Width(panelW).Render(helpWithScroll),
 	)
 
-	var header string
+	lines := make([]string, 0, 6)
 	if badges != "" {
-		header += badges + "\n"
+		lines = append(lines, badges)
 	}
-	header += search
+	lines = append(lines, search)
 	if m.filterHint != "" {
-		header += "\n" + m.filterHint
+		lines = append(lines, lipgloss.NewStyle().Width(panelW).Render(m.filterHint))
 	}
-	return fmt.Sprintf(
-		"%s\n%s\n\n%s\n\n%s  %s",
-		header, statusLine, list, helpText, scrollPct,
-	)
-}
-
-func renderHorizontalDivider(width int) string {
-	style := lipgloss.NewStyle().Foreground(tui.ColorMuted)
-	return style.Render(strings.Repeat(horizontalDivider, max(width, 1)))
-}
-
-func renderDivider(height int) string {
-	style := lipgloss.NewStyle().Foreground(tui.ColorMuted)
-	line := style.Render(" " + verticalDivider + " ")
-	lines := make([]string, max(height, 1))
-	for i := range lines {
-		lines[i] = line
-	}
+	lines = append(lines, statusLine, list, helpLine)
 	return strings.Join(lines, "\n")
 }
 
