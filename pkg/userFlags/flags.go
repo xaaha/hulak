@@ -27,6 +27,10 @@ var (
 	//
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
 	dirseq *string
+
+	//version flags
+	vFlag       *bool
+	versionFlag *bool
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -60,6 +64,9 @@ func init() {
 		"",
 		"Directory path to run in alphabetical order",
 	)
+
+	vFlag = flag.Bool("v", false, "Print the version")
+	versionFlag = flag.Bool("version", false, "Print the version")
 }
 
 // FilePath returns the parsed value of the file path "fp" flag -fp

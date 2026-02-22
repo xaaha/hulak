@@ -22,6 +22,10 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	if len(os.Args) >= 2 {
 		if HasFlag() {
 			flag.Parse()
+			if *vFlag || *versionFlag {
+				getVersion()
+				os.Exit(0)
+			}
 		} else {
 			err := HandleSubcommands()
 			if err != nil {
