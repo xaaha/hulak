@@ -8,7 +8,7 @@ import (
 const (
 	selectorViewportDefaultW = 40
 	selectorViewportMinW     = 10
-	selectorViewportMaxH     = 4
+	selectorViewportMaxH     = 3
 	selectorFrameOverhead    = 8
 )
 

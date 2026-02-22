@@ -43,9 +43,10 @@ func ClampCursor(cursor, maxIndex int) int {
 func SyncViewport(vp *viewport.Model, content string, cursorLine, scrollMargin int) {
 	vp.SetContent(content)
 	h := vp.Height
+	margin := min(scrollMargin, max(h-1, 0))
 	if cursorLine < vp.YOffset {
 		vp.SetYOffset(max(0, cursorLine-1))
-	} else if cursorLine+scrollMargin >= vp.YOffset+h {
-		vp.SetYOffset(cursorLine - h + 1 + scrollMargin)
+	} else if cursorLine+margin >= vp.YOffset+h {
+		vp.SetYOffset(cursorLine - h + 1 + margin)
 	}
 }
