@@ -12,6 +12,11 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+const (
+	VerticalDivider   = "│"
+	HorizontalDivider = "─"
+)
+
 var (
 	itemPrefix     = strings.Repeat(tui.KeySpace, itemPadding)
 	selectedPrefix = strings.Repeat(
@@ -216,7 +221,7 @@ func appendInputTypeFields(
 			if nested, ok := resolveInputType(inputTypes, endpoint, base); ok {
 				childIndent := indent + tui.KeySpace + tui.KeySpace
 				if i < len(it.Fields)-1 {
-					childIndent = indent + tui.HelpStyle.Render("│") + tui.KeySpace
+					childIndent = indent + tui.HelpStyle.Render(VerticalDivider) + tui.KeySpace
 				}
 				lines = appendInputTypeFields(
 					lines,
@@ -280,9 +285,14 @@ func (m Model) renderLeftContent() string {
 	)
 }
 
+func renderHorizontalDivider(width int) string {
+	style := lipgloss.NewStyle().Foreground(tui.ColorMuted)
+	return style.Render(strings.Repeat(HorizontalDivider, max(width, 1)))
+}
+
 func renderDivider(height int) string {
 	style := lipgloss.NewStyle().Foreground(tui.ColorMuted)
-	line := style.Render(" │ ")
+	line := style.Render(" " + VerticalDivider + " ")
 	lines := make([]string, max(height, 1))
 	for i := range lines {
 		lines[i] = line
