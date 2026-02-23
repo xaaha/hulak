@@ -53,7 +53,7 @@ func buildFilterHint(operations []UnifiedOperation, endpoints []string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return tui.HelpStyle.Render(tui.KeySpace + strings.Join(parts, " | "))
+	return tui.HelpStyle.Render(strings.Join(parts, " | "))
 }
 
 func (m *Model) applyFilter() {
