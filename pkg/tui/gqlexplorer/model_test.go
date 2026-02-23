@@ -425,6 +425,34 @@ func TestWindowSizeMsg(t *testing.T) {
 	}
 }
 
+func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 110, Height: 40})
+	model := result.(Model)
+
+	if model.search.Model.Placeholder != "" {
+		t.Errorf("expected empty placeholder below threshold, got %q", model.search.Model.Placeholder)
+	}
+	if model.badgeCache != "" {
+		t.Errorf("expected empty badge cache below threshold, got %q", model.badgeCache)
+	}
+}
+
+func TestWindowSizeMsgShowsHeaderExtrasAtThreshold(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 111, Height: 40})
+	model := result.(Model)
+
+	if model.search.Model.Placeholder == "" {
+		t.Error("expected placeholder at threshold width")
+	}
+	if model.badgeCache == "" {
+		t.Error("expected non-empty badge cache at threshold width")
+	}
+}
+
 func TestViewContainsSearchPrompt(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 	m.width = 160

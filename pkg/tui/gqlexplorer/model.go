@@ -17,10 +17,14 @@ const (
 	detailPadding = 6
 
 	// Lines the search ViewTitle occupies: top border + input + bottom border
-	searchBoxLines  = 3
-	noMatchesLabel  = "(no matches)"
-	helpNavigation  = "esc: quit | ↑/↓: navigate"
-	operationFormat = "%d/%d operations"
+	searchBoxLines        = 3
+	noMatchesLabel        = "(no matches)"
+	helpNavigation        = "esc: quit | ↑/↓: navigate"
+	operationFormat       = "%d/%d operations"
+	searchPlaceholderText = "filter operations..."
+	// below this width, the ui does not have enough space to render fixed text
+	// like searchPlaceholderText and badge.
+	minHeaderContentWidth = 111
 )
 
 var badgeColor = map[OperationType]lipgloss.AdaptiveColor{
@@ -102,11 +106,26 @@ func NewModel(
 		enumTypes:       enumTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
-			Placeholder: "filter operations...",
+			Placeholder: searchPlaceholderText,
 		}),
 	}
 	m.setFocus(focusLeft)
 	return m
+}
+
+// hasHeaderContentSpace guards optional header UI that is visually noisy in
+// narrow terminals (badge row + placeholder hint).
+// When space is limited, returning false keeps the search row stable by hiding those extras.
+func (m Model) hasHeaderContentSpace() bool {
+	return m.width >= minHeaderContentWidth
+}
+
+func (m *Model) updateSearchPlaceholder() {
+	if m.hasHeaderContentSpace() {
+		m.search.Model.Placeholder = searchPlaceholderText
+		return
+	}
+	m.search.Model.Placeholder = ""
 }
 
 func (m Model) leftPanelWidth() int {
@@ -190,6 +209,10 @@ func (m Model) responseAreaHeight() int {
 }
 
 func (m *Model) updateBadgeCache() {
+	if !m.hasHeaderContentSpace() {
+		m.badgeCache = ""
+		return
+	}
 	m.badgeCache = m.renderBadges()
 }
 
@@ -263,6 +286,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.updateSearchPlaceholder()
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
 		detailW := max(m.rightPanelWidth(), 1)
