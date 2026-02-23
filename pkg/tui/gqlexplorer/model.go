@@ -110,11 +110,27 @@ func NewModel(
 }
 
 func (m Model) leftPanelWidth() int {
-	return max(m.contentWidth()*tui.LeftPanelPct/100, 0)
+	contentW := m.contentWidth()
+	if !m.hasTwoPanelLayout() {
+		return max(contentW, 1)
+	}
+
+	leftW := contentW * tui.LeftPanelPct / 100
+	leftW = max(leftW, tui.MinLeftPanelWidth)
+	maxLeft := max(contentW-tui.MinRightPanelWidth, 1)
+	leftW = min(leftW, maxLeft)
+	return max(leftW, 1)
 }
 
 func (m Model) rightPanelWidth() int {
+	if !m.hasTwoPanelLayout() {
+		return 0
+	}
 	return max(m.contentWidth()-m.leftPanelWidth(), 0)
+}
+
+func (m Model) hasTwoPanelLayout() bool {
+	return m.contentWidth() >= tui.MinLeftPanelWidth+tui.MinRightPanelWidth
 }
 
 func containerStyle() lipgloss.Style {
@@ -392,6 +408,15 @@ func (m Model) View() string {
 		Width(m.leftPanelWidth()).
 		Height(m.detailHeight()).
 		Render(m.renderLeftContent())
+	if !m.hasTwoPanelLayout() {
+		boxStyle := containerStyle()
+		box := boxStyle.
+			Width(max(m.width-boxStyle.GetHorizontalFrameSize(), 1)).
+			Height(max(m.height-boxStyle.GetVerticalFrameSize(), 1)).
+			Render(leftCol)
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
+	}
 
 	rightW := m.rightPanelWidth()
 	detailFrameStyle := lipgloss.NewStyle().

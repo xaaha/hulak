@@ -34,14 +34,16 @@ func truncateToWidth(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	if width == 1 {
-		return utils.Ellipsis
+	ellipsisW := lipgloss.Width(utils.Ellipsis)
+	if width <= ellipsisW {
+		return strings.Repeat(".", width)
 	}
 	b := strings.Builder{}
 	w := 0
+	target := width - ellipsisW
 	for _, r := range s {
 		rw := lipgloss.Width(string(r))
-		if w+rw > width-1 {
+		if w+rw > target {
 			break
 		}
 		b.WriteRune(r)
