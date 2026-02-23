@@ -166,8 +166,7 @@ func (m Model) contentHeight() int {
 
 func detailFocusStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		Padding(0, 0)
+		Border(lipgloss.RoundedBorder())
 }
 
 func (m Model) detailOuterWidth() int {
