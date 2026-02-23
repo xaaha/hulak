@@ -366,8 +366,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	case tui.KeyTab, tui.KeyEnter: // add keyEnter if needed to switch focus
+	case tui.KeyTab:
 		m.toggleFocus()
+		return m, nil
+	case tui.KeyEnter:
+		if m.focusedPanel == focusLeft && m.hasTwoPanelLayout() {
+			m.setFocus(focusRight)
+		}
 		return m, nil
 	}
 

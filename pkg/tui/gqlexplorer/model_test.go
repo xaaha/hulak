@@ -160,20 +160,22 @@ func TestTabTogglesFocus(t *testing.T) {
 	}
 }
 
-func TestEnterTogglesFocus(t *testing.T) {
+func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.focusedPanel = focusLeft
-
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(Model)
+	model.focusedPanel = focusLeft
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(Model)
 	if model.focusedPanel != focusRight {
 		t.Errorf("expected focusRight after enter, got %v", model.focusedPanel)
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focusLeft after second enter, got %v", model.focusedPanel)
+	if model.focusedPanel != focusRight {
+		t.Errorf("expected focusRight to remain after second enter, got %v", model.focusedPanel)
 	}
 }
 
