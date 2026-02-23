@@ -366,7 +366,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	case tui.KeyTab: // add keyEnter if needed to switch focus
+	case tui.KeyTab, tui.KeyEnter: // add keyEnter if needed to switch focus
 		m.toggleFocus()
 		return m, nil
 	}
