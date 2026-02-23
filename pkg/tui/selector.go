@@ -8,7 +8,7 @@ import (
 const (
 	selectorViewportDefaultW = 40
 	selectorViewportMinW     = 10
-	selectorViewportMaxH     = 3
+	selectorViewportMaxH     = 3 // fits 3 visible items; keeps the picker compact so it never dominates the terminal
 	selectorFrameOverhead    = 8
 )
 
@@ -122,7 +122,6 @@ func (m SelectorModel) View() string {
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
-	// add border by wrapping content: BoxStyle.Render(content)
 	return "\n" + content + "\n"
 }
 

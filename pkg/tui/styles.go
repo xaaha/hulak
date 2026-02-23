@@ -56,7 +56,7 @@ const (
 	LeftPanelPct       = 30
 	DetailTopHeight    = 40
 	DetailFocusBoxW    = 50
-	DetailFocusBoxH    = 100
+	DetailFocusBoxH    = 100 // Controls detail focus box height as a percentage. 100 = full height; values < 100 shrink the box. Values > 100 break the UI.
 	MinLeftPanelWidth  = 26
 	MinRightPanelWidth = 32
 )

@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
-	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -1222,20 +1221,22 @@ func TestDetailTopHeight(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
+		want   int
 	}{
-		{"typical terminal", 40},
-		{"small terminal", 10},
-		{"minimum size", 5},
-		{"zero height", 0},
+		// containerStyle vertical frame = 2 (top+bottom border),
+		// DetailTopHeight = 40%.
+		// contentH = max(height-2, 1), top = max(contentH*40/100, 1)
+		{"typical terminal", 40, 15},
+		{"small terminal", 10, 3},
+		{"minimum size", 5, 1},
+		{"zero height", 0, 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := Model{height: tc.height}
-			detailBase := max(tc.height-containerStyle().GetVerticalFrameSize(), 1)
-			want := max(detailBase*tui.DetailTopHeight/100, 1)
 			got := m.detailTopHeight()
-			if got != want {
-				t.Errorf("detailTopHeight() = %d, want %d", got, want)
+			if got != tc.want {
+				t.Errorf("detailTopHeight() = %d, want %d", got, tc.want)
 			}
 			if got < 1 {
 				t.Errorf("detailTopHeight() = %d, must be >= 1", got)
@@ -1248,20 +1249,19 @@ func TestResponseAreaHeight(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
+		want   int
 	}{
-		{"typical terminal", 40},
-		{"small terminal", 10},
-		{"zero height", 0},
+		// responseArea = max(contentH - detailTopH, 1)
+		{"typical terminal", 40, 23},
+		{"small terminal", 10, 5},
+		{"zero height", 0, 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := Model{height: tc.height}
-			detailBase := max(tc.height-containerStyle().GetVerticalFrameSize(), 1)
-			top := max(detailBase*tui.DetailTopHeight/100, 1)
-			want := max(detailBase-top, 1)
 			got := m.responseAreaHeight()
-			if got != want {
-				t.Errorf("responseAreaHeight() = %d, want %d", got, want)
+			if got != tc.want {
+				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
 			}
 			if got < 1 {
 				t.Errorf("responseAreaHeight() = %d, must be >= 1", got)
@@ -1273,7 +1273,7 @@ func TestResponseAreaHeight(t *testing.T) {
 func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	for h := 0; h <= 100; h++ {
 		m := Model{height: h}
-		total := m.detailHeight()
+		total := m.contentHeight()
 		top := m.detailTopHeight()
 		bottom := m.responseAreaHeight()
 		sum := top + bottom
@@ -1284,5 +1284,20 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 			t.Errorf("height=%d: top(%d) + bottom(%d) = %d, want %d",
 				h, top, bottom, sum, total)
 		}
+	}
+}
+
+func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	// Width 50 → contentWidth = 50-4 = 46 < MinLeftPanelWidth+MinRightPanelWidth (58)
+	// so hasTwoPanelLayout() returns false.
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
+	model := result.(Model)
+	model.focusedPanel = focusLeft
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(Model)
+	if model.focusedPanel != focusLeft {
+		t.Errorf("expected focusLeft in single-panel layout after enter, got %v", model.focusedPanel)
 	}
 }

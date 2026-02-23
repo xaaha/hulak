@@ -7,13 +7,17 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 const (
-	verticalDivider = "│"
+	// treeBranch is the Unicode box-drawing character used for
+	// input-type field tree rendering in the detail panel.
+	treeBranch = "│"
 )
 
 var (
@@ -27,30 +31,13 @@ var (
 	toggleOn     = checkMark + tui.KeySpace
 )
 
+// truncateToWidth truncates s to at most width visual columns,
+// correctly handling ANSI escape sequences and wide characters.
 func truncateToWidth(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if lipgloss.Width(s) <= width {
-		return s
-	}
-	ellipsisW := lipgloss.Width(utils.Ellipsis)
-	if width <= ellipsisW {
-		return strings.Repeat(".", width)
-	}
-	b := strings.Builder{}
-	w := 0
-	target := width - ellipsisW
-	for _, r := range s {
-		rw := lipgloss.Width(string(r))
-		if w+rw > target {
-			break
-		}
-		b.WriteRune(r)
-		w += rw
-	}
-	b.WriteString(utils.Ellipsis)
-	return b.String()
+	return ansi.Truncate(s, width, utils.Ellipsis)
 }
 
 func appendWrappedHelpLines(lines []string, text string, width int, prefix string) []string {
@@ -85,7 +72,7 @@ func (m Model) renderList() (string, int) {
 		if i == m.cursor {
 			cursorLine = len(lines)
 			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
-			wrapW := m.leftPanelWidth() - detailPadding
+			wrapW := max(m.leftPanelWidth()-detailPadding, 1)
 			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
 			// Full URL shown intentionally; badges/filters use shortened form.
 			lines = appendWrappedHelpLines(lines, op.Endpoint, wrapW, detailPrefix)
@@ -246,7 +233,7 @@ func appendInputTypeFields(
 			if nested, ok := resolveInputType(inputTypes, endpoint, base); ok {
 				childIndent := indent + tui.KeySpace + tui.KeySpace
 				if i < len(it.Fields)-1 {
-					childIndent = indent + tui.HelpStyle.Render(verticalDivider) + tui.KeySpace
+					childIndent = indent + tui.HelpStyle.Render(treeBranch) + tui.KeySpace
 				}
 				lines = appendInputTypeFields(
 					lines,

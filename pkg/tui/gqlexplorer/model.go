@@ -39,6 +39,13 @@ var typeRank = map[OperationType]int{
 	TypeSubscription: 2,
 }
 
+// Cached styles — these never change at runtime, so building them once
+// at package init avoids repeated allocations per View() frame.
+var (
+	_containerStyle   = tui.BoxStyle.Padding(0, 1)
+	_detailFocusStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
+)
+
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
 	operations []UnifiedOperation
@@ -152,21 +159,12 @@ func (m Model) hasTwoPanelLayout() bool {
 	return m.contentWidth() >= tui.MinLeftPanelWidth+tui.MinRightPanelWidth
 }
 
-func containerStyle() lipgloss.Style {
-	return tui.BoxStyle.Padding(0, 1)
-}
-
 func (m Model) contentWidth() int {
-	return max(m.width-containerStyle().GetHorizontalFrameSize(), 1)
+	return max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)
 }
 
 func (m Model) contentHeight() int {
-	return max(m.height-containerStyle().GetVerticalFrameSize(), 1)
-}
-
-func detailFocusStyle() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder())
+	return max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
 }
 
 func (m Model) detailOuterWidth() int {
@@ -178,33 +176,27 @@ func (m Model) detailOuterHeight() int {
 }
 
 func (m Model) detailViewportSize() (int, int) {
-	style := detailFocusStyle()
-	w := max(m.detailOuterWidth()-style.GetHorizontalFrameSize(), 0)
-	h := max(m.detailOuterHeight()-style.GetVerticalFrameSize(), 0)
+	w := max(m.detailOuterWidth()-_detailFocusStyle.GetHorizontalFrameSize(), 0)
+	h := max(m.detailOuterHeight()-_detailFocusStyle.GetVerticalFrameSize(), 0)
 	return w, h
 }
 
 func (m Model) canRenderDetailBox() bool {
-	style := detailFocusStyle()
-	return m.detailOuterWidth() > style.GetHorizontalFrameSize() &&
-		m.detailOuterHeight() > style.GetVerticalFrameSize()
-}
-
-func (m Model) detailHeight() int {
-	return max(m.contentHeight(), 1)
+	return m.detailOuterWidth() > _detailFocusStyle.GetHorizontalFrameSize() &&
+		m.detailOuterHeight() > _detailFocusStyle.GetVerticalFrameSize()
 }
 
 // detailTopHeight returns the height allocated to the detail viewport
 // (top half of the right panel).
 func (m Model) detailTopHeight() int {
-	return max(m.detailHeight()*tui.DetailTopHeight/100, 1)
+	return max(m.contentHeight()*tui.DetailTopHeight/100, 1)
 }
 
 // responseAreaHeight returns the height allocated to the response area
-// (bottom half of the right panel, below the horizontal divider).
+// (bottom half of the right panel).
 func (m Model) responseAreaHeight() int {
 	top := m.detailTopHeight()
-	return max(m.detailHeight()-top, 1)
+	return max(m.contentHeight()-top, 1)
 }
 
 func (m *Model) updateBadgeCache() {
@@ -252,7 +244,10 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 func (m Model) viewportHeight() int {
 	panelW := max(m.leftPanelWidth(), 1)
 	headerLines := searchBoxLines
-	if len(m.activeEndpoints) > 0 {
+	// Only count the badge row when it will actually be rendered.
+	// updateBadgeCache clears badgeCache in narrow terminals, so counting
+	// it unconditionally causes a 1-line viewport height mismatch.
+	if len(m.activeEndpoints) > 0 && m.hasHeaderContentSpace() {
 		headerLines++
 	}
 	if m.filterHint != "" {
@@ -269,6 +264,9 @@ func (m Model) viewportHeight() int {
 	return h
 }
 
+// wrappedLineCount returns how many visual lines text occupies at the given
+// width. It performs a full lipgloss render internally, which is fine for
+// short strings (help text, filter hint) but would be a concern for longer content.
 func wrappedLineCount(text string, width int) int {
 	if width <= 0 || text == "" {
 		return 0
@@ -330,6 +328,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleEndpointPickerKey(msg)
 	}
 
+	// Global keys that apply regardless of focused panel.
 	switch msg.String() {
 	case tui.KeyQuit:
 		return m, tea.Quit
@@ -340,31 +339,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
-	case tui.KeyUp, tui.KeyCtrlP:
-		if m.focusedPanel == focusRight {
-			var cmd tea.Cmd
-			m.detailVP, cmd = m.detailVP.Update(msg)
-			return m, cmd
-		}
-		m.cursor = tui.MoveCursorUp(m.cursor)
-		m.syncViewport()
-		return m, nil
-	case tui.KeyDown, tui.KeyCtrlN:
-		if m.focusedPanel == focusRight {
-			var cmd tea.Cmd
-			m.detailVP, cmd = m.detailVP.Update(msg)
-			return m, cmd
-		}
-		m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
-		m.syncViewport()
-		return m, nil
-	case tui.KeyLeft, tui.KeyRight:
-		if m.focusedPanel == focusRight {
-			var cmd tea.Cmd
-			m.detailVP, cmd = m.detailVP.Update(msg)
-			return m, cmd
-		}
-		return m, nil
 	case tui.KeyTab:
 		m.toggleFocus()
 		return m, nil
@@ -373,8 +347,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.setFocus(focusRight)
 		}
 		return m, nil
+
+	// Navigation keys: forward to detail viewport when right panel is
+	// focused, otherwise handle left-panel cursor movement.
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
+		if m.focusedPanel == focusRight {
+			var cmd tea.Cmd
+			m.detailVP, cmd = m.detailVP.Update(msg)
+			return m, cmd
+		}
+		switch msg.String() {
+		case tui.KeyUp, tui.KeyCtrlP:
+			m.cursor = tui.MoveCursorUp(m.cursor)
+			m.syncViewport()
+		case tui.KeyDown, tui.KeyCtrlN:
+			m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
+			m.syncViewport()
+		}
+		return m, nil
 	}
 
+	// Remaining keys are text input — only active when left panel is focused.
 	if m.focusedPanel == focusRight {
 		return m, nil
 	}
@@ -432,28 +425,33 @@ func (m *Model) syncViewport() {
 }
 
 func (m Model) View() string {
+	// Compute layout values once per frame instead of calling through
+	// method chains repeatedly.
+	leftW := m.leftPanelWidth()
+	contentH := m.contentHeight()
+
 	leftCol := lipgloss.NewStyle().
-		Width(m.leftPanelWidth()).
-		Height(m.detailHeight()).
+		Width(leftW).
+		Height(contentH).
 		Render(m.renderLeftContent())
 	if !m.hasTwoPanelLayout() {
-		boxStyle := containerStyle()
-		box := boxStyle.
-			Width(max(m.width-boxStyle.GetHorizontalFrameSize(), 1)).
-			Height(max(m.height-boxStyle.GetVerticalFrameSize(), 1)).
+		box := _containerStyle.
+			Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
+			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
 			Render(leftCol)
 
 		return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 	}
 
 	rightW := m.rightPanelWidth()
+	topH := m.detailTopHeight()
 	detailFrameStyle := lipgloss.NewStyle().
 		Width(rightW).
-		Height(m.detailTopHeight())
+		Height(topH)
 	var detailView string
 	if m.canRenderDetailBox() {
 		detailW, detailH := m.detailViewportSize()
-		detailStyle := detailFocusStyle().Width(detailW).Height(detailH)
+		detailStyle := _detailFocusStyle.Width(detailW).Height(detailH)
 		if m.focusedPanel == focusRight {
 			detailStyle = detailStyle.BorderForeground(tui.ColorPrimary)
 		} else {
@@ -464,6 +462,8 @@ func (m Model) View() string {
 		detailView = detailFrameStyle.Render(m.detailVP.View())
 	}
 
+	// Placeholder reserves vertical space for the future response panel.
+	// Without it the right column collapses to only the detail viewport height.
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.responseAreaHeight()).
@@ -473,10 +473,9 @@ func (m Model) View() string {
 
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 
-	boxStyle := containerStyle()
-	box := boxStyle.
-		Width(max(m.width-boxStyle.GetHorizontalFrameSize(), 1)).
-		Height(max(m.height-boxStyle.GetVerticalFrameSize(), 1)).
+	box := _containerStyle.
+		Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
+		Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
 		Render(combined)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
