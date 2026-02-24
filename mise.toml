@@ -1,2 +1,25 @@
 [tools]
 go = "1.25.5"
+watchexec = "latest"
+"go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "latest"
+vhs = "latest"
+
+[tasks.dev]
+description = "Hot reload: rebuild and run TUI on file changes"
+run = "watchexec -r -e go -- go run . -fp e2etests/test_collection/form_data.hk.yaml"
+
+[tasks."dev:gql"]
+description = "Hot reload: rebuild and run GraphQL explorer on file changes"
+run = "watchexec -r -e go -- go run . gql ."
+
+[tasks."dev:test"]
+description = "Auto-run unit tests on file changes"
+run = "watchexec -r -e go -- go test ./pkg/... -timeout 30s"
+
+[tasks."dev:tui"]
+description = "Auto-run TUI tests on file changes"
+run = "watchexec -r -e go -- go test ./pkg/tui/... -timeout 30s"
+
+[tasks.record]
+description = "Record terminal demo GIF with VHS"
+run = "vhs demo.tape"

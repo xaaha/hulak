@@ -1,0 +1,56 @@
+linters:
+  enable:
+    - revive
+    - gosec
+    - staticcheck
+    - errcheck
+    - bodyclose
+    - gocritic
+    - govet
+
+linters-settings:
+  revive:
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: increment-decrement
+      - name: var-naming
+        arguments:
+          - []
+          - []
+          - - skipPackageNameChecks: true
+      - name: var-declaration
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+  gosec:
+    excludes:
+      - G104
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+
+issues:
+  exclude-dirs:
+    - e2etests
+  max-issues-per-linter: 50
+  max-same-issues: 5

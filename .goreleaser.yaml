@@ -1,0 +1,54 @@
+version: 2
+
+builds:
+  - main: .
+    binary: hulak
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/xaaha/hulak/pkg/userFlags.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - repository:
+      owner: xaaha
+      name: homebrew-tap
+      token: "{{ .Env.GH_PAT }}"
+    directory: Formula
+    homepage: https://github.com/xaaha/hulak
+    description: File based API client for terminal nerds
+    license: MIT
+    install: |
+      bin.install "hulak"
+      man1.install "man/hulak.1"
+    test: |
+      assert_match "Api Usage:", shell_output("#{bin}/hulak help")
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

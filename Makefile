@@ -19,15 +19,18 @@ build:
 test-unit:
 	@go test ./pkg/... -timeout 30s
 
-# Format and vet
+gql:
+	@go run . gql .
+
+# Format, vet, and lint
 lint:
-	@go fmt ./... && go vet ./...
+	@go fmt ./... && golangci-lint run ./...
 
 # Quick check - runs lint and unit tests (no external API calls)
 check:
 	@echo "Running lint..."
 	@go fmt ./...
-	@go vet ./...
+	@golangci-lint run ./...
 	@echo "Running unit tests..."
 	@go test ./pkg/... -timeout 30s
 	@echo "All checks passed!"
