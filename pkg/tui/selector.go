@@ -8,7 +8,7 @@ import (
 const (
 	selectorViewportDefaultW = 40
 	selectorViewportMinW     = 10
-	selectorViewportMaxH     = 8
+	selectorViewportMaxH     = 3 // fits 3 visible items; keeps the picker compact so it never dominates the terminal
 	selectorFrameOverhead    = 8
 )
 
@@ -56,12 +56,16 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
+	prev := m.TextInput.Model.Value()
 	cmdInput := m.UpdateInput(msg)
 	var cmdVP tea.Cmd
 	if m.vpReady {
 		m.viewport, cmdVP = m.viewport.Update(msg)
 	}
-	m.syncViewport()
+	// check if the list has changed, if so then re-render
+	if m.TextInput.Model.Value() != prev {
+		m.syncViewport()
+	}
 	return m, tea.Batch(cmdInput, cmdVP)
 }
 
@@ -118,7 +122,7 @@ func (m SelectorModel) View() string {
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
 
 	content := title + "\n\n" + list + "\n" + help
-	return "\n" + BoxStyle.Render(content) + "\n"
+	return "\n" + content + "\n"
 }
 
 func (m *SelectorModel) resizeViewport() {

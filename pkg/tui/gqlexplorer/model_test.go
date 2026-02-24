@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -160,14 +159,22 @@ func TestTabTogglesFocus(t *testing.T) {
 	}
 }
 
-func TestEnterDoesNotToggleFocus(t *testing.T) {
+func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.focusedPanel = focusLeft
-
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focus to remain focusLeft on enter, got %v", model.focusedPanel)
+	model.focusedPanel = focusLeft
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(Model)
+	if model.focusedPanel != focusRight {
+		t.Errorf("expected focusRight after enter, got %v", model.focusedPanel)
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(Model)
+	if model.focusedPanel != focusRight {
+		t.Errorf("expected focusRight to remain after second enter, got %v", model.focusedPanel)
 	}
 }
 
@@ -422,6 +429,34 @@ func TestWindowSizeMsg(t *testing.T) {
 	}
 	if !model.ready {
 		t.Error("viewport should be initialized after WindowSizeMsg")
+	}
+}
+
+func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 110, Height: 40})
+	model := result.(Model)
+
+	if model.search.Model.Placeholder != "" {
+		t.Errorf("expected empty placeholder below threshold, got %q", model.search.Model.Placeholder)
+	}
+	if model.badgeCache != "" {
+		t.Errorf("expected empty badge cache below threshold, got %q", model.badgeCache)
+	}
+}
+
+func TestWindowSizeMsgShowsHeaderExtrasAtThreshold(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 111, Height: 40})
+	model := result.(Model)
+
+	if model.search.Model.Placeholder == "" {
+		t.Error("expected placeholder at threshold width")
+	}
+	if model.badgeCache == "" {
+		t.Error("expected non-empty badge cache at threshold width")
 	}
 }
 
@@ -1063,9 +1098,6 @@ func TestViewShowsDetailPanel(t *testing.T) {
 	m = result.(Model)
 	view := m.View()
 
-	if !strings.Contains(view, "│") {
-		t.Error("view should contain vertical divider")
-	}
 	if !strings.Contains(view, "Returns:") {
 		t.Error("view should show detail panel with return type")
 	}
@@ -1191,8 +1223,11 @@ func TestDetailTopHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		{"typical terminal", 40, (40 - 4) / 2},
-		{"small terminal", 10, (10 - 4) / 2},
+		// containerStyle vertical frame = 2 (top+bottom border),
+		// DetailTopHeight = 40%.
+		// contentH = max(height-2, 1), top = max(contentH*40/100, 1)
+		{"typical terminal", 40, 15},
+		{"small terminal", 10, 3},
 		{"minimum size", 5, 1},
 		{"zero height", 0, 1},
 	}
@@ -1216,8 +1251,9 @@ func TestResponseAreaHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		{"typical terminal", 40, 40 - 4 - (40-4)/2 - hDividerLines},
-		{"small terminal", 10, 10 - 4 - (10-4)/2 - hDividerLines},
+		// responseArea = max(contentH - detailTopH, 1)
+		{"typical terminal", 40, 23},
+		{"small terminal", 10, 5},
 		{"zero height", 0, 1},
 	}
 	for _, tc := range tests {
@@ -1237,30 +1273,31 @@ func TestResponseAreaHeight(t *testing.T) {
 func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	for h := 0; h <= 100; h++ {
 		m := Model{height: h}
-		total := m.detailHeight()
+		total := m.contentHeight()
 		top := m.detailTopHeight()
 		bottom := m.responseAreaHeight()
-		sum := top + hDividerLines + bottom
+		sum := top + bottom
 
 		// For very small heights where max() clamps to 1, the sum may exceed
 		// total. For normal heights the partition should be exact.
-		if total >= 3 && sum != total {
-			t.Errorf("height=%d: top(%d) + divider(%d) + bottom(%d) = %d, want %d",
-				h, top, hDividerLines, bottom, sum, total)
+		if total >= 2 && sum != total {
+			t.Errorf("height=%d: top(%d) + bottom(%d) = %d, want %d",
+				h, top, bottom, sum, total)
 		}
 	}
 }
 
-func TestRenderHorizontalDividerWidth(t *testing.T) {
-	divider := renderHorizontalDivider(32)
-	if got := lipgloss.Width(divider); got != 32 {
-		t.Errorf("divider width = %d, want 32", got)
-	}
-}
+func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	// Width 50 → contentWidth = 50-4 = 46 < MinLeftPanelWidth+MinRightPanelWidth (58)
+	// so hasTwoPanelLayout() returns false.
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
+	model := result.(Model)
+	model.focusedPanel = focusLeft
 
-func TestRenderHorizontalDividerCharacter(t *testing.T) {
-	divider := renderHorizontalDivider(8)
-	if !strings.Contains(divider, horizontalDivider) {
-		t.Error("horizontal divider should contain divider character")
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(Model)
+	if model.focusedPanel != focusLeft {
+		t.Errorf("expected focusLeft in single-panel layout after enter, got %v", model.focusedPanel)
 	}
 }
