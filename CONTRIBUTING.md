@@ -71,9 +71,8 @@ This prevents committing code that doesn't compile or breaks tests.
 ### Unit Tests
 
 ```bash
-go test ./...                       # all tests
+mise test:unit # run all unit tests OR
 go test ./pkg/utils/                # specific package
-go test -run=TestCopyEnvMap ./pkg/utils/ -v  # single test
 ```
 
 Tests follow table-driven patterns with `t.Run()` subtests. See any `*_test.go` file for examples.
@@ -89,7 +88,7 @@ go test ./pkg/tui/... -update       # regenerate golden files after intentional 
 
 Golden files live in `pkg/tui/testdata/*.golden`. When you change TUI rendering:
 
-1. Run tests — they fail showing the diff between old and new output
+1. Run tests, they fail showing the diff between old and new output
 2. Review the diff to confirm the change is intentional
 3. Run with `-update` to accept the new output
 4. Commit the updated `.golden` files

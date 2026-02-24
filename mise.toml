@@ -5,7 +5,6 @@ watchexec = "latest"
 vhs = "latest"
 goreleaser = "latest"
 
-
 [settings]
 experimental = true # required for hooks
 
@@ -39,6 +38,10 @@ description = "Test Auth2 "
 run =  "go run . -f 'oAuth2' -env test"
 
 [tasks."test:unit"]
+description = "Run unit test"
+run = "go test ./... -timeout 30s"
+
+[tasks."test:tui"]
 description = "Run unit test"
 run = "go test ./... -timeout 30s"
 
