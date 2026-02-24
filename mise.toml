@@ -54,3 +54,15 @@ echo "Running unit tests..."
 go test ./pkg/... -timeout 30s 
 echo "All checks passed!"      
 """
+
+[tasks.bench]
+description = "Run benchmarks"
+run = "go test -bench=. -benchmem ./... 2>&1 | grep '^Benchmark' | head -10"
+
+[tasks."coverage:gen"]
+description = "Generate coverage report"
+run = "go test ./... -coverprofile=coverage.out"
+
+[tasks."coverage:view"]
+description = "Open coverage report in browser"
+run = "go tool cover -html=coverage.out"
