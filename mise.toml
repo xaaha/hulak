@@ -5,6 +5,13 @@ watchexec = "latest"
 vhs = "latest"
 goreleaser = "latest"
 
+
+[settings]
+experimental = true # required for hooks
+
+[hooks]
+postinstall = "chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh"
+
 [tasks.hooks]
 run = "chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh"
 

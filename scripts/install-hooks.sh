@@ -29,6 +29,7 @@ STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 # Auto-format code
 echo "Running go fmt..."
 go fmt ./...
+golangci-lint run ./...
 
 # Re-stage only the files that were originally staged
 if [ -n "$STAGED_FILES" ]; then

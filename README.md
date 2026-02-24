@@ -334,8 +334,7 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 ```bash
 git clone https://github.com/xaaha/hulak.git
 cd hulak
-mise install    # installs Go, watchexec, golangci-lint, vhs
-mise hooks
+mise install    # installs tools + git hooks
 go mod tidy
 ```
 

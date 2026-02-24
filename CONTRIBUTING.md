@@ -12,12 +12,11 @@ Thanks for your interest in contributing. This guide covers everything you need 
 ```bash
 git clone https://github.com/xaaha/hulak.git
 cd hulak
-mise install    # installs Go, watchexec, golangci-lint, vhs
+mise install    # installs tools + git hooks
 go mod tidy
-mise run hooks
 ```
 
-`mise install` reads `mise.toml` and installs:
+`mise install` reads `mise.toml`, installs tools, and automatically sets up git hooks:
 
 | Tool            | Purpose                                                                  |
 | --------------- | ------------------------------------------------------------------------ |
@@ -54,14 +53,14 @@ All project commands are mise tasks. Run `mise tasks` to see the full list.
 | `mise run bench`         | Run benchmarks                            |
 | `mise run coverage:gen`  | Generate coverage report                  |
 | `mise run coverage:view` | Open coverage in browser                  |
-| `mise run hooks`         | Install git pre-commit hooks              |
+| `mise run hooks`         | Re-install git pre-commit hooks           |
 | `mise run record`        | Record terminal demo GIF with VHS         |
 | `mise run watch:gql`     | Hot reload: GraphQL explorer              |
 | `mise run watch:unit`    | Hot reload: unit tests                    |
 
 ### Pre-commit Hooks
 
-`mise run hooks` sets up a git hook that runs before every commit:
+Git hooks are installed automatically during `mise install`. To re-install manually, run `mise run hooks`. The pre-commit hook runs before every commit:
 
 1. `go fmt ./...`
 2. `go vet ./...`
