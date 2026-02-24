@@ -6,7 +6,7 @@ vhs = "latest"
 goreleaser = "latest"
 
 [settings]
-experimental = true # required for hooks
+experimental = true  # required for hooks
 
 [hooks]
 postinstall = """
@@ -35,7 +35,7 @@ go run . -fp e2etests/test_collection/graphql.hk.yml
 
 [tasks."test:auth2"]
 description = "Test Auth2 "
-run =  "go run . -f 'oAuth2' -env test"
+run = "go run . -f 'oAuth2' -env test"
 
 [tasks."test:unit"]
 description = "Run unit test"
@@ -59,7 +59,7 @@ run = "watchexec -r -e go -- go test ./pkg/... -timeout 30s"
 
 [tasks.build]
 description = "Build the binary"
-run =  "go build -o ."
+run = "go build -o ."
 
 [tasks.lint]
 description = "Run Format and Linter"
