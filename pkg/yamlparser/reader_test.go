@@ -14,7 +14,7 @@ func createTempYamlFile(content string) (string, error) {
 		return "", err
 	}
 	defer file.Close()
-	if _, err := file.Write([]byte(content)); err != nil {
+	if _, err := file.WriteString(content); err != nil {
 		return "", nil
 	}
 	return file.Name(), nil
@@ -72,7 +72,7 @@ KeyTwo: value2
 					return
 				}
 				// handle the current subprocess
-				cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
+				cmd := exec.Command(os.Args[0], "-test.run="+t.Name()) //nolint:gosec // Standard Go subprocess test pattern
 				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
 				err := cmd.Run()
 
@@ -248,7 +248,7 @@ body:
 				}
 
 				if result.Method == "" || result.URL == "" {
-					t.Errorf("Expected valid ApiCallFile struct but got empty fields for test %s", tc.name)
+					t.Errorf("Expected valid APICallFile struct but got empty fields for test %s", tc.name)
 				}
 			}
 		})
@@ -402,7 +402,7 @@ body:
 					return
 				}
 
-				cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
+				cmd := exec.Command(os.Args[0], "-test.run="+t.Name()) //nolint:gosec // Standard Go subprocess test pattern
 				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
 				err := cmd.Run()
 

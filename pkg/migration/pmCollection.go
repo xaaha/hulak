@@ -121,7 +121,7 @@ func isCollection(jsonString map[string]any) bool {
 }
 
 // prepars the collection variables array to be compatible with the environment migration script
-func prepareVarStr(collectionVars PmCollection) Environment {
+func prepareVarStr(collectionVars *PmCollection) Environment {
 	result := Environment{
 		Name:   "",
 		Scope:  "globals",
@@ -141,7 +141,7 @@ func prepareVarStr(collectionVars PmCollection) Environment {
 }
 
 // saveResponses saves response examples for a single request item and returns array of JSON strings
-func saveResponses(item ItemOrReq) []string {
+func saveResponses(item *ItemOrReq) []string {
 	var responses []string
 
 	// If no responses, return empty array
@@ -149,7 +149,8 @@ func saveResponses(item ItemOrReq) []string {
 		return responses
 	}
 
-	for _, response := range item.Response {
+	for i := range item.Response {
+		response := &item.Response[i]
 		// Create a response object
 		responseData := make(map[string]any)
 		responseData["name"] = item.Name
@@ -208,7 +209,7 @@ func methodToYaml(method yamlparser.HTTPMethodType) (string, error) {
 	return string(yamlBytes), nil
 }
 
-func urlToYaml(pmURL PMURL) (string, error) {
+func urlToYaml(pmURL *PMURL) (string, error) {
 	type YAMLOutput struct {
 		URL       string            `yaml:"url"`
 		URLParams map[string]string `yaml:"urlparams,omitempty"`
@@ -276,7 +277,7 @@ func headerToYAML(header []KeyValuePair) (string, error) {
 }
 
 // bodyToYaml converts a Postman Body struct to a YAML format that matches yamlParser.Body
-func bodyToYaml(pmbody Body) (string, error) {
+func bodyToYaml(pmbody *Body) (string, error) {
 	yamlOutput := make(map[string]any)
 
 	switch pmbody.Mode {
@@ -342,7 +343,7 @@ func bodyToYaml(pmbody Body) (string, error) {
 }
 
 // forEachRequest converts each postman request to hulak's yaml format
-func forEachRequest(collection PmCollection, parentDirPath string) error {
+func forEachRequest(collection *PmCollection, parentDirPath string) error {
 	parentDirPath, err := utils.SanitizeDirPath(parentDirPath)
 	if err != nil {
 		return err
@@ -387,7 +388,7 @@ func processItems(items []ItemOrReq, parentDirPath string) error {
 			var urlYAML string
 			// Convert URL to YAML
 			if item.Request.URL != nil {
-				urlYAML, err = urlToYaml(*item.Request.URL)
+				urlYAML, err = urlToYaml(item.Request.URL)
 				if err != nil {
 					return fmt.Errorf("failed to convert URL for request '%s': %w", item.Name, err)
 				}
@@ -405,20 +406,20 @@ func processItems(items []ItemOrReq, parentDirPath string) error {
 			var bodyYAML string
 			if item.Request.Body != nil {
 				var err error
-				bodyYAML, err = bodyToYaml(*item.Request.Body)
+				bodyYAML, err = bodyToYaml(item.Request.Body)
 				if err != nil {
 					return fmt.Errorf("failed to convert body for request '%s': %w", item.Name, err)
 				}
 			}
 
 			// Save response examples for this request
-			responses := saveResponses(item)
+			responses := saveResponses(&item)
 			for i, response := range responses {
 				// Create filename based on request name and response index
 				sanitizedName := strings.ReplaceAll(strings.ToLower(item.Name), " ", "_")
 				filename := fmt.Sprintf("%s_example_%d.json", sanitizedName, i+1)
 				responseFilePath := filepath.Join(itemDirPath, filename)
-				if err := os.WriteFile(responseFilePath, []byte(response), os.ModePerm); err != nil {
+				if err := os.WriteFile(responseFilePath, []byte(response), 0600); err != nil {
 					return fmt.Errorf(
 						"failed to write response file '%s': %w",
 						responseFilePath,
@@ -431,7 +432,7 @@ func processItems(items []ItemOrReq, parentDirPath string) error {
 			requestYAML := fmt.Sprintf("---\n# Request: %s\n", item.Name)
 			if item.Description != "" {
 				descriptionFilePath := filepath.Join(itemDirPath, "description.txt")
-				if err := os.WriteFile(descriptionFilePath, []byte(item.Description), os.ModePerm); err != nil {
+				if err := os.WriteFile(descriptionFilePath, []byte(item.Description), 0600); err != nil {
 					return fmt.Errorf(
 						"failed to write description file '%s': %w",
 						descriptionFilePath,
@@ -495,19 +496,19 @@ func migrateCollection(jsonStr map[string]any) error {
 		return err
 	}
 	// create dir
-	if err = utils.CreateDir(dirPath); err != nil {
+	if err := utils.CreateDir(dirPath); err != nil {
 		return err
 	}
 
 	// inside the dir create a file for collection description
 	if collection.Info.Description != "" {
 		descFilePath := filepath.Join(dirPath, "description.md")
-		if err = os.WriteFile(descFilePath, []byte(collection.Info.Description), utils.FilePer); err != nil {
+		if err := os.WriteFile(descFilePath, []byte(collection.Info.Description), utils.FilePer); err != nil {
 			return err
 		}
 	}
 
-	if err := forEachRequest(collection, dirPath); err != nil {
+	if err := forEachRequest(&collection, dirPath); err != nil {
 		return err
 	}
 

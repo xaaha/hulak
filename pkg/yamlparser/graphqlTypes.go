@@ -8,7 +8,7 @@ import (
 // Unlike IsValid, this does NOT require a body/query since the TUI will provide it.
 // It ensures the file has a valid URL and applies default method (POST) and
 // Content-Type header (application/json) if not specified.
-func (user *ApiCallFile) IsValidForGraphQL(filePath string) (bool, error) {
+func (user *APICallFile) IsValidForGraphQL(filePath string) (bool, error) {
 	if user == nil {
 		return false, fmt.Errorf("requested api file is not valid")
 	}
@@ -41,14 +41,14 @@ func (user *ApiCallFile) IsValidForGraphQL(filePath string) (bool, error) {
 	return true, nil
 }
 
-// PrepareGraphQLStruct returns ApiInfo for a GraphQL request.
+// PrepareGraphQLStruct returns APIInfo for a GraphQL request.
 // Unlike PrepareStruct, this does not encode body since the query
 // will be provided separately (e.g., by TUI or introspection).
-func (user *ApiCallFile) PrepareGraphQLStruct() ApiInfo {
-	return ApiInfo{
+func (user *APICallFile) PrepareGraphQLStruct() APIInfo {
+	return APIInfo{
 		Method:    string(user.Method),
-		Url:       string(user.URL),
-		UrlParams: user.URLParams,
+		URL:       string(user.URL),
+		URLParams: user.URLParams,
 		Headers:   user.Headers,
 		Body:      nil, // Body will be set separately for GraphQL
 	}

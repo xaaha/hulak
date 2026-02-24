@@ -10,9 +10,7 @@ import (
 
 func TestURLToYAML(t *testing.T) {
 	// Helper function to normalize YAML for comparison
-	normalizeYAML := func(yaml string) string {
-		return strings.TrimSpace(yaml)
-	}
+	normalizeYAML := strings.TrimSpace
 
 	// Helper function to compare expected vs actual
 	compareYAML := func(t *testing.T, expected, actual string) {
@@ -36,7 +34,7 @@ func TestURLToYAML(t *testing.T) {
 urlparams:
   foo: bar1`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -56,7 +54,7 @@ urlparams:
   id: "123"
   name: john`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -69,7 +67,7 @@ urlparams:
 		}
 		expected := `url: "{{.baseUrl}}/api/v1/health"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -82,7 +80,7 @@ urlparams:
 		}
 		expected := `url: "{{.protocol}}://{{.baseUrl}}/api/{{.version}}/users"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -98,7 +96,7 @@ urlparams:
 			},
 		}
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -124,7 +122,7 @@ urlparams:
 urlparams:
   query: value with spaces`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -142,7 +140,7 @@ urlparams:
 urlparams:
   token: "{{.token}}"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -160,7 +158,7 @@ urlparams:
 urlparams:
   q: ""`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -180,7 +178,7 @@ urlparams:
   id: "{{.id}}"
   type: "{{.type}}"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -198,7 +196,7 @@ urlparams:
 urlparams:
   section: api`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -216,7 +214,7 @@ urlparams:
 urlparams:
   key: "{{.apiKey}}"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -230,7 +228,7 @@ urlparams:
 		}
 		expected := `url: "{{.baseUrl}}/api"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -250,7 +248,7 @@ urlparams:
   q: what?
   sort: asc`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -263,7 +261,7 @@ urlparams:
 		}
 		expected := `url: ""`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -281,7 +279,7 @@ urlparams:
 urlparams:
   version: "{{.version}}"`
 
-		result, err := urlToYaml(input)
+		result, err := urlToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -291,9 +289,7 @@ urlparams:
 
 func TestHeaderToYAML(t *testing.T) {
 	// Helper function to normalize YAML for comparison
-	normalizeYAML := func(yaml string) string {
-		return strings.TrimSpace(yaml)
-	}
+	normalizeYAML := strings.TrimSpace
 
 	// Helper function to compare expected vs actual
 	compareYAML := func(t *testing.T, expected, actual string) {
@@ -506,7 +502,7 @@ func TestBodyToYaml(t *testing.T) {
 		expected := `body:
   raw: '{"name": "John", "age": 30}'`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -521,7 +517,7 @@ func TestBodyToYaml(t *testing.T) {
 		expected := `body:
   raw: '{"name": "{{.name}}", "token": "{{.token}}"}'`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -541,7 +537,7 @@ func TestBodyToYaml(t *testing.T) {
     username: john_doe
     password: secret123`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -561,7 +557,7 @@ func TestBodyToYaml(t *testing.T) {
     username: "{{.username}}"
     apiKey: "{{.apiKey}}"`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -581,7 +577,7 @@ func TestBodyToYaml(t *testing.T) {
     description: Profile picture
     file: "@/path/to/file.jpg"`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -601,7 +597,7 @@ func TestBodyToYaml(t *testing.T) {
     token: "{{.authToken}}"
     user: "{{.userId}}"`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -632,7 +628,7 @@ func TestBodyToYaml(t *testing.T) {
     variables:
       id: "1"`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -665,7 +661,7 @@ func TestBodyToYaml(t *testing.T) {
     variables:
       id: "{{.userId}}"`
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -678,7 +674,7 @@ func TestBodyToYaml(t *testing.T) {
 		}
 		expected := ``
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -691,7 +687,7 @@ func TestBodyToYaml(t *testing.T) {
 		}
 		expected := ``
 
-		result, err := bodyToYaml(input)
+		result, err := bodyToYaml(&input)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -703,7 +699,7 @@ func TestBodyToYaml(t *testing.T) {
 			Mode: "unsupported",
 		}
 
-		_, err := bodyToYaml(input)
+		_, err := bodyToYaml(&input)
 		if err == nil {
 			t.Fatal("Expected error for unsupported body mode, but got nil")
 		}

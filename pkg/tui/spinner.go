@@ -24,19 +24,19 @@ func newSpinner(message string) spinnerModel {
 }
 
 // Init returns the tick command to start the spinner animation.
-func (s spinnerModel) Init() tea.Cmd {
+func (s *spinnerModel) Init() tea.Cmd {
 	return s.Model.Tick
 }
 
 // Update forwards messages to the inner spinner model.
-func (s spinnerModel) Update(msg tea.Msg) (spinnerModel, tea.Cmd) {
+func (s *spinnerModel) Update(msg tea.Msg) (*spinnerModel, tea.Cmd) {
 	var cmd tea.Cmd
 	s.Model, cmd = s.Model.Update(msg)
 	return s, cmd
 }
 
 // View renders the spinner animation followed by the message.
-func (s spinnerModel) View() string {
+func (s *spinnerModel) View() string {
 	return fmt.Sprintf("%s %s", s.Model.View(), s.Message)
 }
 
@@ -53,14 +53,14 @@ type spinnerTaskModel struct {
 	task    func() (any, error)
 }
 
-func (m spinnerTaskModel) Init() tea.Cmd {
+func (m *spinnerTaskModel) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Init(), func() tea.Msg {
 		result, err := m.task()
 		return taskDoneMsg{Result: result, Err: err}
 	})
 }
 
-func (m spinnerTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *spinnerTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case taskDoneMsg:
 		m.result = msg.Result
@@ -73,11 +73,11 @@ func (m spinnerTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	var cmd tea.Cmd
-	m.spinner, cmd = m.spinner.Update(msg)
+	_, cmd = m.spinner.Update(msg)
 	return m, cmd
 }
 
-func (m spinnerTaskModel) View() string {
+func (m *spinnerTaskModel) View() string {
 	return fmt.Sprintf("\n  %s\n", m.spinner.View())
 }
 
@@ -87,11 +87,11 @@ func RunWithSpinner(message string, task func() (any, error)) (any, error) {
 		spinner: newSpinner(message),
 		task:    task,
 	}
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(&model)
 	m, err := p.Run()
 	if err != nil {
 		return nil, err
 	}
-	result := m.(spinnerTaskModel)
+	result := m.(*spinnerTaskModel)
 	return result.result, result.err
 }

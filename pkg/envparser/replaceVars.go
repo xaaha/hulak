@@ -61,12 +61,8 @@ func replaceVariables(
 	}
 
 	funcMap := template.FuncMap{
-		"getValueOf": func(key, fileName string) any {
-			return actions.GetValueOf(key, fileName)
-		},
-		"getFile": func(fileName string) (string, error) {
-			return actions.GetFile(fileName)
-		},
+		"getValueOf": actions.GetValueOf,
+		"getFile":    actions.GetFile,
 	}
 
 	tmpl, err := template.New("template").

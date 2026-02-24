@@ -72,11 +72,11 @@ func (f *FilterableList) ClearFilter() {
 	f.applyFilter()
 }
 
-func (f FilterableList) HasFilterValue() bool {
+func (f *FilterableList) HasFilterValue() bool {
 	return f.TextInput.Model.Value() != ""
 }
 
-func (f FilterableList) SelectCurrent() (string, bool) {
+func (f *FilterableList) SelectCurrent() (string, bool) {
 	if len(f.Filtered) == 0 || f.Cursor >= len(f.Filtered) {
 		return "", false
 	}
@@ -85,8 +85,7 @@ func (f FilterableList) SelectCurrent() (string, bool) {
 
 func (f *FilterableList) UpdateInput(msg tea.Msg) tea.Cmd {
 	prev := f.TextInput.Model.Value()
-	updated, cmd := f.TextInput.Update(msg)
-	f.TextInput = updated
+	_, cmd := f.TextInput.Update(msg)
 	if f.TextInput.Model.Value() != prev {
 		f.applyFilter()
 	}
@@ -96,11 +95,11 @@ func (f *FilterableList) UpdateInput(msg tea.Msg) tea.Cmd {
 // RenderItems renders the filtered list with a cursor indicator on the
 // selected item. It returns the rendered content and the line number of
 // the cursor, which callers can pass to [SyncViewport] for scroll tracking.
-func (f FilterableList) RenderItems() (string, int) {
+func (f *FilterableList) RenderItems() (string, int) {
 	return f.RenderItemsWidth(0)
 }
 
-func (f FilterableList) RenderItemsWidth(maxWidth int) (string, int) {
+func (f *FilterableList) RenderItemsWidth(maxWidth int) (string, int) {
 	if len(f.Filtered) == 0 {
 		if f.requireInput && !f.HasFilterValue() {
 			return "", 0

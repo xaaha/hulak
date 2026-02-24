@@ -16,7 +16,6 @@ import (
 // Cache structure to store both results and handle warnings
 type valueCache struct {
 	result any
-	warned bool
 	exists bool
 }
 

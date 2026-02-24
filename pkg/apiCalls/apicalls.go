@@ -23,14 +23,14 @@ var DefaultClient HTTPClient = &http.Client{}
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
-func StandardCall(apiInfo yamlparser.ApiInfo, debug bool) (CustomResponse, error) {
+func StandardCall(apiInfo yamlparser.APIInfo, debug bool) (CustomResponse, error) {
 	return StandardCallWithClient(apiInfo, debug, DefaultClient)
 }
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
 // This function allows dependency injection for testing purposes
 func StandardCallWithClient(
-	apiInfo yamlparser.ApiInfo,
+	apiInfo yamlparser.APIInfo,
 	debug bool,
 	client HTTPClient,
 ) (CustomResponse, error) {
@@ -38,7 +38,7 @@ func StandardCallWithClient(
 		apiInfo.Headers = map[string]string{}
 	}
 	method := apiInfo.Method
-	urlStr := apiInfo.Url
+	urlStr := apiInfo.URL
 	bodyReader := apiInfo.Body
 
 	var bodyBytes []byte
@@ -54,7 +54,7 @@ func StandardCallWithClient(
 
 	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
-	preparedURL := PrepareURL(urlStr, apiInfo.UrlParams)
+	preparedURL := PrepareURL(urlStr, apiInfo.URLParams)
 
 	reqBodyForDebug := make([]byte, len(bodyBytes))
 	copy(reqBodyForDebug, bodyBytes)

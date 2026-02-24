@@ -59,14 +59,14 @@ func TestStandardCallWithClient_Success(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClient := &MockHTTPClient{
-				DoFunc: func(req *http.Request) (*http.Response, error) {
+				DoFunc: func(_ *http.Request) (*http.Response, error) {
 					return NewMockResponse(tc.statusCode, tc.responseBody), nil
 				},
 			}
 
-			apiInfo := yamlparser.ApiInfo{
+			apiInfo := yamlparser.APIInfo{
 				Method:  tc.method,
-				Url:     "http://example.com/api/test",
+				URL:     "http://example.com/api/test",
 				Headers: map[string]string{},
 			}
 
@@ -92,9 +92,9 @@ func TestStandardCallWithClient_Headers(t *testing.T) {
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method: "GET",
-		Url:    "http://example.com/api/test",
+		URL:    "http://example.com/api/test",
 		Headers: map[string]string{
 			"Authorization": "Bearer token123",
 			"Content-Type":  "application/json",
@@ -134,9 +134,9 @@ func TestStandardCallWithClient_PostWithBody(t *testing.T) {
 	}
 
 	requestBody := `{"name": "test", "value": 42}`
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "POST",
-		Url:     "http://example.com/api/items",
+		URL:     "http://example.com/api/items",
 		Headers: map[string]string{"Content-Type": "application/json"},
 		Body:    bytes.NewReader([]byte(requestBody)),
 	}
@@ -161,14 +161,14 @@ func TestStandardCallWithClient_PostWithBody(t *testing.T) {
 
 func TestStandardCallWithClient_NetworkError(t *testing.T) {
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return nil, ErrMockNetwork
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: map[string]string{},
 	}
 
@@ -192,11 +192,11 @@ func TestStandardCallWithClient_URLParams(t *testing.T) {
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/search",
+		URL:     "http://example.com/api/search",
 		Headers: map[string]string{},
-		UrlParams: map[string]string{
+		URLParams: map[string]string{
 			"q":     "test query",
 			"limit": "10",
 		},
@@ -218,7 +218,7 @@ func TestStandardCallWithClient_URLParams(t *testing.T) {
 
 func TestStandardCallWithClient_DebugMode(t *testing.T) {
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			resp := NewMockResponseWithHeaders(200, `{"data": "test"}`, map[string]string{
 				"X-Server": "test-server",
 			})
@@ -226,9 +226,9 @@ func TestStandardCallWithClient_DebugMode(t *testing.T) {
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: map[string]string{"Authorization": "Bearer token"},
 	}
 
@@ -257,14 +257,14 @@ func TestStandardCallWithClient_DebugMode(t *testing.T) {
 
 func TestStandardCallWithClient_NonDebugMode(t *testing.T) {
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, `{"data": "test"}`), nil
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: map[string]string{},
 	}
 
@@ -289,14 +289,14 @@ func TestStandardCallWithClient_JSONResponse(t *testing.T) {
 	responseJSON := `{"id": 123, "name": "test", "nested": {"key": "value"}}`
 
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, responseJSON), nil
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: map[string]string{},
 	}
 
@@ -324,14 +324,14 @@ func TestStandardCallWithClient_PlainTextResponse(t *testing.T) {
 	plainText := "This is plain text, not JSON"
 
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, plainText), nil
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/text",
+		URL:     "http://example.com/api/text",
 		Headers: map[string]string{},
 	}
 
@@ -353,15 +353,15 @@ func TestStandardCallWithClient_PlainTextResponse(t *testing.T) {
 
 func TestStandardCallWithClient_NilHeaders(t *testing.T) {
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, `{}`), nil
 		},
 	}
 
 	// Test with nil Headers - should not panic
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: nil, // explicitly nil
 	}
 
@@ -373,14 +373,14 @@ func TestStandardCallWithClient_NilHeaders(t *testing.T) {
 
 func TestStandardCallWithClient_Duration(t *testing.T) {
 	mockClient := &MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, `{}`), nil
 		},
 	}
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     "http://example.com/api/test",
+		URL:     "http://example.com/api/test",
 		Headers: map[string]string{},
 	}
 
@@ -405,9 +405,9 @@ func TestStandardCall_UsesDefaultClient(t *testing.T) {
 	server := NewMockServer(200, `{"test": "data"}`)
 	defer server.Close()
 
-	apiInfo := yamlparser.ApiInfo{
+	apiInfo := yamlparser.APIInfo{
 		Method:  "GET",
-		Url:     server.URL,
+		URL:     server.URL,
 		Headers: map[string]string{},
 	}
 

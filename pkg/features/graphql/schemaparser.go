@@ -115,7 +115,8 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 // convertFields converts a slice of introspection.Field to our domain Operation model
 func convertFields(fields []introspection.Field) []Operation {
 	operations := make([]Operation, 0, len(fields))
-	for _, field := range fields {
+	for i := range fields {
+		field := &fields[i]
 		deprecationReason := ""
 		if field.DeprecationReason != nil {
 			deprecationReason = *field.DeprecationReason

@@ -36,7 +36,7 @@ const (
 )
 
 // example file with all options
-const ApiOptions = "apiOptions.hk.yaml"
+const APIOptions = "apiOptions.hk.yaml"
 
 // response pattern for files saved
 const (

@@ -8,7 +8,7 @@ import (
 func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 	tests := []struct {
 		name        string
-		file        *ApiCallFile
+		file        *APICallFile
 		wantValid   bool
 		wantErr     bool
 		errContains string
@@ -22,14 +22,14 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name:        "missing URL",
-			file:        &ApiCallFile{},
+			file:        &APICallFile{},
 			wantValid:   false,
 			wantErr:     true,
 			errContains: "URL",
 		},
 		{
 			name: "invalid HTTP method",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:    "https://example.com/graphql",
 				Method: "INVALID",
 			},
@@ -39,7 +39,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with defaults applied - no body required",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL: "https://example.com/graphql",
 			},
 			wantValid: true,
@@ -47,7 +47,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with explicit method",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:    "https://example.com/graphql",
 				Method: "post",
 			},
@@ -56,7 +56,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with GET method",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:    "https://example.com/graphql",
 				Method: "GET",
 			},
@@ -65,7 +65,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with existing headers",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:     "https://example.com/graphql",
 				Headers: map[string]string{"authorization": "Bearer token"},
 			},
@@ -74,7 +74,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with existing content-type - should not override",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:     "https://example.com/graphql",
 				Headers: map[string]string{"content-type": "application/graphql"},
 			},
@@ -83,7 +83,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with body - body is allowed but not required",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL: "https://example.com/graphql",
 				Body: &Body{
 					Graphql: &GraphQl{
@@ -96,7 +96,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 		},
 		{
 			name: "valid with urlparams",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:       "https://example.com/graphql",
 				URLParams: map[string]string{"env": "prod"},
 			},
@@ -130,7 +130,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 
 func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	t.Run("applies default POST method", func(t *testing.T) {
-		file := &ApiCallFile{
+		file := &APICallFile{
 			URL: "https://example.com/graphql",
 		}
 
@@ -145,7 +145,7 @@ func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	})
 
 	t.Run("applies default Content-Type header", func(t *testing.T) {
-		file := &ApiCallFile{
+		file := &APICallFile{
 			URL: "https://example.com/graphql",
 		}
 
@@ -164,7 +164,7 @@ func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	})
 
 	t.Run("uppercases method", func(t *testing.T) {
-		file := &ApiCallFile{
+		file := &APICallFile{
 			URL:    "https://example.com/graphql",
 			Method: "post",
 		}
@@ -180,7 +180,7 @@ func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	})
 
 	t.Run("initializes nil headers map", func(t *testing.T) {
-		file := &ApiCallFile{
+		file := &APICallFile{
 			URL: "https://example.com/graphql",
 		}
 
@@ -198,22 +198,22 @@ func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
 	tests := []struct {
 		name        string
-		file        *ApiCallFile
-		checkResult func(t *testing.T, result ApiInfo)
+		file        *APICallFile
+		checkResult func(t *testing.T, result APIInfo)
 	}{
 		{
 			name: "basic GraphQL request",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:     "https://example.com/graphql",
 				Method:  POST,
 				Headers: map[string]string{"content-type": "application/json"},
 			},
-			checkResult: func(t *testing.T, result ApiInfo) {
+			checkResult: func(t *testing.T, result APIInfo) {
 				if result.Method != "POST" {
 					t.Errorf("expected method POST, got %s", result.Method)
 				}
-				if result.Url != "https://example.com/graphql" {
-					t.Errorf("expected URL https://example.com/graphql, got %s", result.Url)
+				if result.URL != "https://example.com/graphql" {
+					t.Errorf("expected URL https://example.com/graphql, got %s", result.URL)
 				}
 				if result.Headers["content-type"] != "application/json" {
 					t.Errorf("expected content-type header, got %v", result.Headers)
@@ -225,21 +225,21 @@ func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
 		},
 		{
 			name: "GraphQL with URLParams",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:       "https://example.com/graphql",
 				Method:    POST,
 				Headers:   map[string]string{"content-type": "application/json"},
 				URLParams: map[string]string{"env": "prod"},
 			},
-			checkResult: func(t *testing.T, result ApiInfo) {
-				if result.UrlParams["env"] != "prod" {
-					t.Errorf("expected URLParams to contain env=prod, got %v", result.UrlParams)
+			checkResult: func(t *testing.T, result APIInfo) {
+				if result.URLParams["env"] != "prod" {
+					t.Errorf("expected URLParams to contain env=prod, got %v", result.URLParams)
 				}
 			},
 		},
 		{
 			name: "GraphQL with auth header",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:    "https://example.com/graphql",
 				Method: POST,
 				Headers: map[string]string{
@@ -247,7 +247,7 @@ func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
 					"authorization": "Bearer token123",
 				},
 			},
-			checkResult: func(t *testing.T, result ApiInfo) {
+			checkResult: func(t *testing.T, result APIInfo) {
 				if result.Headers["authorization"] != "Bearer token123" {
 					t.Errorf("expected authorization header, got %v", result.Headers)
 				}
@@ -255,7 +255,7 @@ func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
 		},
 		{
 			name: "body is always nil in GraphQL struct",
-			file: &ApiCallFile{
+			file: &APICallFile{
 				URL:    "https://example.com/graphql",
 				Method: POST,
 				Body: &Body{
@@ -264,7 +264,7 @@ func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
 					},
 				},
 			},
-			checkResult: func(t *testing.T, result ApiInfo) {
+			checkResult: func(t *testing.T, result APIInfo) {
 				// Body should be nil because GraphQL query is provided separately
 				if result.Body != nil {
 					t.Error("expected body to be nil for GraphQL struct")

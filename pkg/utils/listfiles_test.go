@@ -10,7 +10,7 @@ import (
 
 func touch(t *testing.T, path string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("test"), 0o600); err != nil {
 		t.Fatalf("failed to create file %s: %v", path, err)
 	}
 }
@@ -78,7 +78,7 @@ func TestListFiles_CustomSkipDirs(t *testing.T) {
 	root := t.TempDir()
 
 	mkdir(t, filepath.Join(root, "skipme"))
-	f1 := filepath.Join(root, "skipme/file.yaml")
+	f1 := filepath.Join(root, "skipme", "file.yaml")
 	touch(t, f1)
 
 	// File is skipped due to custom setting

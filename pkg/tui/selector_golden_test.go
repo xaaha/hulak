@@ -10,7 +10,7 @@ import (
 
 func TestSelectorInitialRender(t *testing.T) {
 	m := NewSelector([]string{"global", "prod", "staging"}, "Environment: ")
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+	tm := teatest.NewTestModel(t, &m, teatest.WithInitialTermSize(80, 24))
 
 	tm.Send(tea.Quit())
 	out := tm.FinalModel(t, teatest.WithFinalTimeout(time.Second))
@@ -19,7 +19,7 @@ func TestSelectorInitialRender(t *testing.T) {
 
 func TestSelectorAfterNavigation(t *testing.T) {
 	m := NewSelector([]string{"global", "prod", "staging"}, "Environment: ")
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+	tm := teatest.NewTestModel(t, &m, teatest.WithInitialTermSize(80, 24))
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
 	tm.Send(tea.Quit())
@@ -29,7 +29,7 @@ func TestSelectorAfterNavigation(t *testing.T) {
 
 func TestSelectorAfterFiltering(t *testing.T) {
 	m := NewSelector([]string{"global", "prod", "staging"}, "Environment: ")
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+	tm := teatest.NewTestModel(t, &m, teatest.WithInitialTermSize(80, 24))
 
 	tm.Type("pro")
 	tm.Send(tea.Quit())
@@ -39,13 +39,13 @@ func TestSelectorAfterFiltering(t *testing.T) {
 
 func TestSelectorAfterSelection(t *testing.T) {
 	m := NewSelector([]string{"global", "prod", "staging"}, "Environment: ")
-	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+	tm := teatest.NewTestModel(t, &m, teatest.WithInitialTermSize(80, 24))
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	out := tm.FinalModel(t, teatest.WithFinalTimeout(time.Second))
 
-	result := out.(SelectorModel)
+	result := out.(*SelectorModel)
 	if result.Selected != "prod" {
 		t.Errorf("expected 'prod', got '%s'", result.Selected)
 	}

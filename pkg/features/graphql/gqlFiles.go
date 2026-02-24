@@ -24,7 +24,7 @@ var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
 // ProcessResult represents the outcome of processing a single GraphQL file
 type ProcessResult struct {
 	FilePath string
-	ApiInfo  yamlparser.ApiInfo
+	APIInfo  yamlparser.APIInfo
 	Error    error
 }
 
@@ -130,7 +130,7 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 
 	for _, filePath := range allFiles {
 		if strings.Contains(filepath.Base(filePath), utils.ResponseBase) ||
-			strings.Contains(filepath.Base(filePath), utils.ApiOptions) {
+			strings.Contains(filepath.Base(filePath), utils.APIOptions) {
 			continue
 		}
 
@@ -191,23 +191,23 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 // ProcessGraphQLFile fully processes a GraphQL YAML file with template resolution.
 // This follows the same pattern as SendAndSaveAPIRequest, using checkYamlFile() for
 // template resolution and applying defaults (method=POST, Content-Type: application/json).
-// The returned ApiInfo has:
-// - Url: Full URL with query parameters appended (using apicalls.PrepareURL)
-// - UrlParams: nil (params already merged into Url)
+// The returned APIInfo has:
+// - URL: Full URL with query parameters appended (using apicalls.PrepareURL)
+// - URLParams: nil (params already merged into URL)
 // - Body: nil - the caller must set the query body (e.g., introspection query or TUI-built query)
-func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.ApiInfo, error) {
+func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.APIInfo, error) {
 	graphqlConfig, _, err := yamlparser.FinalStructForGraphQL(filePath, secretsMap)
 	if err != nil {
-		return yamlparser.ApiInfo{}, err
+		return yamlparser.APIInfo{}, err
 	}
 
 	apiInfo := graphqlConfig.PrepareGraphQLStruct()
 
 	// Combine base URL with query parameters (same as StandardCall does)
 	// This ensures the full URL is available for introspection and TUI display
-	fullURL := apicalls.PrepareURL(apiInfo.Url, apiInfo.UrlParams)
-	apiInfo.Url = fullURL
-	apiInfo.UrlParams = nil // Params are now part of the URL
+	fullURL := apicalls.PrepareURL(apiInfo.URL, apiInfo.URLParams)
+	apiInfo.URL = fullURL
+	apiInfo.URLParams = nil // Params are now part of the URL
 
 	return apiInfo, nil
 }
@@ -234,7 +234,7 @@ func ProcessFilesConcurrent(filePaths []string, secretsMap map[string]any) []Pro
 				apiInfo, err := ProcessGraphQLFile(job, secretsMap)
 				results <- ProcessResult{
 					FilePath: job,
-					ApiInfo:  apiInfo,
+					APIInfo:  apiInfo,
 					Error:    err,
 				}
 			}

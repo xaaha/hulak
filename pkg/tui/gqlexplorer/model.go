@@ -123,7 +123,7 @@ func NewModel(
 // hasHeaderContentSpace guards optional header UI that is visually noisy in
 // narrow terminals (badge row + placeholder hint).
 // When space is limited, returning false keeps the search row stable by hiding those extras.
-func (m Model) hasHeaderContentSpace() bool {
+func (m *Model) hasHeaderContentSpace() bool {
 	return m.width >= minHeaderContentWidth
 }
 
@@ -135,7 +135,7 @@ func (m *Model) updateSearchPlaceholder() {
 	m.search.Model.Placeholder = ""
 }
 
-func (m Model) leftPanelWidth() int {
+func (m *Model) leftPanelWidth() int {
 	contentW := m.contentWidth()
 	if !m.hasTwoPanelLayout() {
 		return max(contentW, 1)
@@ -148,53 +148,53 @@ func (m Model) leftPanelWidth() int {
 	return max(leftW, 1)
 }
 
-func (m Model) rightPanelWidth() int {
+func (m *Model) rightPanelWidth() int {
 	if !m.hasTwoPanelLayout() {
 		return 0
 	}
 	return max(m.contentWidth()-m.leftPanelWidth(), 0)
 }
 
-func (m Model) hasTwoPanelLayout() bool {
+func (m *Model) hasTwoPanelLayout() bool {
 	return m.contentWidth() >= tui.MinLeftPanelWidth+tui.MinRightPanelWidth
 }
 
-func (m Model) contentWidth() int {
+func (m *Model) contentWidth() int {
 	return max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)
 }
 
-func (m Model) contentHeight() int {
+func (m *Model) contentHeight() int {
 	return max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
 }
 
-func (m Model) detailOuterWidth() int {
+func (m *Model) detailOuterWidth() int {
 	return max(m.rightPanelWidth()*tui.DetailFocusBoxW/100, 1)
 }
 
-func (m Model) detailOuterHeight() int {
+func (m *Model) detailOuterHeight() int {
 	return max(m.detailTopHeight()*tui.DetailFocusBoxH/100, 1)
 }
 
-func (m Model) detailViewportSize() (int, int) {
+func (m *Model) detailViewportSize() (int, int) {
 	w := max(m.detailOuterWidth()-_detailFocusStyle.GetHorizontalFrameSize(), 0)
 	h := max(m.detailOuterHeight()-_detailFocusStyle.GetVerticalFrameSize(), 0)
 	return w, h
 }
 
-func (m Model) canRenderDetailBox() bool {
+func (m *Model) canRenderDetailBox() bool {
 	return m.detailOuterWidth() > _detailFocusStyle.GetHorizontalFrameSize() &&
 		m.detailOuterHeight() > _detailFocusStyle.GetVerticalFrameSize()
 }
 
 // detailTopHeight returns the height allocated to the detail viewport
 // (top half of the right panel).
-func (m Model) detailTopHeight() int {
+func (m *Model) detailTopHeight() int {
 	return max(m.contentHeight()*tui.DetailTopHeight/100, 1)
 }
 
 // responseAreaHeight returns the height allocated to the response area
 // (bottom half of the right panel).
-func (m Model) responseAreaHeight() int {
+func (m *Model) responseAreaHeight() int {
 	top := m.detailTopHeight()
 	return max(m.contentHeight()-top, 1)
 }
@@ -224,7 +224,7 @@ func (m *Model) setFocus(f panelFocus) {
 	m.search.Model.Blur()
 }
 
-func (m Model) activeScrollPanel() panelFocus {
+func (m *Model) activeScrollPanel() panelFocus {
 	if m.pickingEndpoints {
 		return focusLeft
 	}
@@ -241,7 +241,7 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (m Model) viewportHeight() int {
+func (m *Model) viewportHeight() int {
 	panelW := max(m.leftPanelWidth(), 1)
 	headerLines := searchBoxLines
 	// Only count the badge row when it will actually be rendered.
@@ -274,11 +274,11 @@ func wrappedLineCount(text string, width int) int {
 	return lipgloss.Height(lipgloss.NewStyle().Width(width).Render(text))
 }
 
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	return m.search.Init()
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -315,15 +315,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmds []tea.Cmd
-	var cmd tea.Cmd
-	m.search, cmd = m.search.Update(msg)
+	_, cmd := m.search.Update(msg)
 	cmds = append(cmds, cmd)
 	cmd = m.updateFocusedViewport(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.pickingEndpoints {
 		return m.handleEndpointPickerKey(msg)
 	}
@@ -374,7 +373,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	prevValue := m.search.Model.Value()
 	var cmd tea.Cmd
-	m.search, cmd = m.search.Update(msg)
+	_, cmd = m.search.Update(msg)
 	newValue := m.search.Model.Value()
 	if newValue != prevValue {
 		if m.shouldEnterEndpointPicker(newValue) {
@@ -407,7 +406,7 @@ func (m *Model) syncViewport() {
 	}
 
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-		op := m.filtered[m.cursor]
+		op := &m.filtered[m.cursor]
 		// inputTypes is immutable for the program lifetime, so it's safe
 		// to omit from the cache key.
 		detailKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
@@ -424,7 +423,7 @@ func (m *Model) syncViewport() {
 	}
 }
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	// Compute layout values once per frame instead of calling through
 	// method chains repeatedly.
 	leftW := m.leftPanelWidth()
@@ -486,8 +485,9 @@ func RunExplorer(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 ) error {
+	model := NewModel(operations, inputTypes, enumTypes)
 	p := tea.NewProgram(
-		NewModel(operations, inputTypes, enumTypes),
+		&model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

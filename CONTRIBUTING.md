@@ -19,12 +19,12 @@ mise run hooks
 
 `mise install` reads `mise.toml` and installs:
 
-| Tool | Purpose |
-|------|---------|
-| `go` | Pinned Go version |
-| `watchexec` | File watcher for hot reload during development |
+| Tool            | Purpose                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| `go`            | Pinned Go version                                                        |
+| `watchexec`     | File watcher for hot reload during development                           |
 | `golangci-lint` | Linter (wraps revive, gosec, staticcheck, errcheck, bodyclose, gocritic) |
-| `vhs` | Terminal GIF recorder for demos |
+| `vhs`           | Terminal GIF recorder for demos                                          |
 
 ## Development Workflow
 
@@ -43,21 +43,21 @@ These use `watchexec` under the hood. Every `.go` file change triggers a rebuild
 
 All project commands are mise tasks. Run `mise tasks` to see the full list.
 
-| Command | Description |
-|---------|-------------|
-| `mise run build` | Build the binary |
-| `mise run test:unit` | Run unit tests with 30s timeout |
-| `mise run test:api` | Run E2E API calls |
-| `mise run test:auth2` | Test OAuth2 flow |
-| `mise run lint` | Format + lint (`golangci-lint`) |
-| `mise run check` | Lint + unit tests (pre-push sanity check) |
-| `mise run bench` | Run benchmarks |
-| `mise run coverage:gen` | Generate coverage report |
-| `mise run coverage:view` | Open coverage in browser |
-| `mise run hooks` | Install git pre-commit hooks |
-| `mise run record` | Record terminal demo GIF with VHS |
-| `mise run watch:gql` | Hot reload: GraphQL explorer |
-| `mise run watch:unit` | Hot reload: unit tests |
+| Command                  | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `mise run build`         | Build the binary                          |
+| `mise run test:unit`     | Run unit tests with 30s timeout           |
+| `mise run test:api`      | Run E2E API calls                         |
+| `mise run test:auth2`    | Test OAuth2 flow                          |
+| `mise run lint`          | Format + lint (`golangci-lint`)           |
+| `mise run check`         | Lint + unit tests (pre-push sanity check) |
+| `mise run bench`         | Run benchmarks                            |
+| `mise run coverage:gen`  | Generate coverage report                  |
+| `mise run coverage:view` | Open coverage in browser                  |
+| `mise run hooks`         | Install git pre-commit hooks              |
+| `mise run record`        | Record terminal demo GIF with VHS         |
+| `mise run watch:gql`     | Hot reload: GraphQL explorer              |
+| `mise run watch:unit`    | Hot reload: unit tests                    |
 
 ### Pre-commit Hooks
 
@@ -108,15 +108,15 @@ golangci-lint run ./... # lint only
 
 The linter config (`.golangci.yml`) runs these linters:
 
-| Linter | What it catches |
-|--------|----------------|
-| revive | Go style rules (naming, error handling, imports) |
-| gosec | Security issues (hardcoded creds, weak crypto) |
-| staticcheck | Bugs, deprecated APIs, dead code |
-| errcheck | Unchecked errors |
-| bodyclose | Unclosed HTTP response bodies |
-| gocritic | Performance and correctness patterns |
-| govet | Suspicious constructs |
+| Linter      | What it catches                                  |
+| ----------- | ------------------------------------------------ |
+| revive      | Go style rules (naming, error handling, imports) |
+| gosec       | Security issues (hardcoded creds, weak crypto)   |
+| staticcheck | Bugs, deprecated APIs, dead code                 |
+| errcheck    | Unchecked errors                                 |
+| bodyclose   | Unclosed HTTP response bodies                    |
+| gocritic    | Performance and correctness patterns             |
+| govet       | Suspicious constructs                            |
 
 ## Code Style
 
@@ -181,7 +181,7 @@ git push origin v0.2.0
 3. Uploads binaries and checksums
 4. Pushes the updated Homebrew formula to [xaaha/homebrew-tap](https://github.com/xaaha/homebrew-tap)
 
-The version is injected at build time via ldflags — no need to edit `version.go`.
+The version is injected at build time via ldflags, so no need to edit `version.go`.
 
 For local builds with a specific version:
 
@@ -207,3 +207,18 @@ pkg/
   utils/         # Shared utilities (file ops, printing, paths)
   yamlparser/    # YAML parsing, validation, template resolution
 ```
+
+# Best Practices
+
+- Review existing issues, pull requests, and documentation before starting work.
+- If an issue description is unclear or incomplete, please ask questions before beginning implementation.
+- Each pull request should address **one issue only**.
+- Keep pull requests focused and reasonably sized to make reviews easier.
+- Reference the related issue in the pull request description when applicable.
+- Follow the existing coding style and conventions used in the project.
+- Write clear, readable, and maintainable code.
+- Add or update tests for new features and bug fixes whenever possible.
+- The use of AI tools is acceptable, but contributors must fully understand and review any AI-assisted code.
+- Pull requests that are entirely auto-generated with AI will not be accepted.
+- Be respectful and constructive in discussions, reviews, and feedback.
+- All contributors are expected to follow the project’s Code of Conduct.

@@ -86,7 +86,7 @@ func TestURLPARAMS_IsValid(t *testing.T) {
 		want      bool
 	}{
 		{
-			name: "Valid UrlParams with client_id",
+			name: "Valid URLParams with client_id",
 			urlParams: URLPARAMS{
 				"client_id": "12345",
 				"scope":     "read",
@@ -94,19 +94,19 @@ func TestURLPARAMS_IsValid(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "Invalid UrlParams without client_id",
+			name: "Invalid URLParams without client_id",
 			urlParams: URLPARAMS{
 				"scope": "read",
 			},
 			want: false,
 		},
 		{
-			name:      "Empty UrlParams",
+			name:      "Empty URLParams",
 			urlParams: URLPARAMS{},
 			want:      false,
 		},
 		{
-			name:      "Nil UrlParams",
+			name:      "Nil URLParams",
 			urlParams: nil,
 			want:      false,
 		},
@@ -215,7 +215,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			expectedErr:  "missing or invalid URL in auth request body",
 		},
 		{
-			name: "Invalid UrlParams without client_id",
+			name: "Invalid URLParams without client_id",
 			authRequest: AuthRequestFile{
 				Method: POST,
 				URL:    "https://api.example.com",
@@ -244,7 +244,7 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 			expectedErr:  "invalid HTTP method INVALID",
 		},
 		{
-			name: "Valid request without UrlParams",
+			name: "Valid request without URLParams",
 			authRequest: AuthRequestFile{
 				Method: POST,
 				URL:    "https://api.example.com",

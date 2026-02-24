@@ -193,10 +193,8 @@ func TestSubstituteVariables(t *testing.T) {
 			}
 
 			// Compare errors
-			if (err == nil && tc.expectedErr == nil) ||
-				(err != nil && tc.expectedErr != nil && strings.Contains(err.Error(), tc.expectedErr.Error())) {
-				// Errors match; no action needed
-			} else {
+			if (err == nil) != (tc.expectedErr == nil) ||
+				(err != nil && tc.expectedErr != nil && !strings.Contains(err.Error(), tc.expectedErr.Error())) {
 				t.Errorf("Error mismatch: expected %v, got %v", tc.expectedErr, err)
 			}
 		})

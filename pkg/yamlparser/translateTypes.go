@@ -36,7 +36,7 @@ func stringHasDelimiter(value string) (bool, string) {
 	}
 	content := value[2 : len(value)-2]
 	re := regexp.MustCompile(`^\s+$`)
-	onlyHasEmptySpace := re.Match([]byte(value))
+	onlyHasEmptySpace := re.MatchString(value)
 	if len(content) == 0 || onlyHasEmptySpace {
 		return false, ""
 	}
@@ -281,8 +281,7 @@ func parsePath(path string) ([]any, error) {
 		}
 		isArrayKey, keyPart, index := utils.ParseArrayKey(trimmedKey)
 		if isArrayKey {
-			keys = append(keys, keyPart)
-			keys = append(keys, index)
+			keys = append(keys, keyPart, index)
 		} else {
 			keys = append(keys, trimmedKey)
 		}

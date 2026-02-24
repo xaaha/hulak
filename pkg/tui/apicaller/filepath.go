@@ -74,7 +74,7 @@ func newHelperPane(
 	}
 }
 
-func (p helperPane) renderSection(isFocused bool, isLocked bool, lockedValue string) string {
+func (p *helperPane) renderSection(isFocused bool, isLocked bool, lockedValue string) string {
 	var title, inputLine string
 
 	switch {
@@ -93,7 +93,7 @@ func (p helperPane) renderSection(isFocused bool, isLocked bool, lockedValue str
 	return title + "\n" + inputLine + "\n" + list
 }
 
-func (p helperPane) renderList(isLocked bool, lockedValue string) string {
+func (p *helperPane) renderList(isLocked bool, lockedValue string) string {
 	if isLocked {
 		return tui.SubtitleStyle.Render(utils.ChevronRight + tui.KeySpace + lockedValue)
 	}
@@ -187,11 +187,11 @@ func newFilePathModel(
 	return m
 }
 
-func (m filePathModel) Init() tea.Cmd {
+func (m *filePathModel) Init() tea.Cmd {
 	return tea.Batch(m.envPane.TextInput.Init(), m.filePane.TextInput.Init())
 }
 
-func (m filePathModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *filePathModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -219,7 +219,7 @@ func (m *filePathModel) focusedPane() *helperPane {
 	return &m.filePane
 }
 
-func (m filePathModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *filePathModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case tui.KeyQuit:
 		m.cancelled = true
@@ -279,7 +279,7 @@ func (m filePathModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m filePathModel) handleCancel() (tea.Model, tea.Cmd) {
+func (m *filePathModel) handleCancel() (tea.Model, tea.Cmd) {
 	p := m.focusedPane()
 
 	if m.focus == focusEnv {
@@ -331,7 +331,7 @@ func (m *filePathModel) setFocus(f helperFocus) {
 	m.filePane.TextInput.Model.Focus()
 }
 
-func (m filePathModel) View() string {
+func (m *filePathModel) View() string {
 	envLockedValue := m.selectedEnv
 	if envLockedValue == "" {
 		envLockedValue = utils.DefaultEnvVal
@@ -372,12 +372,12 @@ func RunFilePath(
 	envLocked bool,
 ) (SingleFileSelection, error) {
 	model := newFilePathModel(envItems, fileItems, initialEnv, envLocked)
-	out, err := tea.NewProgram(model).Run()
+	out, err := tea.NewProgram(&model).Run()
 	if err != nil {
 		return SingleFileSelection{}, err
 	}
 
-	result := out.(filePathModel)
+	result := out.(*filePathModel)
 	return SingleFileSelection{
 		Env:       result.selectedEnv,
 		File:      result.selectedFile,

@@ -20,7 +20,7 @@ func createTempYAMLFile(t *testing.T, content string) string {
 		_ = os.Remove(tmpfile.Name())
 	})
 
-	if _, err := tmpfile.Write([]byte(content)); err != nil {
+	if _, err := tmpfile.WriteString(content); err != nil {
 		t.Fatalf("could not write to temporary file: %v", err)
 	}
 

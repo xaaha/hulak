@@ -47,18 +47,18 @@ func NewFilterInput(opts TextInputOpts) TextInput {
 }
 
 // Init returns the blink command to start cursor animation.
-func (f TextInput) Init() tea.Cmd {
+func (f *TextInput) Init() tea.Cmd {
 	return textinput.Blink
 }
 
 // Update forwards messages to the inner textinput model.
-func (f TextInput) Update(msg tea.Msg) (TextInput, tea.Cmd) {
+func (f *TextInput) Update(msg tea.Msg) (*TextInput, tea.Cmd) {
 	var cmd tea.Cmd
 	f.Model, cmd = f.Model.Update(msg)
 	return f, cmd
 }
 
 // ViewTitle renders the textinput inside a bordered title bar.
-func (f TextInput) ViewTitle() string {
+func (f *TextInput) ViewTitle() string {
 	return BorderStyle.Padding(0, 1).Render(f.Model.View())
 }

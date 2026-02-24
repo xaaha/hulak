@@ -44,7 +44,7 @@ func NewMockResponseWithHeaders(
 // NewMockServer creates a test server that returns a fixed response
 // Caller is responsible for calling server.Close()
 func NewMockServer(statusCode int, body string) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(statusCode)
 		_, _ = w.Write([]byte(body))
 	}))

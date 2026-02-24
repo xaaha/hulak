@@ -41,8 +41,10 @@ func processResponse(
 	debug bool,
 	reqBody []byte,
 ) CustomResponse {
-	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		log.Printf("prepare.go: Error while closing response body: %v", closeErr)
+	}
 	if err != nil {
 		log.Fatalf("prepare.go: Error while reading response: %v", err)
 	}

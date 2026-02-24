@@ -51,7 +51,7 @@ func appendWrappedHelpLines(lines []string, text string, width int, prefix strin
 	return lines
 }
 
-func (m Model) renderList() (string, int) {
+func (m *Model) renderList() (string, int) {
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
 			strings.Repeat(tui.KeySpace, itemPadding-len(utils.ChevronRight)) + noMatchesLabel,
@@ -61,7 +61,8 @@ func (m Model) renderList() (string, int) {
 	var lines []string
 	cursorLine := 0
 	var currentType OperationType
-	for i, op := range m.filtered {
+	for i := range m.filtered {
+		op := &m.filtered[i]
 		if op.Type != currentType {
 			currentType = op.Type
 			if len(lines) > 0 {
@@ -83,7 +84,7 @@ func (m Model) renderList() (string, int) {
 	return strings.Join(lines, "\n"), cursorLine
 }
 
-func (m Model) renderEndpointPicker() (string, int) {
+func (m *Model) renderEndpointPicker() (string, int) {
 	if len(m.endpoints) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
 	}
@@ -109,7 +110,7 @@ func (m Model) renderEndpointPicker() (string, int) {
 	return strings.Join(lines, "\n"), cursorLine
 }
 
-func (m Model) renderBadges() string {
+func (m *Model) renderBadges() string {
 	var shortened []string
 	for ep := range m.activeEndpoints {
 		shortened = append(shortened, ep)
@@ -140,7 +141,7 @@ func (m Model) renderBadges() string {
 }
 
 func renderDetail(
-	op UnifiedOperation,
+	op *UnifiedOperation,
 	inputTypes map[string]graphql.InputType,
 ) string {
 	pad := strings.Repeat(tui.KeySpace, 2)
@@ -148,12 +149,10 @@ func renderDetail(
 
 	var lines []string
 
-	lines = append(lines, tui.SubtitleStyle.Render(utils.ChevronRight+op.Name))
-	lines = append(lines, "")
+	lines = append(lines, tui.SubtitleStyle.Render(utils.ChevronRight+op.Name), "")
 
 	if op.ReturnType != "" {
-		lines = append(lines, pad+tui.HelpStyle.Render("Returns: ")+op.ReturnType)
-		lines = append(lines, "")
+		lines = append(lines, pad+tui.HelpStyle.Render("Returns: ")+op.ReturnType, "")
 	}
 
 	if len(op.Arguments) > 0 {
@@ -249,7 +248,7 @@ func appendInputTypeFields(
 	return lines
 }
 
-func (m Model) renderLeftContent() string {
+func (m *Model) renderLeftContent() string {
 	panelW := max(m.leftPanelWidth(), 1)
 	badges := m.badgeCache
 	if badges != "" {

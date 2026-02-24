@@ -120,8 +120,8 @@ type AuthRequestFile struct {
 // IsValid checks if AuthRequestBody is valid ,
 // Has valid method, if missing method defaults to post.
 // Has valid auth section with type and access_token_url, for auth2.0
-// Has Required, and valid Url
-// If UrlParams is present, client_id is required
+// Has Required, and valid URL
+// If URLParams is present, client_id is required
 // Valid Body is present
 func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 	if auth2Body == nil {
@@ -171,10 +171,10 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 }
 
 // PrepareStruct prepars struct for the standard call
-func (auth2Body *AuthRequestFile) PrepareStruct(code string) (ApiInfo, error) {
+func (auth2Body *AuthRequestFile) PrepareStruct(code string) (APIInfo, error) {
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
-		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
+		return APIInfo{}, utils.ColorError("#apiTypes.go", err)
 	}
 
 	if contentType != "" {
@@ -184,10 +184,10 @@ func (auth2Body *AuthRequestFile) PrepareStruct(code string) (ApiInfo, error) {
 		auth2Body.Headers["content-type"] = contentType
 	}
 
-	return ApiInfo{
+	return APIInfo{
 		Method:    string(auth2Body.Method),
-		Url:       string(auth2Body.Auth.AccessTokenURL),
-		UrlParams: auth2Body.URLParams,
+		URL:       string(auth2Body.Auth.AccessTokenURL),
+		URLParams: auth2Body.URLParams,
 		Headers:   auth2Body.Headers,
 		Body:      body,
 	}, nil

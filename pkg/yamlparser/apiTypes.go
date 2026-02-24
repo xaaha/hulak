@@ -36,8 +36,8 @@ func (h *HTTPMethodType) ToUpperCase() {
 }
 
 // IsValid enforce HTTPMethodType
-func (m HTTPMethodType) IsValid() bool {
-	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(m)))
+func (h HTTPMethodType) IsValid() bool {
+	upperCasedMethod := HTTPMethodType(strings.ToUpper(string(h)))
 	switch upperCasedMethod {
 	case GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE, CONNECT:
 		return true
@@ -46,12 +46,12 @@ func (m HTTPMethodType) IsValid() bool {
 }
 
 // Struct we need to call request api
-type ApiInfo struct {
+type APIInfo struct {
 	Body      io.Reader
 	Headers   map[string]string
-	UrlParams map[string]string
+	URLParams map[string]string
 	Method    string
-	Url       string
+	URL       string
 }
 
 type URL string
@@ -63,8 +63,8 @@ func (u *URL) IsValidURL() bool {
 	return err == nil
 }
 
-// ApiCallFile represents user's yaml file for api request
-type ApiCallFile struct {
+// APICallFile represents user's yaml file for api request
+type APICallFile struct {
 	URLParams map[string]string `json:"urlparams,omitempty" yaml:"urlparams"`
 	Headers   map[string]string `json:"headers,omitempty"   yaml:"headers"`
 	Body      *Body             `json:"body,omitempty"      yaml:"body"`
@@ -73,7 +73,7 @@ type ApiCallFile struct {
 }
 
 // IsValid checks whether the user has valid file
-func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
+func (user *APICallFile) IsValid(filePath string) (bool, error) {
 	if user == nil {
 		return false, fmt.Errorf("requested api file is not valid")
 	}
@@ -103,11 +103,11 @@ func (user *ApiCallFile) IsValid(filePath string) (bool, error) {
 	return true, nil
 }
 
-// Returns ApiInfo object for the User's API request yaml file
-func (user *ApiCallFile) PrepareStruct() (ApiInfo, error) {
+// Returns APIInfo object for the User's API request yaml file
+func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
-		return ApiInfo{}, utils.ColorError("#apiTypes.go", err)
+		return APIInfo{}, utils.ColorError("#apiTypes.go", err)
 	}
 
 	if contentType != "" {
@@ -117,10 +117,10 @@ func (user *ApiCallFile) PrepareStruct() (ApiInfo, error) {
 		user.Headers["content-type"] = contentType
 	}
 
-	return ApiInfo{
+	return APIInfo{
 		Method:    string(user.Method),
-		Url:       string(user.URL),
-		UrlParams: user.URLParams,
+		URL:       string(user.URL),
+		URLParams: user.URLParams,
 		Headers:   user.Headers,
 		Body:      body,
 	}, nil

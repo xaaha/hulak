@@ -18,7 +18,8 @@ func CompleteMigration(filePaths []string) error {
 			return err
 		}
 
-		if IsEnv(jsonStr) {
+		switch {
+		case IsEnv(jsonStr):
 			env, err := PrepareEnvStruct(jsonStr)
 			if err != nil {
 				return fmt.Errorf("error converting to Environment: %w", err)
@@ -29,14 +30,14 @@ func CompleteMigration(filePaths []string) error {
 				return utils.ColorError("error migrating environment: %w", err)
 			}
 			utils.PrintGreen(fmt.Sprintf("migrated '%s': ", path))
-		} else if isCollection(jsonStr) {
+		case isCollection(jsonStr):
 			err := migrateCollection(jsonStr)
 			utils.PrintGreen(fmt.Sprintf("migrated '%s': ", path))
 			if err != nil {
 				utils.PrintWarning("Collection migration did not work for: " + path)
 				return err
 			}
-		} else {
+		default:
 			utils.PrintWarning("Unknown Postman file format: " + path)
 		}
 	}
