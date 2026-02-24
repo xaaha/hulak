@@ -4,7 +4,6 @@ Thanks for your interest in contributing. This guide covers everything you need 
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) (version pinned in `go.mod`)
 - [mise](https://mise.jdx.dev/getting-started.html) (manages Go version + dev tools)
 
 ## Setup
