@@ -32,6 +32,7 @@ Use mise tasks to auto-rebuild on file changes:
 ```bash
 mise run watch:gql      # hot reload: runs GraphQL explorer
 mise run watch:unit     # auto-runs pkg/ tests on save
+mise run watch:tui      # auto-runs TUI golden tests on save
 ```
 
 These use `watchexec` under the hood. Every `.go` file change triggers a rebuild.
@@ -40,21 +41,24 @@ These use `watchexec` under the hood. Every `.go` file change triggers a rebuild
 
 All project commands are mise tasks. Run `mise tasks` to see the full list.
 
-| Command                  | Description                               |
-| ------------------------ | ----------------------------------------- |
-| `mise run build`         | Build the binary                          |
-| `mise run test:unit`     | Run unit tests with 30s timeout           |
-| `mise run test:api`      | Run E2E API calls                         |
-| `mise run test:auth2`    | Test OAuth2 flow                          |
-| `mise run lint`          | Format + lint (`golangci-lint`)           |
-| `mise run check`         | Lint + unit tests (pre-push sanity check) |
-| `mise run bench`         | Run benchmarks                            |
-| `mise run coverage:gen`  | Generate coverage report                  |
-| `mise run coverage:view` | Open coverage in browser                  |
-| `mise run hooks`         | Re-install git pre-commit hooks           |
-| `mise run record`        | Record terminal demo GIF with VHS         |
-| `mise run watch:gql`     | Hot reload: GraphQL explorer              |
-| `mise run watch:unit`    | Hot reload: unit tests                    |
+| Command                    | Description                                           |
+| -------------------------- | ----------------------------------------------------- |
+| `mise run build`           | Build the binary                                      |
+| `mise run test:unit`       | Run unit tests with 30s timeout                       |
+| `mise run test:tui`        | Run TUI golden file tests                             |
+| `mise run test:tui:update` | Regenerate TUI golden files after intentional changes |
+| `mise run test:api`        | Run E2E API calls                                     |
+| `mise run test:auth2`      | Test OAuth2 flow                                      |
+| `mise run lint`            | Format + lint (`golangci-lint`)                       |
+| `mise run check`           | Lint + unit tests (pre-push sanity check)             |
+| `mise run bench`           | Run benchmarks                                        |
+| `mise run coverage:gen`    | Generate coverage report                              |
+| `mise run coverage:view`   | Open coverage in browser                              |
+| `mise run hooks`           | Re-install git pre-commit hooks                       |
+| `mise run record`          | Record terminal demo GIF with VHS                     |
+| `mise run watch:gql`       | Hot reload: GraphQL explorer                          |
+| `mise run watch:unit`      | Hot reload: unit tests                                |
+| `mise run watch:tui`       | Hot reload: TUI golden tests                          |
 
 ### Pre-commit Hooks
 
@@ -82,8 +86,9 @@ Tests follow table-driven patterns with `t.Run()` subtests. See any `*_test.go` 
 TUI components have snapshot tests that capture visual output and compare against golden files.
 
 ```bash
-go test ./pkg/tui/...               # runs golden file comparisons
-go test ./pkg/tui/... -update       # regenerate golden files after intentional TUI changes
+mise run test:tui            # runs golden file comparisons
+mise run test:tui:update     # regenerate golden files after intentional TUI changes
+mise run watch:tui           # auto-run TUI tests on file changes
 ```
 
 Golden files live in `pkg/tui/testdata/*.golden`. When you change TUI rendering:

@@ -42,8 +42,16 @@ description = "Run unit test"
 run = "go test ./... -timeout 30s"
 
 [tasks."test:tui"]
-description = "Run unit test"
-run = "go test ./... -timeout 30s"
+description = "Run TUI golden file tests"
+run = "go test ./pkg/tui/... -timeout 30s"
+
+[tasks."test:tui:update"]
+description = "Regenerate TUI golden files after intentional changes"
+run = "go test ./pkg/tui/... -update"
+
+[tasks."watch:tui"]
+description = "Auto-run TUI tests on file changes"
+run = "watchexec -r -e go -w pkg/tui -- go test ./pkg/tui/... -timeout 30s"
 
 [tasks."watch:unit"]
 description = "Auto-run unit tests on file changes"
