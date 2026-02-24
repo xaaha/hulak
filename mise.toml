@@ -10,7 +10,10 @@ goreleaser = "latest"
 experimental = true # required for hooks
 
 [hooks]
-postinstall = "chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh"
+postinstall = """
+chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh
+go mod tidy
+"""
 
 [tasks.hooks]
 run = "chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh"

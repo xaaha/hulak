@@ -12,8 +12,7 @@ Thanks for your interest in contributing. This guide covers everything you need 
 ```bash
 git clone https://github.com/xaaha/hulak.git
 cd hulak
-mise install    # installs tools + git hooks
-go mod tidy
+mise install
 ```
 
 `mise install` reads `mise.toml`, installs tools, and automatically sets up git hooks:
