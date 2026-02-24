@@ -14,7 +14,7 @@ git clone https://github.com/xaaha/hulak.git
 cd hulak
 mise install    # installs Go, watchexec, golangci-lint, vhs
 go mod tidy
-make install-hooks
+mise run hooks
 ```
 
 `mise install` reads `mise.toml` and installs:
@@ -33,35 +33,35 @@ make install-hooks
 Use mise tasks to auto-rebuild on file changes:
 
 ```bash
-mise run dev          # hot reload: runs TUI with form_data example
-mise run dev:gql      # hot reload: runs GraphQL explorer
-mise run dev:test     # auto-runs pkg/ tests on save
-mise run dev:tui      # auto-runs TUI tests on save
+mise run watch:gql      # hot reload: runs GraphQL explorer
+mise run watch:unit     # auto-runs pkg/ tests on save
 ```
 
 These use `watchexec` under the hood. Every `.go` file change triggers a rebuild.
 
-### Make Targets
+### Tasks
 
-For one-off commands without file watching:
+All project commands are mise tasks. Run `mise tasks` to see the full list.
 
 | Command | Description |
 |---------|-------------|
-| `make build` | Build the binary |
-| `make unit` | Run all tests |
-| `make test-unit` | Run pkg/ tests with 30s timeout |
-| `make lint` | Format + lint (`golangci-lint`) |
-| `make check` | Lint + unit tests (pre-push sanity check) |
-| `make check-e2e` | Full tests including real API calls |
-| `make bench` | Run benchmarks |
-| `make gql` | Run GraphQL explorer |
-| `make gen-coverage` | Generate coverage report |
-| `make view-coverage` | Open coverage in browser |
-| `make install-hooks` | Install git pre-commit hooks |
+| `mise run build` | Build the binary |
+| `mise run test:unit` | Run unit tests with 30s timeout |
+| `mise run test:api` | Run E2E API calls |
+| `mise run test:auth2` | Test OAuth2 flow |
+| `mise run lint` | Format + lint (`golangci-lint`) |
+| `mise run check` | Lint + unit tests (pre-push sanity check) |
+| `mise run bench` | Run benchmarks |
+| `mise run coverage:gen` | Generate coverage report |
+| `mise run coverage:view` | Open coverage in browser |
+| `mise run hooks` | Install git pre-commit hooks |
+| `mise run record` | Record terminal demo GIF with VHS |
+| `mise run watch:gql` | Hot reload: GraphQL explorer |
+| `mise run watch:unit` | Hot reload: unit tests |
 
 ### Pre-commit Hooks
 
-`make install-hooks` sets up a git hook that runs before every commit:
+`mise run hooks` sets up a git hook that runs before every commit:
 
 1. `go fmt ./...`
 2. `go vet ./...`
@@ -102,7 +102,7 @@ To add a new golden file test, see `pkg/tui/selector_golden_test.go` for the pat
 ## Linting
 
 ```bash
-make lint               # format + golangci-lint
+mise run lint           # format + golangci-lint
 golangci-lint run ./... # lint only
 ```
 
