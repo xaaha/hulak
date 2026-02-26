@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestApiCallFileIsValidForGraphQL(t *testing.T) {
+func TestAPICallFileIsValidForGraphQL(t *testing.T) {
 	tests := []struct {
 		name        string
 		file        *APICallFile
@@ -128,7 +128,7 @@ func TestApiCallFileIsValidForGraphQL(t *testing.T) {
 	}
 }
 
-func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
+func TestAPICallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	t.Run("applies default POST method", func(t *testing.T) {
 		file := &APICallFile{
 			URL: "https://example.com/graphql",
@@ -195,7 +195,7 @@ func TestApiCallFileIsValidForGraphQLAppliesDefaults(t *testing.T) {
 	})
 }
 
-func TestApiCallFilePrepareGraphQLStruct(t *testing.T) {
+func TestAPICallFilePrepareGraphQLStruct(t *testing.T) {
 	tests := []struct {
 		name        string
 		file        *APICallFile
