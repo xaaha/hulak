@@ -16,12 +16,12 @@ mise install
 
 `mise install` reads `mise.toml`, installs tools, and automatically sets up git hooks:
 
-| Tool            | Purpose                                                                  |
-| --------------- | ------------------------------------------------------------------------ |
-| `go`            | Pinned Go version                                                        |
-| `watchexec`     | File watcher for hot reload during development                           |
-| `golangci-lint` | Linter aggregator (see `.golangci.yml` for enabled linters)              |
-| `vhs`           | Terminal GIF recorder for demos                                          |
+| Tool            | Purpose                                                     |
+| --------------- | ----------------------------------------------------------- |
+| `go`            | Pinned Go version                                           |
+| `watchexec`     | File watcher for hot reload during development              |
+| `golangci-lint` | Linter aggregator (see `.golangci.yml` for enabled linters) |
+| `vhs`           | Terminal GIF recorder for demos                             |
 
 ## Development Workflow
 
@@ -172,19 +172,10 @@ git push origin v0.2.0
 3. Uploads binaries and checksums
 4. Pushes the updated Homebrew formula to [xaaha/homebrew-tap](https://github.com/xaaha/homebrew-tap)
 
-#### GH_PAT Setup
+#### Homebrew Tap Token Setup
 
-The release workflow needs a Personal Access Token (`GH_PAT`) to push the Homebrew formula to the tap repo. Create one and store it in this repo's secrets:
-
-1. Create a **fine-grained PAT** at [github.com/settings/tokens](https://github.com/settings/tokens?type=beta) with `Contents: Read and write` permission scoped to `xaaha/homebrew-tap`.
-2. Store it as a repository secret on the **hulak** repo (where the release workflow runs):
-
-```bash
-gh secret set GH_PAT --repo xaaha/hulak
-# Paste the token when prompted
-```
-
-The version is injected at build time via ldflags, so no need to edit `version.go`.
+- The release workflow uses a [GitHub App](https://docs.github.com/en/apps) to push the Homebrew formula to [xaaha/homebrew-tap](https://github.com/xaaha/homebrew-tap). The App generates a short-lived token on every release — no manual rotation needed.
+- The version is injected at build time via ldflags, so no need to edit `version.go`.
 
 For local builds with a specific version:
 
