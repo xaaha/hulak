@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	portNum      = ":2982"
-	timeout      = 60 * time.Second
-	redirectURI  = "http://localhost" + portNum + "/callback"
-	responseType = utils.ResponseType // for consistency
+	portNum           = ":2982"
+	timeout           = 60 * time.Second
+	readHeaderTimeout = 10 * time.Second
+	redirectURI       = "http://localhost" + portNum + "/callback"
+	responseType      = utils.ResponseType // for consistency
 )
 
 // OpenURL Opens the url in the brwoser based on the user's OS
@@ -74,7 +75,7 @@ func callback(w http.ResponseWriter, r *http.Request) {
 
 func server() {
 	http.HandleFunc("/callback", callback)
-	server := &http.Server{Addr: portNum, Handler: nil, ReadHeaderTimeout: 10 * time.Second}
+	server := &http.Server{Addr: portNum, Handler: nil, ReadHeaderTimeout: readHeaderTimeout}
 	err := server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
