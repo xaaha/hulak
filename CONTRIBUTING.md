@@ -20,7 +20,7 @@ mise install
 | --------------- | ------------------------------------------------------------------------ |
 | `go`            | Pinned Go version                                                        |
 | `watchexec`     | File watcher for hot reload during development                           |
-| `golangci-lint` | Linter (wraps revive, gosec, staticcheck, errcheck, bodyclose, gocritic) |
+| `golangci-lint` | Linter aggregator (see `.golangci.yml` for enabled linters)              |
 | `vhs`           | Terminal GIF recorder for demos                                          |
 
 ## Development Workflow
@@ -107,17 +107,7 @@ mise run lint           # format + golangci-lint
 golangci-lint run ./... # lint only
 ```
 
-The linter config (`.golangci.yml`) runs these linters:
-
-| Linter      | What it catches                                  |
-| ----------- | ------------------------------------------------ |
-| revive      | Go style rules (naming, error handling, imports) |
-| gosec       | Security issues (hardcoded creds, weak crypto)   |
-| staticcheck | Bugs, deprecated APIs, dead code                 |
-| errcheck    | Unchecked errors                                 |
-| bodyclose   | Unclosed HTTP response bodies                    |
-| gocritic    | Performance and correctness patterns             |
-| govet       | Suspicious constructs                            |
+See `.golangci.yml` for the full list of enabled linters and their configuration.
 
 ## Code Style
 
@@ -181,6 +171,18 @@ git push origin v0.2.0
 2. Creates a GitHub Release with changelog
 3. Uploads binaries and checksums
 4. Pushes the updated Homebrew formula to [xaaha/homebrew-tap](https://github.com/xaaha/homebrew-tap)
+
+#### GH_PAT Setup
+
+The release workflow needs a Personal Access Token (`GH_PAT`) to push the Homebrew formula to the tap repo. Create one and store it in this repo's secrets:
+
+1. Create a **fine-grained PAT** at [github.com/settings/tokens](https://github.com/settings/tokens?type=beta) with `Contents: Read and write` permission scoped to `xaaha/homebrew-tap`.
+2. Store it as a repository secret on the **hulak** repo (where the release workflow runs):
+
+```bash
+gh secret set GH_PAT --repo xaaha/hulak
+# Paste the token when prompted
+```
 
 The version is injected at build time via ldflags, so no need to edit `version.go`.
 
