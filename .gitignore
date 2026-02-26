@@ -9,3 +9,4 @@ test*
 !e2etests/test_collection/formdata.json
 !mise.toml
 *plan.md
+coverage.out
