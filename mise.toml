@@ -1,9 +1,9 @@
 [tools]
 go = "1.25.5"
-watchexec = "latest"
-"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "latest"
-vhs = "latest"
-goreleaser = "latest"
+watchexec = "2.4.3"
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "2.10.1"
+vhs = "0.10.0"
+goreleaser = "2.14.0"
 
 [settings]
 experimental = true  # required for hooks
@@ -47,7 +47,7 @@ run = "go test ./pkg/tui/... -timeout 30s"
 
 [tasks."test:tui:update"]
 description = "Regenerate TUI golden files after intentional changes"
-run = "go test ./pkg/tui/... -update"
+run = "go test ./pkg/tui -update"
 
 [tasks."watch:tui"]
 description = "Auto-run TUI tests on file changes"
