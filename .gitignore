@@ -6,6 +6,8 @@ e2etests/**/*.json
 test*
 !test_collection/
 !test.graphql
+!**/testdata/
+!**/testdata/**
 !e2etests/test_collection/formdata.json
 !mise.toml
 *plan.md
