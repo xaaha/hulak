@@ -39,11 +39,11 @@ func NewSelector(items []string, prompt string) SelectorModel {
 	return m
 }
 
-func (m SelectorModel) Init() tea.Cmd {
+func (m *SelectorModel) Init() tea.Cmd {
 	return m.TextInput.Init()
 }
 
-func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if ws, ok := msg.(tea.WindowSizeMsg); ok {
 		m.width = ws.Width
 		m.height = ws.Height
@@ -69,7 +69,7 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmdInput, cmdVP)
 }
 
-func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case KeyQuit:
 		m.Cancelled = true
@@ -108,7 +108,7 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m SelectorModel) View() string {
+func (m *SelectorModel) View() string {
 	title := m.TextInput.ViewTitle()
 	list := ""
 	if m.vpReady {
@@ -166,12 +166,12 @@ func RunSelector(items []string, prompt string, emptyErr error) (string, error) 
 	}
 
 	model := NewSelector(items, prompt)
-	m, err := tea.NewProgram(model).Run()
+	m, err := tea.NewProgram(&model).Run()
 	if err != nil {
 		return "", err
 	}
 
-	result := m.(SelectorModel)
+	result := m.(*SelectorModel)
 	if result.Cancelled {
 		return "", nil
 	}

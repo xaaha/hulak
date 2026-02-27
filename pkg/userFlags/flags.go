@@ -28,7 +28,7 @@ var (
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
 	dirseq *string
 
-	//version flags
+	// version flags
 	vFlag       *bool
 	versionFlag *bool
 )

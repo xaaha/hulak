@@ -8,7 +8,7 @@ import (
 
 func TestCollectOperationsEmpty(t *testing.T) {
 	schema := graphql.Schema{}
-	ops := CollectOperations(schema, "http://example.com/graphql")
+	ops := CollectOperations(&schema, "http://example.com/graphql")
 
 	if len(ops) != 0 {
 		t.Errorf("expected 0 operations, got %d", len(ops))
@@ -22,7 +22,7 @@ func TestCollectOperationsQueriesOnly(t *testing.T) {
 			{Name: "listUsers"},
 		},
 	}
-	ops := CollectOperations(schema, "http://api.test/gql")
+	ops := CollectOperations(&schema, "http://api.test/gql")
 
 	if len(ops) != 2 {
 		t.Fatalf("expected 2 operations, got %d", len(ops))
@@ -63,7 +63,7 @@ func TestCollectOperationsMutationsOnly(t *testing.T) {
 			{Name: "createUser"},
 		},
 	}
-	ops := CollectOperations(schema, "http://api.test/gql")
+	ops := CollectOperations(&schema, "http://api.test/gql")
 
 	if len(ops) != 1 {
 		t.Fatalf("expected 1 operation, got %d", len(ops))
@@ -82,7 +82,7 @@ func TestCollectOperationsSubscriptionsOnly(t *testing.T) {
 			{Name: "onMessage", Description: "new messages"},
 		},
 	}
-	ops := CollectOperations(schema, "ws://api.test/gql")
+	ops := CollectOperations(&schema, "ws://api.test/gql")
 
 	if len(ops) != 1 {
 		t.Fatalf("expected 1 operation, got %d", len(ops))
@@ -101,7 +101,7 @@ func TestCollectOperationsAllTypes(t *testing.T) {
 		Mutations:     []graphql.Operation{{Name: "m1"}},
 		Subscriptions: []graphql.Operation{{Name: "s1"}, {Name: "s2"}, {Name: "s3"}},
 	}
-	ops := CollectOperations(schema, "http://example.com/graphql")
+	ops := CollectOperations(&schema, "http://example.com/graphql")
 
 	if len(ops) != 6 {
 		t.Fatalf("expected 6 operations, got %d", len(ops))
@@ -128,7 +128,7 @@ func TestCollectOperationsOrderQueriesMutationsSubscriptions(t *testing.T) {
 		Mutations:     []graphql.Operation{{Name: "m1"}},
 		Subscriptions: []graphql.Operation{{Name: "s1"}},
 	}
-	ops := CollectOperations(schema, "http://example.com/graphql")
+	ops := CollectOperations(&schema, "http://example.com/graphql")
 
 	expected := []struct {
 		name   string
@@ -155,7 +155,7 @@ func TestCollectOperationsPreservesDescription(t *testing.T) {
 			{Name: "deleteUser", Description: ""},
 		},
 	}
-	ops := CollectOperations(schema, "http://example.com/graphql")
+	ops := CollectOperations(&schema, "http://example.com/graphql")
 
 	if ops[0].Description != "Fetch user by ID" {
 		t.Errorf("expected description preserved, got %q", ops[0].Description)
@@ -182,7 +182,7 @@ func TestCollectOperationsPreservesArgumentsAndReturnType(t *testing.T) {
 			},
 		},
 	}
-	ops := CollectOperations(schema, "http://api.test/gql")
+	ops := CollectOperations(&schema, "http://api.test/gql")
 
 	if ops[0].ReturnType != "User!" {
 		t.Errorf("expected ReturnType 'User!', got %q", ops[0].ReturnType)

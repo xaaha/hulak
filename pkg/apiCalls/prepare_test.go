@@ -64,9 +64,9 @@ func TestFullUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fullUrl := PrepareURL(tt.baseURL, tt.params)
-			if fullUrl != tt.expected {
-				t.Errorf("FullUrl() = %v, want %v", fullUrl, tt.expected)
+			fullURL := PrepareURL(tt.baseURL, tt.params)
+			if fullURL != tt.expected {
+				t.Errorf("FullUrl() = %v, want %v", fullURL, tt.expected)
 			}
 		})
 	}

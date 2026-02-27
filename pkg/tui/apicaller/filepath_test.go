@@ -42,11 +42,11 @@ func TestFilePathEnterAdvancesFromEnvToFile(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod"}, []string{"a.yaml"}, "", false)
 	for _, r := range "dev" {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if next.selectedEnv != "dev" {
 		t.Fatalf("expected selected env dev, got %q", next.selectedEnv)
@@ -60,13 +60,13 @@ func TestFilePathTabTogglesFocus(t *testing.T) {
 	m := newFilePathModel([]string{"dev"}, []string{"a.yaml"}, "", false)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 	if next.focus != focusFile {
 		t.Fatalf("expected file focus after tab, got %v", next.focus)
 	}
 
 	updated, _ = next.Update(tea.KeyMsg{Type: tea.KeyTab})
-	next = updated.(filePathModel)
+	next = updated.(*filePathModel)
 	if next.focus != focusEnv {
 		t.Fatalf("expected env focus after second tab, got %v", next.focus)
 	}
@@ -77,7 +77,7 @@ func TestFilePathEscFromFileMovesBackToEnv(t *testing.T) {
 	m.setFocus(focusFile)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if cmd != nil {
 		t.Fatal("expected no quit command when moving focus back")
@@ -91,7 +91,7 @@ func TestFilePathEscClearsFilterBeforeCancel(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod"}, []string{"a.yaml"}, "", false)
 	for _, r := range "pro" {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 
 	if m.envPane.TextInput.Model.Value() == "" {
@@ -99,7 +99,7 @@ func TestFilePathEscClearsFilterBeforeCancel(t *testing.T) {
 	}
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if cmd != nil {
 		t.Fatal("expected no quit command when clearing filter")
@@ -116,17 +116,17 @@ func TestFilePathEnterOnFileQuitsWithSelection(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod"}, []string{"a.yaml", "b.yaml"}, "", false)
 	for _, r := range "dev" {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	for _, r := range "a" {
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if cmd == nil {
 		t.Fatal("expected quit command on file selection")
@@ -183,18 +183,18 @@ func TestFilePathFileListStartsPopulatedBeforeTyping(t *testing.T) {
 	}
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if len(m.envPane.Filtered) == 0 {
 		t.Fatal("expected matching env entries after typing")
 	}
 
 	for _, r := range "ev" {
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if m.focus != focusFile {
 		t.Fatalf("expected file focus, got %v", m.focus)
 	}
@@ -205,7 +205,7 @@ func TestFilePathFileListStartsPopulatedBeforeTyping(t *testing.T) {
 	}
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if len(m.filePane.Filtered) == 0 {
 		t.Fatal("expected matching file entries after typing")
 	}
@@ -215,7 +215,7 @@ func TestFilePathCtrlCQuits(t *testing.T) {
 	m := newFilePathModel([]string{"dev"}, []string{"a.yaml"}, "", false)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if !next.cancelled {
 		t.Fatal("expected cancelled after ctrl+c")
@@ -229,7 +229,7 @@ func TestFilePathArrowNavigation(t *testing.T) {
 	m := newFilePathModel([]string{"dev", "prod", "staging"}, []string{"a.yaml"}, "", false)
 	for _, r := range "d" {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = updated.(filePathModel)
+		m = *updated.(*filePathModel)
 	}
 
 	if m.envPane.Cursor != 0 {
@@ -237,19 +237,19 @@ func TestFilePathArrowNavigation(t *testing.T) {
 	}
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if m.envPane.Cursor != 1 {
 		t.Fatalf("expected cursor 1 after down, got %d", m.envPane.Cursor)
 	}
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if m.envPane.Cursor != 0 {
 		t.Fatalf("expected cursor 0 after up, got %d", m.envPane.Cursor)
 	}
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 	if m.envPane.Cursor != 0 {
 		t.Fatal("cursor should not go below 0")
 	}
@@ -260,7 +260,7 @@ func TestFilePathEnterOnFileWithoutEnvRedirects(t *testing.T) {
 	m.setFocus(focusFile)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if cmd != nil {
 		t.Fatal("expected no quit command when env not selected")
@@ -274,7 +274,7 @@ func TestFilePathEnvLockedEscQuits(t *testing.T) {
 	m := newFilePathModel([]string{"dev"}, []string{"a.yaml"}, "prod", true)
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if !next.cancelled {
 		t.Fatal("expected cancellation on esc with locked env")
@@ -288,7 +288,7 @@ func TestFilePathEnvLockedTabStaysOnFile(t *testing.T) {
 	m := newFilePathModel([]string{"dev"}, []string{"a.yaml"}, "prod", true)
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	next := updated.(filePathModel)
+	next := updated.(*filePathModel)
 
 	if next.focus != focusFile {
 		t.Fatalf("expected tab to stay on file when env locked, got %v", next.focus)
@@ -304,13 +304,13 @@ func TestFilePathViewportHeightStaysStableWhileFiltering(t *testing.T) {
 	)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 
 	initialEnvHeight := m.envPane.vp.Height
 	initialFileHeight := m.filePane.vp.Height
 
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 
 	if m.envPane.vp.Height != initialEnvHeight {
 		t.Fatalf("expected env pane height %d, got %d", initialEnvHeight, m.envPane.vp.Height)
@@ -329,7 +329,7 @@ func TestFilePathViewportHeightsAreCappedForCompactLayout(t *testing.T) {
 	)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 60})
-	m = updated.(filePathModel)
+	m = *updated.(*filePathModel)
 
 	if m.envPane.vp.Height > maxEnvListH {
 		t.Fatalf("expected env viewport height <= %d, got %d", maxEnvListH, m.envPane.vp.Height)

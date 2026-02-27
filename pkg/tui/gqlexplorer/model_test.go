@@ -101,7 +101,7 @@ func TestNavigateDown(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != 1 {
 		t.Errorf("expected cursor 1, got %d", model.cursor)
@@ -113,7 +113,7 @@ func TestNavigateUp(t *testing.T) {
 	m.cursor = 2
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != 1 {
 		t.Errorf("expected cursor 1, got %d", model.cursor)
@@ -124,7 +124,7 @@ func TestNavigateCtrlN(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != 1 {
 		t.Errorf("expected cursor 1, got %d", model.cursor)
@@ -136,7 +136,7 @@ func TestNavigateCtrlP(t *testing.T) {
 	m.cursor = 3
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != 2 {
 		t.Errorf("expected cursor 2, got %d", model.cursor)
@@ -147,13 +147,13 @@ func TestTabTogglesFocus(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	model := result.(Model)
+	model := result.(*Model)
 	if model.focusedPanel != focusRight {
 		t.Errorf("expected focusRight after tab, got %v", model.focusedPanel)
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.focusedPanel != focusLeft {
 		t.Errorf("expected focusLeft after second tab, got %v", model.focusedPanel)
 	}
@@ -162,17 +162,17 @@ func TestTabTogglesFocus(t *testing.T) {
 func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
-	model := result.(Model)
+	model := result.(*Model)
 	model.focusedPanel = focusLeft
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.focusedPanel != focusRight {
 		t.Errorf("expected focusRight after enter, got %v", model.focusedPanel)
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.focusedPanel != focusRight {
 		t.Errorf("expected focusRight to remain after second enter, got %v", model.focusedPanel)
 	}
@@ -192,7 +192,7 @@ func TestNavigateUpAtTopStays(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != 0 {
 		t.Errorf("expected cursor 0, got %d", model.cursor)
@@ -204,7 +204,7 @@ func TestNavigateDownAtBottomStays(t *testing.T) {
 	m.cursor = len(m.filtered) - 1
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.cursor != len(m.filtered)-1 {
 		t.Errorf("expected cursor %d, got %d", len(m.filtered)-1, model.cursor)
@@ -242,7 +242,7 @@ func TestEscClearsSearchFirst(t *testing.T) {
 	}
 
 	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.search.Model.Value() != "" {
 		t.Errorf("expected search cleared, got %q", model.search.Model.Value())
@@ -261,7 +261,7 @@ func TestFilterByName(t *testing.T) {
 
 	for _, r := range "get" {
 		result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = result.(Model)
+		m = *result.(*Model)
 	}
 
 	if len(m.filtered) != 1 {
@@ -277,7 +277,7 @@ func TestFilterCaseInsensitive(t *testing.T) {
 
 	for _, r := range "GETUSER" {
 		result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		m = result.(Model)
+		m = *result.(*Model)
 	}
 
 	if len(m.filtered) != 1 {
@@ -419,7 +419,7 @@ func TestWindowSizeMsg(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.width != 120 {
 		t.Errorf("expected width 120, got %d", model.width)
@@ -436,7 +436,7 @@ func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 110, Height: 40})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.search.Model.Placeholder != "" {
 		t.Errorf("expected empty placeholder below threshold, got %q", model.search.Model.Placeholder)
@@ -450,7 +450,7 @@ func TestWindowSizeMsgShowsHeaderExtrasAtThreshold(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 111, Height: 40})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.search.Model.Placeholder == "" {
 		t.Error("expected placeholder at threshold width")
@@ -822,14 +822,14 @@ func TestEndpointPickerToggle(t *testing.T) {
 
 	// all endpoints start selected, first toggle turns off
 	result, _ := m.Update(spaceKey)
-	model := result.(Model)
+	model := result.(*Model)
 	if model.pendingEndpoints[ep] {
 		t.Errorf("expected endpoint %q to be toggled off", ep)
 	}
 
 	// second toggle turns back on
 	result, _ = model.Update(spaceKey)
-	model = result.(Model)
+	model = result.(*Model)
 	if !model.pendingEndpoints[ep] {
 		t.Errorf("expected endpoint %q to be toggled on", ep)
 	}
@@ -841,7 +841,7 @@ func TestEndpointPickerConfirm(t *testing.T) {
 	m.pendingEndpoints[m.endpoints[0]] = true
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.pickingEndpoints {
 		t.Error("expected picker to close on enter")
@@ -862,7 +862,7 @@ func TestEndpointPickerCancel(t *testing.T) {
 	m.pendingEndpoints[m.endpoints[1]] = true
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	model := result.(Model)
+	model := result.(*Model)
 
 	if model.pickingEndpoints {
 		t.Error("expected picker to close on esc")
@@ -880,13 +880,13 @@ func TestEndpointPickerNavigation(t *testing.T) {
 	m.enterEndpointPicker()
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	model := result.(Model)
+	model := result.(*Model)
 	if model.endpointCursor != 1 {
 		t.Errorf("expected cursor 1, got %d", model.endpointCursor)
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyUp})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.endpointCursor != 0 {
 		t.Errorf("expected cursor 0, got %d", model.endpointCursor)
 	}
@@ -897,13 +897,13 @@ func TestEndpointPickerVimNavigation(t *testing.T) {
 	m.enterEndpointPicker()
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	model := result.(Model)
+	model := result.(*Model)
 	if model.endpointCursor != 1 {
 		t.Errorf("j should move down, expected cursor 1, got %d", model.endpointCursor)
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.endpointCursor != 0 {
 		t.Errorf("k should move up, expected cursor 0, got %d", model.endpointCursor)
 	}
@@ -1033,7 +1033,7 @@ func opsWithArgs() []UnifiedOperation {
 
 func TestRenderDetailShowsOperationName(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if !strings.Contains(detail, "getUser") {
 		t.Error("detail should contain operation name")
 	}
@@ -1041,7 +1041,7 @@ func TestRenderDetailShowsOperationName(t *testing.T) {
 
 func TestRenderDetailShowsReturnType(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if !strings.Contains(detail, "User!") {
 		t.Error("detail should contain return type")
 	}
@@ -1049,7 +1049,7 @@ func TestRenderDetailShowsReturnType(t *testing.T) {
 
 func TestRenderDetailShowsArguments(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if !strings.Contains(detail, "Arguments:") {
 		t.Error("detail should contain Arguments header")
 	}
@@ -1063,7 +1063,7 @@ func TestRenderDetailShowsArguments(t *testing.T) {
 
 func TestRenderDetailOmitsEndpoint(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if strings.Contains(detail, "Endpoint:") {
 		t.Error("detail should not show Endpoint (already in badges and list)")
 	}
@@ -1071,7 +1071,7 @@ func TestRenderDetailOmitsEndpoint(t *testing.T) {
 
 func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 	op := opsWithArgs()[1]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if strings.Contains(detail, "Arguments:") {
 		t.Error("detail should not show Arguments section when empty")
 	}
@@ -1079,7 +1079,7 @@ func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 
 func TestRenderDetailOptionalArgHasNoRequiredMarker(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	lines := strings.Split(detail, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "name") && strings.Contains(line, "String") {
@@ -1095,7 +1095,7 @@ func TestRenderDetailOptionalArgHasNoRequiredMarker(t *testing.T) {
 func TestViewShowsDetailPanel(t *testing.T) {
 	m := NewModel(opsWithArgs(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
-	m = result.(Model)
+	m = *result.(*Model)
 	view := m.View()
 
 	if !strings.Contains(view, "Returns:") {
@@ -1106,7 +1106,7 @@ func TestViewShowsDetailPanel(t *testing.T) {
 func TestDetailPanelUpdatesOnCursorMove(t *testing.T) {
 	m := NewModel(opsWithArgs(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
-	m = result.(Model)
+	m = *result.(*Model)
 
 	view1 := m.View()
 	if !strings.Contains(view1, "User!") {
@@ -1114,7 +1114,7 @@ func TestDetailPanelUpdatesOnCursorMove(t *testing.T) {
 	}
 
 	result, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m = result.(Model)
+	m = *result.(*Model)
 	view2 := m.View()
 	if !strings.Contains(view2, "[User!]!") {
 		t.Error("second operation should show [User!]! return type")
@@ -1139,7 +1139,7 @@ func TestRenderDetailExpandsInputType(t *testing.T) {
 			{Name: "input", Type: "PersonInput!"},
 		},
 	}
-	detail := renderDetail(op, inputTypes)
+	detail := renderDetail(&op, inputTypes)
 	if !strings.Contains(detail, "name") || !strings.Contains(detail, "String!") {
 		t.Error("detail should expand PersonInput fields showing name and type")
 	}
@@ -1175,7 +1175,7 @@ func TestRenderDetailNestedInputType(t *testing.T) {
 			{Name: "input", Type: "CreateUserInput!"},
 		},
 	}
-	detail := renderDetail(op, inputTypes)
+	detail := renderDetail(&op, inputTypes)
 	if !strings.Contains(detail, "person") {
 		t.Error("detail should show nested input type field 'person'")
 	}
@@ -1211,7 +1211,7 @@ func TestRenderDetailNilInputTypes(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}
-	detail := renderDetail(op, nil)
+	detail := renderDetail(&op, nil)
 	if !strings.Contains(detail, "id") {
 		t.Error("detail should still render arguments with nil inputTypes")
 	}
@@ -1251,7 +1251,6 @@ func TestResponseAreaHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		// responseArea = max(contentH - detailTopH, 1)
 		{"typical terminal", 40, 23},
 		{"small terminal", 10, 5},
 		{"zero height", 0, 1},
@@ -1292,11 +1291,11 @@ func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
 	// Width 50 → contentWidth = 50-4 = 46 < MinLeftPanelWidth+MinRightPanelWidth (58)
 	// so hasTwoPanelLayout() returns false.
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
-	model := result.(Model)
+	model := result.(*Model)
 	model.focusedPanel = focusLeft
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = result.(Model)
+	model = result.(*Model)
 	if model.focusedPanel != focusLeft {
 		t.Errorf("expected focusLeft in single-panel layout after enter, got %v", model.focusedPanel)
 	}

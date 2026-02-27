@@ -128,22 +128,22 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 }
 
 // FinalStructForAPI builds a final struct for the api call.
-// Returns ApiCallFile struct, true if file is valid, and error
+// Returns APICallFile struct, true if file is valid, and error
 // It  checks the validity of all the fields in the yaml file meant for regular api call
-func FinalStructForAPI(filePath string, secretsMap map[string]any) (ApiCallFile, bool, error) {
+func FinalStructForAPI(filePath string, secretsMap map[string]any) (APICallFile, bool, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
-	var file ApiCallFile
+	var file APICallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&file); err != nil {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
 	if valid, err := file.IsValid(filePath); !valid {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
 	return file, true, nil
@@ -173,23 +173,23 @@ func FinalStructForOAuth2(
 }
 
 // FinalStructForGraphQL builds a final struct for GraphQL requests.
-// Returns ApiCallFile struct, true if valid, and error.
+// Returns APICallFile struct, true if valid, and error.
 // It applies default method (POST) and headers (Content-Type: application/json).
 // Unlike FinalStructForAPI, this does NOT require body/query since the TUI provides it.
-func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (ApiCallFile, bool, error) {
+func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (APICallFile, bool, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
-	var file ApiCallFile
+	var file APICallFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&file); err != nil {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
 	if valid, err := file.IsValidForGraphQL(filePath); !valid {
-		return ApiCallFile{}, false, err
+		return APICallFile{}, false, err
 	}
 
 	return file, true, nil

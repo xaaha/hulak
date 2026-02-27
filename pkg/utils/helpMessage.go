@@ -21,7 +21,7 @@ func PrintHelpSubCommands() {
 			Command: "hulak init",
 			Description: fmt.Sprintf(
 				"Initializes default environment and creates an '%s' file",
-				ApiOptions,
+				APIOptions,
 			),
 		},
 		{

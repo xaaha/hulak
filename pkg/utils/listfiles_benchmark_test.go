@@ -45,7 +45,7 @@ func createBenchmarkTree(b *testing.B, root string, depth, width int) {
 			}
 
 			for _, f := range files {
-				if err := os.WriteFile(f, []byte("data"), 0o644); err != nil {
+				if err := os.WriteFile(f, []byte("data"), 0o600); err != nil {
 					b.Fatalf("file write failed: %v", err)
 				}
 			}

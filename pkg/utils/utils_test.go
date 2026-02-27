@@ -350,7 +350,7 @@ func TestCreateFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to change directory permissions: %v", err)
 		}
-		defer os.Chmod(tempDir, 0o700) // Restore permissions for cleanup
+		defer func() { _ = os.Chmod(tempDir, 0o700) }() // Restore permissions for cleanup
 
 		filePath := filepath.Join(tempDir, "noperm.txt")
 		err = CreateFile(filePath)
@@ -416,7 +416,7 @@ func TestListMatchingFiles(t *testing.T) {
 	}
 
 	for _, tf := range testFiles {
-		if err := os.WriteFile(tf.path, []byte(tf.contents), 0o644); err != nil {
+		if err := os.WriteFile(tf.path, []byte(tf.contents), 0o600); err != nil {
 			t.Fatalf("Failed to create file: %s, error: %v", tf.path, err)
 		}
 	}
@@ -791,7 +791,7 @@ func TestSanitizeDirPathWithPermissions(t *testing.T) {
 	}
 
 	// Restore permissions for cleanup
-	defer os.Chmod(noReadDir, 0o755)
+	defer func() { _ = os.Chmod(noReadDir, 0o755) }()
 
 	t.Run("No read permission directory", func(t *testing.T) {
 		// Skip if running as root (permissions won't affect root)

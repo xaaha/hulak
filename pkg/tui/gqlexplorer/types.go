@@ -41,7 +41,11 @@ func ExtractBaseType(t string) string {
 	return t
 }
 
-func CollectOperations(schema graphql.Schema, endpoint string) []UnifiedOperation {
+func CollectOperations(schema *graphql.Schema, endpoint string) []UnifiedOperation {
+	if schema == nil {
+		return nil
+	}
+
 	var ops []UnifiedOperation
 	for _, pair := range []struct {
 		ops  []graphql.Operation

@@ -85,8 +85,8 @@ func TestNewFilterInputSuggestionKeysDisabled(t *testing.T) {
 
 	before := ti.Model.Value()
 
-	ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyUp})
-	ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyDown})
+	_, _ = ti.Update(tea.KeyMsg{Type: tea.KeyUp})
+	_, _ = ti.Update(tea.KeyMsg{Type: tea.KeyDown})
 
 	after := ti.Model.Value()
 	if before != after {
@@ -98,7 +98,7 @@ func TestNewFilterInputAcceptsTypedText(t *testing.T) {
 	ti := NewFilterInput(TextInputOpts{Prompt: "Filter: ", Placeholder: "placeholder"})
 
 	for _, r := range "hello" {
-		ti, _ = ti.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		_, _ = ti.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
 	if ti.Model.Value() != "hello" {

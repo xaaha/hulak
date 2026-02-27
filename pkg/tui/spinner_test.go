@@ -104,7 +104,7 @@ func TestSpinnerTaskModeltaskDoneMsgSetsResult(t *testing.T) {
 	}
 
 	updated, cmd := m.Update(taskDoneMsg{Result: "hello", Err: nil})
-	model := updated.(spinnerTaskModel)
+	model := updated.(*spinnerTaskModel)
 
 	if model.result != "hello" {
 		t.Errorf("expected result 'hello', got %v", model.result)
@@ -125,7 +125,7 @@ func TestSpinnerTaskModeltaskDoneMsgSetsError(t *testing.T) {
 	taskErr := fmt.Errorf("connection failed")
 
 	updated, cmd := m.Update(taskDoneMsg{Result: nil, Err: taskErr})
-	model := updated.(spinnerTaskModel)
+	model := updated.(*spinnerTaskModel)
 
 	if model.err == nil || model.err.Error() != "connection failed" {
 		t.Errorf("expected error 'connection failed', got %v", model.err)
@@ -145,7 +145,7 @@ func TestSpinnerTaskModelCtrlCInterrupts(t *testing.T) {
 	}
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
-	model := updated.(spinnerTaskModel)
+	model := updated.(*spinnerTaskModel)
 
 	if model.err == nil || model.err.Error() != "interrupted" {
 		t.Errorf("expected 'interrupted' error, got %v", model.err)
@@ -162,7 +162,7 @@ func TestSpinnerTaskModelNonQuitKeyDoesNotQuit(t *testing.T) {
 	}
 
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-	model := updated.(spinnerTaskModel)
+	model := updated.(*spinnerTaskModel)
 
 	if model.err != nil {
 		t.Errorf("non-quit key should not set error, got %v", model.err)

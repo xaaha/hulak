@@ -24,7 +24,7 @@ func Test_processValueOf(t *testing.T) {
 		}
 	}`
 	objectFilePath := filepath.Join(tmpDir, "object.json")
-	if err := os.WriteFile(objectFilePath, []byte(objectJSON), 0644); err != nil {
+	if err := os.WriteFile(objectFilePath, []byte(objectJSON), 0600); err != nil {
 		t.Fatalf("Failed to write object test file: %v", err)
 	}
 
@@ -48,14 +48,14 @@ func Test_processValueOf(t *testing.T) {
 		}
 	]`
 	arrayFilePath := filepath.Join(tmpDir, "array.json")
-	if err := os.WriteFile(arrayFilePath, []byte(arrayJSON), 0644); err != nil {
+	if err := os.WriteFile(arrayFilePath, []byte(arrayJSON), 0600); err != nil {
 		t.Fatalf("Failed to write array test file: %v", err)
 	}
 
 	// Create an invalid JSON file for testing error cases
 	invalidJSON := `{ "invalid": json }`
 	invalidFilePath := filepath.Join(tmpDir, "invalid.json")
-	if err := os.WriteFile(invalidFilePath, []byte(invalidJSON), 0644); err != nil {
+	if err := os.WriteFile(invalidFilePath, []byte(invalidJSON), 0600); err != nil {
 		t.Fatalf("Failed to write invalid test file: %v", err)
 	}
 

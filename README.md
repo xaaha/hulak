@@ -331,22 +331,13 @@ Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruc
 
 # Contributing
 
-1. **Setup**
+```bash
+git clone https://github.com/xaaha/hulak.git
+cd hulak
+mise install
+```
 
-   ```bash
-   git clone https://github.com/xaaha/hulak.git
-   cd hulak
-   go mod tidy
-   # install pre-commit hooks
-   make install-hooks
-   ```
-
-2. **Useful commands**
-   | Command | Description |
-   |---------|-------------|
-   | `make check` | Run lint and unit tests |
-   | `make check-e2e` | Run full tests including real API calls |
-   | `make build` | Build the binary |
+See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full guide covering development workflow.
 
 # Support the Project
 

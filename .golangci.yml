@@ -1,0 +1,72 @@
+---
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - gocritic
+    - gosec
+    - revive
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+    gosec:
+      excludes:
+        - G104
+        - G101
+        - G703
+    revive:
+      confidence: 0.8
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: increment-decrement
+        - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skipPackageNameChecks: true
+        - name: var-declaration
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - e2etests
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

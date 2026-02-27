@@ -13,9 +13,9 @@ import (
 )
 
 // FetchAndParseSchema makes an introspection query and parses the schema.
-// It takes an ApiInfo, sets the introspection query as the body, makes the HTTP call,
+// It takes an APIInfo, sets the introspection query as the body, makes the HTTP call,
 // parses the response, and converts it to our domain Schema model.
-func FetchAndParseSchema(apiInfo yamlparser.ApiInfo) (Schema, error) {
+func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 	// Prepare introspection query body
 	introspectionBody := map[string]any{"query": IntrospectionQuery}
 	jsonData, err := json.Marshal(introspectionBody)

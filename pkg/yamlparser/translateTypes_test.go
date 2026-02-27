@@ -501,7 +501,7 @@ func TestSetValueOnAfterMap(t *testing.T) {
 
 func TestTranslateType(t *testing.T) {
 	// Mock implementation of getValueOf function
-	getValueOfMock := func(key, fileName string) any {
+	getValueOfMock := func(key, _ string) any {
 		mockValues := map[string]any{
 			"bar":         true,
 			"height":      300.2,

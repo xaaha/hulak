@@ -19,8 +19,8 @@ const (
 func collectEndpoints(operations []UnifiedOperation) []string {
 	seen := make(map[string]bool)
 	var endpoints []string
-	for _, op := range operations {
-		ep := op.EndpointShort // populated by NewModel before this is called
+	for i := range operations {
+		ep := operations[i].EndpointShort // populated by NewModel before this is called
 		if ep != "" && !seen[ep] {
 			seen[ep] = true
 			endpoints = append(endpoints, ep)
@@ -32,8 +32,8 @@ func collectEndpoints(operations []UnifiedOperation) []string {
 
 func buildFilterHint(operations []UnifiedOperation, endpoints []string) string {
 	hasType := make(map[OperationType]bool)
-	for _, op := range operations {
-		hasType[op.Type] = true
+	for i := range operations {
+		hasType[operations[i].Type] = true
 	}
 	var parts []string
 	if len(hasType) >= 2 {
@@ -84,7 +84,8 @@ func (m *Model) applyFilter() {
 	}
 
 	m.filtered = nil
-	for _, op := range m.operations {
+	for i := range m.operations {
+		op := &m.operations[i]
 		if typeFilter != "" && op.Type != typeFilter {
 			continue
 		}
@@ -92,7 +93,7 @@ func (m *Model) applyFilter() {
 			continue
 		}
 		if searchTerm == "" || strings.Contains(op.NameLower, searchTerm) {
-			m.filtered = append(m.filtered, op)
+			m.filtered = append(m.filtered, *op)
 		}
 	}
 	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
@@ -112,7 +113,7 @@ func (m *Model) enterEndpointPicker() {
 	m.syncViewport()
 }
 
-func (m Model) handleEndpointPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleEndpointPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case tui.KeyQuit:
 		return m, tea.Quit

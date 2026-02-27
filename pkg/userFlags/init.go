@@ -31,21 +31,21 @@ func handleInit() error {
 			utils.PrintRed(err.Error())
 		}
 
-		content, err := embeddedFiles.ReadFile(utils.ApiOptions)
+		content, err := embeddedFiles.ReadFile(utils.APIOptions)
 		if err != nil {
 			return err
 		}
 
-		root, err := utils.CreatePath(utils.ApiOptions)
+		root, err := utils.CreatePath(utils.APIOptions)
 		if err != nil {
 			return nil
 		}
 
 		if err := os.WriteFile(root, content, utils.FilePer); err != nil {
-			return fmt.Errorf("error on writing '%s' file: %s", utils.ApiOptions, err)
+			return fmt.Errorf("error on writing '%s' file: %s", utils.APIOptions, err)
 		}
 
-		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", utils.ApiOptions, utils.CheckMark))
+		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", utils.APIOptions, utils.CheckMark))
 		utils.PrintGreen("Done " + utils.CheckMark)
 	}
 	return nil

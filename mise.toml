@@ -1,2 +1,89 @@
 [tools]
 go = "1.25.5"
+watchexec = "2.4.3"
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "2.10.1"
+vhs = "0.10.0"
+goreleaser = "2.14.0"
+
+[settings]
+experimental = true  # required for hooks
+
+[hooks]
+postinstall = """
+chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh
+go mod tidy
+"""
+
+[tasks.hooks]
+run = "chmod +x scripts/install-hooks.sh && ./scripts/install-hooks.sh"
+
+[tasks."watch:gql"]
+description = "Hot reload: rebuild and run GraphQL explorer on file changes"
+run = "watchexec -r -e go -- go run . gql ."
+
+[tasks.record]
+description = "Record terminal demo GIF with VHS"
+run = "vhs demo.tape"
+
+[tasks."test:api"]
+description = "Run E2E API calls"
+run = """
+go run . -fp e2etests/test_collection/form_data.hk.yaml &&
+go run . -fp e2etests/test_collection/url_encoded_form.hk.yaml &&
+go run . -fp e2etests/test_collection/graphql.hk.yml
+"""
+
+[tasks."test:auth2"]
+description = "Test Auth2 "
+run = "go run . -f 'oAuth2' -env test"
+
+[tasks."test:unit"]
+description = "Run unit test"
+run = "go test ./... -timeout 30s"
+
+[tasks."test:tui"]
+description = "Run TUI golden file tests"
+run = "go test ./pkg/tui/... -timeout 30s"
+
+[tasks."test:tui:update"]
+description = "Regenerate TUI golden files after intentional changes"
+run = "go test ./pkg/tui -update"
+
+[tasks."watch:tui"]
+description = "Auto-run TUI tests on file changes"
+run = "watchexec -r -e go -w pkg/tui -- go test ./pkg/tui/... -timeout 30s"
+
+[tasks."watch:unit"]
+description = "Auto-run unit tests on file changes"
+run = "watchexec -r -e go -- go test ./pkg/... -timeout 30s"
+
+[tasks.build]
+description = "Build the binary"
+run = "go build -o ."
+
+[tasks.lint]
+description = "Run Format and Linter"
+run = "go fmt ./... && golangci-lint run ./..."
+
+[tasks.check]
+description = "Quick Check"
+run = """
+echo 'Running lint...'
+go fmt ./...                   
+golangci-lint run ./...        
+echo "Running unit tests..."   
+go test ./pkg/... -timeout 30s 
+echo "All checks passed!"      
+"""
+
+[tasks.bench]
+description = "Run benchmarks"
+run = "go test -bench=. -benchmem ./... 2>&1 | grep '^Benchmark' | head -10"
+
+[tasks."coverage:gen"]
+description = "Generate coverage report"
+run = "go test ./... -coverprofile=coverage.out"
+
+[tasks."coverage:view"]
+description = "Open coverage report in browser"
+run = "go tool cover -html=coverage.out"

@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	portNum      = ":2982"
-	timeout      = 60 * time.Second
-	redirectURI  = "http://localhost" + portNum + "/callback"
-	responseType = utils.ResponseType // for consistency
+	portNum           = ":2982"
+	timeout           = 60 * time.Second
+	readHeaderTimeout = 10 * time.Second
+	redirectURI       = "http://localhost" + portNum + "/callback"
+	responseType      = utils.ResponseType // for consistency
 )
 
 // OpenURL Opens the url in the brwoser based on the user's OS
@@ -62,8 +63,8 @@ var codeChan = make(chan string)
 func callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code != "" {
-		authHtml := filepath.Join("assets", "auth.html")
-		http.ServeFile(w, r, authHtml)
+		authHTML := filepath.Join("assets", "auth.html")
+		http.ServeFile(w, r, authHTML)
 		// Send the code to the channel and close it
 		codeChan <- code
 		close(codeChan)
@@ -73,9 +74,9 @@ func callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func server() {
-	// log.Println("Starting server on port", portNum)
 	http.HandleFunc("/callback", callback)
-	err := http.ListenAndServe(portNum, nil)
+	server := &http.Server{Addr: portNum, Handler: nil, ReadHeaderTimeout: readHeaderTimeout}
+	err := server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}

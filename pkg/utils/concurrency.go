@@ -18,15 +18,15 @@ func GetWorkers(count *int) int {
 	// Typically for I/O-bound tasks (like API calls), we can use more workers than CPUs
 	// For CPU-bound tasks, we need stay close to the CPU count
 	cpuCount := runtime.NumCPU()
-	maxCpuCount := min(cpuCount*2, 20)
+	maxCPUCount := min(cpuCount*2, 20)
 
 	if count == nil {
-		return max(1, maxCpuCount)
+		return max(1, maxCPUCount)
 	}
 
 	if *count < 5 {
 		return *count
 	}
 
-	return min(maxCpuCount, *count)
+	return min(maxCPUCount, *count)
 }

@@ -64,7 +64,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 				for attempt := 0; attempt < maxRetries && !success; attempt++ {
 					if attempt > 0 {
 						// Exponential backoff for retries
-						backoffDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
 						utils.PrintWarning(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
 							path, attempt+1, maxRetries, backoffDuration))
 						time.Sleep(backoffDuration)

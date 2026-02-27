@@ -42,7 +42,7 @@ func createTempEnvFile(content string) (string, error) {
 		return "", err
 	}
 	defer file.Close()
-	if _, err := file.Write([]byte(content)); err != nil {
+	if _, err := file.WriteString(content); err != nil {
 		return "", err
 	}
 	return file.Name(), nil

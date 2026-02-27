@@ -157,10 +157,10 @@ func loadGraphQLOperations(arg string, env string) (
 		endpointResults := make(map[string]graphql.ProcessResult)
 		for _, result := range results {
 			if result.Error != nil {
-				errors = append(errors, fmt.Sprintf("%s: %v", result.ApiInfo.Url, result.Error))
+				errors = append(errors, fmt.Sprintf("%s: %v", result.APIInfo.URL, result.Error))
 				continue
 			}
-			endpointResults[result.ApiInfo.Url] = result
+			endpointResults[result.APIInfo.URL] = result
 		}
 
 		if len(endpointResults) > 0 {
@@ -173,8 +173,8 @@ func loadGraphQLOperations(arg string, env string) (
 			for range workerCount {
 				wg.Go(func() {
 					for result := range jobs {
-						schema, schemaErr := graphql.FetchAndParseSchema(result.ApiInfo)
-						fetched <- fetchResult{url: result.ApiInfo.Url, schema: schema, err: schemaErr}
+						schema, schemaErr := graphql.FetchAndParseSchema(result.APIInfo)
+						fetched <- fetchResult{url: result.APIInfo.URL, schema: schema, err: schemaErr}
 					}
 				})
 			}
@@ -200,7 +200,7 @@ func loadGraphQLOperations(arg string, env string) (
 					errors = append(errors, fmt.Sprintf("%s: %v", result.url, result.err))
 					continue
 				}
-				sr.ops = append(sr.ops, gqlexplorer.CollectOperations(result.schema, result.url)...)
+				sr.ops = append(sr.ops, gqlexplorer.CollectOperations(&result.schema, result.url)...)
 				for k, v := range result.schema.InputTypes {
 					sr.inputTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
 				}
