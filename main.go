@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/tui"
@@ -29,45 +30,48 @@ func main() {
 	dir := flags.Dir
 	dirseq := flags.Dirseq
 
-	// Check if this directory is set up for hulak
-	if !utils.IsHulakProject() {
-		ensureHulakProject()
-	}
-	// Which mode are we operating in
 	hasDirFlags := dir != "" || dirseq != ""
 	hasFileFlags := fp != "" || fileName != ""
 
+	// TUI mode: always requires env/ project structure
 	if !hasFileFlags && !hasDirFlags {
 		if !isInteractiveTerminal() {
 			utils.PanicRedAndExit(
 				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
 			)
 		}
-		fp = runInteractiveFlow(&env, flags.EnvSet)
-		hasFileFlags = true
-	}
-
-	// Initialize project environment
-	envMap := InitializeProject(env)
-
-	var filePathList []string
-
-	if hasFileFlags {
-		filePathList, err = userflags.GenerateFilePathList(fileName, fp)
-		if err != nil {
-			// Only panic if no directory flags are provided
-			if !hasDirFlags {
-				utils.PanicRedAndExit("%v", err)
-			} else {
-				// When directory flags are present, just warn about the file flag error
-				utils.PrintWarning(fmt.Sprintf("Warning with file flags: %v", err))
-			}
+		if !utils.IsHulakProject() {
+			ensureHulakProject()
 		}
+		fp = runInteractiveFlow(&env, flags.EnvSet)
+		envMap := InitializeProject(env)
+		HandleAPIRequests(envMap, debug, []string{fp}, nil, fp)
+		return
 	}
 
-	if hasFileFlags || hasDirFlags {
-		HandleAPIRequests(envMap, debug, filePathList, dir, dirseq, fp)
+	// CLI mode: discover all files, then conditionally load env
+	fileList, concurrentDir, sequentialDir := DiscoverFilePaths(
+		fileName,
+		fp,
+		dir,
+		dirseq,
+		hasDirFlags,
+	)
+
+	allPaths := slices.Concat(fileList, concurrentDir, sequentialDir)
+
+	var envMap map[string]any
+	// check if any file in the list contains template variable
+	// Returns true at the first match (short-circuits), so best-case is O(1)
+	// and worst-case (no templates anywhere) is O(n) file reads.
+	if slices.ContainsFunc(allPaths, utils.FileHasTemplateVars) {
+		if !utils.IsHulakProject() {
+			ensureHulakProject()
+		}
+		envMap = InitializeProject(env)
 	}
+
+	HandleAPIRequests(envMap, debug, slices.Concat(fileList, concurrentDir), sequentialDir, fp)
 }
 
 /*
@@ -130,20 +134,12 @@ instructions (non-interactive), similar to git's "not a git repository" check.
 func ensureHulakProject() {
 	if !isInteractiveTerminal() {
 		utils.PanicRedAndExit(
-			"fatal: not a hulak project (env/ directory not found)\n\nRun 'hulak init' to set up this directory",
+			"fatal: not a hulak project \n\nRun 'hulak init' to set up",
 		)
 	}
 
-	fmt.Printf(
-		"%sfatal: not a hulak project (env/ directory not found)%s\n\n",
-		utils.Yellow,
-		utils.ColorReset,
-	)
-	fmt.Println("'hulak init' will set up this directory:")
-	fmt.Println("  - Create an 'env/' directory for storing environment secrets")
-	fmt.Println("  - Create a 'global.env' file with default environment")
-	fmt.Printf("  - Create an '%s' example file for reference\n\n", utils.APIOptions)
-	fmt.Print("Initialize hulak project here? [y/N] ")
+	utils.PrintWarning("fatal: not a hulak project")
+	fmt.Print("Would you like to create one? [y/N] ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {

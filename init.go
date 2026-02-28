@@ -11,6 +11,7 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
+	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -143,58 +144,60 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
  Graceful Shutdown: Add signal handling to cancel in-progress tasks if the program is terminated.
 */
 
-// HandleAPIRequests processes API requests, and runs taks from individual files and directories
-// It also includes Auth2.0 call
-// Handling both concurrent (-dir) and sequential (-dirseq) processing
-func HandleAPIRequests(
-	secretsMap map[string]any,
-	debug bool,
-	filePathList []string,
-	dir, dirseq, fp string,
-) {
-	var allFiles []string
-	var sequentialFiles []string
-
-	// Add existing file paths to the concurrent processing list
-	if len(filePathList) > 0 {
-		allFiles = append(allFiles, filePathList...)
+// DiscoverFilePaths collects all file paths from -f, -fp, -dir, and -dirseq flags.
+// Returns three slices: files from -f/-fp, concurrent dir files, and sequential dir files.
+func DiscoverFilePaths(
+	fileName, fp, dir, dirseq string,
+	hasDirFlags bool,
+) (fileList, concurrentDir, sequentialDir []string) {
+	if fp != "" || fileName != "" {
+		var err error
+		fileList, err = userflags.GenerateFilePathList(fileName, fp)
+		if err != nil {
+			if !hasDirFlags {
+				utils.PanicRedAndExit("%v", err)
+			}
+			utils.PrintWarning(fmt.Sprintf("Warning with file flags: %v", err))
+		}
 	}
 
-	// Process directory paths if provided
-	if dir != "" || dirseq != "" {
+	if hasDirFlags {
 		dirPaths, err := apicalls.ListDirPaths(dir, dirseq)
-
 		if err != nil {
 			utils.PrintRed(fmt.Sprintf("Error processing directories: %v", err))
 		} else {
-			// Add concurrent directory files to the main processing list
-			if len(dirPaths.Concurrent) > 0 {
-				allFiles = append(allFiles, dirPaths.Concurrent...)
-			}
-
-			// Keep sequential files separate
-			if len(dirPaths.Sequential) > 0 {
-				sequentialFiles = append(sequentialFiles, dirPaths.Sequential...)
-			}
+			concurrentDir = dirPaths.Concurrent
+			sequentialDir = dirPaths.Sequential
 		}
 	}
 
-	// Process concurrent files if any
-	if len(allFiles) > 0 {
-		if dir != "" || dirseq != "" {
-			utils.PrintInfo(fmt.Sprintf("Processing %d files concurrently...", len(allFiles)))
-		}
-		runTasks(allFiles, secretsMap, debug, fp)
-	}
+	return fileList, concurrentDir, sequentialDir
+}
 
-	// Process sequential files one by one
+// HandleAPIRequests processes API requests from pre-discovered file lists.
+// concurrentFiles are processed via worker pool, sequentialFiles one-by-one.
+func HandleAPIRequests(
+	secrets map[string]any,
+	debug bool,
+	concurrentFiles []string,
+	sequentialFiles []string,
+	fp string,
+) {
+	if len(concurrentFiles) > 0 {
+		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
+			utils.PrintInfo(
+				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
+			)
+		}
+		runTasks(concurrentFiles, secrets, debug, fp)
+	}
 	if len(sequentialFiles) > 0 {
 		utils.PrintInfo(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
-		processFilesSequentially(sequentialFiles, secretsMap, debug)
+		processFilesSequentially(sequentialFiles, secrets, debug)
 	}
 
-	totalFiles := len(allFiles) + len(sequentialFiles)
-	if totalFiles < 0 {
+	totalFiles := len(concurrentFiles) + len(sequentialFiles)
+	if totalFiles == 0 {
 		utils.PrintWarning(
 			"No files were processed. Please check your path or directory arguments.",
 		)
