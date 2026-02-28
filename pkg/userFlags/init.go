@@ -9,6 +9,32 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// InitDefaultProject performs the default hulak project initialization:
+// creates env/ directory, global.env, and the apiOptions.hk.yaml example file.
+func InitDefaultProject() error {
+	if err := envparser.CreateDefaultEnvs(nil); err != nil {
+		return err
+	}
+
+	content, err := embeddedFiles.ReadFile(utils.APIOptions)
+	if err != nil {
+		return err
+	}
+
+	root, err := utils.CreatePath(utils.APIOptions)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(root, content, utils.FilePer); err != nil {
+		return fmt.Errorf("error on writing '%s' file: %s", utils.APIOptions, err)
+	}
+
+	utils.PrintGreen(fmt.Sprintf("Created '%s': %s", utils.APIOptions, utils.CheckMark))
+	utils.PrintGreen("Done " + utils.CheckMark)
+	return nil
+}
+
 func handleInit() error {
 	err := initialize.Parse(os.Args[2:])
 	if err != nil {
@@ -27,26 +53,7 @@ func handleInit() error {
 			utils.PrintWarning("No environment names provided after -env flag")
 		}
 	} else {
-		if err := envparser.CreateDefaultEnvs(nil); err != nil {
-			utils.PrintRed(err.Error())
-		}
-
-		content, err := embeddedFiles.ReadFile(utils.APIOptions)
-		if err != nil {
-			return err
-		}
-
-		root, err := utils.CreatePath(utils.APIOptions)
-		if err != nil {
-			return nil
-		}
-
-		if err := os.WriteFile(root, content, utils.FilePer); err != nil {
-			return fmt.Errorf("error on writing '%s' file: %s", utils.APIOptions, err)
-		}
-
-		utils.PrintGreen(fmt.Sprintf("Created '%s': %s", utils.APIOptions, utils.CheckMark))
-		utils.PrintGreen("Done " + utils.CheckMark)
+		return InitDefaultProject()
 	}
 	return nil
 }

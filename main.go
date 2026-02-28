@@ -2,10 +2,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/apicaller"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
@@ -28,6 +29,10 @@ func main() {
 	dir := flags.Dir
 	dirseq := flags.Dirseq
 
+	// Check if this directory is set up for hulak
+	if !utils.IsHulakProject() {
+		ensureHulakProject()
+	}
 	// Which mode are we operating in
 	hasDirFlags := dir != "" || dirseq != ""
 	hasFileFlags := fp != "" || fileName != ""
@@ -37,12 +42,6 @@ func main() {
 			utils.PanicRedAndExit(
 				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
 			)
-		}
-
-		if !flags.EnvSet {
-			if err = envparser.CreateDefaultEnvs(nil); err != nil {
-				utils.PanicRedAndExit("%v", err)
-			}
 		}
 		fp = runInteractiveFlow(&env, flags.EnvSet)
 		hasFileFlags = true
@@ -121,4 +120,44 @@ func isInteractiveTerminal() bool {
 	stdoutTTY := (stdoutInfo.Mode() & os.ModeCharDevice) != 0
 
 	return stdinTTY && stdoutTTY
+}
+
+/*
+ensureHulakProject checks if the current directory is set up for hulak.
+If not, it prompts the user to initialize (interactive) or exits with
+instructions (non-interactive), similar to git's "not a git repository" check.
+*/
+func ensureHulakProject() {
+	if !isInteractiveTerminal() {
+		utils.PanicRedAndExit(
+			"fatal: not a hulak project (env/ directory not found)\n\nRun 'hulak init' to set up this directory",
+		)
+	}
+
+	fmt.Printf(
+		"%sfatal: not a hulak project (env/ directory not found)%s\n\n",
+		utils.Yellow,
+		utils.ColorReset,
+	)
+	fmt.Println("'hulak init' will set up this directory:")
+	fmt.Println("  - Create an 'env/' directory for storing environment secrets")
+	fmt.Println("  - Create a 'global.env' file with default environment")
+	fmt.Printf("  - Create an '%s' example file for reference\n\n", utils.APIOptions)
+	fmt.Print("Initialize hulak project here? [y/N] ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		if answer == "y" || answer == "yes" {
+			fmt.Println()
+			if err := userflags.InitDefaultProject(); err != nil {
+				utils.PanicRedAndExit("%v", err)
+			}
+			fmt.Println()
+			return
+		}
+	}
+
+	fmt.Println("\nTo set up manually, run: hulak init")
+	os.Exit(0)
 }
