@@ -2,40 +2,21 @@ package graphql
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
-
 	yaml "github.com/goccy/go-yaml"
-
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 )
-
-// templateVarPattern matches Go template dot-access patterns like {{.key}} or {{ .key }}.
-// These are env variable references that require the secrets map for resolution.
-// It intentionally does NOT match {{getFile ...}} or {{getValueOf ...}} which work
-// without env secrets.
-var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
 
 // ProcessResult represents the outcome of processing a single GraphQL file
 type ProcessResult struct {
 	FilePath string
 	APIInfo  yamlparser.APIInfo
 	Error    error
-}
-
-// FileHasTemplateVars checks if a file contains Go template variable references
-// (e.g., {{.token}}) that require environment variable resolution.
-func FileHasTemplateVars(filePath string) bool {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return false
-	}
-	return templateVarPattern.Match(content)
 }
 
 // NeedsEnvResolution checks if any URL or file in the map contains template
@@ -46,7 +27,7 @@ func NeedsEnvResolution(urlToFileMap map[string]string) bool {
 		if strings.Contains(url, "{{") {
 			return true
 		}
-		if FileHasTemplateVars(filePath) {
+		if utils.FileHasTemplateVars(filePath) {
 			return true
 		}
 	}
@@ -84,35 +65,8 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if v, ok := data["url"].(string); ok {
 		info.url = strings.TrimSpace(v)
 	}
-	info.needsEnv = mapHasEnvVars(data)
+	info.needsEnv = utils.MapHasEnvVars(data)
 	return info, nil
-}
-
-// mapHasEnvVars recursively checks if any string value in the map
-// contains "{{." which indicates an env variable reference.
-func mapHasEnvVars(data map[string]any) bool {
-	for _, val := range data {
-		if hasEnvVar(val) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasEnvVar(val any) bool {
-	switch v := val.(type) {
-	case string:
-		return strings.Contains(v, "{{.")
-	case map[string]any:
-		return mapHasEnvVars(v)
-	case []any:
-		for _, item := range v {
-			if hasEnvVar(item) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
