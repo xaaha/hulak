@@ -213,7 +213,7 @@ func translateType(
 	for _, dotStringActionObj := range pathMap.DotStrings {
 		path, err := parsePath(dotStringActionObj.Path)
 		if err != nil {
-			return nil, utils.ColorError("#TranslateType ", err)
+			return nil, utils.ColorError(utils.ErrTypeTranslation, err)
 		}
 		if len(path) == 0 {
 			continue
@@ -230,7 +230,7 @@ func translateType(
 	for _, getValueOfActionObj := range pathMap.GetValueOfs {
 		path, err := parsePath(getValueOfActionObj.Path)
 		if err != nil {
-			return nil, utils.ColorError("#TranslateType ", err)
+			return nil, utils.ColorError(utils.ErrTypeTranslation, err)
 		}
 
 		if len(path) == 0 {

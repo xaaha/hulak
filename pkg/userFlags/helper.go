@@ -24,7 +24,7 @@ func GenerateFilePathList(fileName string, fp string) ([]string, error) {
 	// Add matching paths for -f flag if provided
 	if fileName != "" {
 		if matchingPaths, err := utils.ListMatchingFiles(fileName); err != nil {
-			utils.PrintRed("helper.go: error occurred while collecting file paths " + err.Error())
+			utils.PrintRed(utils.ErrFilePathCollection + ": " + err.Error())
 		} else {
 			filePathList = append(filePathList, matchingPaths...)
 		}

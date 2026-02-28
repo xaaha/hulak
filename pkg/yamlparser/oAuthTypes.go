@@ -97,7 +97,7 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 	case len(b.URLEncodedFormData) > 0:
 		encodedBody, err := EncodeXwwwFormURLBody(mergedMap)
 		if err != nil {
-			return nil, "", utils.ColorError("#oAuthTypes.go", err)
+			return nil, "", utils.ColorError(utils.ErrOAuthBodyEncoding, err)
 		}
 		body, contentType = encodedBody, "application/x-www-form-urlencoded"
 	default:
@@ -174,7 +174,7 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 func (auth2Body *AuthRequestFile) PrepareStruct(code string) (APIInfo, error) {
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
-		return APIInfo{}, utils.ColorError("#apiTypes.go", err)
+		return APIInfo{}, utils.ColorError(utils.ErrBodyEncoding, err)
 	}
 
 	if contentType != "" {

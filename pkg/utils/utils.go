@@ -172,7 +172,7 @@ func CopyEnvMap(original map[string]any) map[string]any {
 // Returns slice of matched file paths and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	if matchFile == "" {
-		return nil, ColorError("#utils.go: matchFile can't be empty")
+		return nil, ColorError(ErrFileSearchEmpty)
 	}
 
 	fileExtensions := []string{YAML, YML, JSON}
