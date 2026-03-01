@@ -19,11 +19,11 @@ import (
 /*
 InitializeProject starts the project by creating envfolder and global.env file in it.
 */
-func InitializeProject(env string) map[string]any {
+func InitializeProject(env string, isCli bool) map[string]any {
 	if err := envparser.CreateDefaultEnvs(nil); err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
-	envMap, err := envparser.GenerateSecretsMap(env)
+	envMap, err := envparser.GenerateSecretsMap(env, isCli)
 	if err != nil {
 		panic(err)
 	}

@@ -42,7 +42,7 @@ func main() {
 		fp = runInteractiveFlow(&env, flags.EnvSet)
 		var envMap map[string]any
 		if utils.FileHasTemplateVars(fp) {
-			envMap = InitializeProject(env)
+			envMap = InitializeProject(env, false)
 		}
 		HandleAPIRequests(envMap, debug, []string{fp}, nil, fp)
 		return
@@ -67,7 +67,7 @@ func main() {
 		if !utils.IsHulakProject() {
 			ensureHulakProject()
 		}
-		envMap = InitializeProject(env)
+		envMap = InitializeProject(env, true)
 	}
 
 	HandleAPIRequests(envMap, debug, slices.Concat(fileList, concurrentDir), sequentialDir, fp)
