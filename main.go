@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/tui"
-	"github.com/xaaha/hulak/pkg/tui/apicaller"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -33,23 +32,23 @@ func main() {
 	hasDirFlags := dir != "" || dirseq != ""
 	hasFileFlags := fp != "" || fileName != ""
 
-	// TUI mode: always requires env/ project structure
+	// TUI mode
 	if !hasFileFlags && !hasDirFlags {
 		if !isInteractiveTerminal() {
 			utils.PanicRedAndExit(
 				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
 			)
 		}
-		if !utils.IsHulakProject() {
-			ensureHulakProject()
-		}
 		fp = runInteractiveFlow(&env, flags.EnvSet)
-		envMap := InitializeProject(env)
+		var envMap map[string]any
+		if utils.FileHasTemplateVars(fp) {
+			envMap = InitializeProject(env)
+		}
 		HandleAPIRequests(envMap, debug, []string{fp}, nil, fp)
 		return
 	}
 
-	// CLI mode: discover all files, then conditionally load env
+	// CLI mode
 	fileList, concurrentDir, sequentialDir := DiscoverFilePaths(
 		fileName,
 		fp,
@@ -74,39 +73,45 @@ func main() {
 	HandleAPIRequests(envMap, debug, slices.Concat(fileList, concurrentDir), sequentialDir, fp)
 }
 
-/*
-runInteractiveFlow prompts the user to select an environment and file
-when no file or directory flags are provided.
-It updates env in-place if the user picks one, and returns the selected file path.
-*/
 func runInteractiveFlow(env *string, envSet bool) string {
-	envItems := envselect.EnvItems()
-	if !envSet && len(envItems) == 0 {
-		utils.PanicRedAndExit("%v", envselect.NoEnvFilesError())
-	}
-
 	fileItems, err := tui.FileItems()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
-	if len(fileItems) == 0 {
-		utils.PanicRedAndExit("%v", tui.NoFilesError())
-	}
 
-	selection, err := apicaller.RunFilePath(envItems, fileItems, *env, envSet)
+	selectedFile, err := tui.RunSelector(fileItems, "Select Request File: ", tui.NoFilesError())
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
 
-	if selection.Cancelled || selection.File == "" {
+	if selectedFile == "" {
 		os.Exit(0)
 	}
 
-	if selection.Env != "" {
-		*env = selection.Env
+	if !utils.FileHasTemplateVars(selectedFile) {
+		return selectedFile
 	}
 
-	return selection.File
+	if !utils.IsHulakProject() {
+		ensureHulakProject()
+	}
+
+	if envSet {
+		return selectedFile
+	}
+
+	selectedEnv, err := envselect.RunEnvSelector()
+	if err != nil {
+		utils.PanicRedAndExit("%v", err)
+	}
+
+	if selectedEnv == "" {
+		os.Exit(0)
+	}
+
+	*env = selectedEnv
+
+	return selectedFile
 }
 
 func isInteractiveTerminal() bool {
@@ -138,8 +143,8 @@ func ensureHulakProject() {
 		)
 	}
 
-	utils.PrintWarning("fatal: not a hulak project")
-	fmt.Print("Would you like to create one? [y/N] ")
+	utils.PrintWarning("error: environment resolution requires a Hulak project")
+	fmt.Print("Initialize one here? [y/N] ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
