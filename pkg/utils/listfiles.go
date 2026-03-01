@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 )
 
 var ErrNoFiles = errors.New("no matching files found")
@@ -80,6 +81,10 @@ func shouldSkipDir(dirName string, opts listFilesOptions) bool {
 	return slices.Contains(opts.skipDirs, dirName)
 }
 
+func isWalkPermissionError(err error) bool {
+	return os.IsPermission(err) || errors.Is(err, fs.ErrPermission) || errors.Is(err, syscall.EPERM)
+}
+
 // ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
 // Files are added as they are discovered so it does not guarantee any files are run before the other
 func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
@@ -109,6 +114,9 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 
 	err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if isWalkPermissionError(err) {
+				return nil
+			}
 			return err
 		}
 

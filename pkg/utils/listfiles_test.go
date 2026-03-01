@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -170,6 +171,36 @@ func TestListFiles_ExcludesAPIOptionsTemplate(t *testing.T) {
 	}
 	if !contains(got, request) {
 		t.Fatalf("expected %s in result: %v", request, got)
+	}
+}
+
+func TestListFiles_SkipsPermissionDeniedPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission model differs on windows")
+	}
+
+	root := t.TempDir()
+	allowed := filepath.Join(root, "allowed.yaml")
+	touch(t, allowed)
+
+	lockedDir := filepath.Join(root, "locked")
+	mkdir(t, lockedDir)
+	touch(t, filepath.Join(lockedDir, "hidden.yaml"))
+
+	if err := os.Chmod(lockedDir, 0o000); err != nil {
+		t.Fatalf("failed to lock dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(lockedDir, 0o755)
+	})
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error when locked dir exists: %v", err)
+	}
+
+	if !contains(got, allowed) {
+		t.Fatalf("expected accessible file %s in result: %v", allowed, got)
 	}
 }
 
