@@ -44,12 +44,13 @@ func RunWithSpinnerAfter(message string, task func() (any, error)) (any, error) 
 	frames := []rune{'|', '/', '-', '\\'}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	clearLine := "\r" + fmt.Sprintf("%*s", len(message)+2, "") + "\r"
 
 	index := 0
 	for {
 		select {
 		case completed := <-done:
-			_, _ = fmt.Fprint(os.Stdout, "\r")
+			_, _ = fmt.Fprint(os.Stdout, clearLine)
 			return completed.result, completed.err
 		case <-ticker.C:
 			_, _ = fmt.Fprintf(os.Stdout, "\r%c %s", frames[index], message)
