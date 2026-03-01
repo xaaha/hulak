@@ -1,13 +1,18 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 const (
 	selectorViewportDefaultW = 40
-	selectorViewportMinW     = 10
+	selectorHorizontalPad    = 8
+	selectorInputFrameW      = 4
 	selectorViewportMaxH     = 3 // fits 3 visible items; keeps the picker compact so it never dominates the terminal
 	selectorFrameOverhead    = 8
 )
@@ -28,7 +33,7 @@ type SelectorModel struct {
 func NewSelector(items []string, prompt string) SelectorModel {
 	var placeholder string
 	if len(items) > 0 {
-		placeholder = items[0]
+		placeholder = compactPlaceholder(items[0], selectorViewportDefaultW-selectorInputFrameW)
 	}
 
 	m := SelectorModel{
@@ -37,6 +42,24 @@ func NewSelector(items []string, prompt string) SelectorModel {
 	m.resizeViewport()
 	m.syncViewport()
 	return m
+}
+
+func compactPlaceholder(value string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+
+	runes := []rune(value)
+	if len(runes) <= maxLen {
+		return value
+	}
+
+	if maxLen <= len(utils.Ellipsis) {
+		return strings.Repeat(".", maxLen)
+	}
+
+	tailLen := maxLen - len(utils.Ellipsis)
+	return utils.Ellipsis + string(runes[len(runes)-tailLen:])
 }
 
 func (m *SelectorModel) Init() tea.Cmd {
@@ -110,6 +133,9 @@ func (m *SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *SelectorModel) View() string {
 	title := m.TextInput.ViewTitle()
+	if m.width > 0 {
+		title = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(title)
+	}
 	list := ""
 	if m.vpReady {
 		vp := m.viewport
@@ -120,16 +146,24 @@ func (m *SelectorModel) View() string {
 		list, _ = m.RenderItems()
 	}
 	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
+	if m.width > 0 {
+		help = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(help)
+	}
 
 	content := title + "\n\n" + list + "\n" + help
 	return "\n" + content + "\n"
 }
 
 func (m *SelectorModel) resizeViewport() {
-	w := selectorViewportDefaultW
+	availableW := selectorViewportDefaultW
 	if m.width > 0 {
-		w = max(min(m.width-8, selectorViewportDefaultW), selectorViewportMinW)
+		availableW = max(m.width-selectorHorizontalPad, 1)
+		maxInputW := max(min(availableW, selectorViewportDefaultW)-selectorInputFrameW, 1)
+		if m.TextInput.Model.Width > maxInputW {
+			m.TextInput.Model.Width = maxInputW
+		}
 	}
+	w := min(availableW, selectorViewportDefaultW)
 
 	h := selectorViewportMaxH
 	if m.height > 0 {
