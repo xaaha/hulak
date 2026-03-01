@@ -127,7 +127,7 @@ hulak init
 
 ```
 
-Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API call. It allows separation between different environments like local, test, and production environments. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.hk.yaml` file for your reference.
+Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API calls that reference environment template vars like `{{.key}}`. It allows separation between different environments like local, test, and production. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.hk.yaml` file for your reference.
 
 ```bash
 # to create multiple .env files in the env directory run
@@ -136,12 +136,12 @@ hulak init -env staging prod
 
 You can store all secrets in `global.env`, but for running tests with different credentials, use additional `<custom_file_name>.env` files like `staging.env` or `prod.env`.
 
-If `env/global.env` is absent, it will prompt you to create one at runtime. For more details read this [environment documentation](./docs/environment.md).
+If a selected request needs `{{.key}}` values and `env/global.env` is absent, Hulak will prompt you to create the project setup at runtime. Requests without environment template vars can run without `env/`. For more details read this [environment documentation](./docs/environment.md).
 
 ```bash
 # example directory structure
 env/
-  global.env    # default and required created with hulak init
+  global.env    # default env file used when environment vars are needed
   prod.env      # user defined, could be anything
   staging.env   # user defined
 collection/     # example directory
@@ -186,11 +186,13 @@ hulak -env global -f test
 hulak -env global -fp test.yaml
 ```
 
-Since global is default environment, we don't need to specify `-env global`. So, this is the simplest way of running the file.
+Since global is default environment, we don't need to specify `-env global`. This is the simplest way of running the file.
 
 ```bash
 hulak -f test
 ```
+
+If the matched files do not contain environment template vars (`{{.key}}`), Hulak runs them without requiring `env/`.
 
 File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
 Read more about response in [response documentation](./docs/response.md).
@@ -219,6 +221,8 @@ Read more about response in [response documentation](./docs/response.md).
 | `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                | `-debug`                         |
 | `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                     | `-dir path/to/directory/`        |
 | `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guranteed that files will run as they appear in the file system. If the order matter, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
+
+Interactive mode (`hulak` with no file/directory flags) now picks the request file first. If the selected file requires `{{.key}}`, Hulak then asks for environment selection. During slow file discovery, a spinner appears after a short delay.
 
 ## Subcommands
 
