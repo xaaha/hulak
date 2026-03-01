@@ -1,7 +1,8 @@
 # Environment Secrets
 
-- Environment secrets files, `global.env` (default), must exist in a folder `env/` which is in the root directory.
-- Hulak asks user to create `global.env` during runtime, if it's not present already. You can also create the `global.env` manually
+- Environment secrets files (for example `global.env`) live in the `env/` folder at the project root.
+- The `env/` setup is required only for requests that use environment template vars like `{{.key}}`.
+- If a selected request needs environment vars and `env/global.env` is missing, Hulak asks to initialize the project setup at runtime.
 - Directory structure
 
 ```text
