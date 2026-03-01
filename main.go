@@ -74,9 +74,16 @@ func main() {
 }
 
 func runInteractiveFlow(env *string, envSet bool) string {
-	fileItems, err := tui.FileItems()
+	itemsResult, err := tui.RunWithSpinnerAfter("Searching files...", func() (any, error) {
+		return tui.FileItems()
+	})
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
+	}
+
+	fileItems, ok := itemsResult.([]string)
+	if !ok {
+		utils.PanicRedAndExit("internal error: file discovery returned unexpected type")
 	}
 
 	selectedFile, err := tui.RunSelector(fileItems, "Select Request File: ", tui.NoFilesError())

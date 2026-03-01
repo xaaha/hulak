@@ -142,7 +142,7 @@ func loadGraphQLOperations(arg string, env string) (
 	}
 
 	// load spinner while waiting
-	raw, err := tui.RunWithSpinner("Fetching schemas...", func() (any, error) {
+	raw, err := tui.RunWithSpinnerAfter("Fetching schemas...", func() (any, error) {
 		type fetchResult struct {
 			url    string
 			schema graphql.Schema

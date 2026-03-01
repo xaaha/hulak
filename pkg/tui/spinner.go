@@ -2,96 +2,58 @@ package tui
 
 import (
 	"fmt"
-
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"os"
+	"time"
 )
 
-// spinnerModel wraps a spinner.Model with a message label.
-type spinnerModel struct {
-	Model   spinner.Model
-	Message string
-}
+const spinnerDelay = 100 * time.Millisecond
 
-// newSpinner creates a spinnerModel with the Dot style and primary color.
-func newSpinner(message string) spinnerModel {
-	s := spinner.New(
-		spinner.WithSpinner(spinner.Dot),
-		spinner.WithStyle(lipgloss.NewStyle().Foreground(ColorPrimary)),
-	)
-	return spinnerModel{Model: s, Message: message}
-}
+func RunWithSpinnerAfter(message string, task func() (any, error)) (any, error) {
+	stdinInfo, stdinErr := os.Stdin.Stat()
+	stdoutInfo, stdoutErr := os.Stdout.Stat()
+	if stdinErr != nil || stdoutErr != nil {
+		return task()
+	}
 
-// Init returns the tick command to start the spinner animation.
-func (s *spinnerModel) Init() tea.Cmd {
-	return s.Model.Tick
-}
+	stdinTTY := (stdinInfo.Mode() & os.ModeCharDevice) != 0
+	stdoutTTY := (stdoutInfo.Mode() & os.ModeCharDevice) != 0
+	if !stdinTTY || !stdoutTTY {
+		return task()
+	}
 
-// Update forwards messages to the inner spinner model.
-func (s *spinnerModel) Update(msg tea.Msg) (*spinnerModel, tea.Cmd) {
-	var cmd tea.Cmd
-	s.Model, cmd = s.Model.Update(msg)
-	return s, cmd
-}
+	type taskResult struct {
+		result any
+		err    error
+	}
 
-// View renders the spinner animation followed by the message.
-func (s *spinnerModel) View() string {
-	return fmt.Sprintf("%s %s", s.Model.View(), s.Message)
-}
+	done := make(chan taskResult, 1)
+	go func() {
+		result, err := task()
+		done <- taskResult{result: result, err: err}
+	}()
 
-// taskDoneMsg signals that a background task completed.
-type taskDoneMsg struct {
-	Result any
-	Err    error
-}
+	timer := time.NewTimer(spinnerDelay)
+	defer timer.Stop()
 
-type spinnerTaskModel struct {
-	spinner spinnerModel
-	result  any
-	err     error
-	task    func() (any, error)
-}
+	select {
+	case completed := <-done:
+		return completed.result, completed.err
+	case <-timer.C:
+	}
 
-func (m *spinnerTaskModel) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Init(), func() tea.Msg {
-		result, err := m.task()
-		return taskDoneMsg{Result: result, Err: err}
-	})
-}
+	frames := []rune{'|', '/', '-', '\\'}
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
-func (m *spinnerTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case taskDoneMsg:
-		m.result = msg.Result
-		m.err = msg.Err
-		return m, tea.Quit
-	case tea.KeyMsg:
-		if msg.String() == KeyQuit {
-			m.err = fmt.Errorf("interrupted")
-			return m, tea.Quit
+	index := 0
+	for {
+		select {
+		case completed := <-done:
+			_, _ = fmt.Fprint(os.Stdout, "\r")
+			return completed.result, completed.err
+		case <-ticker.C:
+			_, _ = fmt.Fprintf(os.Stdout, "\r%c %s", frames[index], message)
+			index = (index + 1) % len(frames)
 		}
 	}
-	var cmd tea.Cmd
-	_, cmd = m.spinner.Update(msg)
-	return m, cmd
-}
-
-func (m *spinnerTaskModel) View() string {
-	return fmt.Sprintf("\n  %s\n", m.spinner.View())
-}
-
-// RunWithSpinner displays a spinner while task executes in the background.
-func RunWithSpinner(message string, task func() (any, error)) (any, error) {
-	model := spinnerTaskModel{
-		spinner: newSpinner(message),
-		task:    task,
-	}
-	p := tea.NewProgram(&model)
-	m, err := p.Run()
-	if err != nil {
-		return nil, err
-	}
-	result := m.(*spinnerTaskModel)
-	return result.result, result.err
 }
