@@ -66,8 +66,11 @@ func applyOptions(options []ListFilesOption) listFilesOptions {
 
 func isWantedFilePath(path string) bool {
 	name := strings.ToLower(filepath.Base(path))
-	return strings.HasSuffix(name, YAML) || strings.HasSuffix(name, YML) ||
+	hasSupportedExt := strings.HasSuffix(name, YAML) ||
+		strings.HasSuffix(name, YML) ||
 		strings.HasSuffix(name, JSON)
+
+	return hasSupportedExt && !strings.EqualFold(name, APIOptions)
 }
 
 func shouldSkipDir(dirName string, opts listFilesOptions) bool {

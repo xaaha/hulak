@@ -152,6 +152,27 @@ func TestListFiles_NoMatchingFiles(t *testing.T) {
 	}
 }
 
+func TestListFiles_ExcludesAPIOptionsTemplate(t *testing.T) {
+	root := t.TempDir()
+
+	apiOptions := filepath.Join(root, APIOptions)
+	request := filepath.Join(root, "request.yaml")
+	touch(t, apiOptions)
+	touch(t, request)
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if contains(got, apiOptions) {
+		t.Fatalf("did not expect %s in result: %v", apiOptions, got)
+	}
+	if !contains(got, request) {
+		t.Fatalf("expected %s in result: %v", request, got)
+	}
+}
+
 // --- Helpers ---
 
 func asSet(list []string) map[string]bool {

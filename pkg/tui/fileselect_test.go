@@ -38,7 +38,10 @@ func setupFileSelectTestDir(t *testing.T, files []string) func() {
 }
 
 func TestFileItemsWithFiles(t *testing.T) {
-	cleanup := setupFileSelectTestDir(t, []string{"collection/get_users.yaml", "collection/post_data.yml"})
+	cleanup := setupFileSelectTestDir(
+		t,
+		[]string{"collection/get_users.yaml", "collection/post_data.yml"},
+	)
 	defer cleanup()
 
 	items, err := FileItems()
