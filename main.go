@@ -32,7 +32,7 @@ func main() {
 	hasDirFlags := dir != "" || dirseq != ""
 	hasFileFlags := fp != "" || fileName != ""
 
-	// TUI mode
+	// TUI mode, currently only supports -fp (single file run)
 	if !hasFileFlags && !hasDirFlags {
 		if !isInteractiveTerminal() {
 			utils.PanicRedAndExit(
