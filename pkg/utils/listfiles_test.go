@@ -75,6 +75,37 @@ func TestListFiles_SkipDefaultDirs(t *testing.T) {
 	}
 }
 
+func TestListFiles_SkipExtendedDefaultDirs(t *testing.T) {
+	root := t.TempDir()
+
+	bunDir := filepath.Join(root, ".bun")
+	shareDir := filepath.Join(root, ".share")
+	mkdir(t, bunDir)
+	mkdir(t, shareDir)
+
+	bunFile := filepath.Join(bunDir, "ignored.yaml")
+	shareFile := filepath.Join(shareDir, "ignored.yml")
+	keepFile := filepath.Join(root, "keep.yaml")
+	touch(t, bunFile)
+	touch(t, shareFile)
+	touch(t, keepFile)
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if contains(got, bunFile) {
+		t.Fatalf("expected %s to be skipped, got %v", bunFile, got)
+	}
+	if contains(got, shareFile) {
+		t.Fatalf("expected %s to be skipped, got %v", shareFile, got)
+	}
+	if !contains(got, keepFile) {
+		t.Fatalf("expected %s to be included, got %v", keepFile, got)
+	}
+}
+
 func TestListFiles_CustomSkipDirs(t *testing.T) {
 	root := t.TempDir()
 
