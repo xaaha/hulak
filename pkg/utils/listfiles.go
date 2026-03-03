@@ -175,21 +175,3 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 
 	return result, nil
 }
-
-/**
-use list files like so
-// Use default settings (traverse dot directories, skip common heavy dirs)
-files, err := ListFiles("./")
-
-// Skip specific directories
-files, err := ListFiles("./", WithSkipDirs([]string{"node_modules", "vendor", "tmp"}))
-
-// Skip dot directories (like original behavior)
-files, err := ListFiles("./", WithRespectDotDirs(false))
-
-// Custom configuration
-files, err := ListFiles("./",
-    WithSkipDirs([]string{"dist", "build"}),
-    WithRespectDotDirs(true),
-)
-*/

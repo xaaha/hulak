@@ -8,6 +8,16 @@ import (
 
 func TestFileHasTemplateVars(t *testing.T) {
 	tempDir := t.TempDir()
+	gqlPath := filepath.Join(tempDir, "query.graphql")
+	err := os.WriteFile(gqlPath, []byte("query { user(id: {{.userId}}) { id } }"), 0o600)
+	if err != nil {
+		t.Fatalf("Failed to create test gql file: %v", err)
+	}
+	unquotedPath := filepath.Join(tempDir, "unquoted.graphql")
+	err = os.WriteFile(unquotedPath, []byte("query { viewer { id } } {{.needsEnv}}"), 0o600)
+	if err != nil {
+		t.Fatalf("Failed to create unquoted gql file: %v", err)
+	}
 
 	testCases := []struct {
 		name     string
@@ -36,12 +46,22 @@ func TestFileHasTemplateVars(t *testing.T) {
 		},
 		{
 			name:     "only_getFile_no_env_vars",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
+			content:  buildGetFileContent("plain.graphql"),
 			expected: false,
 		},
 		{
+			name:     "getFile_with_env_vars_in_referenced_file",
+			content:  buildGetFileContent("query.graphql"),
+			expected: true,
+		},
+		{
+			name:     "getFile_unquoted_with_env_vars_in_referenced_file",
+			content:  buildGetFileContentNoQuotes("unquoted.graphql"),
+			expected: true,
+		},
+		{
 			name:     "only_getValueOf_no_env_vars",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{getValueOf \"token\" \"auth.json\"}}'\n",
+			content:  buildGetValueOfContent("token", "auth.json"),
 			expected: false,
 		},
 		{
@@ -51,7 +71,7 @@ func TestFileHasTemplateVars(t *testing.T) {
 		},
 		{
 			name:     "mixed_env_var_and_getFile",
-			content:  "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
+			content:  "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{" + TemplateFuncGetFile + " \"test.graphql\"}}'\n",
 			expected: true,
 		},
 		{
@@ -64,6 +84,12 @@ func TestFileHasTemplateVars(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			filePath := filepath.Join(tempDir, tc.name+".yaml")
+			if tc.name == "only_getFile_no_env_vars" {
+				plainPath := filepath.Join(tempDir, "plain.graphql")
+				if err := os.WriteFile(plainPath, []byte("query { health }"), 0o600); err != nil {
+					t.Fatalf("Failed to create plain gql file: %v", err)
+				}
+			}
 			err := os.WriteFile(filePath, []byte(tc.content), 0o600)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
@@ -81,6 +107,18 @@ func TestFileHasTemplateVars_NonexistentFile(t *testing.T) {
 	if result != false {
 		t.Errorf("Expected false for nonexistent file, got true")
 	}
+}
+
+func buildGetFileContent(path string) string {
+	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{" + TemplateFuncGetFile + " \"" + path + "\"}}'\n"
+}
+
+func buildGetFileContentNoQuotes(path string) string {
+	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{" + TemplateFuncGetFile + " " + path + "}}'\n"
+}
+
+func buildGetValueOfContent(key, fileName string) string {
+	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"" + key + "\" \"" + fileName + "\"}}'\n"
 }
 
 func TestMapHasEnvVars(t *testing.T) {
@@ -123,14 +161,14 @@ func TestMapHasEnvVars(t *testing.T) {
 		{
 			name: "getFile_only_no_env_var",
 			data: map[string]any{
-				"query": "{{getFile \"test.graphql\"}}",
+				"query": "{{" + TemplateFuncGetFile + " \"test.graphql\"}}",
 			},
 			expected: false,
 		},
 		{
 			name: "getValueOf_only_no_env_var",
 			data: map[string]any{
-				"auth": "{{getValueOf \"token\" \"auth.json\"}}",
+				"auth": "{{" + TemplateFuncGetValueOf + " \"token\" \"auth.json\"}}",
 			},
 			expected: false,
 		},

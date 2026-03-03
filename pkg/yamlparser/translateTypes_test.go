@@ -1,6 +1,7 @@
 package yamlparser
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,11 +31,11 @@ func TestStringHasDelimiter(t *testing.T) {
 		{13, "{{{valid}}}", false, ""},
 		{14, "this {{valid}}", false, ""},
 		{15, "this {{}} is invalid", false, ""},
-		{16, "{{getValueOf 'foo' 'bar'}}", true, "getValueOf 'foo' 'bar'"},
-		{17, "{{getValueOf 'foo' 'bar'}}", true, "getValueOf 'foo' 'bar'"},
-		{18, `{{getValueOf "foo" "bar"}}`, true, `getValueOf "foo" "bar"`},
-		{19, `{{ getValueOf "foo" "bar" }}`, true, `getValueOf "foo" "bar"`},
-		{20, `{{getValueOf "foo" 'bar' }}`, true, `getValueOf "foo" 'bar'`},
+		{16, fmt.Sprintf("{{%s 'foo' 'bar'}}", utils.TemplateFuncGetValueOf), true, fmt.Sprintf("%s 'foo' 'bar'", utils.TemplateFuncGetValueOf)},
+		{17, fmt.Sprintf("{{%s 'foo' 'bar'}}", utils.TemplateFuncGetValueOf), true, fmt.Sprintf("%s 'foo' 'bar'", utils.TemplateFuncGetValueOf)},
+		{18, fmt.Sprintf(`{{%s "foo" "bar"}}`, utils.TemplateFuncGetValueOf), true, fmt.Sprintf(`%s "foo" "bar"`, utils.TemplateFuncGetValueOf)},
+		{19, fmt.Sprintf(`{{ %s "foo" "bar" }}`, utils.TemplateFuncGetValueOf), true, fmt.Sprintf(`%s "foo" "bar"`, utils.TemplateFuncGetValueOf)},
+		{20, fmt.Sprintf(`{{%s "foo" 'bar' }}`, utils.TemplateFuncGetValueOf), true, fmt.Sprintf(`%s "foo" 'bar'`, utils.TemplateFuncGetValueOf)},
 	}
 
 	// Run the tests
@@ -76,20 +77,20 @@ func TestDelimiterLogic(t *testing.T) {
 		{input: "", expected: action{Type: Invalid}},
 		{input: "{{.Value}}", expected: action{Type: DotString, DotString: "Value"}},
 		{
-			input:    `{{getValueOf "key" "value"}}`,
-			expected: action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+			input:    fmt.Sprintf(`{{%s "key" "value"}}`, utils.TemplateFuncGetValueOf),
+			expected: action{Type: GetValueOf, GetValueOf: []string{utils.TemplateFuncGetValueOf, "key", "value"}},
 		},
 		{
 			input:    `{{getvalueof "key" "value"}}`,
 			expected: action{Type: Invalid, GetValueOf: []string{}},
 		},
 		{
-			input:    `{{getValueOf key "value}}`,
-			expected: action{Type: GetValueOf, GetValueOf: []string{"getValueOf", "key", "value"}},
+			input:    fmt.Sprintf(`{{%s key "value}}`, utils.TemplateFuncGetValueOf),
+			expected: action{Type: GetValueOf, GetValueOf: []string{utils.TemplateFuncGetValueOf, "key", "value"}},
 		},
 		{
-			input:    `{{getValueOf}}`,
-			expected: action{Type: Invalid, GetValueOf: []string{"getValueOf", "key", "value"}},
+			input:    fmt.Sprintf(`{{%s}}`, utils.TemplateFuncGetValueOf),
+			expected: action{Type: Invalid, GetValueOf: []string{utils.TemplateFuncGetValueOf, "key", "value"}},
 		},
 	}
 
@@ -131,14 +132,14 @@ func TestFindPathFromMap(t *testing.T) {
 				"person": map[string]any{
 					"name":   "Jane Doe",
 					"age":    "{{.Age}}",
-					"height": "{{getValueOf 'key1' 'path2'}}",
+					"height": getValueOfTemplate("'key1' 'path2'"),
 				},
 				"users": []map[string]any{
 					{
 						"person": map[string]any{
 							"name":   "Jane Doe",
 							"age":    "{{.Age}}",
-							"height": "{{getValueOf 'key2' 'path1'}}",
+							"height": getValueOfTemplate("'key2' 'path1'"),
 						},
 					},
 				},
@@ -164,7 +165,7 @@ func TestFindPathFromMap(t *testing.T) {
 				"person": map[string]any{
 					"name":   "{{.jane}}",
 					"age":    "{{.Age}}",
-					"height": "{{getValueOf 'key1' 'path2'}}",
+					"height": getValueOfTemplate("'key1' 'path2'"),
 				},
 				"users": []map[string]any{
 					{},
@@ -172,7 +173,7 @@ func TestFindPathFromMap(t *testing.T) {
 						"person": map[string]any{
 							"name":   "Jane Doe",
 							"age":    "{{.age}}",
-							"height": "{{getValueOf 'key2' 'path1'}}",
+							"height": getValueOfTemplate("'key2' 'path1'"),
 						},
 					},
 				},
@@ -196,7 +197,7 @@ func TestFindPathFromMap(t *testing.T) {
 					"users": []any{
 						map[string]any{
 							"id":       "{{.userId}}",
-							"isActive": "{{getValueOf 'isActive' '/'}}",
+							"isActive": getValueOfTemplate("'isActive' '/'"),
 						},
 					},
 					"config": map[string]any{
@@ -529,7 +530,7 @@ func TestTranslateType(t *testing.T) {
 			name: "Basic Type Conversion",
 			before: map[string]any{
 				"foo":  "{{.foo}}",
-				"bar":  "{{getValueOf 'bar' '/'}}",
+				"bar":  getValueOfTemplate("'bar' '/'"),
 				"baz":  "{{.baz}}",
 				"name": "Jane",
 			},
@@ -560,7 +561,7 @@ func TestTranslateType(t *testing.T) {
 				"baz": "{{.baz}}",
 				"person": map[string]any{
 					"age":    "{{.age}}",
-					"height": "{{getValueOf 'height' '/'}}",
+					"height": getValueOfTemplate("'height' '/'"),
 				},
 			},
 			after: map[string]any{
@@ -595,7 +596,7 @@ func TestTranslateType(t *testing.T) {
 					"users": []any{
 						map[string]any{
 							"id":       "{{.userId}}",
-							"isActive": "{{getValueOf 'isActive' '/'}}",
+							"isActive": getValueOfTemplate("'isActive' '/'"),
 						},
 					},
 					"config": map[string]any{
@@ -643,10 +644,10 @@ func TestTranslateType(t *testing.T) {
 			name: "Multiple type conversions",
 			before: map[string]any{
 				"metrics": map[string]any{
-					"count":       "{{getValueOf 'count' '/'}}",
-					"temperature": "{{getValueOf 'temperature' '/'}}",
-					"multiplier":  "{{getValueOf 'multiplier' '/'}}",
-					"status":      "{{getValueOf 'status' '/'}}",
+					"count":       getValueOfTemplate("'count' '/'"),
+					"temperature": getValueOfTemplate("'temperature' '/'"),
+					"multiplier":  getValueOfTemplate("'multiplier' '/'"),
+					"status":      getValueOfTemplate("'status' '/'"),
 				},
 			},
 			after: map[string]any{
@@ -671,8 +672,8 @@ func TestTranslateType(t *testing.T) {
 		{
 			name: "Empty and null values",
 			before: map[string]any{
-				"empty":    "{{getValueOf 'emptyString' '/'}}",
-				"nullVal":  "{{getValueOf 'nullValue' '/'}}",
+				"empty":    getValueOfTemplate("'emptyString' '/'"),
+				"nullVal":  getValueOfTemplate("'nullValue' '/'"),
 				"missing":  "{{.missingKey}}",
 				"preserve": "",
 			},
@@ -700,7 +701,7 @@ func TestTranslateType(t *testing.T) {
 					"users": []any{ // Use []any for dynamic lists
 						map[string]any{
 							"id":       "{{.userId}}",
-							"isActive": "{{getValueOf 'isActive' '/'}}",
+							"isActive": getValueOfTemplate("'isActive' '/'"),
 						},
 					},
 					"config": map[string]any{
@@ -780,6 +781,10 @@ func TestTranslateType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getValueOfTemplate(args string) string {
+	return fmt.Sprintf("{{%s %s}}", utils.TemplateFuncGetValueOf, args)
 }
 
 // Helper function for slice comparison

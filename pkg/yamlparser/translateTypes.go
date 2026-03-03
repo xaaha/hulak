@@ -2,7 +2,6 @@ package yamlparser
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -25,7 +24,7 @@ type action struct {
 }
 
 // checks whether string matches exactly "{{value}}"
-// and retuns whether the string matches the delimiter criteria and the associated content
+// and returns whether the string matches the delimiter criteria and the associated content
 // So, the "{{ .value }}" returns "true, .value". Space is trimmed around the return string
 func stringHasDelimiter(value string) (bool, string) {
 	if len(value) < 4 || !strings.HasPrefix(value, "{{") || !strings.HasSuffix(value, "}}") {
@@ -35,9 +34,7 @@ func stringHasDelimiter(value string) (bool, string) {
 		return false, ""
 	}
 	content := value[2 : len(value)-2]
-	re := regexp.MustCompile(`^\s+$`)
-	onlyHasEmptySpace := re.MatchString(value)
-	if len(content) == 0 || onlyHasEmptySpace {
+	if len(content) == 0 || strings.TrimSpace(content) == "" {
 		return false, ""
 	}
 	content = strings.TrimSpace(content)
@@ -62,7 +59,7 @@ func delimiterLogicAndCleanup(delimiterString string) action {
 		return action{Type: DotString, DotString: dotStr}
 	}
 
-	if len(innerStrChunks) == 3 && innerStrChunks[0] == "getValueOf" {
+	if len(innerStrChunks) == 3 && innerStrChunks[0] == utils.TemplateFuncGetValueOf {
 		cleanedChunks := cleanStrings(innerStrChunks[1:])
 		return action{
 			Type:       GetValueOf,
