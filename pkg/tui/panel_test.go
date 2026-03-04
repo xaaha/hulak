@@ -52,13 +52,19 @@ func TestPanelSetContentCaching(t *testing.T) {
 	p := &Panel{Number: 1}
 	p.Resize(30, 10)
 
-	p.SetContent("first", "key-1")
-	p.SetContent("second", "key-1")
+	if !p.SetContent("first", "key-1") {
+		t.Error("expected true on first SetContent")
+	}
+	if p.SetContent("second", "key-1") {
+		t.Error("expected false on same-key SetContent")
+	}
 	if got := p.viewport.View(); !strings.Contains(got, "first") {
 		t.Error("expected cached content to remain after same-key SetContent")
 	}
 
-	p.SetContent("third", "key-2")
+	if !p.SetContent("third", "key-2") {
+		t.Error("expected true on new-key SetContent")
+	}
 	if got := p.viewport.View(); !strings.Contains(got, "third") {
 		t.Error("expected content to update with new cache key")
 	}

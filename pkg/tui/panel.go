@@ -48,15 +48,16 @@ func (p *Panel) CanRender() bool {
 	return p.viewport.Width > 0 && p.viewport.Height > 0
 }
 
-// SetContent updates viewport content. Skips the update if cacheKey
-// matches the previous call, avoiding redundant re-renders.
+// SetContent updates viewport content. Returns true if the content was
+// updated, false if the cacheKey matched and the update was skipped.
 // Pass an empty cacheKey to force update every time.
-func (p *Panel) SetContent(content, cacheKey string) {
+func (p *Panel) SetContent(content, cacheKey string) bool {
 	if cacheKey != "" && cacheKey == p.cacheKey {
-		return
+		return false
 	}
 	p.cacheKey = cacheKey
 	p.viewport.SetContent(content)
+	return true
 }
 
 // Update forwards messages (scroll, mouse) to the inner viewport.
