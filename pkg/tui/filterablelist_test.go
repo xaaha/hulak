@@ -10,7 +10,8 @@ func TestTruncateWithEllipsis(t *testing.T) {
 		want     string
 	}{
 		{name: "no truncation", input: "hello", maxWidth: 10, want: "hello"},
-		{name: "truncate", input: "hello world", maxWidth: 8, want: "hello..."},
+		{name: "truncate tail", input: "hello world", maxWidth: 8, want: "...world"},
+		{name: "truncate path tail", input: "long/path/name/here", maxWidth: 12, want: "...name/here"},
 		{name: "very small width", input: "hello", maxWidth: 2, want: ".."},
 	}
 

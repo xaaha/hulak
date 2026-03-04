@@ -142,22 +142,29 @@ func truncateWithEllipsis(s string, maxWidth int) string {
 		return s
 	}
 
-	if maxWidth <= len(utils.Ellipsis) {
+	ellipsisW := lipgloss.Width(utils.Ellipsis)
+	if maxWidth <= ellipsisW {
 		return strings.Repeat(".", maxWidth)
 	}
 
-	target := maxWidth - len(utils.Ellipsis)
+	target := maxWidth - ellipsisW
 	var b strings.Builder
 	used := 0
+	runes := []rune(s)
 
-	for _, r := range s {
-		rw := lipgloss.Width(string(r))
+	for i := len(runes) - 1; i >= 0; i-- {
+		rw := lipgloss.Width(string(runes[i]))
 		if used+rw > target {
 			break
 		}
-		b.WriteRune(r)
+		b.WriteRune(runes[i])
 		used += rw
 	}
 
-	return b.String() + utils.Ellipsis
+	tailRunes := []rune(b.String())
+	for i, j := 0, len(tailRunes)-1; i < j; i, j = i+1, j-1 {
+		tailRunes[i], tailRunes[j] = tailRunes[j], tailRunes[i]
+	}
+
+	return utils.Ellipsis + string(tailRunes)
 }

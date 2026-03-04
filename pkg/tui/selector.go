@@ -15,28 +15,34 @@ const (
 	selectorInputFrameW      = 4
 	selectorViewportMaxH     = 3 // fits 3 visible items; keeps the picker compact so it never dominates the terminal
 	selectorFrameOverhead    = 8
-	helpMessage              = "enter: select | esc: cancel | arrows: navigate"
+	defaultHelpMessage       = "enter: select | esc: cancel | arrows: navigate"
 )
 
 // SelectorModel is the shared single-list picker engine for simple selection flows.
 type SelectorModel struct {
 	FilterableList
-	Selected  string
-	Cancelled bool
-	viewport  viewport.Model
-	vpReady   bool
-	width     int
-	height    int
+	Selected    string
+	Cancelled   bool
+	viewport    viewport.Model
+	vpReady     bool
+	width       int
+	height      int
+	helpMessage string
 }
 
-func NewSelector(items []string, prompt string) SelectorModel {
+func NewSelector(items []string, prompt string, customHelp ...string) SelectorModel {
 	var placeholder string
 	if len(items) > 0 {
 		placeholder = compactPlaceholder(items[0], selectorViewportDefaultW-selectorInputFrameW)
 	}
 
+	help := defaultHelpMessage
+	if len(customHelp) > 0 && strings.TrimSpace(customHelp[0]) != "" {
+		help = customHelp[0]
+	}
 	m := SelectorModel{
 		FilterableList: NewFilterableList(items, prompt, placeholder, false),
+		helpMessage:    help,
 	}
 	m.resizeViewport()
 	m.syncViewport()
@@ -144,7 +150,7 @@ func (m *SelectorModel) View() string {
 	} else {
 		list, _ = m.RenderItems()
 	}
-	help := HelpStyle.Render(helpMessage)
+	help := HelpStyle.Render(m.helpMessage)
 	if m.width > 0 {
 		help = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(help)
 	}
@@ -193,12 +199,16 @@ RunSelector runs a generic selector TUI with the given items and prompt.
 Returns the selected item, or empty string if cancelled.
 Returns emptyErr if no items are available.
 */
-func RunSelector(items []string, prompt string, emptyErr error) (string, error) {
+func RunSelector(
+	items []string,
+	prompt string,
+	emptyErr error,
+	helpMessage ...string,
+) (string, error) {
 	if len(items) == 0 {
 		return "", emptyErr
 	}
-
-	model := NewSelector(items, prompt)
+	model := NewSelector(items, prompt, helpMessage...)
 	m, err := tea.NewProgram(&model).Run()
 	if err != nil {
 		return "", err
