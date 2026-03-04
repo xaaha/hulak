@@ -165,8 +165,6 @@ func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
-	model.focus.FocusByNumber(1)
-	model.syncSearchFocus()
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
@@ -178,6 +176,23 @@ func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	model = result.(*Model)
 	if model.focus.LeftFocused() {
 		t.Error("expected detail panel to remain focused after second enter")
+	}
+}
+
+func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+
+	m.focus.SetTyping(false)
+	m.syncSearchFocus()
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := result.(*Model)
+	if !model.focus.Typing() {
+		t.Error("enter on blurred left panel should reactivate typing")
+	}
+	if !model.focus.LeftFocused() {
+		t.Error("enter on blurred left panel should stay on left, not jump to detail")
 	}
 }
 
@@ -230,13 +245,21 @@ func TestCtrlCQuits(t *testing.T) {
 	}
 }
 
-func TestEscQuitsWhenSearchEmpty(t *testing.T) {
+func TestEscBlursThenQuits(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := result.(*Model)
+	if cmd != nil {
+		t.Error("first esc should blur search, not quit")
+	}
+	if model.focus.Typing() {
+		t.Error("expected typing=false after first esc")
+	}
 
+	_, cmd = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
-		t.Error("expected quit command from esc with empty search")
+		t.Error("second esc should quit")
 	}
 }
 

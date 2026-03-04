@@ -108,6 +108,7 @@ func NewModel(
 		detailPanel: dp,
 		focus:       tui.NewFocusRing([]*tui.Panel{dp}),
 	}
+	m.focus.SetTyping(true)
 	m.syncSearchFocus()
 	return m
 }
@@ -179,7 +180,7 @@ func (m *Model) updateBadgeCache() {
 }
 
 func (m *Model) syncSearchFocus() {
-	if m.focus.LeftFocused() {
+	if m.focus.LeftFocused() && m.focus.Typing() {
 		m.search.Model.Focus()
 		return
 	}
@@ -279,20 +280,35 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 	case tui.KeyCancel:
-		if m.search.Model.Value() != "" {
-			m.search.Model.Reset()
-			m.applyFilterAndReset()
+		if m.focus.Typing() {
+			if m.search.Model.Value() != "" {
+				m.search.Model.Reset()
+				m.applyFilterAndReset()
+				return m, nil
+			}
+			m.focus.SetTyping(false)
+			m.syncSearchFocus()
 			return m, nil
 		}
 		return m, tea.Quit
 	case tui.KeyTab:
 		m.focus.Next()
+		if m.focus.LeftFocused() {
+			m.focus.SetTyping(true)
+		}
 		m.syncSearchFocus()
 		return m, nil
 	case tui.KeyEnter:
-		if m.focus.LeftFocused() && m.hasTwoPanelLayout() {
-			m.focus.FocusByNumber(m.detailPanel.Number)
-			m.syncSearchFocus()
+		if m.focus.LeftFocused() {
+			if !m.focus.Typing() {
+				m.focus.SetTyping(true)
+				m.syncSearchFocus()
+				return m, nil
+			}
+			if m.hasTwoPanelLayout() {
+				m.focus.FocusByNumber(m.detailPanel.Number)
+				m.syncSearchFocus()
+			}
 		}
 		return m, nil
 
