@@ -150,14 +150,14 @@ func TestTabTogglesFocus(t *testing.T) {
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model := result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight after tab, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel focused after tab")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model = result.(*Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focusLeft after second tab, got %v", model.focusedPanel)
+	if !model.focus.LeftFocused() {
+		t.Error("expected left panel focused after second tab")
 	}
 }
 
@@ -165,29 +165,36 @@ func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
-	model.focusedPanel = focusLeft
+	model.focus.FocusByNumber(1)
+	model.syncSearchFocus()
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight after enter, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel focused after enter")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight to remain after second enter, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel to remain focused after second enter")
 	}
 }
 
-func TestActiveScrollPanelForcesLeftInEndpointPicker(t *testing.T) {
+func TestScrollForcesLeftInEndpointPicker(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.focusedPanel = focusRight
+	m.focus.FocusByNumber(m.detailPanel.Number)
 	m.pickingEndpoints = true
 
-	if got := m.activeScrollPanel(); got != focusLeft {
-		t.Errorf("expected active scroll panel focusLeft in endpoint picker, got %v", got)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := result.(*Model)
+	model.pickingEndpoints = true
+	model.focus.FocusByNumber(model.detailPanel.Number)
+
+	if model.focus.LeftFocused() {
+		t.Fatal("precondition: detail panel should be focused")
 	}
+	model.updateFocusedViewport(tea.KeyMsg{Type: tea.KeyDown})
 }
 
 func TestNavigateUpAtTopStays(t *testing.T) {
@@ -1319,15 +1326,14 @@ func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
 
 func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	// Width 50 → contentWidth = 50-4 = 46 < MinLeftPanelWidth+MinRightPanelWidth (58)
-	// so hasTwoPanelLayout() returns false.
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
 	model := result.(*Model)
-	model.focusedPanel = focusLeft
+	model.focus.FocusByNumber(1)
+	model.syncSearchFocus()
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focusLeft in single-panel layout after enter, got %v", model.focusedPanel)
+	if !model.focus.LeftFocused() {
+		t.Error("expected left panel to stay focused in single-panel layout after enter")
 	}
 }

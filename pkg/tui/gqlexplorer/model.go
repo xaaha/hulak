@@ -72,15 +72,9 @@ type Model struct {
 	detailCacheValue string
 	badgeCache       string
 
-	focusedPanel panelFocus
+	detailPanel *tui.Panel
+	focus       tui.FocusRing
 }
-
-type panelFocus uint8
-
-const (
-	focusLeft panelFocus = iota
-	focusRight
-)
 
 func NewModel(
 	operations []UnifiedOperation,
@@ -104,6 +98,7 @@ func NewModel(
 	for _, ep := range endpoints {
 		active[ep] = true
 	}
+	dp := &tui.Panel{Number: 2}
 	m := Model{
 		operations:      operations,
 		filtered:        operations,
@@ -116,8 +111,10 @@ func NewModel(
 			Prompt:      "Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
+		detailPanel: dp,
+		focus:       tui.NewFocusRing([]*tui.Panel{dp}),
 	}
-	m.setFocus(focusLeft)
+	m.syncSearchFocus()
 	return m
 }
 
@@ -208,33 +205,17 @@ func (m *Model) updateBadgeCache() {
 	m.badgeCache = m.renderBadges()
 }
 
-func (m *Model) toggleFocus() {
-	if m.focusedPanel == focusLeft {
-		m.setFocus(focusRight)
-		return
-	}
-	m.setFocus(focusLeft)
-}
-
-func (m *Model) setFocus(f panelFocus) {
-	m.focusedPanel = f
-	if f == focusLeft {
+func (m *Model) syncSearchFocus() {
+	if m.focus.LeftFocused() {
 		m.search.Model.Focus()
 		return
 	}
 	m.search.Model.Blur()
 }
 
-func (m *Model) activeScrollPanel() panelFocus {
-	if m.pickingEndpoints {
-		return focusLeft
-	}
-	return m.focusedPanel
-}
-
 func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
-	if m.activeScrollPanel() == focusLeft {
+	if m.pickingEndpoints || m.focus.LeftFocused() {
 		m.viewport, cmd = m.viewport.Update(msg)
 		return cmd
 	}
@@ -341,18 +322,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case tui.KeyTab:
-		m.toggleFocus()
+		m.focus.Next()
+		m.syncSearchFocus()
 		return m, nil
 	case tui.KeyEnter:
-		if m.focusedPanel == focusLeft && m.hasTwoPanelLayout() {
-			m.setFocus(focusRight)
+		if m.focus.LeftFocused() && m.hasTwoPanelLayout() {
+			m.focus.FocusByNumber(m.detailPanel.Number)
+			m.syncSearchFocus()
 		}
 		return m, nil
 
-	// Navigation keys: forward to detail viewport when right panel is
-	// focused, otherwise handle left-panel cursor movement.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
-		if m.focusedPanel == focusRight {
+		if !m.focus.LeftFocused() {
 			var cmd tea.Cmd
 			m.detailVP, cmd = m.detailVP.Update(msg)
 			return m, cmd
@@ -368,8 +349,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Remaining keys are text input — only active when left panel is focused.
-	if m.focusedPanel == focusRight {
+	if !m.focus.LeftFocused() {
 		return m, nil
 	}
 
@@ -453,7 +433,7 @@ func (m *Model) View() string {
 	if m.canRenderDetailBox() {
 		detailW, detailH := m.detailViewportSize()
 		detailStyle := _detailFocusStyle.Width(detailW).Height(detailH)
-		if m.focusedPanel == focusRight {
+		if m.focus.IsFocused(m.detailPanel) {
 			detailStyle = detailStyle.BorderForeground(tui.ColorPrimary)
 		} else {
 			detailStyle = detailStyle.BorderForeground(tui.ColorMuted)
