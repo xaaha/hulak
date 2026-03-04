@@ -15,6 +15,7 @@ const (
 	selectorInputFrameW      = 4
 	selectorViewportMaxH     = 3 // fits 3 visible items; keeps the picker compact so it never dominates the terminal
 	selectorFrameOverhead    = 8
+	helpMessage              = "enter: select | esc: cancel | arrows: navigate"
 )
 
 // SelectorModel is the shared single-list picker engine for simple selection flows.
@@ -145,7 +146,7 @@ func (m *SelectorModel) View() string {
 	} else {
 		list, _ = m.RenderItems()
 	}
-	help := HelpStyle.Render("enter: select | esc: cancel | arrows: navigate")
+	help := HelpStyle.Render(helpMessage)
 	if m.width > 0 {
 		help = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(help)
 	}
