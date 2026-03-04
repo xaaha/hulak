@@ -41,11 +41,11 @@ func PrintHelp() {
 	_ = WriteCommandHelp([]*CommandHelp{
 		{
 			Command:     "hulak",
-			Description: "Interactive single-file caller: select environment and one file",
+			Description: "Interactive single-file caller: select file first, then env if needed",
 		},
 		{
 			Command:     "hulak -env staging",
-			Description: "Interactive file picker with staging environment",
+			Description: "Interactive file picker with staging environment pre-selected",
 		},
 		{Command: "hulak -env global -f fileName", Description: "Find and run all 'fileName'"},
 		{

@@ -885,23 +885,23 @@ func TestNeedsEnvResolution(t *testing.T) {
 		{
 			name: "getValueOf_template",
 			urlToFileMap: map[string]string{
-				"{{getValueOf url config}}/graphql": "file1.yaml",
+				fmt.Sprintf("{{%s url config}}/graphql", utils.TemplateFuncGetValueOf): "file1.yaml",
 			},
 			expected: true,
 		},
 		{
 			name: "getFile_template",
 			urlToFileMap: map[string]string{
-				"{{getFile url.txt}}": "file1.yaml",
+				fmt.Sprintf("{{%s url.txt}}", utils.TemplateFuncGetFile): "file1.yaml",
 			},
 			expected: true,
 		},
 		{
 			name: "mixed_templates_and_urls",
 			urlToFileMap: map[string]string{
-				"http://example.com/graphql":          "file1.yaml",
-				"{{.graphqlUrl}}":                     "file2.yaml",
-				"{{getValueOf endpoint config.json}}": "file3.yaml",
+				"http://example.com/graphql": "file1.yaml",
+				"{{.graphqlUrl}}":            "file2.yaml",
+				fmt.Sprintf("{{%s endpoint config.json}}", utils.TemplateFuncGetValueOf): "file3.yaml",
 			},
 			expected: true,
 		},
@@ -926,83 +926,6 @@ func TestNeedsEnvResolution(t *testing.T) {
 				t.Errorf("Expected %v, got %v", tc.expected, result)
 			}
 		})
-	}
-}
-
-func TestFileHasTemplateVars(t *testing.T) {
-	tempDir := setupTestDirectory(t)
-
-	testCases := []struct {
-		name     string
-		content  string
-		expected bool
-	}{
-		{
-			name:     "env_var_in_header",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
-			expected: true,
-		},
-		{
-			name:     "env_var_with_spaces",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: \"Bearer {{ .token }}\"\n",
-			expected: true,
-		},
-		{
-			name:     "env_var_in_url",
-			content:  "---\nkind: GraphQL\nurl: \"{{.graphqlUrl}}\"\n",
-			expected: true,
-		},
-		{
-			name:     "env_var_in_body",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    variables:\n      name: \"{{.userName}}\"\n",
-			expected: true,
-		},
-		{
-			name:     "only_getFile_no_env_vars",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
-			expected: false,
-		},
-		{
-			name:     "only_getValueOf_no_env_vars",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{getValueOf \"token\" \"auth.json\"}}'\n",
-			expected: false,
-		},
-		{
-			name:     "no_templates_at_all",
-			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\nmethod: POST\n",
-			expected: false,
-		},
-		{
-			name:     "mixed_env_var_and_getFile",
-			content:  "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n",
-			expected: true,
-		},
-		{
-			name:     "multiple_env_vars",
-			content:  "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
-			expected: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			filePath := filepath.Join(tempDir, tc.name+".yaml")
-			err := os.WriteFile(filePath, []byte(tc.content), 0o600)
-			if err != nil {
-				t.Fatalf("Failed to create test file: %v", err)
-			}
-			result := FileHasTemplateVars(filePath)
-			if result != tc.expected {
-				t.Errorf("Expected %v, got %v for content:\n%s", tc.expected, result, tc.content)
-			}
-		})
-	}
-}
-
-func TestFileHasTemplateVars_NonexistentFile(t *testing.T) {
-	result := FileHasTemplateVars("/nonexistent/path/file.yaml")
-	if result != false {
-		t.Errorf("Expected false for nonexistent file, got true")
 	}
 }
 
@@ -1044,7 +967,10 @@ func TestNeedsEnvResolution_FileContentCheck(t *testing.T) {
 	})
 
 	t.Run("plain_url_only_getFile_in_file", func(t *testing.T) {
-		content := "---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{getFile \"test.graphql\"}}'\n"
+		content := fmt.Sprintf(
+			"---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: '{{%s \"test.graphql\"}}'\n",
+			utils.TemplateFuncGetFile,
+		)
 		filePath := filepath.Join(tempDir, "getfile_only.yaml")
 		err := os.WriteFile(filePath, []byte(content), 0o600)
 		if err != nil {

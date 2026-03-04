@@ -14,13 +14,15 @@ SYNOPSIS
 DESCRIPTION
        Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
 
-       When run without flags, hulak launches an interactive single-file helper where you pick an environment and one file in the same UI.
+       When run without file or directory flags, hulak launches an interactive single-file helper and asks you to pick a file first.
+       If that file contains environment template vars (for example {{.token}}), hulak then asks you to pick an environment.
        Use -f for multi-match concurrent runs, -dir for directory concurrent runs, and -dirseq for directory sequential runs.
-       If only -env is provided without a file, hulak opens the helper with the environment locked to that value.
+       If only -env is provided without a file, hulak opens the helper with the environment pre-selected.
 
 OPTIONS
        -env <environment>
-              Specifies an environment file inside the env directory for API calls. If not provided, the default "global" environment is used.
+               Specifies an environment file inside the env directory for API calls that require environment template vars.
+               If not provided, the default "global" environment is used.
 
        -f <file>
               Specifies a YAML/YML file to run. Hulak searches recursively through directories to locate matching yaml/yml files and executes all matches concurrently if more than one is found.
@@ -75,9 +77,11 @@ INSTALLATION
        Using Homebrew:
               `brew install xaaha/tap/hulak`
 
-ENVIRONMENT SETUP
+       ENVIRONMENT SETUP
        Create a project dir for hulak and run:
              `hulak init`
+
+       Note: env/ setup is required only when request files use environment template vars like {{.key}}.
 
 SCHEMA
        You can find the schema at:
@@ -86,10 +90,10 @@ SCHEMA
 EXAMPLES
        Interactive mode:
 
-              # Select environment and file interactively
+              # Select file interactively, then environment only when needed
               hulak
 
-              # Select file interactively with a specific environment
+              # Select file interactively with a pre-selected environment
               hulak -env staging
 
        Basic API call:

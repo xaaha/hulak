@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -352,5 +353,32 @@ func TestSelectorViewportScrollsOnLongLists(t *testing.T) {
 
 	if m.viewport.YOffset == 0 {
 		t.Fatal("expected viewport to scroll for long list navigation")
+	}
+}
+
+func TestSelectorNarrowTerminalDoesNotOverflowRightEdge(t *testing.T) {
+	m := NewSelector(
+		[]string{"very/long/path/that/should/not/force/the/input/box/to_overflow.yaml"},
+		"Select Request File: ",
+	)
+
+	const terminalWidth = 24
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: terminalWidth, Height: 12})
+	m = *updated.(*SelectorModel)
+
+	view := m.View()
+	for _, line := range strings.Split(view, "\n") {
+		if lipgloss.Width(line) > terminalWidth {
+			t.Fatalf("line exceeds terminal width (%d): %q", terminalWidth, line)
+		}
+	}
+}
+
+func TestCompactPlaceholderUsesTailWithEllipsis(t *testing.T) {
+	input := "this/is/a/really/long/path/that/does/not/fit/inourbox.yaml"
+	got := compactPlaceholder(input, 29)
+
+	if got != "...does/not/fit/inourbox.yaml" {
+		t.Fatalf("unexpected compact placeholder: %q", got)
 	}
 }

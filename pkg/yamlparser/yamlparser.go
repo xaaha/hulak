@@ -114,7 +114,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	// translate the types, if acceptable
 	parsedMap, err = translateType(data, parsedMap, secretsMap, actions.GetValueOf)
 	if err != nil {
-		return nil, utils.ColorError("#reader", err)
+		return nil, utils.ColorError(utils.ErrYAMLPostProcessing, err)
 	}
 
 	var buf bytes.Buffer

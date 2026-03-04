@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 )
 
 var ErrNoFiles = errors.New("no matching files found")
@@ -44,6 +45,32 @@ func defaultOptions() listFilesOptions {
 	return listFilesOptions{
 		skipDirs: []string{
 			"node_modules",
+			"vendor",
+			"dist",
+			"build",
+			"target",
+			"tmp",
+			".cache",
+			".local",
+			".share",
+			".bun",
+			".npm",
+			".pnpm-store",
+			".yarn",
+			".gradle",
+			".m2",
+			".cargo",
+			".rustup",
+			".go",
+			".nuget",
+			".terraform",
+			".venv",
+			"venv",
+			"__pycache__",
+			".next",
+			".nuxt",
+			".svelte-kit",
+			".Trash",
 			".git",
 			".svn",
 			".hg",
@@ -66,8 +93,11 @@ func applyOptions(options []ListFilesOption) listFilesOptions {
 
 func isWantedFilePath(path string) bool {
 	name := strings.ToLower(filepath.Base(path))
-	return strings.HasSuffix(name, YAML) || strings.HasSuffix(name, YML) ||
+	hasSupportedExt := strings.HasSuffix(name, YAML) ||
+		strings.HasSuffix(name, YML) ||
 		strings.HasSuffix(name, JSON)
+
+	return hasSupportedExt && !strings.EqualFold(name, APIOptions)
 }
 
 func shouldSkipDir(dirName string, opts listFilesOptions) bool {
@@ -75,6 +105,10 @@ func shouldSkipDir(dirName string, opts listFilesOptions) bool {
 		return true
 	}
 	return slices.Contains(opts.skipDirs, dirName)
+}
+
+func isWalkPermissionError(err error) bool {
+	return os.IsPermission(err) || errors.Is(err, fs.ErrPermission) || errors.Is(err, syscall.EPERM)
 }
 
 // ListFiles generates all .yaml, .yml, or .json files in a directory, with configurable directory exclusion
@@ -106,6 +140,9 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 
 	err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if isWalkPermissionError(err) {
+				return nil
+			}
 			return err
 		}
 
@@ -138,21 +175,3 @@ func ListFiles(dirPath string, options ...ListFilesOption) ([]string, error) {
 
 	return result, nil
 }
-
-/**
-use list files like so
-// Use default settings (traverse dot directories, skip common heavy dirs)
-files, err := ListFiles("./")
-
-// Skip specific directories
-files, err := ListFiles("./", WithSkipDirs([]string{"node_modules", "vendor", "tmp"}))
-
-// Skip dot directories (like original behavior)
-files, err := ListFiles("./", WithRespectDotDirs(false))
-
-// Custom configuration
-files, err := ListFiles("./",
-    WithSkipDirs([]string{"dist", "build"}),
-    WithRespectDotDirs(true),
-)
-*/

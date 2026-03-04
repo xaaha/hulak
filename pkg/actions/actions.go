@@ -140,9 +140,14 @@ func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintRed("Provide key for getValueOf action")
+			utils.PrintRed(fmt.Sprintf("Provide key for %s action", utils.TemplateFuncGetValueOf))
 		} else {
-			utils.PrintRed("Provide fileName/path to key for getValueOf action")
+			utils.PrintRed(
+				fmt.Sprintf(
+					"Provide fileName/path to key for %s action",
+					utils.TemplateFuncGetValueOf,
+				),
+			)
 		}
 		return ""
 	}

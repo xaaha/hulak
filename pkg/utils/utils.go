@@ -11,15 +11,19 @@ import (
 	"strings"
 )
 
-// CreatePath creates and returns file or directory path by joining the project root with provided filePath
+// CreatePath creates and returns file or directory path by joining the project root with provided filePath.
+// It walks up from the current directory to find the hulak project root (env/ directory).
+// If no project root is found, it falls back to the current working directory.
 func CreatePath(filePath string) (string, error) {
-	projectRoot, err := os.Getwd()
-	if err != nil {
-		return "", err
+	projectRoot, _ := FindProjectRoot()
+	if projectRoot == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		projectRoot = cwd
 	}
-	finalFilePath := filepath.Join(projectRoot, filePath)
-
-	return finalFilePath, nil
+	return filepath.Join(projectRoot, filePath), nil
 }
 
 func SanitizeFileName(s string) string {
@@ -172,7 +176,7 @@ func CopyEnvMap(original map[string]any) map[string]any {
 // Returns slice of matched file paths and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	if matchFile == "" {
-		return nil, ColorError("#utils.go: matchFile can't be empty")
+		return nil, ColorError(ErrFileSearchEmpty)
 	}
 
 	fileExtensions := []string{YAML, YML, JSON}

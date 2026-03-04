@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -71,6 +72,37 @@ func TestListFiles_SkipDefaultDirs(t *testing.T) {
 	got, err := ListFiles(root)
 	if err == nil {
 		t.Fatalf("expected error (no files), got: %v", got)
+	}
+}
+
+func TestListFiles_SkipExtendedDefaultDirs(t *testing.T) {
+	root := t.TempDir()
+
+	bunDir := filepath.Join(root, ".bun")
+	shareDir := filepath.Join(root, ".share")
+	mkdir(t, bunDir)
+	mkdir(t, shareDir)
+
+	bunFile := filepath.Join(bunDir, "ignored.yaml")
+	shareFile := filepath.Join(shareDir, "ignored.yml")
+	keepFile := filepath.Join(root, "keep.yaml")
+	touch(t, bunFile)
+	touch(t, shareFile)
+	touch(t, keepFile)
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if contains(got, bunFile) {
+		t.Fatalf("expected %s to be skipped, got %v", bunFile, got)
+	}
+	if contains(got, shareFile) {
+		t.Fatalf("expected %s to be skipped, got %v", shareFile, got)
+	}
+	if !contains(got, keepFile) {
+		t.Fatalf("expected %s to be included, got %v", keepFile, got)
 	}
 }
 
@@ -149,6 +181,57 @@ func TestListFiles_NoMatchingFiles(t *testing.T) {
 	_, err := ListFiles(root)
 	if err == nil {
 		t.Fatal("expected error when no YAML/YML/JSON files exist")
+	}
+}
+
+func TestListFiles_ExcludesAPIOptionsTemplate(t *testing.T) {
+	root := t.TempDir()
+
+	apiOptions := filepath.Join(root, APIOptions)
+	request := filepath.Join(root, "request.yaml")
+	touch(t, apiOptions)
+	touch(t, request)
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if contains(got, apiOptions) {
+		t.Fatalf("did not expect %s in result: %v", apiOptions, got)
+	}
+	if !contains(got, request) {
+		t.Fatalf("expected %s in result: %v", request, got)
+	}
+}
+
+func TestListFiles_SkipsPermissionDeniedPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission model differs on windows")
+	}
+
+	root := t.TempDir()
+	allowed := filepath.Join(root, "allowed.yaml")
+	touch(t, allowed)
+
+	lockedDir := filepath.Join(root, "locked")
+	mkdir(t, lockedDir)
+	touch(t, filepath.Join(lockedDir, "hidden.yaml"))
+
+	if err := os.Chmod(lockedDir, 0o000); err != nil {
+		t.Fatalf("failed to lock dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(lockedDir, 0o755)
+	})
+
+	got, err := ListFiles(root)
+	if err != nil {
+		t.Fatalf("unexpected error when locked dir exists: %v", err)
+	}
+
+	if !contains(got, allowed) {
+		t.Fatalf("expected accessible file %s in result: %v", allowed, got)
 	}
 }
 
