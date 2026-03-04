@@ -328,6 +328,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if !m.focus.Typing() {
+		if key := msg.String(); len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+			num := int(key[0] - '0')
+			if m.focus.FocusByNumber(num) {
+				if m.focus.LeftFocused() {
+					m.focus.SetTyping(true)
+				}
+				m.syncSearchFocus()
+			}
+			return m, nil
+		}
+	}
+
 	if !m.focus.LeftFocused() {
 		return m, nil
 	}
