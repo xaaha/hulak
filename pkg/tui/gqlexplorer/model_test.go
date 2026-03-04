@@ -1,11 +1,13 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -1283,6 +1285,35 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 			t.Errorf("height=%d: top(%d) + bottom(%d) = %d, want %d",
 				h, top, bottom, sum, total)
 		}
+	}
+}
+
+func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 28})
+	model := result.(*Model)
+
+	panelW := model.leftPanelWidth()
+	if panelW <= 0 {
+		t.Fatalf("expected positive panel width, got %d", panelW)
+	}
+
+	rawHelp := helpNavigation
+	helpWithScroll := fmt.Sprintf("%s %3.f%%", rawHelp, model.viewport.ScrollPercent()*100)
+	if wrappedLineCount(helpWithScroll, panelW) <= wrappedLineCount(rawHelp, panelW) {
+		t.Fatalf("expected scroll suffix to increase/wrap help line at width=%d", panelW)
+	}
+
+	leftHeight := lipgloss.Height(model.renderLeftContent())
+	contentHeight := model.contentHeight()
+	if leftHeight > contentHeight {
+		t.Fatalf(
+			"left content exceeds available height: left=%d content=%d (width=%d)",
+			leftHeight,
+			contentHeight,
+			model.width,
+		)
 	}
 }
 

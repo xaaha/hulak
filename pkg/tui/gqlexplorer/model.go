@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -259,7 +260,8 @@ func (m *Model) viewportHeight() int {
 	if m.pickingEndpoints {
 		helpText = helpEndpointPicker
 	}
-	footerLines += wrappedLineCount(helpText, panelW)
+	helpWithScroll := fmt.Sprintf("%s %3.f%%", helpText, m.viewport.ScrollPercent()*100)
+	footerLines += wrappedLineCount(helpWithScroll, panelW)
 	h := max(m.contentHeight()-headerLines-footerLines, 1)
 	return h
 }
