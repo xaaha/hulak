@@ -383,8 +383,9 @@ func (m *Model) syncViewport() {
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := &m.filtered[m.cursor]
 		cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-		m.detailPanel.SetContent(renderDetail(op, m.inputTypes), cacheKey)
-		m.detailPanel.GotoTop()
+		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes), cacheKey) {
+			m.detailPanel.GotoTop()
+		}
 	} else {
 		m.detailPanel.SetContent("", "")
 	}
