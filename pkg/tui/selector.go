@@ -19,8 +19,6 @@ const (
 )
 
 // SelectorModel is the shared single-list picker engine for simple selection flows.
-// Use it for one-list prompts (for example env/file pickers); keep multi-pane
-// flows (like combined env+file picker) in dedicated models.
 type SelectorModel struct {
 	FilterableList
 	Selected  string
