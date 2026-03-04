@@ -64,6 +64,10 @@ func (f *FocusRing) SetTyping(v bool) {
 	f.typing = v
 }
 
+// TODO-gql: gqlexplorer.handleKey duplicates Esc/Tab/Enter/number-key logic
+// instead of delegating to HandleKey. Consolidate in Phase 3 when multiple
+// editable panels make the duplication painful.
+//
 // HandleKey processes focus-related keys. Returns two bools:
 //   - consumed: true if the key was handled (caller should not process it further)
 //   - quit: true if Esc was pressed while already not typing (caller should exit)
