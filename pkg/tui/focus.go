@@ -63,3 +63,39 @@ func (f *FocusRing) Typing() bool {
 func (f *FocusRing) SetTyping(v bool) {
 	f.typing = v
 }
+
+// HandleKey processes focus-related keys. Returns two bools:
+//   - consumed: true if the key was handled (caller should not process it further)
+//   - quit: true if Esc was pressed while already not typing (caller should exit)
+func (f *FocusRing) HandleKey(key string) (consumed, quit bool) {
+	switch key {
+	case KeyTab:
+		f.Next()
+		return true, false
+
+	case KeyEnter:
+		if !f.typing {
+			f.typing = true
+			return true, false
+		}
+		return false, false
+
+	case KeyCancel:
+		if f.typing {
+			f.typing = false
+			return true, false
+		}
+		return true, true
+
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		if !f.typing {
+			num := int(key[0] - '0')
+			f.FocusByNumber(num)
+			return true, false
+		}
+		return false, false
+
+	default:
+		return false, false
+	}
+}
