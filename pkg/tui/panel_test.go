@@ -96,8 +96,8 @@ func TestPanelViewContainsBorderTitle(t *testing.T) {
 	p.SetContent("hello", "")
 
 	view := p.View(false)
-	if !strings.Contains(view, "╴3╶") {
-		t.Errorf("expected border title ╴3╶ in view, got:\n%s", view)
+	if !strings.Contains(view, "[3]") {
+		t.Errorf("expected border title [3] in view, got:\n%s", view)
 	}
 }
 
@@ -107,7 +107,7 @@ func TestPanelViewNoBorderTitleWhenNumberZero(t *testing.T) {
 	p.SetContent("hello", "")
 
 	view := p.View(false)
-	if strings.Contains(view, "╴") {
+	if strings.Contains(view, "[") && strings.Contains(view, "]") {
 		t.Errorf("expected no border title when Number=0, got:\n%s", view)
 	}
 }

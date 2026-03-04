@@ -85,7 +85,7 @@ func (p *Panel) ScrollPercent() float64 {
 	return p.viewport.ScrollPercent()
 }
 
-// View renders the panel as a bordered box with a number title (e.g. ╴2╶)
+// View renders the panel as a bordered box with a number title (e.g. [2])
 // injected into the top border. Focused panels use ColorPrimary for the
 // border, unfocused panels use ColorMuted.
 func (p *Panel) View(focused bool) string {
@@ -108,39 +108,50 @@ func (p *Panel) View(focused bool) string {
 	return box
 }
 
-// injectBorderTitle splices a ╴N╶ label into the top border line of a
-// lipgloss-rendered box. It replaces runes at positions 1..3 (the first
-// three ─ after the ╭ corner), so the box must be at least 5 runes wide.
+// injectBorderTitle splices a [N] label into the top border line of a
+// lipgloss-rendered box. It searches for the actual border characters
+// by string value (skipping any ANSI escape prefixes) and replaces
+// consecutive ─ dashes after the ╭ corner.
 func injectBorderTitle(box string, number int, color lipgloss.TerminalColor) string {
 	newlineIdx := strings.IndexByte(box, '\n')
 	if newlineIdx < 0 {
 		return box
 	}
 
-	topLine := []rune(box[:newlineIdx])
-	// Need at least: ╭ + 3 replacement runes + ╮ = 5 runes
-	if len(topLine) < 5 {
+	topLine := box[:newlineIdx]
+
+	// Find the ╭ corner character, skipping any ANSI prefix.
+	cornerIdx := strings.Index(topLine, "╭")
+	if cornerIdx < 0 {
 		return box
 	}
 
-	numStyle := lipgloss.NewStyle().Foreground(color)
-	label := fmt.Sprintf("╴%d╶", number)
-	styledLabel := numStyle.Render(label)
-
-	// Build new top line: corner + styled label + remaining border
-	var b strings.Builder
-	b.WriteRune(topLine[0]) // ╭
-	for _, r := range styledLabel {
-		b.WriteRune(r)
+	// Find the first ─ after the corner.
+	afterCorner := cornerIdx + len("╭")
+	dashIdx := strings.Index(topLine[afterCorner:], "─")
+	if dashIdx < 0 {
+		return box
 	}
-	// Skip the original ─ runes that the label replaces.
-	// len(label) counts the visible runes (╴, digit(s), ╶).
-	skip := len([]rune(label))
-	if 1+skip < len(topLine) {
-		for _, r := range topLine[1+skip:] {
-			b.WriteRune(r)
-		}
+	dashStart := afterCorner + dashIdx
+
+	// Count how many consecutive ─ bytes are available.
+	dashLen := len("─")
+	nDashes := 0
+	pos := dashStart
+	for pos+dashLen <= len(topLine) && topLine[pos:pos+dashLen] == "─" {
+		nDashes++
+		pos += dashLen
 	}
 
-	return b.String() + box[newlineIdx:]
+	label := fmt.Sprintf("[%d]", number)
+	labelRunes := len([]rune(label))
+	// Need enough dashes to replace with the label.
+	if nDashes < labelRunes {
+		return box
+	}
+
+	styledLabel := lipgloss.NewStyle().Foreground(color).Render(label)
+
+	replaceEnd := dashStart + labelRunes*dashLen
+	return topLine[:dashStart] + styledLabel + topLine[replaceEnd:] + box[newlineIdx:]
 }
