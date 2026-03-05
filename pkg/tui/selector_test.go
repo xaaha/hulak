@@ -269,6 +269,28 @@ func TestSelectorViewContainsHelp(t *testing.T) {
 	}
 }
 
+func TestSelectorViewUsesCustomHelpWhenProvided(t *testing.T) {
+	customHelp := "enter: choose | esc: back"
+	m := NewSelector([]string{"item1"}, "Test: ", customHelp)
+	view := m.View()
+
+	if !strings.Contains(view, customHelp) {
+		t.Error("view should contain custom help text")
+	}
+	if strings.Contains(view, defaultHelpMessage) {
+		t.Error("view should not contain default help when custom help is provided")
+	}
+}
+
+func TestSelectorViewFallsBackToDefaultHelpWhenCustomIsEmpty(t *testing.T) {
+	m := NewSelector([]string{"item1"}, "Test: ", "   ")
+	view := m.View()
+
+	if !strings.Contains(view, defaultHelpMessage) {
+		t.Error("view should contain default help text when custom help is empty")
+	}
+}
+
 func TestSelectorViewShowsNoMatchesWhenEmpty(t *testing.T) {
 	m := NewSelector([]string{"item1"}, "Test: ")
 	m.TextInput.Model.SetValue("xyz")

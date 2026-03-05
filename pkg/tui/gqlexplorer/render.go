@@ -255,7 +255,7 @@ func (m *Model) renderLeftContent() string {
 		badges = truncateToWidth(badges, panelW)
 	}
 	searchStyle := tui.BorderStyle
-	if m.focusedPanel == focusLeft {
+	if m.focus.LeftFocused() {
 		searchStyle = tui.FocusedInputStyle
 	}
 	search := searchStyle.

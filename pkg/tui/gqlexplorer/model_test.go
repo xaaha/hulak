@@ -1,11 +1,13 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -148,14 +150,14 @@ func TestTabTogglesFocus(t *testing.T) {
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model := result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight after tab, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel focused after tab")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model = result.(*Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focusLeft after second tab, got %v", model.focusedPanel)
+	if !model.focus.LeftFocused() {
+		t.Error("expected left panel focused after second tab")
 	}
 }
 
@@ -163,29 +165,51 @@ func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
-	model.focusedPanel = focusLeft
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight after enter, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel focused after enter")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusRight {
-		t.Errorf("expected focusRight to remain after second enter, got %v", model.focusedPanel)
+	if model.focus.LeftFocused() {
+		t.Error("expected detail panel to remain focused after second enter")
 	}
 }
 
-func TestActiveScrollPanelForcesLeftInEndpointPicker(t *testing.T) {
+func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	m.focusedPanel = focusRight
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+
+	m.focus.SetTyping(false)
+	m.syncSearchFocus()
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model := result.(*Model)
+	if !model.focus.Typing() {
+		t.Error("enter on blurred left panel should reactivate typing")
+	}
+	if !model.focus.LeftFocused() {
+		t.Error("enter on blurred left panel should stay on left, not jump to detail")
+	}
+}
+
+func TestScrollForcesLeftInEndpointPicker(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil)
+	m.focus.FocusByNumber(m.detailPanel.Number)
 	m.pickingEndpoints = true
 
-	if got := m.activeScrollPanel(); got != focusLeft {
-		t.Errorf("expected active scroll panel focusLeft in endpoint picker, got %v", got)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := result.(*Model)
+	model.pickingEndpoints = true
+	model.focus.FocusByNumber(model.detailPanel.Number)
+
+	if model.focus.LeftFocused() {
+		t.Fatal("precondition: detail panel should be focused")
 	}
+	model.updateFocusedViewport(tea.KeyMsg{Type: tea.KeyDown})
 }
 
 func TestNavigateUpAtTopStays(t *testing.T) {
@@ -221,13 +245,21 @@ func TestCtrlCQuits(t *testing.T) {
 	}
 }
 
-func TestEscQuitsWhenSearchEmpty(t *testing.T) {
+func TestEscBlursThenQuits(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model := result.(*Model)
+	if cmd != nil {
+		t.Error("first esc should blur search, not quit")
+	}
+	if model.focus.Typing() {
+		t.Error("expected typing=false after first esc")
+	}
 
+	_, cmd = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
-		t.Error("expected quit command from esc with empty search")
+		t.Error("second esc should quit")
 	}
 }
 
@@ -1286,17 +1318,45 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	}
 }
 
+func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil)
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 28})
+	model := result.(*Model)
+
+	panelW := model.leftPanelWidth()
+	if panelW <= 0 {
+		t.Fatalf("expected positive panel width, got %d", panelW)
+	}
+
+	rawHelp := helpNavigation
+	helpWithScroll := fmt.Sprintf("%s %3.f%%", rawHelp, model.viewport.ScrollPercent()*100)
+	if wrappedLineCount(helpWithScroll, panelW) <= wrappedLineCount(rawHelp, panelW) {
+		t.Fatalf("expected scroll suffix to increase/wrap help line at width=%d", panelW)
+	}
+
+	leftHeight := lipgloss.Height(model.renderLeftContent())
+	contentHeight := model.contentHeight()
+	if leftHeight > contentHeight {
+		t.Fatalf(
+			"left content exceeds available height: left=%d content=%d (width=%d)",
+			leftHeight,
+			contentHeight,
+			model.width,
+		)
+	}
+}
+
 func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil)
-	// Width 50 → contentWidth = 50-4 = 46 < MinLeftPanelWidth+MinRightPanelWidth (58)
-	// so hasTwoPanelLayout() returns false.
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
 	model := result.(*Model)
-	model.focusedPanel = focusLeft
+	model.focus.FocusByNumber(1)
+	model.syncSearchFocus()
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = result.(*Model)
-	if model.focusedPanel != focusLeft {
-		t.Errorf("expected focusLeft in single-panel layout after enter, got %v", model.focusedPanel)
+	if !model.focus.LeftFocused() {
+		t.Error("expected left panel to stay focused in single-panel layout after enter")
 	}
 }

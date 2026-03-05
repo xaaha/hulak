@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,10 +42,7 @@ var typeRank = map[OperationType]int{
 
 // Cached styles — these never change at runtime, so building them once
 // at package init avoids repeated allocations per View() frame.
-var (
-	_containerStyle   = tui.BoxStyle.Padding(0, 1)
-	_detailFocusStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
-)
+var _containerStyle = tui.BoxStyle.Padding(0, 1)
 
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
@@ -58,7 +56,6 @@ type Model struct {
 	width      int
 	height     int
 
-	detailVP   viewport.Model
 	inputTypes map[string]graphql.InputType
 	enumTypes  map[string]graphql.EnumType // TODO: wire into detail panel for enum expansion
 
@@ -67,19 +64,11 @@ type Model struct {
 	pickingEndpoints bool
 	endpointCursor   int
 	pendingEndpoints map[string]bool
-	detailCacheKey   string
-	detailCacheValue string
 	badgeCache       string
 
-	focusedPanel panelFocus
+	detailPanel *tui.Panel
+	focus       tui.FocusRing
 }
-
-type panelFocus uint8
-
-const (
-	focusLeft panelFocus = iota
-	focusRight
-)
 
 func NewModel(
 	operations []UnifiedOperation,
@@ -103,6 +92,7 @@ func NewModel(
 	for _, ep := range endpoints {
 		active[ep] = true
 	}
+	dp := &tui.Panel{Number: 2}
 	m := Model{
 		operations:      operations,
 		filtered:        operations,
@@ -115,8 +105,11 @@ func NewModel(
 			Prompt:      "Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
+		detailPanel: dp,
+		focus:       tui.NewFocusRing([]*tui.Panel{dp}),
 	}
-	m.setFocus(focusLeft)
+	m.focus.SetTyping(true)
+	m.syncSearchFocus()
 	return m
 }
 
@@ -167,27 +160,6 @@ func (m *Model) contentHeight() int {
 	return max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
 }
 
-func (m *Model) detailOuterWidth() int {
-	return max(m.rightPanelWidth()*tui.DetailFocusBoxW/100, 1)
-}
-
-func (m *Model) detailOuterHeight() int {
-	return max(m.detailTopHeight()*tui.DetailFocusBoxH/100, 1)
-}
-
-func (m *Model) detailViewportSize() (int, int) {
-	w := max(m.detailOuterWidth()-_detailFocusStyle.GetHorizontalFrameSize(), 0)
-	h := max(m.detailOuterHeight()-_detailFocusStyle.GetVerticalFrameSize(), 0)
-	return w, h
-}
-
-func (m *Model) canRenderDetailBox() bool {
-	return m.detailOuterWidth() > _detailFocusStyle.GetHorizontalFrameSize() &&
-		m.detailOuterHeight() > _detailFocusStyle.GetVerticalFrameSize()
-}
-
-// detailTopHeight returns the height allocated to the detail viewport
-// (top half of the right panel).
 func (m *Model) detailTopHeight() int {
 	return max(m.contentHeight()*tui.DetailTopHeight/100, 1)
 }
@@ -207,38 +179,21 @@ func (m *Model) updateBadgeCache() {
 	m.badgeCache = m.renderBadges()
 }
 
-func (m *Model) toggleFocus() {
-	if m.focusedPanel == focusLeft {
-		m.setFocus(focusRight)
-		return
-	}
-	m.setFocus(focusLeft)
-}
-
-func (m *Model) setFocus(f panelFocus) {
-	m.focusedPanel = f
-	if f == focusLeft {
+func (m *Model) syncSearchFocus() {
+	if m.focus.LeftFocused() && m.focus.Typing() {
 		m.search.Model.Focus()
 		return
 	}
 	m.search.Model.Blur()
 }
 
-func (m *Model) activeScrollPanel() panelFocus {
-	if m.pickingEndpoints {
-		return focusLeft
-	}
-	return m.focusedPanel
-}
-
 func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
-	if m.activeScrollPanel() == focusLeft {
+	if m.pickingEndpoints || m.focus.LeftFocused() {
 		m.viewport, cmd = m.viewport.Update(msg)
 		return cmd
 	}
-	m.detailVP, cmd = m.detailVP.Update(msg)
-	return cmd
+	return m.detailPanel.Update(msg)
 }
 
 func (m *Model) viewportHeight() int {
@@ -259,7 +214,8 @@ func (m *Model) viewportHeight() int {
 	if m.pickingEndpoints {
 		helpText = helpEndpointPicker
 	}
-	footerLines += wrappedLineCount(helpText, panelW)
+	helpWithScroll := fmt.Sprintf("%s %3.f%%", helpText, m.viewport.ScrollPercent()*100)
+	footerLines += wrappedLineCount(helpWithScroll, panelW)
 	h := max(m.contentHeight()-headerLines-footerLines, 1)
 	return h
 }
@@ -286,27 +242,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateSearchPlaceholder()
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
-		detailW := max(m.rightPanelWidth(), 1)
-		detailH := max(m.detailTopHeight(), 1)
-		if m.canRenderDetailBox() {
-			detailW, detailH = m.detailViewportSize()
-			detailW = max(detailW, 1)
-			detailH = max(detailH, 1)
-		}
 		searchFrame := tui.InputStyle.GetHorizontalFrameSize()
 		m.search.Model.Width = max(panelW-searchFrame-len(m.search.Model.Prompt), 1)
 		if !m.ready {
 			m.viewport = viewport.New(panelW, listHeight)
 			m.viewport.MouseWheelEnabled = true
-			m.detailVP = viewport.New(detailW, detailH)
-			m.detailVP.MouseWheelEnabled = true
 			m.ready = true
 		} else {
 			m.viewport.Width = panelW
 			m.viewport.Height = listHeight
-			m.detailVP.Width = detailW
-			m.detailVP.Height = detailH
 		}
+		detailOuterW := max(m.rightPanelWidth()*tui.DetailFocusBoxW/100, 1)
+		detailOuterH := max(m.detailTopHeight()*tui.DetailFocusBoxH/100, 1)
+		m.detailPanel.Resize(detailOuterW, detailOuterH)
 		m.updateBadgeCache()
 		m.syncViewport()
 		return m, nil
@@ -332,27 +280,41 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 	case tui.KeyCancel:
-		if m.search.Model.Value() != "" {
-			m.search.Model.Reset()
-			m.applyFilterAndReset()
+		if m.focus.Typing() {
+			if m.search.Model.Value() != "" {
+				m.search.Model.Reset()
+				m.applyFilterAndReset()
+				return m, nil
+			}
+			m.focus.SetTyping(false)
+			m.syncSearchFocus()
 			return m, nil
 		}
 		return m, tea.Quit
 	case tui.KeyTab:
-		m.toggleFocus()
+		m.focus.Next()
+		if m.focus.LeftFocused() {
+			m.focus.SetTyping(true)
+		}
+		m.syncSearchFocus()
 		return m, nil
 	case tui.KeyEnter:
-		if m.focusedPanel == focusLeft && m.hasTwoPanelLayout() {
-			m.setFocus(focusRight)
+		if m.focus.LeftFocused() {
+			if !m.focus.Typing() {
+				m.focus.SetTyping(true)
+				m.syncSearchFocus()
+				return m, nil
+			}
+			if m.hasTwoPanelLayout() {
+				m.focus.FocusByNumber(m.detailPanel.Number)
+				m.syncSearchFocus()
+			}
 		}
 		return m, nil
 
-	// Navigation keys: forward to detail viewport when right panel is
-	// focused, otherwise handle left-panel cursor movement.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
-		if m.focusedPanel == focusRight {
-			var cmd tea.Cmd
-			m.detailVP, cmd = m.detailVP.Update(msg)
+		if !m.focus.LeftFocused() {
+			cmd := m.detailPanel.Update(msg)
 			return m, cmd
 		}
 		switch msg.String() {
@@ -366,8 +328,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Remaining keys are text input — only active when left panel is focused.
-	if m.focusedPanel == focusRight {
+	if !m.focus.Typing() {
+		// lazygit style numeber'd border
+		if key := msg.String(); len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
+			num := int(key[0] - '0')
+			if m.focus.FocusByNumber(num) {
+				if m.focus.LeftFocused() {
+					m.focus.SetTyping(true)
+				}
+				m.syncSearchFocus()
+			}
+			return m, nil
+		}
+	}
+
+	if !m.focus.LeftFocused() {
 		return m, nil
 	}
 
@@ -407,19 +382,12 @@ func (m *Model) syncViewport() {
 
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := &m.filtered[m.cursor]
-		// inputTypes is immutable for the program lifetime, so it's safe
-		// to omit from the cache key.
-		detailKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-		if detailKey != m.detailCacheKey {
-			m.detailCacheValue = renderDetail(op, m.inputTypes)
-			m.detailCacheKey = detailKey
-			m.detailVP.SetContent(m.detailCacheValue)
-			m.detailVP.GotoTop()
+		cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
+		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes), cacheKey) {
+			m.detailPanel.GotoTop()
 		}
 	} else {
-		m.detailCacheKey = ""
-		m.detailCacheValue = ""
-		m.detailVP.SetContent("")
+		m.detailPanel.SetContent("", "")
 	}
 }
 
@@ -448,17 +416,12 @@ func (m *Model) View() string {
 		Width(rightW).
 		Height(topH)
 	var detailView string
-	if m.canRenderDetailBox() {
-		detailW, detailH := m.detailViewportSize()
-		detailStyle := _detailFocusStyle.Width(detailW).Height(detailH)
-		if m.focusedPanel == focusRight {
-			detailStyle = detailStyle.BorderForeground(tui.ColorPrimary)
-		} else {
-			detailStyle = detailStyle.BorderForeground(tui.ColorMuted)
-		}
-		detailView = detailFrameStyle.Render(detailStyle.Render(m.detailVP.View()))
+	if m.detailPanel.CanRender() {
+		detailView = detailFrameStyle.Render(
+			m.detailPanel.View(m.focus.IsFocused(m.detailPanel)),
+		)
 	} else {
-		detailView = detailFrameStyle.Render(m.detailVP.View())
+		detailView = detailFrameStyle.Render("")
 	}
 
 	// Placeholder reserves vertical space for the future response panel.
