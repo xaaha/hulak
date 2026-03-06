@@ -381,7 +381,175 @@ func TestTruncateBody(t *testing.T) {
 	}
 }
 
-// Helper functions
+func TestConvertToSchemaExtractsObjectTypes(t *testing.T) {
+	queryType := createQueryType()
+
+	introspectionSchema := &introspection.Schema{
+		QueryType: queryType,
+		Types: []*introspection.FullType{
+			&queryType,
+			{
+				Kind:        introspection.OBJECT,
+				Name:        "User",
+				Description: "A user account",
+				Fields: []introspection.Field{
+					{
+						Name:        "id",
+						Description: "Unique identifier",
+						Type: introspection.TypeRef{
+							Kind: introspection.NONNULL,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.SCALAR,
+								Name: stringPtr("ID"),
+							},
+						},
+					},
+					{
+						Name: "name",
+						Type: introspection.TypeRef{
+							Kind: introspection.SCALAR,
+							Name: stringPtr("String"),
+						},
+					},
+					{
+						Name: "posts",
+						Type: introspection.TypeRef{
+							Kind: introspection.LIST,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.NONNULL,
+								OfType: &introspection.TypeRef{
+									Kind: introspection.OBJECT,
+									Name: stringPtr("Post"),
+								},
+							},
+						},
+						Args: []introspection.InputValue{
+							{
+								Name: "limit",
+								Type: introspection.TypeRef{
+									Kind: introspection.SCALAR,
+									Name: stringPtr("Int"),
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Kind: introspection.OBJECT,
+				Name: "Post",
+				Fields: []introspection.Field{
+					{
+						Name: "title",
+						Type: introspection.TypeRef{
+							Kind: introspection.SCALAR,
+							Name: stringPtr("String"),
+						},
+					},
+				},
+			},
+			{
+				Kind: introspection.OBJECT,
+				Name: "__Type",
+				Fields: []introspection.Field{
+					{
+						Name: "name",
+						Type: introspection.TypeRef{
+							Kind: introspection.SCALAR,
+							Name: stringPtr("String"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(schema.ObjectTypes) != 2 {
+		t.Fatalf("Expected 2 object types (User, Post), got %d", len(schema.ObjectTypes))
+	}
+
+	user, ok := schema.ObjectTypes["User"]
+	if !ok {
+		t.Fatal("Expected 'User' object type")
+	}
+	if user.Description != "A user account" {
+		t.Errorf("Expected description 'A user account', got %q", user.Description)
+	}
+	if len(user.Fields) != 3 {
+		t.Fatalf("Expected 3 fields on User, got %d", len(user.Fields))
+	}
+	if user.Fields[0].Name != "id" || user.Fields[0].Type != "ID!" {
+		t.Errorf("Unexpected first field: %+v", user.Fields[0])
+	}
+	if user.Fields[0].Description != "Unique identifier" {
+		t.Errorf("Expected field description preserved, got %q", user.Fields[0].Description)
+	}
+	if user.Fields[2].Name != "posts" || user.Fields[2].Type != "[Post!]" {
+		t.Errorf("Unexpected posts field: %+v", user.Fields[2])
+	}
+	if len(user.Fields[2].Arguments) != 1 || user.Fields[2].Arguments[0].Name != "limit" {
+		t.Errorf("Expected posts field to have 'limit' argument, got %+v", user.Fields[2].Arguments)
+	}
+
+	if _, ok := schema.ObjectTypes["Post"]; !ok {
+		t.Error("Expected 'Post' object type")
+	}
+
+	if _, ok := schema.ObjectTypes["__Type"]; ok {
+		t.Error("Built-in object type __Type should be filtered out")
+	}
+
+	if _, ok := schema.ObjectTypes["Query"]; ok {
+		t.Error("Root operation type Query should be filtered out")
+	}
+}
+
+func TestConvertToSchemaExcludesRootOperationTypes(t *testing.T) {
+	queryType := createQueryType()
+	mutationType := createMutationType()
+
+	introspectionSchema := &introspection.Schema{
+		QueryType:    queryType,
+		MutationType: &mutationType,
+		Types: []*introspection.FullType{
+			&queryType,
+			&mutationType,
+			{
+				Kind: introspection.OBJECT,
+				Name: "User",
+				Fields: []introspection.Field{
+					{
+						Name: "id",
+						Type: introspection.TypeRef{
+							Kind: introspection.SCALAR,
+							Name: stringPtr("ID"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if _, ok := schema.ObjectTypes["Query"]; ok {
+		t.Error("Root type Query should not be in ObjectTypes")
+	}
+	if _, ok := schema.ObjectTypes["Mutation"]; ok {
+		t.Error("Root type Mutation should not be in ObjectTypes")
+	}
+	if _, ok := schema.ObjectTypes["User"]; !ok {
+		t.Error("Expected User in ObjectTypes")
+	}
+}
 
 func stringPtr(s string) *string {
 	return &s

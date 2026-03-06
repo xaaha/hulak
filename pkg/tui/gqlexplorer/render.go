@@ -143,17 +143,18 @@ func (m *Model) renderBadges() string {
 func renderDetail(
 	op *UnifiedOperation,
 	inputTypes map[string]graphql.InputType,
+	objectTypes map[string]graphql.ObjectType,
 ) string {
 	pad := strings.Repeat(tui.KeySpace, 2)
 	argPad := strings.Repeat(tui.KeySpace, 4)
 
 	var lines []string
 
-	lines = append(lines, tui.SubtitleStyle.Render(utils.ChevronRight+op.Name), "")
-
+	header := tui.SubtitleStyle.Render(utils.ChevronRight + op.Name)
 	if op.ReturnType != "" {
-		lines = append(lines, pad+tui.HelpStyle.Render("Returns: ")+op.ReturnType, "")
+		header += tui.HelpStyle.Render(": " + op.ReturnType)
 	}
+	lines = append(lines, header, "")
 
 	if len(op.Arguments) > 0 {
 		lines = append(lines, pad+tui.HelpStyle.Render("Arguments:"))
@@ -192,7 +193,76 @@ func renderDetail(
 		lines = append(lines, "")
 	}
 
+	if op.ReturnType != "" {
+		base := ExtractBaseType(op.ReturnType)
+		if ot, ok := resolveObjectType(objectTypes, op.Endpoint, base); ok {
+			lines = append(lines, pad+tui.HelpStyle.Render("Fields:"))
+			lines = appendObjectTypeFields(
+				lines,
+				ot,
+				argPad,
+				objectTypes,
+				op.Endpoint,
+				1,
+			)
+			lines = append(lines, "")
+		}
+	}
+
 	return strings.Join(lines, "\n")
+}
+
+func resolveObjectType(
+	objectTypes map[string]graphql.ObjectType,
+	endpoint string,
+	baseType string,
+) (graphql.ObjectType, bool) {
+	if ot, ok := objectTypes[ScopedTypeKey(endpoint, baseType)]; ok {
+		return ot, true
+	}
+	ot, ok := objectTypes[baseType]
+	return ot, ok
+}
+
+const maxObjectTypeDepth = 3
+
+func appendObjectTypeFields(
+	lines []string,
+	ot graphql.ObjectType,
+	indent string,
+	objectTypes map[string]graphql.ObjectType,
+	endpoint string,
+	depth int,
+) []string {
+	for i, f := range ot.Fields {
+		connector := "├─"
+		if i == len(ot.Fields)-1 {
+			connector = "└─"
+		}
+		line := indent + tui.HelpStyle.Render(connector) +
+			tui.KeySpace + f.Name +
+			tui.KeySpace + tui.KeySpace + tui.HelpStyle.Render(f.Type)
+		lines = append(lines, line)
+
+		if depth < maxObjectTypeDepth {
+			base := ExtractBaseType(f.Type)
+			if nested, ok := resolveObjectType(objectTypes, endpoint, base); ok {
+				childIndent := indent + tui.KeySpace + tui.KeySpace
+				if i < len(ot.Fields)-1 {
+					childIndent = indent + tui.HelpStyle.Render(treeBranch) + tui.KeySpace
+				}
+				lines = appendObjectTypeFields(
+					lines,
+					nested,
+					childIndent,
+					objectTypes,
+					endpoint,
+					depth+1,
+				)
+			}
+		}
+	}
+	return lines
 }
 
 func resolveInputType(

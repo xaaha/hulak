@@ -56,8 +56,9 @@ type Model struct {
 	width      int
 	height     int
 
-	inputTypes map[string]graphql.InputType
-	enumTypes  map[string]graphql.EnumType // TODO: wire into detail panel for enum expansion
+	inputTypes  map[string]graphql.InputType
+	enumTypes   map[string]graphql.EnumType
+	objectTypes map[string]graphql.ObjectType
 
 	endpoints        []string
 	activeEndpoints  map[string]bool
@@ -74,6 +75,7 @@ func NewModel(
 	operations []UnifiedOperation,
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
+	objectTypes map[string]graphql.ObjectType,
 ) Model {
 	for i := range operations {
 		if operations[i].NameLower == "" {
@@ -101,6 +103,7 @@ func NewModel(
 		activeEndpoints: active,
 		inputTypes:      inputTypes,
 		enumTypes:       enumTypes,
+		objectTypes:     objectTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "Search: ",
 			Placeholder: searchPlaceholderText,
@@ -383,7 +386,7 @@ func (m *Model) syncViewport() {
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := &m.filtered[m.cursor]
 		cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes), cacheKey) {
+		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
 			m.detailPanel.GotoTop()
 		}
 	} else {
@@ -447,8 +450,9 @@ func RunExplorer(
 	operations []UnifiedOperation,
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
+	objectTypes map[string]graphql.ObjectType,
 ) error {
-	model := NewModel(operations, inputTypes, enumTypes)
+	model := NewModel(operations, inputTypes, enumTypes, objectTypes)
 	p := tea.NewProgram(
 		&model,
 		tea.WithAltScreen(),

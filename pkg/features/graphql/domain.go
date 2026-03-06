@@ -7,8 +7,9 @@ type Schema struct {
 	Queries       []Operation
 	Mutations     []Operation
 	Subscriptions []Operation
-	InputTypes    map[string]InputType // Map of input type name to InputType for TUI lookup
-	EnumTypes     map[string]EnumType  // Map of enum type name to EnumType for TUI lookup
+	InputTypes    map[string]InputType  // Map of input type name to InputType for TUI lookup
+	EnumTypes     map[string]EnumType   // Map of enum type name to EnumType for TUI lookup
+	ObjectTypes   map[string]ObjectType // Map of object type name to ObjectType for TUI field display
 }
 
 // Operation represents a query, mutation, or subscription field.
@@ -44,6 +45,24 @@ type InputField struct {
 	Type         string
 	Description  string
 	DefaultValue string
+}
+
+// ObjectType represents a GraphQL output object type (e.g., Country, User).
+// These are the return types that the TUI needs to display selectable fields
+// for query building.
+type ObjectType struct {
+	Name        string
+	Description string
+	Fields      []ObjectField
+}
+
+// ObjectField represents a single field on a GraphQL output object type.
+// Fields can themselves return object types, enabling nested field selection.
+type ObjectField struct {
+	Name        string
+	Type        string // e.g. "String", "[Language!]!", "Continent"
+	Description string
+	Arguments   []Argument // some object fields accept arguments
 }
 
 // EnumType represents a GraphQL enum type with its possible values.
