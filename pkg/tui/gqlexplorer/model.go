@@ -67,8 +67,10 @@ type Model struct {
 	pendingEndpoints map[string]bool
 	badgeCache       string
 
-	detailPanel *tui.Panel
-	focus       tui.FocusRing
+	detailPanel   *tui.Panel
+	detailForm    *DetailForm
+	detailFormKey string
+	focus         tui.FocusRing
 }
 
 func NewModel(
@@ -283,6 +285,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 	case tui.KeyCancel:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			if m.detailForm.ConsumesTextInput() {
+				m.detailForm.HandleKey(msg)
+				m.syncViewport()
+				return m, nil
+			}
+			m.detailForm.BlurAll()
+			m.focus.FocusByNumber(1)
+			m.focus.SetTyping(true)
+			m.syncSearchFocus()
+			m.syncViewport()
+			return m, nil
+		}
 		if m.focus.Typing() {
 			if m.search.Model.Value() != "" {
 				m.search.Model.Reset()
@@ -291,6 +306,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.focus.SetTyping(false)
 			m.syncSearchFocus()
+			return m, nil
+		}
+		if !m.focus.LeftFocused() {
+			m.focus.FocusByNumber(1)
+			m.focus.SetTyping(true)
+			m.syncSearchFocus()
+			m.syncViewport()
 			return m, nil
 		}
 		return m, tea.Quit
@@ -302,6 +324,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncSearchFocus()
 		return m, nil
 	case tui.KeyEnter:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			cmd := m.detailForm.HandleKey(msg)
+			m.syncViewport()
+			return m, cmd
+		}
 		if m.focus.LeftFocused() {
 			if !m.focus.Typing() {
 				m.focus.SetTyping(true)
@@ -311,12 +338,28 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.hasTwoPanelLayout() {
 				m.focus.FocusByNumber(m.detailPanel.Number)
 				m.syncSearchFocus()
+				m.syncViewport()
 			}
 		}
 		return m, nil
 
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
 		if !m.focus.LeftFocused() {
+			if m.detailForm != nil {
+				if m.detailForm.ConsumesTextInput() {
+					cmd := m.detailForm.HandleKey(msg)
+					m.syncViewport()
+					return m, cmd
+				}
+				switch msg.String() {
+				case tui.KeyUp, tui.KeyCtrlP:
+					m.detailForm.CursorUp()
+				case tui.KeyDown, tui.KeyCtrlN:
+					m.detailForm.CursorDown()
+				}
+				m.syncViewport()
+				return m, nil
+			}
 			cmd := m.detailPanel.Update(msg)
 			return m, cmd
 		}
@@ -329,6 +372,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.syncViewport()
 		}
 		return m, nil
+
+	case tui.KeySpace:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			cmd := m.detailForm.HandleKey(msg)
+			m.syncViewport()
+			return m, cmd
+		}
 	}
 
 	if !m.focus.Typing() {
@@ -346,6 +396,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !m.focus.LeftFocused() {
+		if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+			cmd := m.detailForm.HandleKey(msg)
+			m.syncViewport()
+			return m, cmd
+		}
 		return m, nil
 	}
 
@@ -385,11 +440,30 @@ func (m *Model) syncViewport() {
 
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := &m.filtered[m.cursor]
-		cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+
+		formKey := op.Endpoint + "\x1f" + op.Name
+		if m.detailFormKey != formKey {
+			m.detailForm = buildDetailForm(op, m.enumTypes, m.objectTypes)
+			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 		}
+
+		if m.detailForm != nil {
+			if m.focus.IsFocused(m.detailPanel) {
+				m.detailForm.FocusCurrent()
+			} else {
+				m.detailForm.BlurAll()
+			}
+			m.detailPanel.SetContent(m.detailForm.View(op), "")
+		} else {
+			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
+			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+				m.detailPanel.GotoTop()
+			}
+		}
 	} else {
+		m.detailForm = nil
+		m.detailFormKey = ""
 		m.detailPanel.SetContent("", "")
 	}
 }
