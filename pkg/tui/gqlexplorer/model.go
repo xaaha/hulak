@@ -453,7 +453,7 @@ func (m *Model) syncViewport() {
 
 		formKey := op.Endpoint + "\x1f" + op.Name
 		if m.detailFormKey != formKey {
-			m.detailForm = buildDetailForm(op, m.enumTypes, m.objectTypes)
+			m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 		}

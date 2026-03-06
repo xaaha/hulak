@@ -211,6 +211,54 @@ func resolveEnumType(
 	return et, ok
 }
 
+func newInputFieldFormItem(
+	field graphql.InputField,
+	enumTypes map[string]graphql.EnumType,
+	endpoint string,
+) formItem {
+	required := strings.HasSuffix(field.Type, "!")
+	base := ExtractBaseType(field.Type)
+
+	if base == "Boolean" {
+		return formItem{
+			kind:     formItemToggle,
+			name:     field.Name,
+			typeHint: field.Type,
+			required: required,
+			toggle:   tui.NewToggle(field.Name, false),
+		}
+	}
+
+	if et, ok := resolveEnumType(enumTypes, endpoint, base); ok {
+		options := make([]string, len(et.Values))
+		for i, v := range et.Values {
+			options[i] = v.Name
+		}
+		return formItem{
+			kind:     formItemDropdown,
+			name:     field.Name,
+			typeHint: field.Type,
+			required: required,
+			dropdown: tui.NewDropdown(field.Name, options, 0),
+		}
+	}
+
+	placeholder := fmt.Sprintf("%s value", base)
+	ti := tui.NewFilterInput(tui.TextInputOpts{
+		Prompt:      "",
+		Placeholder: placeholder,
+		MinWidth:    max(len(placeholder), 15),
+	})
+	ti.Model.Blur()
+	return formItem{
+		kind:     formItemTextInput,
+		name:     field.Name,
+		typeHint: field.Type,
+		required: required,
+		input:    ti,
+	}
+}
+
 // DetailForm holds the interactive form items for the detail panel.
 // Items are ordered: arguments first, then return-type field toggles.
 type DetailForm struct {
@@ -219,17 +267,23 @@ type DetailForm struct {
 	argCount int // number of leading argument items
 }
 
-// buildDetailForm creates a DetailForm for the given operation.
-// Arguments come first, then return-type field toggles (all initially selected).
 func buildDetailForm(
 	op *UnifiedOperation,
+	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
 ) *DetailForm {
 	var items []formItem
 
 	for _, arg := range op.Arguments {
-		items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
+		base := ExtractBaseType(arg.Type)
+		if it, ok := resolveInputType(inputTypes, op.Endpoint, base); ok {
+			for _, field := range it.Fields {
+				items = append(items, newInputFieldFormItem(field, enumTypes, op.Endpoint))
+			}
+		} else {
+			items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
+		}
 	}
 	argCount := len(items)
 
