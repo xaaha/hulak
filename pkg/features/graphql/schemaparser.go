@@ -61,12 +61,26 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 	}
 
 	schema := Schema{
-		InputTypes: make(map[string]InputType),
-		EnumTypes:  make(map[string]EnumType),
+		InputTypes:  make(map[string]InputType),
+		EnumTypes:   make(map[string]EnumType),
+		ObjectTypes: make(map[string]ObjectType),
+	}
+
+	// Collect root operation type names so we can exclude them from ObjectTypes.
+	rootNames := make(map[string]bool)
+	if introspectionSchema.QueryType.Name != "" {
+		rootNames[introspectionSchema.QueryType.Name] = true
+	}
+	if introspectionSchema.MutationType != nil && introspectionSchema.MutationType.Name != "" {
+		rootNames[introspectionSchema.MutationType.Name] = true
+	}
+	if introspectionSchema.SubscriptionType != nil &&
+		introspectionSchema.SubscriptionType.Name != "" {
+		rootNames[introspectionSchema.SubscriptionType.Name] = true
 	}
 
 	for _, t := range introspectionSchema.Types {
-		if t.Name == "" {
+		if t.Name == "" || strings.HasPrefix(t.Name, "__") {
 			continue
 		}
 		switch t.Kind {
@@ -77,11 +91,17 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 				Fields:      convertInputFields(t.InputFields),
 			}
 		case introspection.ENUM:
-			if !strings.HasPrefix(t.Name, "__") {
-				schema.EnumTypes[t.Name] = EnumType{
+			schema.EnumTypes[t.Name] = EnumType{
+				Name:        t.Name,
+				Description: t.Description,
+				Values:      convertEnumValues(t.EnumValues),
+			}
+		case introspection.OBJECT:
+			if !rootNames[t.Name] {
+				schema.ObjectTypes[t.Name] = ObjectType{
 					Name:        t.Name,
 					Description: t.Description,
-					Values:      convertEnumValues(t.EnumValues),
+					Fields:      convertObjectFields(t.Fields),
 				}
 			}
 		}
@@ -172,6 +192,20 @@ func convertInputFields(fields []introspection.InputValue) []InputField {
 		inputFields = append(inputFields, f)
 	}
 	return inputFields
+}
+
+func convertObjectFields(fields []introspection.Field) []ObjectField {
+	objectFields := make([]ObjectField, 0, len(fields))
+	for i := range fields {
+		f := &fields[i]
+		objectFields = append(objectFields, ObjectField{
+			Name:        f.Name,
+			Type:        formatType(&f.Type),
+			Description: f.Description,
+			Arguments:   convertArguments(f.Args),
+		})
+	}
+	return objectFields
 }
 
 func convertEnumValues(values []introspection.EnumValue) []EnumValue {
