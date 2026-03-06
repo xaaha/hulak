@@ -52,7 +52,7 @@ func TestNewModelSortsQueriesFirst(t *testing.T) {
 		{Name: "createUser", Type: TypeMutation},
 		{Name: "getUser", Type: TypeQuery},
 	}
-	m := NewModel(ops, nil, nil)
+	m := NewModel(ops, nil, nil, nil)
 
 	expected := []OperationType{TypeQuery, TypeMutation, TypeSubscription}
 	for i, want := range expected {
@@ -63,7 +63,7 @@ func TestNewModelSortsQueriesFirst(t *testing.T) {
 }
 
 func TestNewModelEmptyOperations(t *testing.T) {
-	m := NewModel(nil, nil, nil)
+	m := NewModel(nil, nil, nil, nil)
 
 	if len(m.operations) != 0 {
 		t.Errorf("expected 0 operations, got %d", len(m.operations))
@@ -74,7 +74,7 @@ func TestNewModelEmptyOperations(t *testing.T) {
 }
 
 func TestNewModelFilteredMatchesOperations(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	if len(m.filtered) != len(m.operations) {
 		t.Errorf("expected filtered (%d) to match operations (%d)",
@@ -83,7 +83,7 @@ func TestNewModelFilteredMatchesOperations(t *testing.T) {
 }
 
 func TestNewModelCursorStartsAtZero(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	if m.cursor != 0 {
 		t.Errorf("expected cursor 0, got %d", m.cursor)
@@ -91,7 +91,7 @@ func TestNewModelCursorStartsAtZero(t *testing.T) {
 }
 
 func TestInitReturnsCmd(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	cmd := m.Init()
 
 	if cmd == nil {
@@ -100,7 +100,7 @@ func TestInitReturnsCmd(t *testing.T) {
 }
 
 func TestNavigateDown(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	model := result.(*Model)
@@ -111,7 +111,7 @@ func TestNavigateDown(t *testing.T) {
 }
 
 func TestNavigateUp(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.cursor = 2
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
@@ -123,7 +123,7 @@ func TestNavigateUp(t *testing.T) {
 }
 
 func TestNavigateCtrlN(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
 	model := result.(*Model)
@@ -134,7 +134,7 @@ func TestNavigateCtrlN(t *testing.T) {
 }
 
 func TestNavigateCtrlP(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.cursor = 3
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
@@ -146,7 +146,7 @@ func TestNavigateCtrlP(t *testing.T) {
 }
 
 func TestTabTogglesFocus(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model := result.(*Model)
@@ -162,7 +162,7 @@ func TestTabTogglesFocus(t *testing.T) {
 }
 
 func TestEnterMovesFocusToDetailOnly(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
@@ -180,7 +180,7 @@ func TestEnterMovesFocusToDetailOnly(t *testing.T) {
 }
 
 func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 
 	m.focus.SetTyping(false)
@@ -197,7 +197,7 @@ func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
 }
 
 func TestScrollForcesLeftInEndpointPicker(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.focus.FocusByNumber(m.detailPanel.Number)
 	m.pickingEndpoints = true
 
@@ -213,7 +213,7 @@ func TestScrollForcesLeftInEndpointPicker(t *testing.T) {
 }
 
 func TestNavigateUpAtTopStays(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	model := result.(*Model)
@@ -224,7 +224,7 @@ func TestNavigateUpAtTopStays(t *testing.T) {
 }
 
 func TestNavigateDownAtBottomStays(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.cursor = len(m.filtered) - 1
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -236,7 +236,7 @@ func TestNavigateDownAtBottomStays(t *testing.T) {
 }
 
 func TestCtrlCQuits(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 
@@ -246,7 +246,7 @@ func TestCtrlCQuits(t *testing.T) {
 }
 
 func TestEscBlursThenQuits(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model := result.(*Model)
@@ -264,7 +264,7 @@ func TestEscBlursThenQuits(t *testing.T) {
 }
 
 func TestEscClearsSearchFirst(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("get")
 	m.applyFilter()
 
@@ -289,7 +289,7 @@ func TestEscClearsSearchFirst(t *testing.T) {
 }
 
 func TestFilterByName(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	for _, r := range "get" {
 		result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
@@ -305,7 +305,7 @@ func TestFilterByName(t *testing.T) {
 }
 
 func TestFilterCaseInsensitive(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	for _, r := range "GETUSER" {
 		result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
@@ -321,7 +321,7 @@ func TestFilterCaseInsensitive(t *testing.T) {
 }
 
 func TestFilterNoMatches(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("zzzzz")
 	m.applyFilter()
 
@@ -331,7 +331,7 @@ func TestFilterNoMatches(t *testing.T) {
 }
 
 func TestFilterEmptyRestoresAll(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("get")
 	m.applyFilter()
 
@@ -345,7 +345,7 @@ func TestFilterEmptyRestoresAll(t *testing.T) {
 }
 
 func TestFilterCursorClampedWhenListShrinks(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.cursor = 4
 
 	m.search.Model.SetValue("getUser")
@@ -358,7 +358,7 @@ func TestFilterCursorClampedWhenListShrinks(t *testing.T) {
 }
 
 func TestFilterByTypeQueryPrefix(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("q:")
 	m.applyFilter()
 
@@ -373,7 +373,7 @@ func TestFilterByTypeQueryPrefix(t *testing.T) {
 }
 
 func TestFilterByTypeMutationPrefix(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("m:")
 	m.applyFilter()
 
@@ -388,7 +388,7 @@ func TestFilterByTypeMutationPrefix(t *testing.T) {
 }
 
 func TestFilterByTypeSubscriptionPrefix(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("s:")
 	m.applyFilter()
 
@@ -403,7 +403,7 @@ func TestFilterByTypeSubscriptionPrefix(t *testing.T) {
 }
 
 func TestFilterByTypePrefixUpperCase(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("Q:")
 	m.applyFilter()
 
@@ -415,7 +415,7 @@ func TestFilterByTypePrefixUpperCase(t *testing.T) {
 }
 
 func TestFilterByTypePrefixWithNameSearch(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("q:get")
 	m.applyFilter()
 
@@ -428,7 +428,7 @@ func TestFilterByTypePrefixWithNameSearch(t *testing.T) {
 }
 
 func TestFilterByTypePrefixNoNameMatch(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("q:zzz")
 	m.applyFilter()
 
@@ -438,7 +438,7 @@ func TestFilterByTypePrefixNoNameMatch(t *testing.T) {
 }
 
 func TestFilterUnknownPrefixTreatedAsPlainSearch(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.search.Model.SetValue("x:foo")
 	m.applyFilter()
 
@@ -448,7 +448,7 @@ func TestFilterUnknownPrefixTreatedAsPlainSearch(t *testing.T) {
 }
 
 func TestWindowSizeMsg(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := result.(*Model)
@@ -465,7 +465,7 @@ func TestWindowSizeMsg(t *testing.T) {
 }
 
 func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 110, Height: 40})
 	model := result.(*Model)
@@ -479,7 +479,7 @@ func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
 }
 
 func TestWindowSizeMsgShowsHeaderExtrasAtThreshold(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 111, Height: 40})
 	model := result.(*Model)
@@ -493,7 +493,7 @@ func TestWindowSizeMsgShowsHeaderExtrasAtThreshold(t *testing.T) {
 }
 
 func TestViewContainsSearchPrompt(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -504,7 +504,7 @@ func TestViewContainsSearchPrompt(t *testing.T) {
 }
 
 func TestViewContainsFilterHint(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -559,7 +559,7 @@ func TestFilterHelpText(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(tc.ops, nil, nil)
+			m := NewModel(tc.ops, nil, nil, nil)
 			hint := m.filterHint
 			for _, s := range tc.want {
 				if !strings.Contains(hint, s) {
@@ -576,7 +576,7 @@ func TestFilterHelpText(t *testing.T) {
 }
 
 func TestViewContainsOperationCount(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -587,7 +587,7 @@ func TestViewContainsOperationCount(t *testing.T) {
 }
 
 func TestViewContainsOperationNames(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -600,7 +600,7 @@ func TestViewContainsOperationNames(t *testing.T) {
 }
 
 func TestViewContainsHelpText(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -611,7 +611,7 @@ func TestViewContainsHelpText(t *testing.T) {
 }
 
 func TestViewShowsNoMatchesWhenFilteredEmpty(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	m.search.Model.SetValue("zzzzz")
@@ -624,7 +624,7 @@ func TestViewShowsNoMatchesWhenFilteredEmpty(t *testing.T) {
 }
 
 func TestViewShowsSelectedCursor(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -635,7 +635,7 @@ func TestViewShowsSelectedCursor(t *testing.T) {
 }
 
 func TestViewShowsDescriptionForSelectedItem(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -646,7 +646,7 @@ func TestViewShowsDescriptionForSelectedItem(t *testing.T) {
 }
 
 func TestViewShowsEndpointForSelectedItem(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -657,7 +657,7 @@ func TestViewShowsEndpointForSelectedItem(t *testing.T) {
 }
 
 func TestViewHasBorder(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	view := m.View()
@@ -668,7 +668,7 @@ func TestViewHasBorder(t *testing.T) {
 }
 
 func TestViewFilteredCountUpdates(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	m.width = 160
 	m.height = 40
 	m.search.Model.SetValue("q:")
@@ -753,14 +753,14 @@ func TestCollectEndpoints(t *testing.T) {
 
 func TestFilterHintEndpoints(t *testing.T) {
 	t.Run("single endpoint hides e: endpoints", func(t *testing.T) {
-		m := NewModel(sampleOps(), nil, nil)
+		m := NewModel(sampleOps(), nil, nil, nil)
 		if strings.Contains(m.filterHint, "e: endpoints") {
 			t.Error("should not show 'e: endpoints' with single endpoint")
 		}
 	})
 
 	t.Run("multiple endpoints shows e: endpoints", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil)
+		m := NewModel(multiEndpointOps(), nil, nil, nil)
 		if !strings.Contains(m.filterHint, "e: endpoints") {
 			t.Errorf("should show 'e: endpoints' with multiple endpoints, got %q", m.filterHint)
 		}
@@ -768,7 +768,7 @@ func TestFilterHintEndpoints(t *testing.T) {
 }
 
 func TestEndpointFilterCombinesWithTypeFilter(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.activeEndpoints = map[string]bool{
 		"api.spacex.com": true,
 	}
@@ -789,7 +789,7 @@ func TestEndpointFilterCombinesWithTypeFilter(t *testing.T) {
 }
 
 func TestEndpointFilterAlone(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.activeEndpoints = map[string]bool{
 		"countries.trevorblades.com": true,
 	}
@@ -806,7 +806,7 @@ func TestEndpointFilterAlone(t *testing.T) {
 }
 
 func TestEndpointFilterMultipleSelected(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.activeEndpoints = map[string]bool{
 		"api.spacex.com":             true,
 		"countries.trevorblades.com": true,
@@ -820,7 +820,7 @@ func TestEndpointFilterMultipleSelected(t *testing.T) {
 }
 
 func TestEndpointFilterEmptyRestoresAll(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.activeEndpoints = map[string]bool{}
 	m.applyFilter()
 
@@ -831,7 +831,7 @@ func TestEndpointFilterEmptyRestoresAll(t *testing.T) {
 }
 
 func TestEnterEndpointPicker(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 
 	if !m.pickingEndpoints {
@@ -846,7 +846,7 @@ func TestEnterEndpointPicker(t *testing.T) {
 }
 
 func TestEndpointPickerToggle(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 
 	ep := m.endpoints[0]
@@ -868,7 +868,7 @@ func TestEndpointPickerToggle(t *testing.T) {
 }
 
 func TestEndpointPickerConfirm(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 	m.pendingEndpoints[m.endpoints[0]] = true
 
@@ -884,7 +884,7 @@ func TestEndpointPickerConfirm(t *testing.T) {
 }
 
 func TestEndpointPickerCancel(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	// deselect one endpoint before opening picker
 	delete(m.activeEndpoints, m.endpoints[1])
 	originalCount := len(m.activeEndpoints)
@@ -908,7 +908,7 @@ func TestEndpointPickerCancel(t *testing.T) {
 }
 
 func TestEndpointPickerNavigation(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -925,7 +925,7 @@ func TestEndpointPickerNavigation(t *testing.T) {
 }
 
 func TestEndpointPickerVimNavigation(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -965,35 +965,35 @@ func TestShortenEndpoint(t *testing.T) {
 
 func TestShouldEnterEndpointPicker(t *testing.T) {
 	t.Run("triggers on e:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil)
+		m := NewModel(multiEndpointOps(), nil, nil, nil)
 		if !m.shouldEnterEndpointPicker("e:") {
 			t.Error("should trigger on 'e:'")
 		}
 	})
 
 	t.Run("triggers on E:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil)
+		m := NewModel(multiEndpointOps(), nil, nil, nil)
 		if !m.shouldEnterEndpointPicker("E:") {
 			t.Error("should trigger on 'E:'")
 		}
 	})
 
 	t.Run("triggers after type prefix q:e:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil)
+		m := NewModel(multiEndpointOps(), nil, nil, nil)
 		if !m.shouldEnterEndpointPicker("q:e:") {
 			t.Error("should trigger on 'q:e:'")
 		}
 	})
 
 	t.Run("no trigger with single endpoint", func(t *testing.T) {
-		m := NewModel(sampleOps(), nil, nil)
+		m := NewModel(sampleOps(), nil, nil, nil)
 		if m.shouldEnterEndpointPicker("e:") {
 			t.Error("should not trigger with single endpoint")
 		}
 	})
 
 	t.Run("no trigger on plain text", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil)
+		m := NewModel(multiEndpointOps(), nil, nil, nil)
 		if m.shouldEnterEndpointPicker("get") {
 			t.Error("should not trigger on plain text")
 		}
@@ -1014,7 +1014,7 @@ func TestStripEndpointPrefix(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(multiEndpointOps(), nil, nil)
+			m := NewModel(multiEndpointOps(), nil, nil, nil)
 			m.search.Model.SetValue(tc.input)
 			m.stripEndpointPrefix()
 			got := m.search.Model.Value()
@@ -1026,7 +1026,7 @@ func TestStripEndpointPrefix(t *testing.T) {
 }
 
 func TestRenderEndpointPicker(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 	m.enterEndpointPicker()
 	m.pendingEndpoints[m.endpoints[0]] = true
 
@@ -1065,7 +1065,7 @@ func opsWithArgs() []UnifiedOperation {
 
 func TestRenderDetailShowsOperationName(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if !strings.Contains(detail, "getUser") {
 		t.Error("detail should contain operation name")
 	}
@@ -1073,7 +1073,7 @@ func TestRenderDetailShowsOperationName(t *testing.T) {
 
 func TestRenderDetailShowsReturnType(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if !strings.Contains(detail, "User!") {
 		t.Error("detail should contain return type")
 	}
@@ -1081,7 +1081,7 @@ func TestRenderDetailShowsReturnType(t *testing.T) {
 
 func TestRenderDetailShowsArguments(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if !strings.Contains(detail, "Arguments:") {
 		t.Error("detail should contain Arguments header")
 	}
@@ -1095,7 +1095,7 @@ func TestRenderDetailShowsArguments(t *testing.T) {
 
 func TestRenderDetailOmitsEndpoint(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if strings.Contains(detail, "Endpoint:") {
 		t.Error("detail should not show Endpoint (already in badges and list)")
 	}
@@ -1103,7 +1103,7 @@ func TestRenderDetailOmitsEndpoint(t *testing.T) {
 
 func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 	op := opsWithArgs()[1]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if strings.Contains(detail, "Arguments:") {
 		t.Error("detail should not show Arguments section when empty")
 	}
@@ -1111,7 +1111,7 @@ func TestRenderDetailNoArgsOmitsSection(t *testing.T) {
 
 func TestRenderDetailOptionalArgHasNoRequiredMarker(t *testing.T) {
 	op := opsWithArgs()[0]
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	lines := strings.Split(detail, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "name") && strings.Contains(line, "String") {
@@ -1125,18 +1125,18 @@ func TestRenderDetailOptionalArgHasNoRequiredMarker(t *testing.T) {
 }
 
 func TestViewShowsDetailPanel(t *testing.T) {
-	m := NewModel(opsWithArgs(), nil, nil)
+	m := NewModel(opsWithArgs(), nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	m = *result.(*Model)
 	view := m.View()
 
-	if !strings.Contains(view, "Returns:") {
-		t.Error("view should show detail panel with return type")
+	if !strings.Contains(view, "User!") {
+		t.Error("view should show detail panel with return type in header")
 	}
 }
 
 func TestDetailPanelUpdatesOnCursorMove(t *testing.T) {
-	m := NewModel(opsWithArgs(), nil, nil)
+	m := NewModel(opsWithArgs(), nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	m = *result.(*Model)
 
@@ -1171,7 +1171,7 @@ func TestRenderDetailExpandsInputType(t *testing.T) {
 			{Name: "input", Type: "PersonInput!"},
 		},
 	}
-	detail := renderDetail(&op, inputTypes)
+	detail := renderDetail(&op, inputTypes, nil)
 	if !strings.Contains(detail, "name") || !strings.Contains(detail, "String!") {
 		t.Error("detail should expand PersonInput fields showing name and type")
 	}
@@ -1207,7 +1207,7 @@ func TestRenderDetailNestedInputType(t *testing.T) {
 			{Name: "input", Type: "CreateUserInput!"},
 		},
 	}
-	detail := renderDetail(&op, inputTypes)
+	detail := renderDetail(&op, inputTypes, nil)
 	if !strings.Contains(detail, "person") {
 		t.Error("detail should show nested input type field 'person'")
 	}
@@ -1243,7 +1243,7 @@ func TestRenderDetailNilInputTypes(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}
-	detail := renderDetail(&op, nil)
+	detail := renderDetail(&op, nil, nil)
 	if !strings.Contains(detail, "id") {
 		t.Error("detail should still render arguments with nil inputTypes")
 	}
@@ -1319,7 +1319,7 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 }
 
 func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil)
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 28})
 	model := result.(*Model)
@@ -1348,7 +1348,7 @@ func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
 }
 
 func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
-	m := NewModel(sampleOps(), nil, nil)
+	m := NewModel(sampleOps(), nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 50, Height: 40})
 	model := result.(*Model)
 	model.focus.FocusByNumber(1)
