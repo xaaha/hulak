@@ -392,8 +392,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.focus.Typing() {
-		// lazygit style numeber'd border
+	if !m.focus.Typing() && (m.detailForm == nil || !m.detailForm.ConsumesTextInput()) {
 		if key := msg.String(); len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 			num := int(key[0] - '0')
 			if m.focus.FocusByNumber(num) {
@@ -465,7 +464,8 @@ func (m *Model) syncViewport() {
 			} else {
 				m.detailForm.BlurAll()
 			}
-			m.detailPanel.SetContent(m.detailForm.View(op), "")
+			content, cursorLine := m.detailForm.View(op)
+			m.detailPanel.SyncContent(content, cursorLine)
 		} else {
 			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
 			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {

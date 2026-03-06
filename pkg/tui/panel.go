@@ -60,6 +60,12 @@ func (p *Panel) SetContent(content, cacheKey string) bool {
 	return true
 }
 
+// SyncContent sets content and scrolls so cursorLine stays visible.
+func (p *Panel) SyncContent(content string, cursorLine int) {
+	p.cacheKey = ""
+	SyncViewport(&p.viewport, content, cursorLine, DefaultScrollMargin)
+}
+
 // Update forwards messages (scroll, mouse) to the inner viewport.
 // Parent should call this only when this panel is focused.
 func (p *Panel) Update(msg tea.Msg) tea.Cmd {

@@ -363,7 +363,7 @@ func TestDetailFormViewSections(t *testing.T) {
 		},
 	}
 	df := buildDetailForm(op, nil, objectTypes)
-	view := df.View(op)
+	view, _ := df.View(op)
 
 	for _, want := range []string{"country", "Country", "name", "code"} {
 		if !strings.Contains(view, want) {
@@ -395,7 +395,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 	}
 	df := buildDetailForm(op, nil, objectTypes)
 
-	view0 := df.View(op)
+	view0, _ := df.View(op)
 	lines0 := strings.Split(view0, "\n")
 	found := false
 	for _, line := range lines0 {
@@ -409,9 +409,42 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 	}
 
 	df.CursorDown()
-	view1 := df.View(op)
+	view1, _ := df.View(op)
 	if view0 == view1 {
 		t.Error("view should change after CursorDown")
+	}
+}
+
+func TestDetailFormViewCursorLineTracking(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name:       "test",
+		ReturnType: "T",
+		Endpoint:   ep,
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "T"): {
+			Name: "T",
+			Fields: []graphql.ObjectField{
+				{Name: "a", Type: "String"},
+				{Name: "b", Type: "String"},
+				{Name: "c", Type: "String"},
+			},
+		},
+	}
+	df := buildDetailForm(op, nil, objectTypes)
+
+	_, line0 := df.View(op)
+	df.CursorDown()
+	_, line1 := df.View(op)
+	df.CursorDown()
+	_, line2 := df.View(op)
+
+	if line1 <= line0 {
+		t.Errorf("cursorLine should increase: line0=%d, line1=%d", line0, line1)
+	}
+	if line2 <= line1 {
+		t.Errorf("cursorLine should increase: line1=%d, line2=%d", line1, line2)
 	}
 }
 

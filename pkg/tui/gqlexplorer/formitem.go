@@ -315,7 +315,8 @@ func (df *DetailForm) hasExpandedDropdown() bool {
 }
 
 // View renders all form items in a single flat list.
-func (df *DetailForm) View(op *UnifiedOperation) string {
+// Returns the rendered string and the line number of the focused item.
+func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 	var lines []string
 
 	header := tui.SubtitleStyle.Render("›" + op.Name)
@@ -327,10 +328,12 @@ func (df *DetailForm) View(op *UnifiedOperation) string {
 	itemPad := strings.Repeat(tui.KeySpace, 4)
 	cursorPad := strings.Repeat(tui.KeySpace, 2) + "› "
 
+	cursorLine := 0
 	for i := range df.items {
 		prefix := itemPad
 		if i == df.cursor {
 			prefix = cursorPad
+			cursorLine = len(lines)
 		}
 		view := df.items[i].View()
 		for j, line := range strings.Split(view, "\n") {
@@ -342,5 +345,5 @@ func (df *DetailForm) View(op *UnifiedOperation) string {
 		}
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), cursorLine
 }
