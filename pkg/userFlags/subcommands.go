@@ -98,11 +98,11 @@ func HandleSubcommands() error {
 			utils.PrintGQLUsage()
 			os.Exit(0)
 		}
-		operations, inputTypes, enumTypes := loadGraphQLOperations(args[0], *gqlEnv)
+		operations, inputTypes, enumTypes, objectTypes := loadGraphQLOperations(args[0], *gqlEnv)
 		if operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes); err != nil {
+		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes, objectTypes); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -120,6 +120,7 @@ func loadGraphQLOperations(arg string, env string) (
 	[]gqlexplorer.UnifiedOperation,
 	map[string]graphql.InputType,
 	map[string]graphql.EnumType,
+	map[string]graphql.ObjectType,
 ) {
 	resolved := resolveGQLPath(arg)
 	var results []graphql.ProcessResult
@@ -136,9 +137,10 @@ func loadGraphQLOperations(arg string, env string) (
 	}
 
 	type schemaResult struct {
-		ops        []gqlexplorer.UnifiedOperation
-		inputTypes map[string]graphql.InputType
-		enumTypes  map[string]graphql.EnumType
+		ops         []gqlexplorer.UnifiedOperation
+		inputTypes  map[string]graphql.InputType
+		enumTypes   map[string]graphql.EnumType
+		objectTypes map[string]graphql.ObjectType
 	}
 
 	// load spinner while waiting
@@ -150,8 +152,9 @@ func loadGraphQLOperations(arg string, env string) (
 		}
 
 		sr := schemaResult{
-			inputTypes: make(map[string]graphql.InputType),
-			enumTypes:  make(map[string]graphql.EnumType),
+			inputTypes:  make(map[string]graphql.InputType),
+			enumTypes:   make(map[string]graphql.EnumType),
+			objectTypes: make(map[string]graphql.ObjectType),
 		}
 		var errors []string
 		endpointResults := make(map[string]graphql.ProcessResult)
@@ -195,17 +198,23 @@ func loadGraphQLOperations(arg string, env string) (
 				return merged[i].url < merged[j].url
 			})
 
-			for _, result := range merged {
+			for i := range merged {
+				result := &merged[i]
 				if result.err != nil {
 					errors = append(errors, fmt.Sprintf("%s: %v", result.url, result.err))
 					continue
 				}
-				sr.ops = append(sr.ops, gqlexplorer.CollectOperations(&result.schema, result.url)...)
+				sr.ops = append(
+					sr.ops,
+					gqlexplorer.CollectOperations(&result.schema, result.url)...)
 				for k, v := range result.schema.InputTypes {
 					sr.inputTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
 				}
 				for k, v := range result.schema.EnumTypes {
 					sr.enumTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
+				for k, v := range result.schema.ObjectTypes {
+					sr.objectTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
 				}
 			}
 		}
@@ -225,7 +234,7 @@ func loadGraphQLOperations(arg string, env string) (
 	if !ok && raw != nil {
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
-	return sr.ops, sr.inputTypes, sr.enumTypes
+	return sr.ops, sr.inputTypes, sr.enumTypes, sr.objectTypes
 }
 
 func resolveGQLPath(arg string) string {
