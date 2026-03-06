@@ -107,7 +107,7 @@ func NewModel(
 		enumTypes:       enumTypes,
 		objectTypes:     objectTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
-			Prompt:      "Search: ",
+			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
 		detailPanel: dp,
