@@ -161,6 +161,27 @@ func TestFormItemView(t *testing.T) {
 	}
 }
 
+func TestFormItemTextInputViewBordered(t *testing.T) {
+	f := newArgFormItem(
+		graphql.Argument{Name: "code", Type: "ID!"},
+		nil,
+		"ep",
+	)
+	v := f.View()
+	if !strings.Contains(v, "code") {
+		t.Fatalf("view should contain arg name, got %q", v)
+	}
+	if !strings.Contains(v, "\u256d") {
+		t.Fatal("text input view should have rounded border top-left corner")
+	}
+	if !strings.Contains(v, "\u2514") {
+		t.Fatal("text input view should have connector")
+	}
+	if strings.Count(v, "\n") < 2 {
+		t.Fatal("text input view should be multi-line (label + bordered box)")
+	}
+}
+
 func TestBuildDetailFormFieldsAndArgs(t *testing.T) {
 	ep := "https://api.test/graphql"
 	op := &UnifiedOperation{
@@ -391,6 +412,68 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 	view1 := df.View(op)
 	if view0 == view1 {
 		t.Error("view should change after CursorDown")
+	}
+}
+
+func TestDetailFormHasExpandedDropdown(t *testing.T) {
+	ep := "ep"
+	enums := map[string]graphql.EnumType{
+		ScopedTypeKey(ep, "Status"): {
+			Name:   "Status",
+			Values: []graphql.EnumValue{{Name: "A"}, {Name: "B"}},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:     "test",
+		Endpoint: ep,
+		Arguments: []graphql.Argument{
+			{Name: "status", Type: "Status"},
+		},
+	}
+	df := buildDetailForm(op, enums, nil)
+	if df.hasExpandedDropdown() {
+		t.Fatal("should not have expanded dropdown initially")
+	}
+
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if !df.hasExpandedDropdown() {
+		t.Fatal("should have expanded dropdown after Enter")
+	}
+}
+
+func TestDetailFormArrowsAlwaysNavigate(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name:       "test",
+		ReturnType: "T",
+		Endpoint:   ep,
+		Arguments: []graphql.Argument{
+			{Name: "name", Type: "String!"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "T"): {
+			Name:   "T",
+			Fields: []graphql.ObjectField{{Name: "a", Type: "String"}},
+		},
+	}
+	df := buildDetailForm(op, nil, objectTypes)
+	df.FocusCurrent()
+
+	if df.cursor != 0 {
+		t.Fatal("cursor should start at 0 (text input arg)")
+	}
+	if !df.items[0].ConsumesTextInput() {
+		t.Fatal("focused text input should consume text input")
+	}
+
+	df.CursorDown()
+	if df.cursor != 1 {
+		t.Fatal("CursorDown should move to item 1 even from a focused text input")
+	}
+	if df.items[0].Focused() {
+		t.Fatal("previous text input should be blurred after navigation")
 	}
 }
 

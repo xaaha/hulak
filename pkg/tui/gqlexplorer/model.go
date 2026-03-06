@@ -286,7 +286,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tui.KeyCancel:
 		if !m.focus.LeftFocused() && m.detailForm != nil {
-			if m.detailForm.ConsumesTextInput() {
+			if m.detailForm.hasExpandedDropdown() {
 				m.detailForm.HandleKey(msg)
 				m.syncViewport()
 				return m, nil
@@ -343,18 +343,29 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
+		tui.KeyK, tui.KeyJ:
+		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK {
+			if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+				cmd := m.detailForm.HandleKey(msg)
+				m.syncViewport()
+				return m, cmd
+			}
+			if m.focus.LeftFocused() && m.focus.Typing() {
+				break
+			}
+		}
 		if !m.focus.LeftFocused() {
 			if m.detailForm != nil {
-				if m.detailForm.ConsumesTextInput() {
+				if m.detailForm.hasExpandedDropdown() {
 					cmd := m.detailForm.HandleKey(msg)
 					m.syncViewport()
 					return m, cmd
 				}
 				switch msg.String() {
-				case tui.KeyUp, tui.KeyCtrlP:
+				case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
 					m.detailForm.CursorUp()
-				case tui.KeyDown, tui.KeyCtrlN:
+				case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
 					m.detailForm.CursorDown()
 				}
 				m.syncViewport()
@@ -364,10 +375,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		switch msg.String() {
-		case tui.KeyUp, tui.KeyCtrlP:
+		case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
 			m.cursor = tui.MoveCursorUp(m.cursor)
 			m.syncViewport()
-		case tui.KeyDown, tui.KeyCtrlN:
+		case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
 			m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 			m.syncViewport()
 		}

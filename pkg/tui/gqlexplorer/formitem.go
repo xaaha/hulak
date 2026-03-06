@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -78,7 +79,6 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 
 func (f *formItem) View() string {
 	hint := tui.HelpStyle.Render(f.typeHint)
-	border := tui.HelpStyle.Render("│")
 	switch f.kind {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
@@ -87,7 +87,29 @@ func (f *formItem) View() string {
 		if f.required {
 			label += tui.KeySpace + tui.HelpStyle.Render("*")
 		}
-		return label + tui.KeySpace + border + tui.KeySpace + f.input.Model.View() + tui.KeySpace + border
+		borderColor := tui.ColorMuted
+		if f.input.Model.Focused() {
+			borderColor = tui.ColorPrimary
+		}
+		boxStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(borderColor).
+			Padding(0, 1)
+		inputBox := boxStyle.Render(f.input.Model.View())
+
+		connector := tui.HelpStyle.Render("└─")
+		continuePad := tui.KeySpace + tui.KeySpace
+		var b strings.Builder
+		b.WriteString(label)
+		for i, line := range strings.Split(inputBox, "\n") {
+			b.WriteString("\n")
+			if i == 0 {
+				b.WriteString(connector + line)
+			} else {
+				b.WriteString(continuePad + line)
+			}
+		}
+		return b.String()
 	case formItemDropdown:
 		return f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
 	}
@@ -276,10 +298,18 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // ConsumesTextInput returns true if the focused item is a text input
-// or expanded dropdown that should capture arrow keys and other chars.
+// or expanded dropdown that should capture typed characters.
 func (df *DetailForm) ConsumesTextInput() bool {
 	if df.cursor >= 0 && df.cursor < len(df.items) {
 		return df.items[df.cursor].ConsumesTextInput()
+	}
+	return false
+}
+
+func (df *DetailForm) hasExpandedDropdown() bool {
+	if df.cursor >= 0 && df.cursor < len(df.items) {
+		item := &df.items[df.cursor]
+		return item.kind == formItemDropdown && item.dropdown.Expanded()
 	}
 	return false
 }
@@ -294,12 +324,22 @@ func (df *DetailForm) View(op *UnifiedOperation) string {
 	}
 	lines = append(lines, header, "")
 
+	itemPad := strings.Repeat(tui.KeySpace, 4)
+	cursorPad := strings.Repeat(tui.KeySpace, 2) + "› "
+
 	for i := range df.items {
-		prefix := strings.Repeat(tui.KeySpace, 4)
+		prefix := itemPad
 		if i == df.cursor {
-			prefix = strings.Repeat(tui.KeySpace, 2) + "› "
+			prefix = cursorPad
 		}
-		lines = append(lines, prefix+df.items[i].View())
+		view := df.items[i].View()
+		for j, line := range strings.Split(view, "\n") {
+			if j == 0 {
+				lines = append(lines, prefix+line)
+			} else {
+				lines = append(lines, itemPad+line)
+			}
+		}
 	}
 
 	return strings.Join(lines, "\n")
