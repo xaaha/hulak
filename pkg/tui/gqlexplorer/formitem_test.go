@@ -185,21 +185,21 @@ func TestBuildDetailFormFieldsAndArgs(t *testing.T) {
 	if df == nil {
 		t.Fatal("buildDetailForm returned nil")
 	}
-	if df.fieldCount != 2 {
-		t.Fatalf("expected 2 field toggles, got %d", df.fieldCount)
+	if df.argCount != 1 {
+		t.Fatalf("expected 1 argument item, got %d", df.argCount)
 	}
 	if df.Len() != 3 {
-		t.Fatalf("expected 3 total items (2 fields + 1 arg), got %d", df.Len())
+		t.Fatalf("expected 3 total items (1 arg + 2 fields), got %d", df.Len())
 	}
 
-	if !df.items[0].isField {
-		t.Error("first item should be a field toggle")
+	if df.items[0].isField {
+		t.Error("first item should be an argument, not a field")
 	}
 	if !df.items[1].isField {
 		t.Error("second item should be a field toggle")
 	}
-	if df.items[2].isField {
-		t.Error("third item should be an argument, not a field")
+	if !df.items[2].isField {
+		t.Error("third item should be a field toggle")
 	}
 }
 
@@ -227,8 +227,8 @@ func TestBuildDetailFormArgsOnly(t *testing.T) {
 	if df == nil {
 		t.Fatal("expected non-nil form for operation with args")
 	}
-	if df.fieldCount != 0 {
-		t.Fatalf("expected 0 field toggles for scalar return, got %d", df.fieldCount)
+	if df.argCount != 1 {
+		t.Fatalf("expected 1 argument item, got %d", df.argCount)
 	}
 	if df.Len() != 1 {
 		t.Fatalf("expected 1 item, got %d", df.Len())
@@ -344,9 +344,14 @@ func TestDetailFormViewSections(t *testing.T) {
 	df := buildDetailForm(op, nil, objectTypes)
 	view := df.View(op)
 
-	for _, want := range []string{"country", "Country", "Fields:", "name", "Arguments:", "code"} {
+	for _, want := range []string{"country", "Country", "name", "code"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("DetailForm.View missing %q", want)
+		}
+	}
+	for _, absent := range []string{"Fields:", "Arguments:"} {
+		if strings.Contains(view, absent) {
+			t.Errorf("DetailForm.View should not contain section header %q", absent)
 		}
 	}
 }

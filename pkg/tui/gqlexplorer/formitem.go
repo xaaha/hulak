@@ -78,17 +78,18 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 
 func (f *formItem) View() string {
 	hint := tui.HelpStyle.Render(f.typeHint)
+	border := tui.HelpStyle.Render("│")
 	switch f.kind {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
 	case formItemTextInput:
 		label := f.name + tui.KeySpace + hint
 		if f.required {
-			label += tui.KeySpace + tui.HelpStyle.Render("(required)")
+			label += tui.KeySpace + tui.HelpStyle.Render("*")
 		}
-		return label + "\n" + tui.KeySpace + tui.KeySpace + f.input.Model.View()
+		return label + tui.KeySpace + border + tui.KeySpace + f.input.Model.View() + tui.KeySpace + border
 	case formItemDropdown:
-		return f.name + tui.KeySpace + hint + "\n" + tui.KeySpace + tui.KeySpace + f.dropdown.View()
+		return f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
 	}
 	return ""
 }
@@ -189,37 +190,34 @@ func resolveEnumType(
 }
 
 // DetailForm holds the interactive form items for the detail panel.
-// It owns a flat slice of formItems (return-type field toggles first,
-// then argument inputs) and an inner cursor for keyboard navigation.
+// Items are ordered: arguments first, then return-type field toggles.
 type DetailForm struct {
-	items      []formItem
-	cursor     int
-	fieldCount int // number of leading return-type field toggles
+	items    []formItem
+	cursor   int
+	argCount int // number of leading argument items
 }
 
 // buildDetailForm creates a DetailForm for the given operation.
-// Return-type fields come first (as toggles, all initially selected),
-// then arguments (as text inputs, dropdowns, or toggles depending on type).
+// Arguments come first, then return-type field toggles (all initially selected).
 func buildDetailForm(
 	op *UnifiedOperation,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
 ) *DetailForm {
 	var items []formItem
-	fieldCount := 0
+
+	for _, arg := range op.Arguments {
+		items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
+	}
+	argCount := len(items)
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
 		if ot, ok := resolveObjectType(objectTypes, op.Endpoint, base); ok {
 			for _, f := range ot.Fields {
 				items = append(items, newFieldFormItem(f, true))
-				fieldCount++
 			}
 		}
-	}
-
-	for _, arg := range op.Arguments {
-		items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
 	}
 
 	if len(items) == 0 {
@@ -227,9 +225,9 @@ func buildDetailForm(
 	}
 
 	return &DetailForm{
-		items:      items,
-		cursor:     0,
-		fieldCount: fieldCount,
+		items:    items,
+		cursor:   0,
+		argCount: argCount,
 	}
 }
 
@@ -286,10 +284,8 @@ func (df *DetailForm) ConsumesTextInput() bool {
 	return false
 }
 
-// View renders all form items as a string, with section headers for
-// "Fields" and "Arguments". The focused item is visually highlighted.
+// View renders all form items in a single flat list.
 func (df *DetailForm) View(op *UnifiedOperation) string {
-	pad := strings.Repeat(tui.KeySpace, 2)
 	var lines []string
 
 	header := tui.SubtitleStyle.Render("›" + op.Name)
@@ -298,29 +294,12 @@ func (df *DetailForm) View(op *UnifiedOperation) string {
 	}
 	lines = append(lines, header, "")
 
-	if df.fieldCount > 0 {
-		lines = append(lines, pad+tui.HelpStyle.Render("Fields:"))
-		for i := 0; i < df.fieldCount; i++ {
-			prefix := strings.Repeat(tui.KeySpace, 4)
-			if i == df.cursor {
-				prefix = strings.Repeat(tui.KeySpace, 2) + "› "
-			}
-			lines = append(lines, prefix+df.items[i].View())
+	for i := range df.items {
+		prefix := strings.Repeat(tui.KeySpace, 4)
+		if i == df.cursor {
+			prefix = strings.Repeat(tui.KeySpace, 2) + "› "
 		}
-		lines = append(lines, "")
-	}
-
-	argCount := len(df.items) - df.fieldCount
-	if argCount > 0 {
-		lines = append(lines, pad+tui.HelpStyle.Render("Arguments:"))
-		for i := df.fieldCount; i < len(df.items); i++ {
-			prefix := strings.Repeat(tui.KeySpace, 4)
-			if i == df.cursor {
-				prefix = strings.Repeat(tui.KeySpace, 2) + "› "
-			}
-			lines = append(lines, prefix+df.items[i].View())
-		}
-		lines = append(lines, "")
+		lines = append(lines, prefix+df.items[i].View())
 	}
 
 	return strings.Join(lines, "\n")
