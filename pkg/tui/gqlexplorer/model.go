@@ -356,6 +356,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.detailForm.CursorUp()
 				case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
 					m.detailForm.CursorDown()
+				case tui.KeyLeft, tui.KeyRight:
+					cmd := m.detailPanel.Update(msg)
+					return m, cmd
 				}
 				m.syncViewport()
 				return m, nil

@@ -37,6 +37,7 @@ func (p *Panel) Resize(outerW, outerH int) {
 	if !p.ready {
 		p.viewport = viewport.New(innerW, innerH)
 		p.viewport.MouseWheelEnabled = true
+		p.viewport.SetHorizontalStep(2)
 		p.ready = true
 		return
 	}
