@@ -87,7 +87,7 @@ func (f *formItem) View() string {
 	case formItemTextInput:
 		label := f.name + tui.KeySpace + hint
 		if f.required {
-			label += tui.KeySpace + tui.HelpStyle.Render("*")
+			label += tui.KeySpace + tui.HelpStyle.Render(tui.Asterisk)
 		}
 		boxStyle := tui.InputStyle
 		if f.input.Model.Focused() {
@@ -95,7 +95,7 @@ func (f *formItem) View() string {
 		}
 		inputBox := boxStyle.Render(f.input.Model.View())
 
-		connector := tui.HelpStyle.Render("└─")
+		connector := tui.HelpStyle.Render(tui.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
 		var b strings.Builder
 		b.WriteString(label)
