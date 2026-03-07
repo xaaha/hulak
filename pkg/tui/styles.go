@@ -52,23 +52,7 @@ var BoxStyle = lipgloss.NewStyle().
 // Layout constants. Every height/width/percentage that affects how
 // the screen is carved up lives here so adding a new row or panel
 // does not require hunting through component files.
-//
-// Vertical budget (two-panel mode):
-//
-//	┌──────────────────────────────────────────────┐
-//	│ [badges?]                                    │  (dynamic, 0-1)
-//	│ ╭ Search ──────╮  ╭[2]──────────────────────╮│
-//	│ │               │  │                         ││  SearchBoxHeight
-//	│ ╰───────────────╯  │   detail form           ││
-//	│ N/M operations     │                         ││  StatusRowHeight
-//	│ ┌ operations ──┐   │                         ││
-//	│ │               │  ╰─────────────────────────╯│
-//	│ │               │  ╭ response (future) ──────╮│  (resp will be bigger)
-//	│ │               │  │                         ││
-//	│ └───────────────┘  ╰─────────────────────────╯│
-//	│     ↑↓/j/k: navigate | enter: detail | ...    │  HelpBarHeight
-//	└──────────────────────────────────────────────┘
-//
+
 // The viewport in the left panel fills whatever is left after
 // subtracting the fixed rows (search, status, badges, filter hint)
 // from contentHeight. contentHeight itself already excludes
