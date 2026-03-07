@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -90,14 +89,10 @@ func (f *formItem) View() string {
 		if f.required {
 			label += tui.KeySpace + tui.HelpStyle.Render("*")
 		}
-		borderColor := tui.ColorMuted
+		boxStyle := tui.InputStyle
 		if f.input.Model.Focused() {
-			borderColor = tui.ColorPrimary
+			boxStyle = tui.FocusedInputStyle
 		}
-		boxStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(borderColor).
-			Padding(0, 1)
 		inputBox := boxStyle.Render(f.input.Model.View())
 
 		connector := tui.HelpStyle.Render("└─")
