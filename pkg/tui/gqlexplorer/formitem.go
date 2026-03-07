@@ -9,6 +9,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type formItemKind int
@@ -93,7 +94,7 @@ func (f *formItem) View() string {
 		}
 		label := name + tui.KeySpace + hint
 		if f.required {
-			label += tui.KeySpace + tui.HelpStyle.Render(tui.Asterisk)
+			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
 		}
 		boxStyle := tui.InputStyle
 		if focused {
@@ -105,7 +106,7 @@ func (f *formItem) View() string {
 		if focused {
 			connectorStyle = lipgloss.NewStyle().Foreground(tui.ColorPrimary)
 		}
-		connector := connectorStyle.Render(tui.Connector)
+		connector := connectorStyle.Render(utils.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
 		var b strings.Builder
 		b.WriteString(label)

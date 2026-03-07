@@ -25,9 +25,4 @@ const (
 
 	// Rendering
 	listPadding = "   " // 3-space indent for non-selected list items
-
-	// Required
-	Asterisk = "*"
-
-	Connector = "└─"
 )
