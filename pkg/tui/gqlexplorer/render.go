@@ -179,7 +179,7 @@ func renderDetail(
 			lines = append(lines, argPad+name+tui.KeySpace+tui.KeySpace+typStr+required)
 
 			base := ExtractBaseType(arg.Type)
-			if it, ok := resolveInputType(inputTypes, op.Endpoint, base); ok {
+			if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 				lines = appendInputTypeFields(
 					lines,
 					it,
@@ -195,7 +195,7 @@ func renderDetail(
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
-		if ot, ok := resolveObjectType(objectTypes, op.Endpoint, base); ok {
+		if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
 			lines = append(lines, pad+tui.HelpStyle.Render("Fields:"))
 			lines = appendObjectTypeFields(
 				lines,
@@ -212,16 +212,12 @@ func renderDetail(
 	return strings.Join(lines, "\n")
 }
 
-func resolveObjectType(
-	objectTypes map[string]graphql.ObjectType,
-	endpoint string,
-	baseType string,
-) (graphql.ObjectType, bool) {
-	if ot, ok := objectTypes[ScopedTypeKey(endpoint, baseType)]; ok {
-		return ot, true
+func resolveType[T any](types map[string]T, endpoint, baseType string) (T, bool) {
+	if t, ok := types[ScopedTypeKey(endpoint, baseType)]; ok {
+		return t, true
 	}
-	ot, ok := objectTypes[baseType]
-	return ot, ok
+	t, ok := types[baseType]
+	return t, ok
 }
 
 const maxObjectTypeDepth = 3
@@ -246,7 +242,7 @@ func appendObjectTypeFields(
 
 		if depth < maxObjectTypeDepth {
 			base := ExtractBaseType(f.Type)
-			if nested, ok := resolveObjectType(objectTypes, endpoint, base); ok {
+			if nested, ok := resolveType(objectTypes, endpoint, base); ok {
 				childIndent := indent + tui.KeySpace + tui.KeySpace
 				if i < len(ot.Fields)-1 {
 					childIndent = indent + tui.HelpStyle.Render(treeBranch) + tui.KeySpace
@@ -263,18 +259,6 @@ func appendObjectTypeFields(
 		}
 	}
 	return lines
-}
-
-func resolveInputType(
-	inputTypes map[string]graphql.InputType,
-	endpoint string,
-	baseType string,
-) (graphql.InputType, bool) {
-	if it, ok := inputTypes[ScopedTypeKey(endpoint, baseType)]; ok {
-		return it, true
-	}
-	it, ok := inputTypes[baseType]
-	return it, ok
 }
 
 const maxInputTypeDepth = 3
@@ -299,7 +283,7 @@ func appendInputTypeFields(
 
 		if depth < maxInputTypeDepth {
 			base := ExtractBaseType(f.Type)
-			if nested, ok := resolveInputType(inputTypes, endpoint, base); ok {
+			if nested, ok := resolveType(inputTypes, endpoint, base); ok {
 				childIndent := indent + tui.KeySpace + tui.KeySpace
 				if i < len(it.Fields)-1 {
 					childIndent = indent + tui.HelpStyle.Render(treeBranch) + tui.KeySpace

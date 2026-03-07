@@ -844,7 +844,7 @@ func TestResolveEnumTypeScopedThenBare(t *testing.T) {
 		"Color":   {Name: "Color", Values: []graphql.EnumValue{{Name: "BLUE"}}},
 	}
 
-	et, ok := resolveEnumType(enums, ep, "Color")
+	et, ok := resolveType(enums, ep, "Color")
 	if !ok {
 		t.Fatal("expected to find scoped enum")
 	}
@@ -852,7 +852,7 @@ func TestResolveEnumTypeScopedThenBare(t *testing.T) {
 		t.Fatalf("scoped key should take priority, got %q", et.Values[0].Name)
 	}
 
-	et2, ok := resolveEnumType(enums, "other-ep", "Color")
+	et2, ok := resolveType(enums, "other-ep", "Color")
 	if !ok {
 		t.Fatal("expected to find bare enum")
 	}

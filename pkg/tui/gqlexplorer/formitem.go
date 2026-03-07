@@ -68,15 +68,16 @@ func (f *formItem) Focused() bool {
 }
 
 func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
 	switch f.kind {
 	case formItemToggle:
-		f.toggle, _ = f.toggle.Update(msg)
+		f.toggle, cmd = f.toggle.Update(msg)
 	case formItemTextInput:
-		f.input.Update(msg)
+		_, cmd = f.input.Update(msg)
 	case formItemDropdown:
-		f.dropdown, _ = f.dropdown.Update(msg)
+		f.dropdown, cmd = f.dropdown.Update(msg)
 	}
-	return nil
+	return cmd
 }
 
 func (f *formItem) View() string {
@@ -148,47 +149,7 @@ func newArgFormItem(
 	enumTypes map[string]graphql.EnumType,
 	endpoint string,
 ) formItem {
-	required := strings.HasSuffix(arg.Type, "!")
-	base := ExtractBaseType(arg.Type)
-
-	if base == "Boolean" {
-		return formItem{
-			kind:     formItemToggle,
-			name:     arg.Name,
-			typeHint: arg.Type,
-			required: required,
-			toggle:   tui.NewToggle(arg.Name, false),
-		}
-	}
-
-	if et, ok := resolveEnumType(enumTypes, endpoint, base); ok {
-		options := make([]string, len(et.Values))
-		for i, v := range et.Values {
-			options[i] = v.Name
-		}
-		return formItem{
-			kind:     formItemDropdown,
-			name:     arg.Name,
-			typeHint: arg.Type,
-			required: required,
-			dropdown: tui.NewDropdown(arg.Name, options, 0),
-		}
-	}
-
-	placeholder := fmt.Sprintf("%s value", base)
-	ti := tui.NewFilterInput(tui.TextInputOpts{
-		Prompt:      "",
-		Placeholder: placeholder,
-		MinWidth:    max(len(placeholder), 15),
-	})
-	ti.Model.Blur()
-	return formItem{
-		kind:     formItemTextInput,
-		name:     arg.Name,
-		typeHint: arg.Type,
-		required: required,
-		input:    ti,
-	}
+	return newTypedFormItem(arg.Name, arg.Type, enumTypes, endpoint)
 }
 
 func newFieldFormItem(field graphql.ObjectField, selected bool) formItem {
@@ -201,47 +162,43 @@ func newFieldFormItem(field graphql.ObjectField, selected bool) formItem {
 	}
 }
 
-func resolveEnumType(
-	enumTypes map[string]graphql.EnumType,
-	endpoint string,
-	baseType string,
-) (graphql.EnumType, bool) {
-	if et, ok := enumTypes[ScopedTypeKey(endpoint, baseType)]; ok {
-		return et, true
-	}
-	et, ok := enumTypes[baseType]
-	return et, ok
-}
-
 func newInputFieldFormItem(
 	field graphql.InputField,
 	enumTypes map[string]graphql.EnumType,
 	endpoint string,
 ) formItem {
-	required := strings.HasSuffix(field.Type, "!")
-	base := ExtractBaseType(field.Type)
+	return newTypedFormItem(field.Name, field.Type, enumTypes, endpoint)
+}
+
+func newTypedFormItem(
+	name, typeStr string,
+	enumTypes map[string]graphql.EnumType,
+	endpoint string,
+) formItem {
+	required := strings.HasSuffix(typeStr, "!")
+	base := ExtractBaseType(typeStr)
 
 	if base == "Boolean" {
 		return formItem{
 			kind:     formItemToggle,
-			name:     field.Name,
-			typeHint: field.Type,
+			name:     name,
+			typeHint: typeStr,
 			required: required,
-			toggle:   tui.NewToggle(field.Name, false),
+			toggle:   tui.NewToggle(name, false),
 		}
 	}
 
-	if et, ok := resolveEnumType(enumTypes, endpoint, base); ok {
+	if et, ok := resolveType(enumTypes, endpoint, base); ok {
 		options := make([]string, len(et.Values))
 		for i, v := range et.Values {
 			options[i] = v.Name
 		}
 		return formItem{
 			kind:     formItemDropdown,
-			name:     field.Name,
-			typeHint: field.Type,
+			name:     name,
+			typeHint: typeStr,
 			required: required,
-			dropdown: tui.NewDropdown(field.Name, options, 0),
+			dropdown: tui.NewDropdown(name, options, 0),
 		}
 	}
 
@@ -254,8 +211,8 @@ func newInputFieldFormItem(
 	ti.Model.Blur()
 	return formItem{
 		kind:     formItemTextInput,
-		name:     field.Name,
-		typeHint: field.Type,
+		name:     name,
+		typeHint: typeStr,
 		required: required,
 		input:    ti,
 	}
@@ -281,7 +238,7 @@ func buildDetailForm(
 
 	for _, arg := range op.Arguments {
 		base := ExtractBaseType(arg.Type)
-		if it, ok := resolveInputType(inputTypes, op.Endpoint, base); ok {
+		if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 			for _, field := range it.Fields {
 				items = append(items, newInputFieldFormItem(field, enumTypes, op.Endpoint))
 			}
@@ -293,10 +250,10 @@ func buildDetailForm(
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
-		if ot, ok := resolveObjectType(objectTypes, op.Endpoint, base); ok {
+		if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
 			for _, f := range ot.Fields {
 				childBase := ExtractBaseType(f.Type)
-				_, isObj := resolveObjectType(objectTypes, op.Endpoint, childBase)
+				_, isObj := resolveType(objectTypes, op.Endpoint, childBase)
 				fi := newFieldFormItem(f, !isObj)
 				fi.expandable = isObj
 				items = append(items, fi)
@@ -383,17 +340,20 @@ func (df *DetailForm) toggleExpand(idx int) {
 
 	if item.toggle.Value {
 		base := ExtractBaseType(item.typeHint)
-		ot, ok := resolveObjectType(df.objectTypes, df.endpoint, base)
+		ot, ok := resolveType(df.objectTypes, df.endpoint, base)
 		if !ok {
 			return
 		}
+		childDepth := item.depth + 1
 		children := make([]formItem, 0, len(ot.Fields))
 		for _, f := range ot.Fields {
 			child := newFieldFormItem(f, false)
-			child.depth = item.depth + 1
+			child.depth = childDepth
 			childBase := ExtractBaseType(f.Type)
-			if _, ok := resolveObjectType(df.objectTypes, df.endpoint, childBase); ok {
-				child.expandable = true
+			if childDepth < maxObjectTypeDepth {
+				if _, ok := resolveType(df.objectTypes, df.endpoint, childBase); ok {
+					child.expandable = true
+				}
 			}
 			children = append(children, child)
 		}
