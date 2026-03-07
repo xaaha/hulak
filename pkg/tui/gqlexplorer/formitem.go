@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
@@ -85,17 +86,26 @@ func (f *formItem) View() string {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
 	case formItemTextInput:
-		label := f.name + tui.KeySpace + hint
+		focused := f.input.Model.Focused()
+		name := f.name
+		if focused {
+			name = lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render(f.name)
+		}
+		label := name + tui.KeySpace + hint
 		if f.required {
 			label += tui.KeySpace + tui.HelpStyle.Render(tui.Asterisk)
 		}
 		boxStyle := tui.InputStyle
-		if f.input.Model.Focused() {
+		if focused {
 			boxStyle = tui.FocusedInputStyle
 		}
 		inputBox := boxStyle.Render(f.input.Model.View())
 
-		connector := tui.HelpStyle.Render(tui.Connector)
+		connectorStyle := tui.HelpStyle
+		if focused {
+			connectorStyle = lipgloss.NewStyle().Foreground(tui.ColorPrimary)
+		}
+		connector := connectorStyle.Render(tui.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
 		var b strings.Builder
 		b.WriteString(label)
