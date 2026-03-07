@@ -1,7 +1,6 @@
 package gqlexplorer
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,14 +16,11 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
-	// Lines the search ViewTitle occupies: top border + input + bottom border
-	searchBoxLines        = 3
 	noMatchesLabel        = "(no matches)"
-	helpNavigation        = "esc: quit | ↑/↓: navigate"
 	operationFormat       = "%d/%d operations"
+	helpLeftPanel         = "↑↓/j/k/ctrl+n/p: navigate | enter: detail | tab: switch | esc: unfocus/quit"
+	helpDetailPanel       = "↑↓/j/k/ctrl+n/p: navigate | space: toggle | esc: back"
 	searchPlaceholderText = "filter operations..."
-	// below this width, the ui does not have enough space to render fixed text
-	// like searchPlaceholderText and badge.
 	minHeaderContentWidth = 111
 )
 
@@ -162,11 +158,11 @@ func (m *Model) contentWidth() int {
 }
 
 func (m *Model) contentHeight() int {
-	return max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
+	return max(m.height-_containerStyle.GetVerticalFrameSize()-tui.HelpBarHeight, 1)
 }
 
 func (m *Model) detailTopHeight() int {
-	return max(m.contentHeight()*tui.DetailTopHeight/100, 1)
+	return max(m.contentHeight()*tui.DetailTopPct/100, 1)
 }
 
 // responseAreaHeight returns the height allocated to the response area
@@ -203,7 +199,7 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 
 func (m *Model) viewportHeight() int {
 	panelW := max(m.leftPanelWidth(), 1)
-	headerLines := searchBoxLines
+	headerLines := tui.SearchBoxHeight
 	// Only count the badge row when it will actually be rendered.
 	// updateBadgeCache clears badgeCache in narrow terminals, so counting
 	// it unconditionally causes a 1-line viewport height mismatch.
@@ -213,14 +209,7 @@ func (m *Model) viewportHeight() int {
 	if m.filterHint != "" {
 		headerLines += wrappedLineCount(m.filterHint, panelW)
 	}
-	// statusLine (always 1) + help line (may wrap)
-	footerLines := 1
-	helpText := helpNavigation
-	if m.pickingEndpoints {
-		helpText = helpEndpointPicker
-	}
-	helpWithScroll := fmt.Sprintf("%s %3.f%%", helpText, m.viewport.ScrollPercent()*100)
-	footerLines += wrappedLineCount(helpWithScroll, panelW)
+	footerLines := tui.StatusRowHeight
 	h := max(m.contentHeight()-headerLines-footerLines, 1)
 	return h
 }
@@ -479,21 +468,38 @@ func (m *Model) syncViewport() {
 	}
 }
 
+func (m *Model) renderHelpBar(width int) string {
+	var raw string
+	switch {
+	case m.pickingEndpoints:
+		raw = helpEndpointPicker
+	case !m.focus.LeftFocused():
+		raw = helpDetailPanel
+	default:
+		raw = helpLeftPanel
+	}
+	return tui.HelpStyle.Render(
+		lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(raw),
+	)
+}
+
 func (m *Model) View() string {
-	// Compute layout values once per frame instead of calling through
-	// method chains repeatedly.
 	leftW := m.leftPanelWidth()
+	contentW := m.contentWidth()
 	contentH := m.contentHeight()
+
+	helpBar := m.renderHelpBar(contentW)
 
 	leftCol := lipgloss.NewStyle().
 		Width(leftW).
 		Height(contentH).
 		Render(m.renderLeftContent())
 	if !m.hasTwoPanelLayout() {
+		body := lipgloss.JoinVertical(lipgloss.Left, leftCol, helpBar)
 		box := _containerStyle.
 			Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
 			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
-			Render(leftCol)
+			Render(body)
 
 		return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 	}
@@ -512,21 +518,19 @@ func (m *Model) View() string {
 		detailView = detailFrameStyle.Render("")
 	}
 
-	// Placeholder reserves vertical space for the future response panel.
-	// Without it the right column collapses to only the detail viewport height.
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.responseAreaHeight()).
 		Render("")
 
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, responsePlaceholder)
-
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	body := lipgloss.JoinVertical(lipgloss.Left, combined, helpBar)
 
 	box := _containerStyle.
 		Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
 		Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
-		Render(combined)
+		Render(body)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 }

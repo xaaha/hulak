@@ -349,19 +349,7 @@ func (m *Model) renderLeftContent() string {
 		list = content
 	}
 
-	var rawHelp string
-	if m.pickingEndpoints {
-		rawHelp = helpEndpointPicker
-	} else {
-		rawHelp = helpNavigation
-	}
-
-	helpWithScroll := fmt.Sprintf("%s %3.f%%", rawHelp, m.viewport.ScrollPercent()*100)
-	helpLine := tui.HelpStyle.Render(
-		lipgloss.NewStyle().Width(panelW).Render(helpWithScroll),
-	)
-
-	lines := make([]string, 0, 6)
+	lines := make([]string, 0, 5)
 	if badges != "" {
 		lines = append(lines, badges)
 	}
@@ -369,7 +357,7 @@ func (m *Model) renderLeftContent() string {
 	if m.filterHint != "" {
 		lines = append(lines, lipgloss.NewStyle().Width(panelW).Render(m.filterHint))
 	}
-	lines = append(lines, statusLine, list, helpLine)
+	lines = append(lines, statusLine, list)
 	return strings.Join(lines, "\n")
 }
 

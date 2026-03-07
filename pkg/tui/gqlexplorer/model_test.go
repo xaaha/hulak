@@ -1,7 +1,6 @@
 package gqlexplorer
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -471,7 +470,10 @@ func TestWindowSizeMsgHidesHeaderExtrasBelowThreshold(t *testing.T) {
 	model := result.(*Model)
 
 	if model.search.Model.Placeholder != "" {
-		t.Errorf("expected empty placeholder below threshold, got %q", model.search.Model.Placeholder)
+		t.Errorf(
+			"expected empty placeholder below threshold, got %q",
+			model.search.Model.Placeholder,
+		)
 	}
 	if model.badgeCache != "" {
 		t.Errorf("expected empty badge cache below threshold, got %q", model.badgeCache)
@@ -605,7 +607,7 @@ func TestViewContainsHelpText(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, "esc: quit") {
+	if !strings.Contains(view, "esc: unfocus/quit") {
 		t.Error("view should contain help text")
 	}
 }
@@ -1255,11 +1257,10 @@ func TestDetailTopHeight(t *testing.T) {
 		height int
 		want   int
 	}{
-		// containerStyle vertical frame = 2 (top+bottom border),
-		// DetailTopHeight = 40%.
-		// contentH = max(height-2, 1), top = max(contentH*40/100, 1)
-		{"typical terminal", 40, 15},
-		{"small terminal", 10, 3},
+		// containerStyle vertical frame = 2, HelpBarHeight = 1.
+		// contentH = max(height-3, 1), top = max(contentH*40/100, 1)
+		{"typical terminal", 40, 14},
+		{"small terminal", 10, 2},
 		{"minimum size", 5, 1},
 		{"zero height", 0, 1},
 	}
@@ -1318,22 +1319,11 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	}
 }
 
-func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
+func TestRenderLeftContentFitsWithinContentHeight(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil)
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 28})
 	model := result.(*Model)
-
-	panelW := model.leftPanelWidth()
-	if panelW <= 0 {
-		t.Fatalf("expected positive panel width, got %d", panelW)
-	}
-
-	rawHelp := helpNavigation
-	helpWithScroll := fmt.Sprintf("%s %3.f%%", rawHelp, model.viewport.ScrollPercent()*100)
-	if wrappedLineCount(helpWithScroll, panelW) <= wrappedLineCount(rawHelp, panelW) {
-		t.Fatalf("expected scroll suffix to increase/wrap help line at width=%d", panelW)
-	}
 
 	leftHeight := lipgloss.Height(model.renderLeftContent())
 	contentHeight := model.contentHeight()
@@ -1344,6 +1334,23 @@ func TestRenderLeftContentFitsWhenHelpWrapsWithScrollPercent(t *testing.T) {
 			contentHeight,
 			model.width,
 		)
+	}
+}
+
+func TestHelpBarChangesWithFocus(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	model := result.(*Model)
+
+	leftHelp := model.renderHelpBar(80)
+	if !strings.Contains(leftHelp, "detail") {
+		t.Error("left-focused help should mention 'detail'")
+	}
+
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	detailHelp := model.renderHelpBar(80)
+	if !strings.Contains(detailHelp, "toggle") {
+		t.Error("detail-focused help should mention 'toggle'")
 	}
 }
 

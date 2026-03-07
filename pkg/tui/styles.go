@@ -49,16 +49,48 @@ var BoxStyle = lipgloss.NewStyle().
 	BorderForeground(ColorMuted).
 	Padding(1, 1)
 
-// Two-column layout split ratio. All width-dependent UI
-// (search input, badges, text wrapping) should derive from these
-// so the split ratio is defined in one place.
+// Layout constants. Every height/width/percentage that affects how
+// the screen is carved up lives here so adding a new row or panel
+// does not require hunting through component files.
+//
+// Vertical budget (two-panel mode):
+//
+//	┌──────────────────────────────────────────────┐
+//	│ [badges?]                                    │  (dynamic, 0-1)
+//	│ ╭ Search ──────╮  ╭[2]──────────────────────╮│
+//	│ │               │  │                         ││  SearchBoxHeight
+//	│ ╰───────────────╯  │   detail form           ││
+//	│ N/M operations     │                         ││  StatusRowHeight
+//	│ ┌ operations ──┐   │                         ││
+//	│ │               │  ╰─────────────────────────╯│
+//	│ │               │  ╭ response (future) ──────╮│  (resp will be bigger)
+//	│ │               │  │                         ││
+//	│ └───────────────┘  ╰─────────────────────────╯│
+//	│     ↑↓/j/k: navigate | enter: detail | ...    │  HelpBarHeight
+//	└──────────────────────────────────────────────┘
+//
+// The viewport in the left panel fills whatever is left after
+// subtracting the fixed rows (search, status, badges, filter hint)
+// from contentHeight. contentHeight itself already excludes
+// HelpBarHeight so the help bar sits outside both columns.
+
 const (
+	// Column widths
 	LeftPanelPct       = 30
-	DetailTopHeight    = 40
-	DetailFocusBoxW    = 50
-	DetailFocusBoxH    = 100 // Controls detail focus box height as a percentage. 100 = full height; values < 100 shrink the box. Values > 100 break the UI.
 	MinLeftPanelWidth  = 26
 	MinRightPanelWidth = 32
+
+	// Right panel vertical split (percentage of contentHeight)
+	DetailTopPct    = 40
+	DetailFocusBoxW = 50
+	DetailFocusBoxH = 100
+
+	// Fixed-height rows (lines). Subtract these from the total
+	// vertical budget before giving the remainder to scrollable
+	// content areas.
+	SearchBoxHeight = 3 // top border + input + bottom border
+	StatusRowHeight = 1 // "N/M operations" line
+	HelpBarHeight   = 1 // full-width help bar below both columns
 )
 
 // RenderBadge creates a colored badge with the given foreground color.
