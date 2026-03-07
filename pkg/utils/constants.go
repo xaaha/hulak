@@ -65,12 +65,13 @@ const (
 
 // tick mark and x for success and failure
 const (
-	CheckMark    = "\u2713"  // tick
-	CrossMark    = "\u2717"  // x
-	ChevronRight = "\uf054 " // >
-	ChevronDown  = "\uf078 " //
-	Asterisk     = "*"
-	Connector    = "└─"
+	CheckMark           = "\u2713"  // tick
+	CrossMark           = "\u2717"  // x
+	ChevronRight        = "\uf054 " // >
+	ChevronRightCircled = "\uf138"
+	ChevronDownCircled  = "\uf13a"
+	Asterisk            = "\uf069"
+	Connector           = "└─"
 )
 
 const Ellipsis = "..."
