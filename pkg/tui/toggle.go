@@ -3,6 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Toggle is a reusable checkbox/toggle component for Bubble Tea TUIs.
@@ -52,7 +53,7 @@ func (t Toggle) View() string {
 	check := " "
 	checkColor := ColorMuted
 	if t.Value {
-		check = "x"
+		check = utils.CrossMark
 		if t.focused {
 			checkColor = ColorPrimary
 		}

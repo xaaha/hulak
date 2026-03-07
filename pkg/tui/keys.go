@@ -1,9 +1,8 @@
 // Package tui provides shared utilities for terminal UI components.
 package tui
 
-// Key binding constants - single source of truth for all TUI components.
-// IMPORTANT: Never use single letter keys (like 'q') for quit/cancel
-// as they conflict with text input and filtering.
+// Common Key binding and other constants
+// single source of truth for all TUI components.
 const (
 	// Navigation
 	KeyUp    = "up"

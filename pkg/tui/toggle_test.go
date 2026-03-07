@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func keyMsg(k string) tea.KeyMsg {
@@ -154,12 +156,12 @@ func TestToggleViewShowsCheckState(t *testing.T) {
 			tog := NewToggle("flag", tc.value)
 			view := tog.View()
 			if tc.value {
-				if !strings.Contains(view, "x") {
-					t.Errorf("expected 'x' in on-state view, got: %s", view)
+				if !strings.Contains(view, utils.CrossMark) {
+					t.Errorf("expected CrossMark in on-state view, got: %s", view)
 				}
 			} else {
-				if strings.Contains(view, "x") {
-					t.Errorf("expected no 'x' in off-state view, got: %s", view)
+				if strings.Contains(view, utils.CrossMark) {
+					t.Errorf("expected no CrossMark in off-state view, got: %s", view)
 				}
 			}
 		})

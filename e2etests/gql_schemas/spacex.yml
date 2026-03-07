@@ -1,6 +1,0 @@
-# description: fetch real gql schema for spacex
----
-kind: GraphQL
-url: https://spacex-production.up.railway.app/
-headers:
-  Content-Type: application/json

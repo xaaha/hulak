@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 var testOptions = []string{"ADMIN", "USER", "MODERATOR"}
@@ -252,7 +253,7 @@ func TestDropdownViewCollapsed(t *testing.T) {
 	if !strings.Contains(view, "USER") {
 		t.Errorf("collapsed view should contain selected value, got: %s", view)
 	}
-	if !strings.Contains(view, dropdownIndicator) {
+	if !strings.Contains(view, utils.ChevronRightCircled) {
 		t.Errorf("collapsed view should contain indicator, got: %s", view)
 	}
 }

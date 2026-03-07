@@ -8,12 +8,11 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-const dropdownIndicator = "▼"
-
 // Dropdown is a reusable select component for Bubble Tea TUIs.
-// Collapsed it renders as ▼ VALUE; expanded it shows a cursor-navigable
-// option list. Only responds to keys when focused.
-//
+// Collapsed it renders as utils.ChevronRightCircled VALUE;
+// expanded it shows a cursor-navigable option list with utils.ChevronDownCircled
+// Only responds to keys when focused.
+
 // Not a full tea.Model — embed in a parent model and call Update/View
 // explicitly, similar to Panel and Toggle.
 type Dropdown struct {
@@ -102,7 +101,7 @@ func (d Dropdown) View() string {
 	lines := make([]string, 0, len(d.Options))
 	for i, opt := range d.Options {
 		if i == d.cursor {
-			lines = append(lines, SubtitleStyle.Render(utils.ChevronRight+KeySpace+opt))
+			lines = append(lines, SubtitleStyle.Render(utils.ChevronDownCircled+KeySpace+opt))
 		} else {
 			lines = append(lines, listPadding+opt)
 		}
@@ -115,7 +114,7 @@ func (d Dropdown) styledIndicator() string {
 	if d.focused {
 		color = ColorPrimary
 	}
-	return lipgloss.NewStyle().Foreground(color).Render(dropdownIndicator)
+	return lipgloss.NewStyle().Foreground(color).Render(utils.ChevronRightCircled)
 }
 
 // Focus marks the dropdown as focused.
@@ -137,6 +136,11 @@ func (d Dropdown) Focused() bool {
 // Expanded reports whether the option list is currently visible.
 func (d Dropdown) Expanded() bool {
 	return d.expanded
+}
+
+// Cursor returns the current cursor index inside the expanded list.
+func (d Dropdown) Cursor() int {
+	return d.cursor
 }
 
 // Value returns the currently selected option string, or empty if

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,13 +23,21 @@ type Panel struct {
 
 // Resize updates the panel's outer dimensions. Panel subtracts the border
 // frame internally to size the viewport.
+func (p *Panel) titleHeight() int {
+	if p.Number > 0 {
+		return 1
+	}
+	return 0
+}
+
 func (p *Panel) Resize(outerW, outerH int) {
 	innerW := max(outerW-panelBorderStyle.GetHorizontalFrameSize(), 0)
-	innerH := max(outerH-panelBorderStyle.GetVerticalFrameSize(), 0)
+	innerH := max(outerH-panelBorderStyle.GetVerticalFrameSize()-p.titleHeight(), 0)
 
 	if !p.ready {
 		p.viewport = viewport.New(innerW, innerH)
 		p.viewport.MouseWheelEnabled = true
+		p.viewport.SetHorizontalStep(2)
 		p.ready = true
 		return
 	}
@@ -60,6 +67,12 @@ func (p *Panel) SetContent(content, cacheKey string) bool {
 	return true
 }
 
+// SyncContent sets content and scrolls so cursorLine stays visible.
+func (p *Panel) SyncContent(content string, cursorLine int) {
+	p.cacheKey = ""
+	SyncViewport(&p.viewport, content, cursorLine, DefaultScrollMargin)
+}
+
 // Update forwards messages (scroll, mouse) to the inner viewport.
 // Parent should call this only when this panel is focused.
 func (p *Panel) Update(msg tea.Msg) tea.Cmd {
@@ -86,73 +99,31 @@ func (p *Panel) ScrollPercent() float64 {
 	return p.viewport.ScrollPercent()
 }
 
-// View renders the panel as a bordered box with a number title (e.g. [2])
-// injected into the top border. Focused panels use ColorPrimary for the
-// border, unfocused panels use ColorMuted.
+// View renders the panel as a bordered box. When Number > 0, a styled
+// [N] label appears inside the box at the bottom-right. Focused panels use
+// ColorPrimary for the border and label, unfocused panels use ColorMuted.
 func (p *Panel) View(focused bool) string {
 	borderColor := ColorMuted
 	if focused {
 		borderColor = ColorPrimary
 	}
 
+	content := p.viewport.View()
+	contentH := p.viewport.Height
+
+	if p.Number > 0 {
+		label := fmt.Sprintf("[%d]", p.Number)
+		styledLabel := lipgloss.NewStyle().Foreground(borderColor).Render(label)
+		padding := p.viewport.Width - len([]rune(label))
+		labelLine := fmt.Sprintf("%*s%s", padding, "", styledLabel)
+		content = content + "\n" + labelLine
+		contentH += p.titleHeight()
+	}
+
 	style := panelBorderStyle.
 		BorderForeground(borderColor).
 		Width(p.viewport.Width).
-		Height(p.viewport.Height)
+		Height(contentH)
 
-	box := style.Render(p.viewport.View())
-
-	if p.Number > 0 {
-		box = injectBorderTitle(box, p.Number, borderColor)
-	}
-
-	return box
-}
-
-// injectBorderTitle splices a [N] label into the top border line of a
-// lipgloss-rendered box. It searches for the actual border characters
-// by string value (skipping any ANSI escape prefixes) and replaces
-// consecutive ─ dashes after the ╭ corner.
-func injectBorderTitle(box string, number int, color lipgloss.TerminalColor) string {
-	newlineIdx := strings.IndexByte(box, '\n')
-	if newlineIdx < 0 {
-		return box
-	}
-
-	topLine := box[:newlineIdx]
-
-	// Find the ╭ corner character, skipping any ANSI prefix.
-	cornerIdx := strings.Index(topLine, "╭")
-	if cornerIdx < 0 {
-		return box
-	}
-
-	// Find the first ─ after the corner.
-	afterCorner := cornerIdx + len("╭")
-	dashIdx := strings.Index(topLine[afterCorner:], "─")
-	if dashIdx < 0 {
-		return box
-	}
-	dashStart := afterCorner + dashIdx
-
-	// Count how many consecutive ─ bytes are available.
-	dashLen := len("─")
-	nDashes := 0
-	pos := dashStart
-	for pos+dashLen <= len(topLine) && topLine[pos:pos+dashLen] == "─" {
-		nDashes++
-		pos += dashLen
-	}
-
-	label := fmt.Sprintf("[%d]", number)
-	labelRunes := len([]rune(label))
-	// Need enough dashes to replace with the label.
-	if nDashes < labelRunes {
-		return box
-	}
-
-	styledLabel := lipgloss.NewStyle().Foreground(color).Render(label)
-
-	replaceEnd := dashStart + labelRunes*dashLen
-	return topLine[:dashStart] + styledLabel + topLine[replaceEnd:] + box[newlineIdx:]
+	return style.Render(content)
 }

@@ -1,7 +1,6 @@
 package gqlexplorer
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,14 +16,11 @@ const (
 	itemPadding   = 4
 	detailPadding = 6
 
-	// Lines the search ViewTitle occupies: top border + input + bottom border
-	searchBoxLines        = 3
 	noMatchesLabel        = "(no matches)"
-	helpNavigation        = "esc: quit | ↑/↓: navigate"
 	operationFormat       = "%d/%d operations"
+	helpLeftPanel         = "↑↓/j/k/ctrl+n/p: navigate | enter: detail | tab: switch | esc: unfocus/quit"
+	helpDetailPanel       = "↑↓/j/k/ctrl+n/p: navigate | space: toggle | esc: back"
 	searchPlaceholderText = "filter operations..."
-	// below this width, the ui does not have enough space to render fixed text
-	// like searchPlaceholderText and badge.
 	minHeaderContentWidth = 111
 )
 
@@ -67,8 +63,10 @@ type Model struct {
 	pendingEndpoints map[string]bool
 	badgeCache       string
 
-	detailPanel *tui.Panel
-	focus       tui.FocusRing
+	detailPanel   *tui.Panel
+	detailForm    *DetailForm
+	detailFormKey string
+	focus         tui.FocusRing
 }
 
 func NewModel(
@@ -105,7 +103,7 @@ func NewModel(
 		enumTypes:       enumTypes,
 		objectTypes:     objectTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
-			Prompt:      "Search: ",
+			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
 		detailPanel: dp,
@@ -160,11 +158,11 @@ func (m *Model) contentWidth() int {
 }
 
 func (m *Model) contentHeight() int {
-	return max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
+	return max(m.height-_containerStyle.GetVerticalFrameSize()-tui.HelpBarHeight, 1)
 }
 
 func (m *Model) detailTopHeight() int {
-	return max(m.contentHeight()*tui.DetailTopHeight/100, 1)
+	return max(m.contentHeight()*tui.DetailTopPct/100, 1)
 }
 
 // responseAreaHeight returns the height allocated to the response area
@@ -201,7 +199,7 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 
 func (m *Model) viewportHeight() int {
 	panelW := max(m.leftPanelWidth(), 1)
-	headerLines := searchBoxLines
+	headerLines := tui.SearchBoxHeight
 	// Only count the badge row when it will actually be rendered.
 	// updateBadgeCache clears badgeCache in narrow terminals, so counting
 	// it unconditionally causes a 1-line viewport height mismatch.
@@ -211,14 +209,7 @@ func (m *Model) viewportHeight() int {
 	if m.filterHint != "" {
 		headerLines += wrappedLineCount(m.filterHint, panelW)
 	}
-	// statusLine (always 1) + help line (may wrap)
-	footerLines := 1
-	helpText := helpNavigation
-	if m.pickingEndpoints {
-		helpText = helpEndpointPicker
-	}
-	helpWithScroll := fmt.Sprintf("%s %3.f%%", helpText, m.viewport.ScrollPercent()*100)
-	footerLines += wrappedLineCount(helpWithScroll, panelW)
+	footerLines := tui.StatusRowHeight
 	h := max(m.contentHeight()-headerLines-footerLines, 1)
 	return h
 }
@@ -273,6 +264,29 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *Model) forwardKeyToForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	cmd := m.detailForm.HandleKey(msg)
+	m.syncViewport()
+	return m, cmd
+}
+
+func (m *Model) handleDetailFormNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.detailForm.hasExpandedDropdown() {
+		return m.forwardKeyToForm(msg)
+	}
+	switch msg.String() {
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
+		m.detailForm.CursorUp()
+	case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
+		m.detailForm.CursorDown()
+	case tui.KeyLeft, tui.KeyRight:
+		cmd := m.detailPanel.Update(msg)
+		return m, cmd
+	}
+	m.syncViewport()
+	return m, nil
+}
+
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.pickingEndpoints {
 		return m.handleEndpointPickerKey(msg)
@@ -283,6 +297,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 	case tui.KeyCancel:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			if m.detailForm.hasExpandedDropdown() {
+				m.detailForm.HandleKey(msg)
+				m.syncViewport()
+				return m, nil
+			}
+			m.detailForm.BlurAll()
+			m.focus.FocusByNumber(1)
+			m.focus.SetTyping(true)
+			m.syncSearchFocus()
+			m.syncViewport()
+			return m, nil
+		}
 		if m.focus.Typing() {
 			if m.search.Model.Value() != "" {
 				m.search.Model.Reset()
@@ -291,6 +318,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.focus.SetTyping(false)
 			m.syncSearchFocus()
+			return m, nil
+		}
+		if !m.focus.LeftFocused() {
+			m.focus.FocusByNumber(1)
+			m.focus.SetTyping(true)
+			m.syncSearchFocus()
+			m.syncViewport()
 			return m, nil
 		}
 		return m, tea.Quit
@@ -302,6 +336,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncSearchFocus()
 		return m, nil
 	case tui.KeyEnter:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			return m.forwardKeyToForm(msg)
+		}
 		if m.focus.LeftFocused() {
 			if !m.focus.Typing() {
 				m.focus.SetTyping(true)
@@ -311,28 +348,45 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.hasTwoPanelLayout() {
 				m.focus.FocusByNumber(m.detailPanel.Number)
 				m.syncSearchFocus()
+				m.syncViewport()
 			}
 		}
 		return m, nil
 
-	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight:
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
+		tui.KeyK, tui.KeyJ:
+		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK {
+			if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+				return m.forwardKeyToForm(msg)
+			}
+			if m.focus.LeftFocused() && m.focus.Typing() {
+				break
+			}
+		}
 		if !m.focus.LeftFocused() {
+			if m.detailForm != nil {
+				return m.handleDetailFormNavigation(msg)
+			}
 			cmd := m.detailPanel.Update(msg)
 			return m, cmd
 		}
 		switch msg.String() {
-		case tui.KeyUp, tui.KeyCtrlP:
+		case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
 			m.cursor = tui.MoveCursorUp(m.cursor)
 			m.syncViewport()
-		case tui.KeyDown, tui.KeyCtrlN:
+		case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
 			m.cursor = tui.MoveCursorDown(m.cursor, len(m.filtered)-1)
 			m.syncViewport()
 		}
 		return m, nil
+
+	case tui.KeySpace:
+		if !m.focus.LeftFocused() && m.detailForm != nil {
+			return m.forwardKeyToForm(msg)
+		}
 	}
 
-	if !m.focus.Typing() {
-		// lazygit style numeber'd border
+	if !m.focus.Typing() && (m.detailForm == nil || !m.detailForm.ConsumesTextInput()) {
 		if key := msg.String(); len(key) == 1 && key[0] >= '1' && key[0] <= '9' {
 			num := int(key[0] - '0')
 			if m.focus.FocusByNumber(num) {
@@ -346,6 +400,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !m.focus.LeftFocused() {
+		if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+			return m.forwardKeyToForm(msg)
+		}
 		return m, nil
 	}
 
@@ -385,30 +442,67 @@ func (m *Model) syncViewport() {
 
 	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 		op := &m.filtered[m.cursor]
-		cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-		if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+
+		formKey := op.Endpoint + "\x1f" + op.Name
+		if m.detailFormKey != formKey {
+			m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
+			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 		}
+
+		if m.detailForm != nil {
+			if m.focus.IsFocused(m.detailPanel) {
+				m.detailForm.FocusCurrent()
+			} else {
+				m.detailForm.BlurAll()
+			}
+			content, cursorLine := m.detailForm.View(op)
+			m.detailPanel.SyncContent(content, cursorLine)
+		} else {
+			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
+			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+				m.detailPanel.GotoTop()
+			}
+		}
 	} else {
+		m.detailForm = nil
+		m.detailFormKey = ""
 		m.detailPanel.SetContent("", "")
 	}
 }
 
+func (m *Model) renderHelpBar(width int) string {
+	var raw string
+	switch {
+	case m.pickingEndpoints:
+		raw = helpEndpointPicker
+	case !m.focus.LeftFocused():
+		raw = helpDetailPanel
+	default:
+		raw = helpLeftPanel
+	}
+	return tui.HelpStyle.Render(
+		lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(raw),
+	)
+}
+
 func (m *Model) View() string {
-	// Compute layout values once per frame instead of calling through
-	// method chains repeatedly.
 	leftW := m.leftPanelWidth()
+	contentW := m.contentWidth()
 	contentH := m.contentHeight()
+
+	helpBar := m.renderHelpBar(contentW)
 
 	leftCol := lipgloss.NewStyle().
 		Width(leftW).
 		Height(contentH).
 		Render(m.renderLeftContent())
 	if !m.hasTwoPanelLayout() {
+		body := lipgloss.JoinVertical(lipgloss.Left, leftCol, helpBar)
 		box := _containerStyle.
 			Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
 			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
-			Render(leftCol)
+			Render(body)
 
 		return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 	}
@@ -427,21 +521,19 @@ func (m *Model) View() string {
 		detailView = detailFrameStyle.Render("")
 	}
 
-	// Placeholder reserves vertical space for the future response panel.
-	// Without it the right column collapses to only the detail viewport height.
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.responseAreaHeight()).
 		Render("")
 
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, responsePlaceholder)
-
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
+	body := lipgloss.JoinVertical(lipgloss.Left, combined, helpBar)
 
 	box := _containerStyle.
 		Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
 		Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
-		Render(combined)
+		Render(body)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
 }
