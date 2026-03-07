@@ -411,7 +411,7 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 		depth := df.items[i].depth
 		pad := basePad + depth*depthIndent
 		itemPad := strings.Repeat(tui.KeySpace, pad)
-		cursorPad := strings.Repeat(tui.KeySpace, pad-2) + "› "
+		cursorPad := strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
 
 		prefix := itemPad
 		if i == df.cursor {

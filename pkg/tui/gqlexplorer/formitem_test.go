@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestNewFieldFormItemCreatesToggle(t *testing.T) {
@@ -399,7 +400,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 	lines0 := strings.Split(view0, "\n")
 	found := false
 	for _, line := range lines0 {
-		if strings.Contains(line, "\u203a") && strings.Contains(line, "a") {
+		if strings.Contains(line, utils.ChevronRight) && strings.Contains(line, "a") {
 			found = true
 			break
 		}
