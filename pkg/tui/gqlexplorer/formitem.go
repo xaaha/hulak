@@ -420,7 +420,8 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 				lines = append(lines, itemPad+line)
 			}
 		}
-		if i == df.cursor && df.items[i].kind == formItemDropdown && df.items[i].dropdown.Expanded() {
+		if i == df.cursor && df.items[i].kind == formItemDropdown &&
+			df.items[i].dropdown.Expanded() {
 			cursorLine += df.items[i].dropdown.Cursor()
 		}
 	}
