@@ -69,6 +69,8 @@ const (
 	CrossMark    = "\u2717"  // x
 	ChevronRight = "\uf054 " // >
 	ChevronDown  = "\uf078 " //
+	Asterisk     = "*"
+	Connector    = "└─"
 )
 
 const Ellipsis = "..."
