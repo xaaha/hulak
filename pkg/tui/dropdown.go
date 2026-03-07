@@ -139,6 +139,11 @@ func (d Dropdown) Expanded() bool {
 	return d.expanded
 }
 
+// Cursor returns the current cursor index inside the expanded list.
+func (d Dropdown) Cursor() int {
+	return d.cursor
+}
+
 // Value returns the currently selected option string, or empty if
 // there are no options.
 func (d Dropdown) Value() string {
