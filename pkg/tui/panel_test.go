@@ -35,11 +35,14 @@ func TestPanelResizeUpdatesViewport(t *testing.T) {
 	borderW := panelBorderStyle.GetHorizontalFrameSize()
 	borderH := panelBorderStyle.GetVerticalFrameSize()
 
-	if p.viewport.Width != 30-borderW {
-		t.Errorf("viewport width = %d, want %d", p.viewport.Width, 30-borderW)
+	wantW := 30 - borderW
+	wantH := 10 - borderH - p.titleHeight()
+
+	if p.viewport.Width != wantW {
+		t.Errorf("viewport width = %d, want %d", p.viewport.Width, wantW)
 	}
-	if p.viewport.Height != 10-borderH {
-		t.Errorf("viewport height = %d, want %d", p.viewport.Height, 10-borderH)
+	if p.viewport.Height != wantH {
+		t.Errorf("viewport height = %d, want %d", p.viewport.Height, wantH)
 	}
 
 	p.Resize(40, 20)
@@ -96,51 +99,84 @@ func TestPanelUpdateBeforeResizeReturnsNil(t *testing.T) {
 	}
 }
 
-func TestPanelViewContainsBorderTitle(t *testing.T) {
+func TestPanelViewContainsLabelInsideBox(t *testing.T) {
 	p := &Panel{Number: 3}
 	p.Resize(20, 5)
 	p.SetContent("hello", "")
 
 	view := p.View(false)
 	if !strings.Contains(view, "[3]") {
-		t.Errorf("expected border title [3] in view, got:\n%s", view)
+		t.Errorf("expected label [3] in view, got:\n%s", view)
+	}
+
+	bottomBorderIdx := strings.LastIndex(view, "╰")
+	labelIdx := strings.Index(view, "[3]")
+	if labelIdx > bottomBorderIdx {
+		t.Error("expected label inside box (before bottom border), but it appeared after")
+	}
+
+	lines := strings.Split(view, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		idx := strings.Index(lines[i], "[3]")
+		if idx < 0 {
+			continue
+		}
+		before := lines[i][:idx]
+		if !strings.Contains(before, "  ") {
+			t.Errorf("expected leading spaces before right-aligned label, got line: %q", lines[i])
+		}
+		break
 	}
 }
 
-func TestPanelViewNoBorderTitleWhenNumberZero(t *testing.T) {
+func TestPanelViewNoLabelWhenNumberZero(t *testing.T) {
 	p := &Panel{Number: 0}
 	p.Resize(20, 5)
 	p.SetContent("hello", "")
 
 	view := p.View(false)
 	if strings.Contains(view, "[") && strings.Contains(view, "]") {
-		t.Errorf("expected no border title when Number=0, got:\n%s", view)
+		t.Errorf("expected no label when Number=0, got:\n%s", view)
 	}
 }
 
-func TestPanelViewStartsWithRoundedCorner(t *testing.T) {
-	p := &Panel{Number: 2}
-	p.Resize(20, 5)
-	p.SetContent("test", "")
+func TestPanelViewAlwaysStartsWithBorder(t *testing.T) {
+	tests := []struct {
+		name   string
+		number int
+	}{
+		{"without_label", 0},
+		{"with_label", 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Panel{Number: tc.number}
+			p.Resize(20, 5)
+			p.SetContent("test", "")
 
-	view := p.View(true)
-	runes := []rune(view)
-	if len(runes) == 0 || string(runes[0]) != "╭" {
-		t.Errorf("expected view to start with ╭, got %q", string(runes[0]))
+			view := p.View(true)
+			if !strings.HasPrefix(view, "╭") {
+				t.Errorf("expected view to start with ╭, got %q", view[:20])
+			}
+		})
 	}
 }
 
-func TestInjectBorderTitleNoNewline(t *testing.T) {
-	got := injectBorderTitle("no-newline-here", 1, ColorMuted)
-	if got != "no-newline-here" {
-		t.Error("expected no-op when input has no newline")
+func TestPanelTitleHeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		number int
+		want   int
+	}{
+		{"zero", 0, 0},
+		{"positive", 2, 1},
 	}
-}
-
-func TestInjectBorderTitleTooNarrow(t *testing.T) {
-	input := "╭──╮\n│  │\n╰──╯"
-	got := injectBorderTitle(input, 1, ColorMuted)
-	if got != input {
-		t.Error("expected no-op when top line is too narrow for title")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Panel{Number: tc.number}
+			if got := p.titleHeight(); got != tc.want {
+				t.Errorf("titleHeight() = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
