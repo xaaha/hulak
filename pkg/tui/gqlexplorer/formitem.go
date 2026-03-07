@@ -20,11 +20,13 @@ const (
 )
 
 type formItem struct {
-	kind     formItemKind
-	name     string
-	typeHint string
-	required bool
-	isField  bool // true for return type fields, false for arguments
+	kind       formItemKind
+	name       string
+	typeHint   string
+	required   bool
+	isField    bool // true for return type fields, false for arguments
+	depth      int
+	expandable bool
 
 	toggle   tui.Toggle
 	input    tui.TextInput
@@ -262,9 +264,11 @@ func newInputFieldFormItem(
 // DetailForm holds the interactive form items for the detail panel.
 // Items are ordered: arguments first, then return-type field toggles.
 type DetailForm struct {
-	items    []formItem
-	cursor   int
-	argCount int // number of leading argument items
+	items       []formItem
+	cursor      int
+	argCount    int // number of leading argument items
+	objectTypes map[string]graphql.ObjectType
+	endpoint    string
 }
 
 func buildDetailForm(
@@ -291,7 +295,11 @@ func buildDetailForm(
 		base := ExtractBaseType(op.ReturnType)
 		if ot, ok := resolveObjectType(objectTypes, op.Endpoint, base); ok {
 			for _, f := range ot.Fields {
-				items = append(items, newFieldFormItem(f, true))
+				childBase := ExtractBaseType(f.Type)
+				_, isObj := resolveObjectType(objectTypes, op.Endpoint, childBase)
+				fi := newFieldFormItem(f, !isObj)
+				fi.expandable = isObj
+				items = append(items, fi)
 			}
 		}
 	}
@@ -301,9 +309,11 @@ func buildDetailForm(
 	}
 
 	return &DetailForm{
-		items:    items,
-		cursor:   0,
-		argCount: argCount,
+		items:       items,
+		cursor:      0,
+		argCount:    argCount,
+		objectTypes: objectTypes,
+		endpoint:    op.Endpoint,
 	}
 }
 
@@ -346,7 +356,12 @@ func (df *DetailForm) CursorDown() {
 // HandleKey routes a key message to the currently focused item.
 func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if df.cursor >= 0 && df.cursor < len(df.items) {
-		return df.items[df.cursor].HandleKey(msg)
+		item := &df.items[df.cursor]
+		cmd := item.HandleKey(msg)
+		if msg.String() == tui.KeySpace && item.expandable && item.kind == formItemToggle {
+			df.toggleExpand(df.cursor)
+		}
+		return cmd
 	}
 	return nil
 }
@@ -358,6 +373,49 @@ func (df *DetailForm) ConsumesTextInput() bool {
 		return df.items[df.cursor].ConsumesTextInput()
 	}
 	return false
+}
+
+func (df *DetailForm) toggleExpand(idx int) {
+	item := &df.items[idx]
+	if !item.expandable || item.kind != formItemToggle {
+		return
+	}
+
+	if item.toggle.Value {
+		base := ExtractBaseType(item.typeHint)
+		ot, ok := resolveObjectType(df.objectTypes, df.endpoint, base)
+		if !ok {
+			return
+		}
+		children := make([]formItem, 0, len(ot.Fields))
+		for _, f := range ot.Fields {
+			child := newFieldFormItem(f, false)
+			child.depth = item.depth + 1
+			childBase := ExtractBaseType(f.Type)
+			if _, ok := resolveObjectType(df.objectTypes, df.endpoint, childBase); ok {
+				child.expandable = true
+			}
+			children = append(children, child)
+		}
+		tail := make([]formItem, len(df.items[idx+1:]))
+		copy(tail, df.items[idx+1:])
+		df.items = append(df.items[:idx+1], children...)
+		df.items = append(df.items, tail...)
+	} else {
+		start := idx + 1
+		end := start
+		for end < len(df.items) && df.items[end].depth > item.depth {
+			end++
+		}
+		if end > start {
+			df.items = append(df.items[:start], df.items[end:]...)
+			if df.cursor >= end {
+				df.cursor -= (end - start)
+			} else if df.cursor > idx {
+				df.cursor = idx
+			}
+		}
+	}
 }
 
 func (df *DetailForm) hasExpandedDropdown() bool {
@@ -379,11 +437,16 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 	}
 	lines = append(lines, header, "")
 
-	itemPad := strings.Repeat(tui.KeySpace, 4)
-	cursorPad := strings.Repeat(tui.KeySpace, 2) + "› "
+	const basePad = 4
+	const depthIndent = 2
 
 	cursorLine := 0
 	for i := range df.items {
+		depth := df.items[i].depth
+		pad := basePad + depth*depthIndent
+		itemPad := strings.Repeat(tui.KeySpace, pad)
+		cursorPad := strings.Repeat(tui.KeySpace, pad-2) + "› "
+
 		prefix := itemPad
 		if i == df.cursor {
 			prefix = cursorPad

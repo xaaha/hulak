@@ -606,6 +606,236 @@ func TestBuildDetailFormExpandsInputObjectWithScalarArgs(t *testing.T) {
 	}
 }
 
+func TestBuildDetailFormObjectFieldsStartUnchecked(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "Country"): {
+			Name: "Country",
+			Fields: []graphql.ObjectField{
+				{Name: "code", Type: "ID!"},
+				{Name: "language", Type: "Language"},
+			},
+		},
+		ScopedTypeKey(ep, "Language"): {
+			Name: "Language",
+			Fields: []graphql.ObjectField{
+				{Name: "name", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "country",
+		ReturnType: "Country",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+
+	code := df.items[0]
+	if !code.toggle.Value {
+		t.Error("scalar field 'code' should start checked")
+	}
+	if code.expandable {
+		t.Error("scalar field should not be expandable")
+	}
+
+	lang := df.items[1]
+	if lang.toggle.Value {
+		t.Error("object-type field 'language' should start unchecked")
+	}
+	if !lang.expandable {
+		t.Error("object-type field should be expandable")
+	}
+}
+
+func TestToggleExpandInsertsAndRemovesChildren(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "Country"): {
+			Name: "Country",
+			Fields: []graphql.ObjectField{
+				{Name: "code", Type: "ID!"},
+				{Name: "language", Type: "Language"},
+			},
+		},
+		ScopedTypeKey(ep, "Language"): {
+			Name: "Language",
+			Fields: []graphql.ObjectField{
+				{Name: "name", Type: "String"},
+				{Name: "rtl", Type: "Boolean"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "country",
+		ReturnType: "Country",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes)
+	if df.Len() != 2 {
+		t.Fatalf("expected 2 items initially, got %d", df.Len())
+	}
+
+	df.cursor = 1
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 4 {
+		t.Fatalf("expected 4 items after expand (2 original + 2 children), got %d", df.Len())
+	}
+	if df.items[2].name != "name" || df.items[3].name != "rtl" {
+		t.Errorf("children should be Language fields, got %q and %q", df.items[2].name, df.items[3].name)
+	}
+	if df.items[2].depth != 1 {
+		t.Errorf("children should have depth 1, got %d", df.items[2].depth)
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 2 {
+		t.Fatalf("expected 2 items after collapse, got %d", df.Len())
+	}
+}
+
+func TestToggleExpandRecursive(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "Country"): {
+			Name: "Country",
+			Fields: []graphql.ObjectField{
+				{Name: "name", Type: "String!"},
+				{Name: "countries", Type: "[Country!]!"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "country",
+		ReturnType: "Country",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes)
+
+	countriesIdx := 1
+	if !df.items[countriesIdx].expandable {
+		t.Fatal("'countries' should be expandable (recursive)")
+	}
+
+	df.cursor = countriesIdx
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 4 {
+		t.Fatalf("expected 4 items after first expand, got %d", df.Len())
+	}
+	nestedCountries := 3
+	if !df.items[nestedCountries].expandable {
+		t.Fatal("nested 'countries' should also be expandable")
+	}
+	if df.items[nestedCountries].depth != 1 {
+		t.Errorf("nested countries depth should be 1, got %d", df.items[nestedCountries].depth)
+	}
+
+	df.cursor = nestedCountries
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 6 {
+		t.Fatalf("expected 6 items after recursive expand, got %d", df.Len())
+	}
+	if df.items[4].depth != 2 {
+		t.Errorf("doubly-nested field depth should be 2, got %d", df.items[4].depth)
+	}
+}
+
+func TestCollapseRemovesNestedChildren(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "A"): {
+			Name: "A",
+			Fields: []graphql.ObjectField{
+				{Name: "b", Type: "B"},
+			},
+		},
+		ScopedTypeKey(ep, "B"): {
+			Name: "B",
+			Fields: []graphql.ObjectField{
+				{Name: "val", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "test",
+		ReturnType: "A",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes)
+
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+	if df.Len() != 2 {
+		t.Fatalf("expected 2 after expanding A.b, got %d", df.Len())
+	}
+
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+	if df.Len() != 1 {
+		t.Fatalf("expected 1 after collapsing A.b, got %d", df.Len())
+	}
+}
+
+func TestExpandedFieldIndentation(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "T"): {
+			Name: "T",
+			Fields: []graphql.ObjectField{
+				{Name: "child", Type: "C"},
+			},
+		},
+		ScopedTypeKey(ep, "C"): {
+			Name: "C",
+			Fields: []graphql.ObjectField{
+				{Name: "val", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "test",
+		ReturnType: "T",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes)
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	view, _ := df.View(op)
+	lines := strings.Split(view, "\n")
+
+	parentLine := ""
+	childLine := ""
+	for _, l := range lines {
+		if strings.Contains(l, "child") {
+			parentLine = l
+		}
+		if strings.Contains(l, "val") {
+			childLine = l
+		}
+	}
+	if parentLine == "" || childLine == "" {
+		t.Fatal("expected both parent and child lines in view")
+	}
+	parentIndent := len(parentLine) - len(strings.TrimLeft(parentLine, " "))
+	childIndent := len(childLine) - len(strings.TrimLeft(childLine, " "))
+	if childIndent <= parentIndent {
+		t.Errorf("child should be indented more than parent: parent=%d child=%d", parentIndent, childIndent)
+	}
+}
+
 func TestResolveEnumTypeScopedThenBare(t *testing.T) {
 	ep := "https://api.test/graphql"
 	scopedKey := ScopedTypeKey(ep, "Color")
