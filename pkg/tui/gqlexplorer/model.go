@@ -324,12 +324,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 
-	// ── Esc: step backward one panel at a time ──────────────────
+	// Esc: step backward one panel at a time
 	// query panel → detail panel → search (left) → quit
 	case tui.KeyCancel:
-		// Detail panel: close dropdown first, then step back to search.
+		// Detail panel: close dropdown first, exit text editing, then step back.
 		if m.focus.IsFocused(m.detailPanel) {
 			if m.detailForm != nil && m.detailForm.hasExpandedDropdown() {
+				m.detailForm.HandleKey(msg)
+				m.syncViewport()
+				return m, nil
+			}
+			if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
 				m.detailForm.HandleKey(msg)
 				m.syncViewport()
 				return m, nil

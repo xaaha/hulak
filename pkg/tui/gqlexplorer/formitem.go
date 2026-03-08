@@ -39,23 +39,29 @@ type formItem struct {
 	// form items back to a single argument declaration.
 	argName string
 
+	selected bool // cursor is on this item (set by Focus/Blur)
+
 	toggle   tui.Toggle
 	input    tui.TextInput
 	dropdown tui.Dropdown
 }
 
 func (f *formItem) Focus() {
+	f.selected = true
 	switch f.kind {
 	case formItemToggle:
 		f.toggle.Focus()
 	case formItemTextInput:
-		f.input.Model.Focus()
+		if f.isField {
+			f.input.Model.Focus()
+		}
 	case formItemDropdown:
 		f.dropdown.Focus()
 	}
 }
 
 func (f *formItem) Blur() {
+	f.selected = false
 	switch f.kind {
 	case formItemToggle:
 		f.toggle.Blur()
@@ -67,15 +73,7 @@ func (f *formItem) Blur() {
 }
 
 func (f *formItem) Focused() bool {
-	switch f.kind {
-	case formItemToggle:
-		return f.toggle.Focused()
-	case formItemTextInput:
-		return f.input.Model.Focused()
-	case formItemDropdown:
-		return f.dropdown.Focused()
-	}
-	return false
+	return f.selected
 }
 
 func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
@@ -97,9 +95,10 @@ func (f *formItem) View() string {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
 	case formItemTextInput:
-		focused := f.input.Model.Focused()
+		editing := f.input.Model.Focused()
+		highlighted := f.selected || editing
 		name := f.name
-		if focused {
+		if highlighted {
 			name = lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render(f.name)
 		}
 		label := name + tui.KeySpace + hint
@@ -107,13 +106,13 @@ func (f *formItem) View() string {
 			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
 		}
 		boxStyle := tui.InputStyle
-		if focused {
+		if editing {
 			boxStyle = tui.FocusedInputStyle
 		}
 		inputBox := boxStyle.Render(f.input.Model.View())
 
 		connectorStyle := tui.HelpStyle
-		if focused {
+		if highlighted {
 			connectorStyle = lipgloss.NewStyle().Foreground(tui.ColorPrimary)
 		}
 		connector := connectorStyle.Render(utils.Connector)
@@ -335,15 +334,49 @@ func (df *DetailForm) CursorDown() {
 
 // HandleKey routes a key message to the currently focused item.
 func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
-	if df.cursor >= 0 && df.cursor < len(df.items) {
-		item := &df.items[df.cursor]
-		cmd := item.HandleKey(msg)
-		if msg.String() == tui.KeySpace && item.expandable && item.kind == formItemToggle {
-			df.toggleExpand(df.cursor)
-		}
-		return cmd
+	if df.cursor < 0 || df.cursor >= len(df.items) {
+		return nil
 	}
-	return nil
+	item := &df.items[df.cursor]
+	key := msg.String()
+
+	// ── Argument items: Space toggles the enabled checkbox ──
+	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
+		if item.kind == formItemToggle {
+			cmd := item.HandleKey(msg)
+			item.enabled = item.toggle.Value
+			return cmd
+		}
+		item.enabled = !item.enabled
+		return nil
+	}
+
+	// ── Argument text inputs: Enter activates/deactivates editing ──
+	if !item.isField && item.kind == formItemTextInput && key == tui.KeyEnter {
+		if item.input.Model.Focused() {
+			item.input.Model.Blur()
+		} else {
+			item.input.Model.Focus()
+		}
+		return nil
+	}
+
+	// ── Argument text inputs: Esc exits editing ──
+	if !item.isField && item.kind == formItemTextInput &&
+		key == tui.KeyCancel && item.input.Model.Focused() {
+		item.input.Model.Blur()
+		return nil
+	}
+
+	// ── Pass through to widget ──
+	cmd := item.HandleKey(msg)
+
+	// ── Field toggles: expand/collapse children on Space ──
+	if key == tui.KeySpace && item.expandable && item.kind == formItemToggle {
+		df.toggleExpand(df.cursor)
+	}
+
+	return cmd
 }
 
 // ConsumesTextInput returns true if the focused item is a text input

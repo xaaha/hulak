@@ -146,8 +146,12 @@ func TestFormItemConsumesTextInput(t *testing.T) {
 		t.Fatal("blurred text input should not consume")
 	}
 	ti.Focus()
+	if ti.ConsumesTextInput() {
+		t.Fatal("selected (non-editing) text input should not consume")
+	}
+	ti.input.Model.Focus()
 	if !ti.ConsumesTextInput() {
-		t.Fatal("focused text input should consume")
+		t.Fatal("editing text input should consume")
 	}
 }
 
@@ -498,13 +502,18 @@ func TestDetailFormArrowsAlwaysNavigate(t *testing.T) {
 	if df.cursor != 0 {
 		t.Fatal("cursor should start at 0 (text input arg)")
 	}
+	if df.items[0].ConsumesTextInput() {
+		t.Fatal("selected (non-editing) text input should not consume")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	if !df.items[0].ConsumesTextInput() {
-		t.Fatal("focused text input should consume text input")
+		t.Fatal("text input should consume after Enter activates editing")
 	}
 
 	df.CursorDown()
 	if df.cursor != 1 {
-		t.Fatal("CursorDown should move to item 1 even from a focused text input")
+		t.Fatal("CursorDown should move to item 1 even from an editing text input")
 	}
 	if df.items[0].Focused() {
 		t.Fatal("previous text input should be blurred after navigation")
