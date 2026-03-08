@@ -13,10 +13,11 @@ const (
 	KeyRight = "right"
 
 	// Vim-style navigation (use only when text input is inactive)
-	KeyJ = "j"
-	KeyK = "k"
-	KeyH = "h"
-	KeyL = "l"
+	KeyJ    = "j"
+	KeyK    = "k"
+	KeyH    = "h"
+	KeyL    = "l"
+	KeyYank = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
 
 	// Actions
 	KeyEnter    = "enter"
