@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
 )
@@ -18,9 +19,9 @@ const (
 
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
-	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Esc: unfocus/quit"
-	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | Space: toggle | Tab/Shift+Tab: switch | Esc: back"
-	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | Tab/Shift+Tab: switch | Esc: back"
+	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
+	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | Space: toggle | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -439,11 +440,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	// ── Space: detail panel field toggle ────────────────────────
+	// Space: detail panel field toggle
 	case tui.KeySpace:
 		if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil {
 			return m.forwardKeyToForm(msg)
 		}
+
+	// Yank: copy focused panel content to system clipboard
+	case tui.KeyYank:
+		if text := m.yankText(); text != "" {
+			return m, tui.CopyToClipboard(text)
+		}
+		return m, nil
 	}
 
 	if !m.focus.Typing() && (m.detailForm == nil || !m.detailForm.ConsumesTextInput()) {
@@ -479,6 +487,46 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyFilterAndReset()
 	}
 	return m, cmd
+}
+
+func (m *Model) yankText() string {
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return ""
+	}
+	op := &m.filtered[m.cursor]
+	switch {
+	case m.focus.IsFocused(m.queryPanel):
+		return BuildQueryString(op, m.detailForm)
+	case m.focus.IsFocused(m.detailPanel):
+		return m.detailPanelPlainText(op)
+	case m.focus.LeftFocused():
+		return formatOperationSummary(op)
+	}
+	return ""
+}
+
+func (m *Model) detailPanelPlainText(op *UnifiedOperation) string {
+	var styled string
+	if m.detailForm != nil {
+		styled, _ = m.detailForm.View(op)
+	} else {
+		styled = renderDetail(op, m.inputTypes, m.objectTypes)
+	}
+	return ansi.Strip(styled)
+}
+
+func formatOperationSummary(op *UnifiedOperation) string {
+	var b strings.Builder
+	b.WriteString(op.Name)
+	if op.Description != "" {
+		b.WriteString("\n  ")
+		b.WriteString(op.Description)
+	}
+	if op.Endpoint != "" {
+		b.WriteString("\n  ")
+		b.WriteString(op.Endpoint)
+	}
+	return b.String()
 }
 
 func (m *Model) applyFilterAndReset() {

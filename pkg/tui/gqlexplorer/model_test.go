@@ -1552,3 +1552,77 @@ func TestEscChainQueryToDetailToSearch(t *testing.T) {
 		t.Error("second esc should go to left (search) panel")
 	}
 }
+
+func TestFormatOperationSummary(t *testing.T) {
+	tests := []struct {
+		name string
+		op   UnifiedOperation
+		want string
+	}{
+		{
+			name: "all fields",
+			op:   UnifiedOperation{Name: "getUser", Description: "fetch user", Endpoint: "http://api/gql"},
+			want: "getUser\n  fetch user\n  http://api/gql",
+		},
+		{
+			name: "no description",
+			op:   UnifiedOperation{Name: "listUsers", Endpoint: "http://api/gql"},
+			want: "listUsers\n  http://api/gql",
+		},
+		{
+			name: "no endpoint",
+			op:   UnifiedOperation{Name: "getUser", Description: "fetch user"},
+			want: "getUser\n  fetch user",
+		},
+		{
+			name: "name only",
+			op:   UnifiedOperation{Name: "getUser"},
+			want: "getUser",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatOperationSummary(&tc.op)
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestYankTextQueryPanel(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+		}},
+	}
+	ops := []UnifiedOperation{{
+		Name: "getUser", Type: TypeQuery, Endpoint: "http://api/gql", ReturnType: "User!",
+	}}
+	m := NewModel(ops, nil, nil, objTypes)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.queryPanel.Number)
+	text := model.yankText()
+	if !strings.Contains(text, "query getUser") {
+		t.Errorf("query panel yank should contain query string, got %q", text)
+	}
+}
+
+func TestYankTextLeftPanel(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	text := model.yankText()
+	if !strings.Contains(text, "getUser") {
+		t.Errorf("left panel yank should contain operation name, got %q", text)
+	}
+	if !strings.Contains(text, "fetch user") {
+		t.Errorf("left panel yank should contain description, got %q", text)
+	}
+	if !strings.Contains(text, "http://api/gql") {
+		t.Errorf("left panel yank should contain endpoint, got %q", text)
+	}
+}
