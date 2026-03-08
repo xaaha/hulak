@@ -1056,6 +1056,50 @@ func TestEndpointCursorResetsOnSearchChange(t *testing.T) {
 	}
 }
 
+func TestNegatedEndpointSearch(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
+	m.search.Model.SetValue("e:!space")
+
+	if !m.isNegatedEndpointSearch() {
+		t.Error("should detect negated search")
+	}
+
+	eps := m.filteredEndpoints()
+	if len(eps) != 1 {
+		t.Fatalf("expected 1 endpoint matching 'space', got %d", len(eps))
+	}
+	if !strings.Contains(eps[0], "spacex") {
+		t.Errorf("expected spacex endpoint, got %q", eps[0])
+	}
+}
+
+func TestNegatedEndpointEnterKeepsOnlyMatches(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
+	m.search.Model.SetValue("e:!space")
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	result, _ := m.Update(enterKey)
+	model := result.(*Model)
+
+	if len(model.activeEndpoints) != 1 {
+		t.Fatalf("expected 1 active endpoint, got %d", len(model.activeEndpoints))
+	}
+	for ep := range model.activeEndpoints {
+		if !strings.Contains(ep, "spacex") {
+			t.Errorf("expected only spacex to remain active, got %q", ep)
+		}
+	}
+}
+
+func TestNonNegatedSearchIgnoresBang(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil)
+	m.search.Model.SetValue("e:space")
+
+	if m.isNegatedEndpointSearch() {
+		t.Error("should not detect negation without ! prefix")
+	}
+}
+
 func opsWithArgs() []UnifiedOperation {
 	return []UnifiedOperation{
 		{

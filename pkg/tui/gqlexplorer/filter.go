@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	helpEndpointFilter = "Navigate: ↑↓ Ctrl+n/p | Enter: toggle | type to filter | Esc/Backspace: back"
+	helpEndpointFilter = "↑↓ Ctrl+n/p | Enter: toggle | !term: keep only matches | Esc: back"
 )
 
 func collectEndpoints(operations []UnifiedOperation) []string {
@@ -75,10 +75,15 @@ func (m *Model) endpointSearchTerm() string {
 	return strings.TrimSpace(val[idx+2:])
 }
 
+func (m *Model) isNegatedEndpointSearch() bool {
+	return strings.HasPrefix(m.endpointSearchTerm(), "!")
+}
+
 // filteredEndpoints returns the subset of endpoints matching the
-// search term typed after e:.
+// search term typed after e:. A leading ! is stripped before matching.
 func (m *Model) filteredEndpoints() []string {
 	term := m.endpointSearchTerm()
+	term = strings.TrimPrefix(term, "!")
 	if term == "" {
 		return m.endpoints
 	}
@@ -152,11 +157,19 @@ func (m *Model) handleEndpointKey(msg tea.KeyMsg) bool {
 		m.syncViewport()
 		return true
 	case tui.KeyEnter:
-		ep := eps[m.endpointCursor]
-		if m.activeEndpoints[ep] {
-			delete(m.activeEndpoints, ep)
+		if m.isNegatedEndpointSearch() {
+			keep := make(map[string]bool, len(eps))
+			for _, ep := range eps {
+				keep[ep] = true
+			}
+			m.activeEndpoints = keep
 		} else {
-			m.activeEndpoints[ep] = true
+			ep := eps[m.endpointCursor]
+			if m.activeEndpoints[ep] {
+				delete(m.activeEndpoints, ep)
+			} else {
+				m.activeEndpoints[ep] = true
+			}
 		}
 		m.updateBadgeCache()
 		m.applyFilter()
