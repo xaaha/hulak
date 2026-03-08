@@ -29,6 +29,16 @@ type formItem struct {
 	depth      int
 	expandable bool
 
+	// enabled controls whether this argument is included in the generated
+	// query string. Only meaningful for argument items (isField == false).
+	// Required args default to true; optional args default to false.
+	enabled bool
+	// argName is the top-level operation argument name this item belongs to.
+	// For simple args it equals name. For InputType-expanded fields it is
+	// the parent argument name, allowing the query builder to map multiple
+	// form items back to a single argument declaration.
+	argName string
+
 	toggle   tui.Toggle
 	input    tui.TextInput
 	dropdown tui.Dropdown
@@ -190,6 +200,7 @@ func newTypedFormItem(
 			name:     name,
 			typeHint: typeStr,
 			required: required,
+			enabled:  required,
 			toggle:   tui.NewToggle(name, false),
 		}
 	}
@@ -204,6 +215,7 @@ func newTypedFormItem(
 			name:     name,
 			typeHint: typeStr,
 			required: required,
+			enabled:  required,
 			dropdown: tui.NewDropdown(name, options, 0),
 		}
 	}
@@ -220,6 +232,7 @@ func newTypedFormItem(
 		name:     name,
 		typeHint: typeStr,
 		required: required,
+		enabled:  required,
 		input:    ti,
 	}
 }
@@ -246,10 +259,14 @@ func buildDetailForm(
 		base := ExtractBaseType(arg.Type)
 		if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 			for _, field := range it.Fields {
-				items = append(items, newInputFieldFormItem(field, enumTypes, op.Endpoint))
+				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
+				fi.argName = arg.Name
+				items = append(items, fi)
 			}
 		} else {
-			items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
+			fi := newArgFormItem(arg, enumTypes, op.Endpoint)
+			fi.argName = arg.Name
+			items = append(items, fi)
 		}
 	}
 	argCount := len(items)
