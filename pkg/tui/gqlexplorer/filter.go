@@ -1,19 +1,15 @@
 package gqlexplorer
 
 import (
-	"maps"
 	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/tui"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 const (
-	helpEndpointPicker  = "Navigate: ↑↓ j/k | Space: toggle | Enter: confirm | Esc: cancel"
-	checkMark           = utils.CheckMark
-	endpointPickerTitle = "Filter Endpoints:"
+	helpEndpointFilter = "Navigate: ↑↓ Ctrl+n/p | Enter: toggle | type to filter | Esc/Backspace: back"
 )
 
 func collectEndpoints(operations []UnifiedOperation) []string {
@@ -54,6 +50,45 @@ func buildFilterHint(operations []UnifiedOperation, endpoints []string) string {
 		return ""
 	}
 	return tui.HelpStyle.Render(strings.Join(parts, " | "))
+}
+
+// isEndpointMode returns true when the search input contains the e: prefix,
+// indicating that the left panel should show a toggleable endpoint list
+// instead of the normal operation list. Requires multiple endpoints.
+func (m *Model) isEndpointMode() bool {
+	if len(m.endpoints) <= 1 {
+		return false
+	}
+	val := strings.ToLower(m.search.Model.Value())
+	// e: can appear standalone or after another prefix like q:e:
+	return strings.Contains(val, "e:")
+}
+
+// endpointSearchTerm extracts the text typed after the e: prefix.
+// This text is used to narrow the endpoint list. Returns lowercase.
+func (m *Model) endpointSearchTerm() string {
+	val := strings.ToLower(m.search.Model.Value())
+	idx := strings.LastIndex(val, "e:")
+	if idx < 0 {
+		return ""
+	}
+	return strings.TrimSpace(val[idx+2:])
+}
+
+// filteredEndpoints returns the subset of endpoints matching the
+// search term typed after e:.
+func (m *Model) filteredEndpoints() []string {
+	term := m.endpointSearchTerm()
+	if term == "" {
+		return m.endpoints
+	}
+	var result []string
+	for _, ep := range m.endpoints {
+		if strings.Contains(strings.ToLower(ep), term) {
+			result = append(result, ep)
+		}
+	}
+	return result
 }
 
 func (m *Model) applyFilter() {
@@ -99,73 +134,34 @@ func (m *Model) applyFilter() {
 	m.cursor = tui.ClampCursor(m.cursor, len(m.filtered)-1)
 }
 
-func (m *Model) shouldEnterEndpointPicker(value string) bool {
-	return len(m.endpoints) > 1 && len(value) >= 2 &&
-		(value[len(value)-2] == 'e' || value[len(value)-2] == 'E') &&
-		value[len(value)-1] == ':'
-}
+// handleEndpointKey processes keys when the left panel is in endpoint
+// mode (e: prefix active). Returns true if the key was consumed.
+func (m *Model) handleEndpointKey(msg tea.KeyMsg) bool {
+	eps := m.filteredEndpoints()
+	if len(eps) == 0 {
+		return false
+	}
 
-func (m *Model) enterEndpointPicker() {
-	m.pickingEndpoints = true
-	m.endpointCursor = 0
-	m.pendingEndpoints = make(map[string]bool)
-	maps.Copy(m.pendingEndpoints, m.activeEndpoints)
-	m.syncViewport()
-}
-
-func (m *Model) handleEndpointPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case tui.KeyQuit:
-		return m, tea.Quit
-	case tui.KeyCancel:
-		m.pickingEndpoints = false
-		m.pendingEndpoints = nil
-		m.stripEndpointPrefix()
-		m.syncViewport()
-		return m, nil
-	case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
+	case tui.KeyUp, tui.KeyCtrlP:
 		m.endpointCursor = tui.MoveCursorUp(m.endpointCursor)
 		m.syncViewport()
-		return m, nil
-	case tui.KeyDown, tui.KeyCtrlN, tui.KeyJ:
-		m.endpointCursor = tui.MoveCursorDown(m.endpointCursor, len(m.endpoints)-1)
+		return true
+	case tui.KeyDown, tui.KeyCtrlN:
+		m.endpointCursor = tui.MoveCursorDown(m.endpointCursor, len(eps)-1)
 		m.syncViewport()
-		return m, nil
-	case tui.KeySpace:
-		ep := m.endpoints[m.endpointCursor]
-		m.pendingEndpoints[ep] = !m.pendingEndpoints[ep]
-		if !m.pendingEndpoints[ep] {
-			delete(m.pendingEndpoints, ep)
-		}
-		m.syncViewport()
-		return m, nil
+		return true
 	case tui.KeyEnter:
-		m.activeEndpoints = make(map[string]bool)
-		for k, v := range m.pendingEndpoints {
-			if v {
-				m.activeEndpoints[k] = true
-			}
+		ep := eps[m.endpointCursor]
+		if m.activeEndpoints[ep] {
+			delete(m.activeEndpoints, ep)
+		} else {
+			m.activeEndpoints[ep] = true
 		}
-		m.pickingEndpoints = false
-		m.pendingEndpoints = nil
-		m.stripEndpointPrefix()
 		m.updateBadgeCache()
 		m.applyFilter()
-		m.viewport.GotoTop()
 		m.syncViewport()
-		return m, nil
+		return true
 	}
-	return m, nil
-}
-
-func (m *Model) stripEndpointPrefix() {
-	val := m.search.Model.Value()
-	for {
-		idx := strings.LastIndex(strings.ToLower(val), "e:")
-		if idx < 0 {
-			break
-		}
-		val = strings.TrimSpace(val[:idx])
-	}
-	m.search.Model.SetValue(val)
+	return false
 }

@@ -20,6 +20,7 @@ const (
 	KeyG      = "g"      // first press of gg (go to top)
 	KeyShiftG = "G"      // go to bottom
 	KeyYank   = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
+	KeySlash  = "/"      // vim-style search trigger
 
 	// Actions
 	KeyEnter    = "enter"

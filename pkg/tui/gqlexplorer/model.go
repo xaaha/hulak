@@ -20,7 +20,8 @@ const (
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
 	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | G/gg: bottom/top | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
-	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | G/gg: bottom/top | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: top/bottom | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
@@ -58,12 +59,10 @@ type Model struct {
 	enumTypes   map[string]graphql.EnumType
 	objectTypes map[string]graphql.ObjectType
 
-	endpoints        []string
-	activeEndpoints  map[string]bool
-	pickingEndpoints bool
-	endpointCursor   int
-	pendingEndpoints map[string]bool
-	badgeCache       string
+	endpoints       []string
+	activeEndpoints map[string]bool
+	endpointCursor  int
+	badgeCache      string
 
 	detailPanel   *tui.Panel
 	detailForm    *DetailForm
@@ -199,7 +198,7 @@ func (m *Model) syncSearchFocus() {
 
 func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
-	if m.pickingEndpoints || m.focus.LeftFocused() {
+	if m.focus.LeftFocused() {
 		m.viewport, cmd = m.viewport.Update(msg)
 		return cmd
 	}
@@ -342,16 +341,27 @@ func (m *Model) jumpToEdge(top bool) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.pickingEndpoints {
-		return m.handleEndpointPickerKey(msg)
-	}
-
 	if m.pendingG {
 		m.pendingG = false
 		if msg.String() == tui.KeyG {
 			m.jumpToEdge(true)
 			return m, nil
 		}
+	}
+
+	if m.focus.LeftFocused() && m.isEndpointMode() {
+		if m.handleEndpointKey(msg) {
+			return m, nil
+		}
+	}
+
+	if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil && m.detailForm.IsSearching() {
+		if msg.String() == tui.KeyQuit {
+			return m, tea.Quit
+		}
+		cmd := m.detailForm.HandleSearchKey(msg)
+		m.syncViewport()
+		return m, cmd
 	}
 
 	switch msg.String() {
@@ -494,6 +504,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.forwardKeyToForm(msg)
 		}
 
+	// Slash: vim-style search in detail form
+	case tui.KeySlash:
+		if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
+			!m.detailForm.ConsumesTextInput() {
+			m.detailForm.StartSearch()
+			m.syncViewport()
+			return m, nil
+		}
+
 	// Yank: copy focused panel content to system clipboard
 	case tui.KeyYank:
 		if text := m.yankText(); text != "" {
@@ -528,9 +547,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	_, cmd = m.search.Update(msg)
 	newValue := m.search.Model.Value()
 	if newValue != prevValue {
-		if m.shouldEnterEndpointPicker(newValue) {
-			m.enterEndpointPicker()
-			return m, nil
+		if m.isEndpointMode() {
+			m.endpointCursor = 0
 		}
 		m.applyFilterAndReset()
 	}
@@ -586,14 +604,14 @@ func (m *Model) applyFilterAndReset() {
 func (m *Model) syncViewport() {
 	var content string
 	var cursorLine int
-	if m.pickingEndpoints {
+	if m.isEndpointMode() {
 		content, cursorLine = m.renderEndpointPicker()
 	} else {
 		content, cursorLine = m.renderList()
 	}
 	tui.SyncViewport(&m.viewport, content, cursorLine, tui.DefaultScrollMargin)
 
-	if m.pickingEndpoints {
+	if m.isEndpointMode() {
 		return
 	}
 
@@ -622,6 +640,7 @@ func (m *Model) syncViewport() {
 			}
 			content, cursorLine := m.detailForm.View(op)
 			m.detailPanel.SyncContent(content, cursorLine)
+			m.detailPanel.Footer = m.detailForm.SearchFooter()
 		} else {
 			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
 			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
@@ -633,6 +652,7 @@ func (m *Model) syncViewport() {
 	} else {
 		m.detailForm = nil
 		m.detailFormKey = ""
+		m.detailPanel.Footer = ""
 		m.detailPanel.SetContent("", "")
 		m.queryPanel.SetContent("", "")
 	}
@@ -641,10 +661,12 @@ func (m *Model) syncViewport() {
 func (m *Model) renderHelpBar(width int) string {
 	var raw string
 	switch {
-	case m.pickingEndpoints:
-		raw = helpEndpointPicker
+	case m.focus.LeftFocused() && m.isEndpointMode():
+		raw = helpEndpointFilter
 	case m.focus.IsFocused(m.queryPanel):
 		raw = helpQueryPanel
+	case m.focus.IsFocused(m.detailPanel) && m.detailForm != nil && m.detailForm.IsSearching():
+		raw = helpSearchPanel
 	case m.focus.IsFocused(m.detailPanel):
 		raw = helpDetailPanel
 	default:

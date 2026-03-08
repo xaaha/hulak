@@ -264,6 +264,13 @@ type DetailForm struct {
 	argCount    int // number of leading argument items
 	objectTypes map[string]graphql.ObjectType
 	endpoint    string
+
+	// ── Search state (vim-style / search) ──────────────────────
+	searching       bool
+	searchInput     tui.TextInput
+	matchIndices    []int
+	matchCursor     int
+	preSearchCursor int
 }
 
 func buildDetailForm(
@@ -307,12 +314,20 @@ func buildDetailForm(
 		return nil
 	}
 
+	si := tui.NewFilterInput(tui.TextInputOpts{
+		Prompt:      "",
+		Placeholder: "",
+		MinWidth:    10,
+	})
+	si.Model.Blur()
+
 	return &DetailForm{
 		items:       items,
 		cursor:      0,
 		argCount:    argCount,
 		objectTypes: objectTypes,
 		endpoint:    op.Endpoint,
+		searchInput: si,
 	}
 }
 
@@ -372,6 +387,111 @@ func (df *DetailForm) CursorToBottom() {
 	df.FocusCurrent()
 }
 
+// ── Search ─────────────────────────────────────────────────
+
+func (df *DetailForm) IsSearching() bool { return df.searching }
+
+func (df *DetailForm) StartSearch() {
+	df.searching = true
+	df.preSearchCursor = df.cursor
+	df.searchInput.Model.SetValue("")
+	df.searchInput.Model.Focus()
+	df.matchIndices = nil
+	df.matchCursor = 0
+}
+
+func (df *DetailForm) StopSearch(confirm bool) {
+	df.searching = false
+	df.searchInput.Model.Blur()
+	if !confirm {
+		df.cursor = df.preSearchCursor
+		df.FocusCurrent()
+	}
+	df.matchIndices = nil
+}
+
+func (df *DetailForm) updateSearchMatches() {
+	query := strings.ToLower(df.searchInput.Model.Value())
+	df.matchIndices = nil
+	if query == "" {
+		return
+	}
+	for i := range df.items {
+		if strings.Contains(strings.ToLower(df.items[i].name), query) {
+			df.matchIndices = append(df.matchIndices, i)
+		}
+	}
+	if len(df.matchIndices) > 0 {
+		df.matchCursor = 0
+		df.cursor = df.matchIndices[0]
+		df.FocusCurrent()
+	}
+}
+
+func (df *DetailForm) nextMatch() {
+	if len(df.matchIndices) == 0 {
+		return
+	}
+	df.matchCursor = (df.matchCursor + 1) % len(df.matchIndices)
+	df.cursor = df.matchIndices[df.matchCursor]
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) prevMatch() {
+	if len(df.matchIndices) == 0 {
+		return
+	}
+	df.matchCursor--
+	if df.matchCursor < 0 {
+		df.matchCursor = len(df.matchIndices) - 1
+	}
+	df.cursor = df.matchIndices[df.matchCursor]
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) searchStatus() string {
+	if df.searchInput.Model.Value() == "" {
+		return ""
+	}
+	if len(df.matchIndices) == 0 {
+		return "no matches"
+	}
+	return fmt.Sprintf("%d/%d", df.matchCursor+1, len(df.matchIndices))
+}
+
+func (df *DetailForm) SearchFooter() string {
+	if !df.searching {
+		return ""
+	}
+	label := lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render("Search(/)")
+	input := df.searchInput.Model.View()
+	result := label + " " + input
+	if status := df.searchStatus(); status != "" {
+		result += "  " + tui.HelpStyle.Render(status)
+	}
+	return result
+}
+
+func (df *DetailForm) HandleSearchKey(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case tui.KeyEnter:
+		df.StopSearch(true)
+		return nil
+	case tui.KeyCancel:
+		df.StopSearch(false)
+		return nil
+	case tui.KeyUp, tui.KeyCtrlP:
+		df.prevMatch()
+		return nil
+	case tui.KeyDown, tui.KeyCtrlN:
+		df.nextMatch()
+		return nil
+	}
+	_, cmd := df.searchInput.Update(msg)
+	df.updateSearchMatches()
+	return cmd
+}
+
 // HandleKey routes a key message to the currently focused item.
 func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if df.cursor < 0 || df.cursor >= len(df.items) {
@@ -399,6 +519,13 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 			item.input.Model.Focus()
 		}
 		return nil
+	}
+
+	// ── Argument toggles: Enter toggles value + enabled ──
+	if !item.isField && item.kind == formItemToggle && key == tui.KeyEnter {
+		cmd := item.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+		item.enabled = item.toggle.Value
+		return cmd
 	}
 
 	// ── Argument text inputs: Esc exits editing ──
