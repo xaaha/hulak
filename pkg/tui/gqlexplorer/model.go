@@ -18,8 +18,9 @@ const (
 
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
-	helpLeftPanel         = "↑↓/j/k/ctrl+n/p: navigate | enter: detail | tab: switch | esc: unfocus/quit"
-	helpDetailPanel       = "↑↓/j/k/ctrl+n/p: navigate | space: toggle | esc: back"
+	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Esc: unfocus/quit"
+	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | Space: toggle | Tab/Shift+Tab: switch | Esc: back"
+	helpQueryPanel        = "Navigate: ↑↓ j/k | Tab/Shift+Tab: switch | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -66,6 +67,8 @@ type Model struct {
 	detailPanel   *tui.Panel
 	detailForm    *DetailForm
 	detailFormKey string
+	formCache     map[string]*DetailForm
+	queryPanel    *tui.Panel
 	focus         tui.FocusRing
 }
 
@@ -92,7 +95,9 @@ func NewModel(
 	for _, ep := range endpoints {
 		active[ep] = true
 	}
+	// numbers for navigation.
 	dp := &tui.Panel{Number: 2}
+	qp := &tui.Panel{Number: 3}
 	m := Model{
 		operations:      operations,
 		filtered:        operations,
@@ -107,7 +112,9 @@ func NewModel(
 			Placeholder: searchPlaceholderText,
 		}),
 		detailPanel: dp,
-		focus:       tui.NewFocusRing([]*tui.Panel{dp}),
+		formCache:   make(map[string]*DetailForm),
+		queryPanel:  qp,
+		focus:       tui.NewFocusRing([]*tui.Panel{dp, qp}),
 	}
 	m.focus.SetTyping(true)
 	m.syncSearchFocus()
@@ -194,6 +201,9 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 		m.viewport, cmd = m.viewport.Update(msg)
 		return cmd
 	}
+	if m.focus.IsFocused(m.queryPanel) {
+		return m.queryPanel.Update(msg)
+	}
 	return m.detailPanel.Update(msg)
 }
 
@@ -246,9 +256,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.Width = panelW
 			m.viewport.Height = listHeight
 		}
-		detailOuterW := max(m.rightPanelWidth()*tui.DetailFocusBoxW/100, 1)
-		detailOuterH := max(m.detailTopHeight()*tui.DetailFocusBoxH/100, 1)
-		m.detailPanel.Resize(detailOuterW, detailOuterH)
+		rightW := m.rightPanelWidth()
+		topH := m.detailTopHeight()
+		detailW := max(rightW*tui.DetailPanelWPct/100, 1)
+		detailH := max(topH*tui.DetailPanelHPct/100, 1)
+		m.detailPanel.Resize(detailW, detailH)
+		m.queryPanel.Resize(max(rightW-detailW, 1), detailH)
 		m.updateBadgeCache()
 		m.syncViewport()
 		return m, nil
@@ -292,24 +305,37 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleEndpointPickerKey(msg)
 	}
 
-	// Global keys that apply regardless of focused panel.
 	switch msg.String() {
 	case tui.KeyQuit:
 		return m, tea.Quit
+
+	// ── Esc: step backward one panel at a time ──────────────────
+	// query panel → detail panel → search (left) → quit
 	case tui.KeyCancel:
-		if !m.focus.LeftFocused() && m.detailForm != nil {
-			if m.detailForm.hasExpandedDropdown() {
+		// Detail panel: close dropdown first, then step back to search.
+		if m.focus.IsFocused(m.detailPanel) {
+			if m.detailForm != nil && m.detailForm.hasExpandedDropdown() {
 				m.detailForm.HandleKey(msg)
 				m.syncViewport()
 				return m, nil
 			}
-			m.detailForm.BlurAll()
+			if m.detailForm != nil {
+				m.detailForm.BlurAll()
+			}
 			m.focus.FocusByNumber(1)
 			m.focus.SetTyping(true)
 			m.syncSearchFocus()
 			m.syncViewport()
 			return m, nil
 		}
+		// Query panel: step back to detail panel.
+		if m.focus.IsFocused(m.queryPanel) {
+			m.focus.FocusByNumber(m.detailPanel.Number)
+			m.syncSearchFocus()
+			m.syncViewport()
+			return m, nil
+		}
+		// Left panel (search): clear text → blur → quit.
 		if m.focus.Typing() {
 			if m.search.Model.Value() != "" {
 				m.search.Model.Reset()
@@ -320,23 +346,28 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.syncSearchFocus()
 			return m, nil
 		}
-		if !m.focus.LeftFocused() {
-			m.focus.FocusByNumber(1)
-			m.focus.SetTyping(true)
-			m.syncSearchFocus()
-			m.syncViewport()
-			return m, nil
-		}
 		return m, tea.Quit
+
+	// ── Tab / Shift+Tab: cycle panels ───────────────────────────
 	case tui.KeyTab:
 		m.focus.Next()
 		if m.focus.LeftFocused() {
 			m.focus.SetTyping(true)
 		}
 		m.syncSearchFocus()
+		m.syncViewport()
 		return m, nil
+	case tui.KeyShiftTab:
+		m.focus.Prev()
+		if m.focus.LeftFocused() {
+			m.focus.SetTyping(true)
+		}
+		m.syncSearchFocus()
+		m.syncViewport()
+		return m, nil
+	// ── Enter: detail panel form input / left panel → detail ────
 	case tui.KeyEnter:
-		if !m.focus.LeftFocused() && m.detailForm != nil {
+		if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil {
 			return m.forwardKeyToForm(msg)
 		}
 		if m.focus.LeftFocused() {
@@ -353,16 +384,27 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	// ── Arrow / vim keys: per-panel navigation ──────────────────
+	// Query panel: scroll viewport.
+	// Detail panel: navigate form items or scroll.
+	// Left panel: move operation cursor.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
 		tui.KeyK, tui.KeyJ:
 		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK {
-			if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+			if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
+				m.detailForm.ConsumesTextInput() {
 				return m.forwardKeyToForm(msg)
 			}
 			if m.focus.LeftFocused() && m.focus.Typing() {
 				break
 			}
 		}
+		// Query panel: scroll viewport.
+		if m.focus.IsFocused(m.queryPanel) {
+			cmd := m.queryPanel.Update(msg)
+			return m, cmd
+		}
+		// Detail panel: navigate form or scroll.
 		if !m.focus.LeftFocused() {
 			if m.detailForm != nil {
 				return m.handleDetailFormNavigation(msg)
@@ -370,6 +412,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			cmd := m.detailPanel.Update(msg)
 			return m, cmd
 		}
+		// Left panel: move operation list cursor.
 		switch msg.String() {
 		case tui.KeyUp, tui.KeyCtrlP, tui.KeyK:
 			m.cursor = tui.MoveCursorUp(m.cursor)
@@ -380,8 +423,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	// ── Space: detail panel field toggle ────────────────────────
 	case tui.KeySpace:
-		if !m.focus.LeftFocused() && m.detailForm != nil {
+		if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil {
 			return m.forwardKeyToForm(msg)
 		}
 	}
@@ -400,7 +444,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !m.focus.LeftFocused() {
-		if m.detailForm != nil && m.detailForm.ConsumesTextInput() {
+		if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
+			m.detailForm.ConsumesTextInput() {
 			return m.forwardKeyToForm(msg)
 		}
 		return m, nil
@@ -445,7 +490,14 @@ func (m *Model) syncViewport() {
 
 		formKey := op.Endpoint + "\x1f" + op.Name
 		if m.detailFormKey != formKey {
-			m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
+			if m.detailForm != nil && m.detailFormKey != "" {
+				m.formCache[m.detailFormKey] = m.detailForm
+			}
+			if cached, ok := m.formCache[formKey]; ok {
+				m.detailForm = cached
+			} else {
+				m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
+			}
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 		}
@@ -464,10 +516,13 @@ func (m *Model) syncViewport() {
 				m.detailPanel.GotoTop()
 			}
 		}
+
+		m.queryPanel.SetContent(BuildQueryString(op, m.detailForm), "")
 	} else {
 		m.detailForm = nil
 		m.detailFormKey = ""
 		m.detailPanel.SetContent("", "")
+		m.queryPanel.SetContent("", "")
 	}
 }
 
@@ -476,12 +531,14 @@ func (m *Model) renderHelpBar(width int) string {
 	switch {
 	case m.pickingEndpoints:
 		raw = helpEndpointPicker
-	case !m.focus.LeftFocused():
+	case m.focus.IsFocused(m.queryPanel):
+		raw = helpQueryPanel
+	case m.focus.IsFocused(m.detailPanel):
 		raw = helpDetailPanel
 	default:
 		raw = helpLeftPanel
 	}
-	return tui.HelpStyle.Render(
+	return tui.HelpBarStyle.Render(
 		lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(raw),
 	)
 }
@@ -508,31 +565,29 @@ func (m *Model) View() string {
 	}
 
 	rightW := m.rightPanelWidth()
-	topH := m.detailTopHeight()
-	detailFrameStyle := lipgloss.NewStyle().
-		Width(rightW).
-		Height(topH)
-	var detailView string
+
+	var detailView, queryView string
 	if m.detailPanel.CanRender() {
-		detailView = detailFrameStyle.Render(
-			m.detailPanel.View(m.focus.IsFocused(m.detailPanel)),
-		)
-	} else {
-		detailView = detailFrameStyle.Render("")
+		detailView = m.detailPanel.View(m.focus.IsFocused(m.detailPanel))
 	}
+	if m.queryPanel.CanRender() {
+		queryView = m.queryPanel.View(m.focus.IsFocused(m.queryPanel))
+	}
+
+	topRight := lipgloss.JoinHorizontal(lipgloss.Top, detailView, queryView)
 
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.responseAreaHeight()).
 		Render("")
 
-	rightCol := lipgloss.JoinVertical(lipgloss.Left, detailView, responsePlaceholder)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, topRight, responsePlaceholder)
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 	body := lipgloss.JoinVertical(lipgloss.Left, combined, helpBar)
 
+	boxH := max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
 	box := _containerStyle.
-		Width(max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)).
-		Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
+		Height(boxH).
 		Render(body)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)

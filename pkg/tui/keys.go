@@ -17,11 +17,12 @@ const (
 	KeyK = "k"
 
 	// Actions
-	KeyEnter  = "enter"
-	KeyTab    = "tab"
-	KeySpace  = " "
-	KeyQuit   = "ctrl+c" // Force quit - always works
-	KeyCancel = "esc"    // Cancel/back - context aware
+	KeyEnter    = "enter"
+	KeyTab      = "tab"
+	KeySpace    = " "
+	KeyShiftTab = "shift+tab" // Reverse tab - navigate backward
+	KeyQuit     = "ctrl+c"    // Force quit - always works
+	KeyCancel   = "esc"       // Cancel/back - context aware
 
 	// Rendering
 	listPadding = "   " // 3-space indent for non-selected list items

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	helpEndpointPicker  = " k↑/j↓: navigate | space: toggle | enter: confirm | esc: cancel"
+	helpEndpointPicker  = "Navigate: ↑↓ j/k | Space: toggle | Enter: confirm | Esc: cancel"
 	checkMark           = utils.CheckMark
 	endpointPickerTitle = "Filter Endpoints:"
 )
