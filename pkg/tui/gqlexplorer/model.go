@@ -20,7 +20,7 @@ const (
 	operationFormat       = "%d/%d operations"
 	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Esc: unfocus/quit"
 	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | Space: toggle | Tab/Shift+Tab: switch | Esc: back"
-	helpQueryPanel        = "Navigate: ↑↓ j/k | Tab/Shift+Tab: switch | Esc: back"
+	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | Tab/Shift+Tab: switch | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -277,6 +277,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+var vimToArrowMap = map[string]tea.KeyType{
+	tui.KeyJ: tea.KeyDown,
+	tui.KeyK: tea.KeyUp,
+	tui.KeyH: tea.KeyLeft,
+	tui.KeyL: tea.KeyRight,
+}
+
+func vimToArrow(msg tea.KeyMsg) tea.KeyMsg {
+	if arrow, ok := vimToArrowMap[msg.String()]; ok {
+		return tea.KeyMsg{Type: arrow}
+	}
+	return msg
+}
+
 func (m *Model) forwardKeyToForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	cmd := m.detailForm.HandleKey(msg)
 	m.syncViewport()
@@ -385,12 +399,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// ── Arrow / vim keys: per-panel navigation ──────────────────
-	// Query panel: scroll viewport.
+	// Query panel: scroll viewport (j/k vertical, h/l horizontal).
 	// Detail panel: navigate form items or scroll.
 	// Left panel: move operation cursor.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
-		tui.KeyK, tui.KeyJ:
-		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK {
+		tui.KeyK, tui.KeyJ, tui.KeyH, tui.KeyL:
+		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK ||
+			msg.String() == tui.KeyH || msg.String() == tui.KeyL {
 			if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
 				m.detailForm.ConsumesTextInput() {
 				return m.forwardKeyToForm(msg)
@@ -399,9 +414,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-		// Query panel: scroll viewport.
+		// Query panel: scroll viewport. Vim keys are mapped to arrows
+		// because the bubbles viewport only understands arrow key types.
 		if m.focus.IsFocused(m.queryPanel) {
-			cmd := m.queryPanel.Update(msg)
+			cmd := m.queryPanel.Update(vimToArrow(msg))
 			return m, cmd
 		}
 		// Detail panel: navigate form or scroll.

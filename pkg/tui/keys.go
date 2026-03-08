@@ -15,6 +15,8 @@ const (
 	// Vim-style navigation (use only when text input is inactive)
 	KeyJ = "j"
 	KeyK = "k"
+	KeyH = "h"
+	KeyL = "l"
 
 	// Actions
 	KeyEnter    = "enter"
