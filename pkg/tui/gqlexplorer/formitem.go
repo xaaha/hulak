@@ -397,7 +397,7 @@ func (df *DetailForm) hasExpandedDropdown() bool {
 func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 	var lines []string
 
-	header := tui.SubtitleStyle.Render("›" + op.Name)
+	header := tui.SubtitleStyle.Render(utils.ChevronRight + op.Name)
 	if op.ReturnType != "" {
 		header += tui.HelpStyle.Render(": " + op.ReturnType)
 	}
