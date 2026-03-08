@@ -89,6 +89,19 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+func (f *formItem) checkboxPrefix() string {
+	check := " "
+	color := tui.ColorMuted
+	if f.enabled {
+		check = utils.CrossMark
+		if f.selected {
+			color = tui.ColorPrimary
+		}
+	}
+	bracket := lipgloss.NewStyle().Foreground(color)
+	return bracket.Render("["+check+"]") + tui.KeySpace
+}
+
 func (f *formItem) View() string {
 	hint := tui.HelpStyle.Render(f.typeHint)
 	switch f.kind {
@@ -104,6 +117,9 @@ func (f *formItem) View() string {
 		label := name + tui.KeySpace + hint
 		if f.required {
 			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
+		}
+		if !f.isField {
+			label = f.checkboxPrefix() + label
 		}
 		boxStyle := tui.InputStyle
 		if editing {
@@ -129,7 +145,11 @@ func (f *formItem) View() string {
 		}
 		return b.String()
 	case formItemDropdown:
-		return f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
+		prefix := ""
+		if !f.isField {
+			prefix = f.checkboxPrefix()
+		}
+		return prefix + f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
 	}
 	return ""
 }
@@ -320,6 +340,16 @@ func (df *DetailForm) BlurAll() {
 	}
 }
 
+func (df *DetailForm) enabledArgNames() map[string]bool {
+	names := make(map[string]bool)
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].enabled {
+			names[df.items[i].argName] = true
+		}
+	}
+	return names
+}
+
 // CursorUp moves the inner cursor up, clamping at 0.
 func (df *DetailForm) CursorUp() {
 	df.cursor = tui.MoveCursorUp(df.cursor)
@@ -329,6 +359,16 @@ func (df *DetailForm) CursorUp() {
 // CursorDown moves the inner cursor down, clamping at the last item.
 func (df *DetailForm) CursorDown() {
 	df.cursor = tui.MoveCursorDown(df.cursor, len(df.items)-1)
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) CursorToTop() {
+	df.cursor = 0
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) CursorToBottom() {
+	df.cursor = len(df.items) - 1
 	df.FocusCurrent()
 }
 

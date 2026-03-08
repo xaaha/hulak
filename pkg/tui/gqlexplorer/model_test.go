@@ -1350,23 +1350,26 @@ func TestRenderLeftContentFitsWithinContentHeight(t *testing.T) {
 }
 
 func TestHelpBarChangesWithFocus(t *testing.T) {
+	// Width must be wider than the longest help constant so lipgloss
+	// centering does not wrap the text (helpDetailPanel is ~125 chars).
+	const w = 160
 	m := NewModel(sampleOps(), nil, nil, nil)
-	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	result, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
 	model := result.(*Model)
 
-	leftHelp := model.renderHelpBar(120)
+	leftHelp := model.renderHelpBar(w)
 	if !strings.Contains(leftHelp, helpLeftPanel) {
 		t.Error("left-focused help bar should contain helpLeftPanel text")
 	}
 
 	model.focus.FocusByNumber(model.detailPanel.Number)
-	detailHelp := model.renderHelpBar(120)
+	detailHelp := model.renderHelpBar(w)
 	if !strings.Contains(detailHelp, helpDetailPanel) {
 		t.Error("detail-focused help bar should contain helpDetailPanel text")
 	}
 
 	model.focus.FocusByNumber(model.queryPanel.Number)
-	queryHelp := model.renderHelpBar(120)
+	queryHelp := model.renderHelpBar(w)
 	if !strings.Contains(queryHelp, helpQueryPanel) {
 		t.Error("query-focused help bar should contain helpQueryPanel text")
 	}

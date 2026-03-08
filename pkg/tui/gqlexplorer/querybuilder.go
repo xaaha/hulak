@@ -22,22 +22,28 @@ func BuildQueryString(op *UnifiedOperation, df *DetailForm) string {
 
 	var sb strings.Builder
 
+	var enabled map[string]bool
+	if df != nil {
+		enabled = df.enabledArgNames()
+	}
+
 	sb.WriteString(string(op.Type))
 	sb.WriteString(" ")
 	sb.WriteString(op.Name)
 
 	if len(op.Arguments) > 0 {
-		sb.WriteString("(")
-		for i, arg := range op.Arguments {
-			if i > 0 {
-				sb.WriteString(", ")
+		var decls []string
+		for _, arg := range op.Arguments {
+			if enabled != nil && !enabled[arg.Name] {
+				continue
 			}
-			sb.WriteString("$")
-			sb.WriteString(arg.Name)
-			sb.WriteString(": ")
-			sb.WriteString(arg.Type)
+			decls = append(decls, "$"+arg.Name+": "+arg.Type)
 		}
-		sb.WriteString(")")
+		if len(decls) > 0 {
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(decls, ", "))
+			sb.WriteString(")")
+		}
 	}
 	sb.WriteString(" {\n")
 
@@ -45,16 +51,18 @@ func BuildQueryString(op *UnifiedOperation, df *DetailForm) string {
 	sb.WriteString(op.Name)
 
 	if len(op.Arguments) > 0 {
-		sb.WriteString("(")
-		for i, arg := range op.Arguments {
-			if i > 0 {
-				sb.WriteString(", ")
+		var pass []string
+		for _, arg := range op.Arguments {
+			if enabled != nil && !enabled[arg.Name] {
+				continue
 			}
-			sb.WriteString(arg.Name)
-			sb.WriteString(": $")
-			sb.WriteString(arg.Name)
+			pass = append(pass, arg.Name+": $"+arg.Name)
 		}
-		sb.WriteString(")")
+		if len(pass) > 0 {
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(pass, ", "))
+			sb.WriteString(")")
+		}
 	}
 
 	if df != nil {

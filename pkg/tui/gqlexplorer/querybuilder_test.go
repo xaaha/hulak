@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
@@ -76,7 +77,7 @@ func TestBuildQueryString(t *testing.T) {
 			df: &DetailForm{
 				argCount: 1,
 				items: []formItem{
-					{kind: formItemTextInput, name: "id"},
+					{kind: formItemTextInput, name: "id", argName: "id", enabled: true},
 					{kind: formItemToggle, name: "name", isField: true, toggle: tui.NewToggle("name", true)},
 					{kind: formItemToggle, name: "email", isField: true, toggle: tui.NewToggle("email", true)},
 					{kind: formItemToggle, name: "phone", isField: true, toggle: tui.NewToggle("phone", false)},
@@ -129,7 +130,7 @@ func TestBuildQueryString(t *testing.T) {
 			df: &DetailForm{
 				argCount: 1,
 				items: []formItem{
-					{kind: formItemTextInput, name: "code"},
+					{kind: formItemTextInput, name: "code", argName: "code", enabled: true},
 					{kind: formItemToggle, name: "name", isField: true, toggle: tui.NewToggle("name", true), depth: 0},
 					{kind: formItemToggle, name: "continent", isField: true, toggle: tui.NewToggle("continent", true), depth: 0, expandable: true},
 					{kind: formItemToggle, name: "name", isField: true, toggle: tui.NewToggle("name", true), depth: 1},
@@ -262,5 +263,81 @@ func TestBuildSelectionLines(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBuildQueryStringDisabledArgsExcluded(t *testing.T) {
+	op := &UnifiedOperation{
+		Name: "Media",
+		Type: TypeQuery,
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "Int"},
+			{Name: "search", Type: "String"},
+			{Name: "sort", Type: "[MediaSort]"},
+		},
+	}
+	df := &DetailForm{
+		argCount: 3,
+		items: []formItem{
+			{kind: formItemTextInput, name: "id", argName: "id", enabled: true},
+			{kind: formItemTextInput, name: "search", argName: "search", enabled: false},
+			{kind: formItemTextInput, name: "sort", argName: "sort", enabled: false},
+			{kind: formItemToggle, name: "title", isField: true, toggle: tui.NewToggle("title", true)},
+		},
+	}
+	got := BuildQueryString(op, df)
+	expected := "query Media($id: Int) {\n  Media(id: $id) {\n    title\n  }\n}"
+	if got != expected {
+		t.Errorf("got:\n%s\nwant:\n%s", got, expected)
+	}
+}
+
+func TestBuildQueryStringAllArgsDisabled(t *testing.T) {
+	op := &UnifiedOperation{
+		Name: "Media",
+		Type: TypeQuery,
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "Int"},
+			{Name: "search", Type: "String"},
+		},
+	}
+	df := &DetailForm{
+		argCount: 2,
+		items: []formItem{
+			{kind: formItemTextInput, name: "id", argName: "id", enabled: false},
+			{kind: formItemTextInput, name: "search", argName: "search", enabled: false},
+			{kind: formItemToggle, name: "title", isField: true, toggle: tui.NewToggle("title", true)},
+		},
+	}
+	got := BuildQueryString(op, df)
+	expected := "query Media {\n  Media {\n    title\n  }\n}"
+	if got != expected {
+		t.Errorf("got:\n%s\nwant:\n%s", got, expected)
+	}
+}
+
+func TestBuildQueryStringInputTypePartialEnable(t *testing.T) {
+	op := &UnifiedOperation{
+		Name: "Search",
+		Type: TypeQuery,
+		Arguments: []graphql.Argument{
+			{Name: "filter", Type: "FilterInput!"},
+			{Name: "limit", Type: "Int"},
+		},
+	}
+	df := &DetailForm{
+		argCount: 3,
+		items: []formItem{
+			{kind: formItemTextInput, name: "keyword", argName: "filter", enabled: true},
+			{kind: formItemTextInput, name: "category", argName: "filter", enabled: false},
+			{kind: formItemTextInput, name: "limit", argName: "limit", enabled: false},
+		},
+	}
+	got := BuildQueryString(op, df)
+	if !strings.Contains(got, "$filter: FilterInput!") {
+		t.Error("filter should be included when at least one child is enabled")
+	}
+	if strings.Contains(got, "$limit") {
+		t.Error("limit should be excluded when disabled")
 	}
 }

@@ -19,9 +19,9 @@ const (
 
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
-	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
-	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | Space: toggle | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
-	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | G/gg: bottom/top | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
+	helpDetailPanel       = "Navigate: ↑↓ j/k Ctrl+n/p | G/gg: bottom/top | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -71,6 +71,7 @@ type Model struct {
 	formCache     map[string]*DetailForm
 	queryPanel    *tui.Panel
 	focus         tui.FocusRing
+	pendingG      bool
 }
 
 func NewModel(
@@ -315,9 +316,42 @@ func (m *Model) handleDetailFormNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
+func (m *Model) jumpToEdge(top bool) {
+	switch {
+	case m.focus.IsFocused(m.queryPanel):
+		if top {
+			m.queryPanel.GotoTop()
+		} else {
+			m.queryPanel.GotoBottom()
+		}
+	case m.focus.IsFocused(m.detailPanel) && m.detailForm != nil:
+		if top {
+			m.detailForm.CursorToTop()
+		} else {
+			m.detailForm.CursorToBottom()
+		}
+		m.syncViewport()
+	case m.focus.LeftFocused():
+		if top {
+			m.cursor = 0
+		} else {
+			m.cursor = max(len(m.filtered)-1, 0)
+		}
+		m.syncViewport()
+	}
+}
+
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.pickingEndpoints {
 		return m.handleEndpointPickerKey(msg)
+	}
+
+	if m.pendingG {
+		m.pendingG = false
+		if msg.String() == tui.KeyG {
+			m.jumpToEdge(true)
+			return m, nil
+		}
 	}
 
 	switch msg.String() {
@@ -409,9 +443,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Detail panel: navigate form items or scroll.
 	// Left panel: move operation cursor.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
-		tui.KeyK, tui.KeyJ, tui.KeyH, tui.KeyL:
+		tui.KeyK, tui.KeyJ, tui.KeyH, tui.KeyL, tui.KeyG, tui.KeyShiftG:
 		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK ||
-			msg.String() == tui.KeyH || msg.String() == tui.KeyL {
+			msg.String() == tui.KeyH || msg.String() == tui.KeyL ||
+			msg.String() == tui.KeyG || msg.String() == tui.KeyShiftG {
 			if m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
 				m.detailForm.ConsumesTextInput() {
 				return m.forwardKeyToForm(msg)
@@ -419,6 +454,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.focus.LeftFocused() && m.focus.Typing() {
 				break
 			}
+		}
+		if msg.String() == tui.KeyShiftG {
+			m.jumpToEdge(false)
+			return m, nil
+		}
+		if msg.String() == tui.KeyG {
+			m.pendingG = true
+			return m, nil
 		}
 		// Query panel: scroll viewport. Vim keys are mapped to arrows
 		// because the bubbles viewport only understands arrow key types.
