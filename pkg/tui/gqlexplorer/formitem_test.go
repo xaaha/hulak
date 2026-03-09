@@ -1447,7 +1447,7 @@ func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
 	if strings.Contains(v, "[") || strings.Contains(v, "]") {
 		t.Fatal("continuation list input should not render a checkbox prefix")
 	}
-	if !strings.Contains(v, utils.ConnectorVertical) {
+	if !strings.Contains(v, utils.Connector) {
 		t.Fatal("continuation list input should render a connector")
 	}
 }

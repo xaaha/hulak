@@ -150,7 +150,6 @@ func (f *formItem) View() string {
 		connector := connectorStyle.Render(utils.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
 		if f.continued {
-			connector = connectorStyle.Render(utils.ConnectorVertical)
 			var b strings.Builder
 			for i, line := range strings.Split(inputBox, "\n") {
 				b.WriteString("\n")
