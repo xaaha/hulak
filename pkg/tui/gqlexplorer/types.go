@@ -41,6 +41,20 @@ func ExtractBaseType(t string) string {
 	return t
 }
 
+func IsListType(t string) bool {
+	t = strings.TrimSpace(t)
+	t = strings.TrimSuffix(t, "!")
+	return strings.HasPrefix(t, "[")
+}
+
+func ExtractListItemType(t string) string {
+	t = strings.TrimSpace(t)
+	t = strings.TrimSuffix(t, "!")
+	t = strings.TrimPrefix(t, "[")
+	t = strings.TrimSuffix(t, "]")
+	return strings.TrimSpace(t)
+}
+
 func CollectOperations(schema *graphql.Schema, endpoint string) []UnifiedOperation {
 	if schema == nil {
 		return nil
