@@ -623,7 +623,7 @@ func (m *Model) yankText() string {
 	case m.focus.IsFocused(m.queryPanel):
 		return BuildQueryString(op, m.detailForm)
 	case m.focus.IsFocused(m.variablePanel):
-		return ""
+		return BuildVariablesString(op, m.detailForm)
 	case m.focus.IsFocused(m.detailPanel):
 		return m.detailPanelPlainText(op)
 	case m.focus.LeftFocused():
@@ -710,7 +710,7 @@ func (m *Model) syncViewport() {
 		}
 
 		m.queryPanel.SetContent(BuildQueryString(op, m.detailForm), "")
-		m.variablePanel.SetContent("", "")
+		m.variablePanel.SetContent(BuildVariablesString(op, m.detailForm), "")
 	} else {
 		m.detailForm = nil
 		m.detailFormKey = ""

@@ -411,6 +411,16 @@ func (df *DetailForm) enabledArgNames() map[string]bool {
 	return names
 }
 
+func (df *DetailForm) argItems(argName string) []*formItem {
+	var items []*formItem
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].argName == argName {
+			items = append(items, &df.items[i])
+		}
+	}
+	return items
+}
+
 // CursorUp moves the inner cursor up, clamping at 0.
 func (df *DetailForm) CursorUp() {
 	df.cursor = tui.MoveCursorUp(df.cursor)
