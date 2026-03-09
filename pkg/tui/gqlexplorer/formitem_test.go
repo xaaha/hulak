@@ -697,7 +697,11 @@ func TestToggleExpandInsertsAndRemovesChildren(t *testing.T) {
 		t.Fatalf("expected 4 items after expand (2 original + 2 children), got %d", df.Len())
 	}
 	if df.items[2].name != "name" || df.items[3].name != "rtl" {
-		t.Errorf("children should be Language fields, got %q and %q", df.items[2].name, df.items[3].name)
+		t.Errorf(
+			"children should be Language fields, got %q and %q",
+			df.items[2].name,
+			df.items[3].name,
+		)
 	}
 	if df.items[2].depth != 1 {
 		t.Errorf("children should have depth 1, got %d", df.items[2].depth)
@@ -843,7 +847,11 @@ func TestExpandedFieldIndentation(t *testing.T) {
 	parentIndent := len(parentLine) - len(strings.TrimLeft(parentLine, " "))
 	childIndent := len(childLine) - len(strings.TrimLeft(childLine, " "))
 	if childIndent <= parentIndent {
-		t.Errorf("child should be indented more than parent: parent=%d child=%d", parentIndent, childIndent)
+		t.Errorf(
+			"child should be indented more than parent: parent=%d child=%d",
+			parentIndent,
+			childIndent,
+		)
 	}
 }
 
@@ -934,7 +942,11 @@ func TestBuildDetailFormUnionFragmentExpand(t *testing.T) {
 		t.Fatalf("expected 3 items after expand (1 fragment + 2 children), got %d", df.Len())
 	}
 	if df.items[1].name != "id" || df.items[2].name != "name" {
-		t.Errorf("children should be User fields, got %q and %q", df.items[1].name, df.items[2].name)
+		t.Errorf(
+			"children should be User fields, got %q and %q",
+			df.items[1].name,
+			df.items[2].name,
+		)
 	}
 	if df.items[1].depth != 1 || df.items[2].depth != 1 {
 		t.Error("children should have depth 1")
@@ -1435,7 +1447,7 @@ func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
 	if strings.Contains(v, "[") || strings.Contains(v, "]") {
 		t.Fatal("continuation list input should not render a checkbox prefix")
 	}
-	if !strings.Contains(v, utils.Connector) {
+	if !strings.Contains(v, utils.ConnectorVertical) {
 		t.Fatal("continuation list input should render a connector")
 	}
 }
@@ -1581,7 +1593,10 @@ func TestSearchMatchesByName(t *testing.T) {
 	df.updateSearchMatches()
 
 	if len(df.matchIndices) != 2 {
-		t.Fatalf("expected 2 matches for 'name' (firstName, lastName), got %d", len(df.matchIndices))
+		t.Fatalf(
+			"expected 2 matches for 'name' (firstName, lastName), got %d",
+			len(df.matchIndices),
+		)
 	}
 	if df.cursor != df.matchIndices[0] {
 		t.Errorf("cursor should be at first match %d, got %d", df.matchIndices[0], df.cursor)

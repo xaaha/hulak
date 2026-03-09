@@ -150,6 +150,7 @@ func (f *formItem) View() string {
 		connector := connectorStyle.Render(utils.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
 		if f.continued {
+			connector = connectorStyle.Render(utils.ConnectorVertical)
 			var b strings.Builder
 			for i, line := range strings.Split(inputBox, "\n") {
 				b.WriteString("\n")
@@ -596,7 +597,14 @@ func (df *DetailForm) syncListArgRows(argName string) {
 		}
 		insertAt := end
 		for group := currentGroups; group < desiredGroups; group++ {
-			next := newListArgFormItems(arg, df.inputTypes, df.enumTypes, df.endpoint, group, enabled)
+			next := newListArgFormItems(
+				arg,
+				df.inputTypes,
+				df.enumTypes,
+				df.endpoint,
+				group,
+				enabled,
+			)
 			df.items = append(df.items[:insertAt], append(next, df.items[insertAt:]...)...)
 			df.argCount += len(next)
 			insertAt += len(next)
