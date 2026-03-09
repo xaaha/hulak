@@ -90,16 +90,11 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (f *formItem) checkboxPrefix() string {
-	check := " "
-	color := tui.ColorMuted
-	if f.enabled {
-		check = utils.CrossMark
-		if f.selected {
-			color = tui.ColorPrimary
-		}
+	t := tui.NewToggle("", f.enabled)
+	if f.selected {
+		t.Focus()
 	}
-	bracket := lipgloss.NewStyle().Foreground(color)
-	return bracket.Render("["+check+"]") + tui.KeySpace
+	return t.View()
 }
 
 func (f *formItem) View() string {
@@ -614,7 +609,12 @@ func (df *DetailForm) hasExpandedDropdown() bool {
 func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 	var lines []string
 
-	header := tui.SubtitleStyle.Render(utils.ChevronRight + op.Name)
+	focused := df.items[df.cursor].Focused()
+	headerStyle := tui.HelpStyle
+	if focused {
+		headerStyle = tui.SubtitleStyle
+	}
+	header := headerStyle.Render(utils.ChevronRight + op.Name)
 	if op.ReturnType != "" {
 		header += tui.HelpStyle.Render(": " + op.ReturnType)
 	}
@@ -622,17 +622,17 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 
 	const basePad = 4
 	const depthIndent = 2
-
 	cursorLine := 0
 	for i := range df.items {
 		depth := df.items[i].depth
 		pad := basePad + depth*depthIndent
 		itemPad := strings.Repeat(tui.KeySpace, pad)
-		cursorPad := strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
 
 		prefix := itemPad
 		if i == df.cursor {
-			prefix = cursorPad
+			if focused {
+				prefix = strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
+			}
 			cursorLine = len(lines)
 		}
 		view := df.items[i].View()

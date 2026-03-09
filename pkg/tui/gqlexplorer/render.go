@@ -56,6 +56,7 @@ func (m *Model) renderList() (string, int) {
 		), 0
 	}
 
+	focused := m.focus.LeftFocused()
 	var lines []string
 	cursorLine := 0
 	var currentType OperationType
@@ -70,7 +71,11 @@ func (m *Model) renderList() (string, int) {
 		}
 		if i == m.cursor {
 			cursorLine = len(lines)
-			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+			if focused {
+				lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+			} else {
+				lines = append(lines, selectedPrefix+op.Name)
+			}
 			wrapW := max(m.leftPanelWidth()-detailPadding, 1)
 			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
 			// Full URL shown intentionally; badges/filters use shortened form.

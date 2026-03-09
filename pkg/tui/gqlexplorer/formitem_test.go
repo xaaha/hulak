@@ -399,6 +399,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 		},
 	}
 	df := buildDetailForm(op, nil, nil, objectTypes)
+	df.FocusCurrent()
 
 	view0, _ := df.View(op)
 	lines0 := strings.Split(view0, "\n")
