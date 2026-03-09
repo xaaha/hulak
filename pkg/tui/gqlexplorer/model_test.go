@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -150,13 +151,25 @@ func TestTabTogglesFocus(t *testing.T) {
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model := result.(*Model)
 	if model.focus.LeftFocused() {
-		t.Error("expected detail panel focused after tab")
+		t.Error("expected detail panel focused after first tab")
+	}
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Error("expected detail panel focused after first tab")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(*Model)
+	if model.focus.LeftFocused() {
+		t.Error("expected query panel focused after second tab")
+	}
+	if !model.focus.IsFocused(model.queryPanel) {
+		t.Error("expected query panel focused after second tab")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model = result.(*Model)
 	if !model.focus.LeftFocused() {
-		t.Error("expected left panel focused after second tab")
+		t.Error("expected left panel focused after third tab")
 	}
 }
 
@@ -195,18 +208,14 @@ func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
 	}
 }
 
-func TestScrollForcesLeftInEndpointPicker(t *testing.T) {
+func TestScrollLeftPanelWhenFocused(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
-	m.focus.FocusByNumber(m.detailPanel.Number)
-	m.pickingEndpoints = true
 
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model := result.(*Model)
-	model.pickingEndpoints = true
-	model.focus.FocusByNumber(model.detailPanel.Number)
 
-	if model.focus.LeftFocused() {
-		t.Fatal("precondition: detail panel should be focused")
+	if !model.focus.LeftFocused() {
+		t.Fatal("precondition: left panel should be focused by default")
 	}
 	model.updateFocusedViewport(tea.KeyMsg{Type: tea.KeyDown})
 }
@@ -607,8 +616,8 @@ func TestViewContainsHelpText(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, "esc: unfocus/quit") {
-		t.Error("view should contain help text")
+	if !strings.Contains(view, helpLeftPanel) {
+		t.Error("view should contain left panel help text")
 	}
 }
 
@@ -832,86 +841,135 @@ func TestEndpointFilterEmptyRestoresAll(t *testing.T) {
 	}
 }
 
-func TestEnterEndpointPicker(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
+func TestIsEndpointMode(t *testing.T) {
+	t.Run("active on e:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+		m.search.Model.SetValue("e:")
+		if !m.isEndpointMode() {
+			t.Error("should be in endpoint mode with 'e:' prefix")
+		}
+	})
 
-	if !m.pickingEndpoints {
-		t.Error("expected pickingEndpoints to be true")
+	t.Run("active on E:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+		m.search.Model.SetValue("E:")
+		if !m.isEndpointMode() {
+			t.Error("should be in endpoint mode with 'E:' prefix")
+		}
+	})
+
+	t.Run("active after type prefix q:e:", func(t *testing.T) {
+		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+		m.search.Model.SetValue("q:e:")
+		if !m.isEndpointMode() {
+			t.Error("should be in endpoint mode with 'q:e:' prefix")
+		}
+	})
+
+	t.Run("inactive with single endpoint", func(t *testing.T) {
+		m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+		m.search.Model.SetValue("e:")
+		if m.isEndpointMode() {
+			t.Error("should not be in endpoint mode with single endpoint")
+		}
+	})
+
+	t.Run("inactive on plain text", func(t *testing.T) {
+		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+		m.search.Model.SetValue("get")
+		if m.isEndpointMode() {
+			t.Error("should not be in endpoint mode on plain text")
+		}
+	})
+}
+
+func TestEndpointSearchTerm(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"just e:", "e:", ""},
+		{"e: with term", "e:space", "space"},
+		{"e: with uppercase term", "e:SPACE", "space"},
+		{"q:e: with term", "q:e:country", "country"},
 	}
-	if m.endpointCursor != 0 {
-		t.Errorf("expected endpointCursor 0, got %d", m.endpointCursor)
-	}
-	if m.pendingEndpoints == nil {
-		t.Error("expected pendingEndpoints to be initialized")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+			m.search.Model.SetValue(tc.input)
+			got := m.endpointSearchTerm()
+			if got != tc.expected {
+				t.Errorf("endpointSearchTerm() = %q, want %q", got, tc.expected)
+			}
+		})
 	}
 }
 
-func TestEndpointPickerToggle(t *testing.T) {
+func TestFilteredEndpoints(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
 
-	ep := m.endpoints[0]
-	spaceKey := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	t.Run("no filter returns all", func(t *testing.T) {
+		m.search.Model.SetValue("e:")
+		eps := m.filteredEndpoints()
+		if len(eps) != len(m.endpoints) {
+			t.Errorf("expected %d endpoints, got %d", len(m.endpoints), len(eps))
+		}
+	})
 
-	// all endpoints start selected, first toggle turns off
-	result, _ := m.Update(spaceKey)
+	t.Run("filter narrows list", func(t *testing.T) {
+		m.search.Model.SetValue("e:space")
+		eps := m.filteredEndpoints()
+		if len(eps) != 1 {
+			t.Fatalf("expected 1 endpoint matching 'space', got %d", len(eps))
+		}
+		if !strings.Contains(eps[0], "spacex") {
+			t.Errorf("expected spacex endpoint, got %q", eps[0])
+		}
+	})
+}
+
+func TestEndpointToggle(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	m.search.Model.SetValue("e:")
+	ep := m.filteredEndpoints()[0]
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+
+	if !m.activeEndpoints[ep] {
+		t.Fatal("precondition: all endpoints start active")
+	}
+
+	result, _ := m.Update(enterKey)
 	model := result.(*Model)
-	if model.pendingEndpoints[ep] {
+	if model.activeEndpoints[ep] {
 		t.Errorf("expected endpoint %q to be toggled off", ep)
 	}
 
-	// second toggle turns back on
-	result, _ = model.Update(spaceKey)
+	result, _ = model.Update(enterKey)
 	model = result.(*Model)
-	if !model.pendingEndpoints[ep] {
-		t.Errorf("expected endpoint %q to be toggled on", ep)
+	if !model.activeEndpoints[ep] {
+		t.Errorf("expected endpoint %q to be toggled back on", ep)
 	}
 }
 
-func TestEndpointPickerConfirm(t *testing.T) {
+func TestEndpointEnterToggle(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
-	m.pendingEndpoints[m.endpoints[0]] = true
+	m.search.Model.SetValue("e:")
+	ep := m.filteredEndpoints()[0]
 
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+
+	result, _ := m.Update(enterKey)
 	model := result.(*Model)
-
-	if model.pickingEndpoints {
-		t.Error("expected picker to close on enter")
-	}
-	if !model.activeEndpoints[model.endpoints[0]] {
-		t.Error("expected confirmed endpoint to be active")
+	if model.activeEndpoints[ep] {
+		t.Errorf("enter should toggle endpoint %q off", ep)
 	}
 }
 
-func TestEndpointPickerCancel(t *testing.T) {
+func TestEndpointNavigation(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	// deselect one endpoint before opening picker
-	delete(m.activeEndpoints, m.endpoints[1])
-	originalCount := len(m.activeEndpoints)
-
-	m.enterEndpointPicker()
-	// toggle an extra endpoint in pending
-	m.pendingEndpoints[m.endpoints[1]] = true
-
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	model := result.(*Model)
-
-	if model.pickingEndpoints {
-		t.Error("expected picker to close on esc")
-	}
-	if len(model.activeEndpoints) != originalCount {
-		t.Error("cancel should preserve original active endpoints")
-	}
-	if model.activeEndpoints[m.endpoints[1]] {
-		t.Error("cancel should not apply pending changes")
-	}
-}
-
-func TestEndpointPickerNavigation(t *testing.T) {
-	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
+	m.search.Model.SetValue("e:")
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	model := result.(*Model)
@@ -926,20 +984,20 @@ func TestEndpointPickerNavigation(t *testing.T) {
 	}
 }
 
-func TestEndpointPickerVimNavigation(t *testing.T) {
+func TestEndpointCtrlNavigation(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
+	m.search.Model.SetValue("e:")
 
-	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
 	model := result.(*Model)
 	if model.endpointCursor != 1 {
-		t.Errorf("j should move down, expected cursor 1, got %d", model.endpointCursor)
+		t.Errorf("ctrl+n should move down, expected cursor 1, got %d", model.endpointCursor)
 	}
 
-	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	model = result.(*Model)
 	if model.endpointCursor != 0 {
-		t.Errorf("k should move up, expected cursor 0, got %d", model.endpointCursor)
+		t.Errorf("ctrl+p should move up, expected cursor 0, got %d", model.endpointCursor)
 	}
 }
 
@@ -965,72 +1023,9 @@ func TestShortenEndpoint(t *testing.T) {
 	}
 }
 
-func TestShouldEnterEndpointPicker(t *testing.T) {
-	t.Run("triggers on e:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-		if !m.shouldEnterEndpointPicker("e:") {
-			t.Error("should trigger on 'e:'")
-		}
-	})
-
-	t.Run("triggers on E:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-		if !m.shouldEnterEndpointPicker("E:") {
-			t.Error("should trigger on 'E:'")
-		}
-	})
-
-	t.Run("triggers after type prefix q:e:", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-		if !m.shouldEnterEndpointPicker("q:e:") {
-			t.Error("should trigger on 'q:e:'")
-		}
-	})
-
-	t.Run("no trigger with single endpoint", func(t *testing.T) {
-		m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
-		if m.shouldEnterEndpointPicker("e:") {
-			t.Error("should not trigger with single endpoint")
-		}
-	})
-
-	t.Run("no trigger on plain text", func(t *testing.T) {
-		m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-		if m.shouldEnterEndpointPicker("get") {
-			t.Error("should not trigger on plain text")
-		}
-	})
-}
-
-func TestStripEndpointPrefix(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"just e:", "e:", ""},
-		{"type then e:", "q:e:", "q:"},
-		{"text then e:", "hello e:", "hello"},
-		{"no e:", "hello", "hello"},
-		{"empty", "", ""},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-			m.search.Model.SetValue(tc.input)
-			m.stripEndpointPrefix()
-			got := m.search.Model.Value()
-			if got != tc.expected {
-				t.Errorf("stripEndpointPrefix(%q) = %q, want %q", tc.input, got, tc.expected)
-			}
-		})
-	}
-}
-
 func TestRenderEndpointPicker(t *testing.T) {
 	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
-	m.enterEndpointPicker()
-	m.pendingEndpoints[m.endpoints[0]] = true
+	m.search.Model.SetValue("e:")
 
 	content, _ := m.renderEndpointPicker()
 
@@ -1039,8 +1034,70 @@ func TestRenderEndpointPicker(t *testing.T) {
 			t.Errorf("picker should contain endpoint %q", ep)
 		}
 	}
-	if !strings.Contains(content, checkMark) {
-		t.Error("picker should show check mark for selected endpoint")
+	if !strings.Contains(content, utils.ChevronDownCircled) {
+		t.Error("picker should show chevron for cursor endpoint")
+	}
+	if !strings.Contains(content, utils.CrossMark) {
+		t.Error("picker should show toggle mark for active endpoints")
+	}
+}
+
+func TestEndpointCursorResetsOnSearchChange(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	m.search.Model.SetValue("e:")
+	m.endpointCursor = 1
+
+	m.search.Model.SetValue("e:space")
+	m.endpointCursor = 0
+	m.applyFilterAndReset()
+
+	eps := m.filteredEndpoints()
+	if m.endpointCursor >= len(eps) && len(eps) > 0 {
+		t.Error("cursor should be clamped after filtering narrows the list")
+	}
+}
+
+func TestNegatedEndpointSearch(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	m.search.Model.SetValue("e:!space")
+
+	if !m.isNegatedEndpointSearch() {
+		t.Error("should detect negated search")
+	}
+
+	eps := m.filteredEndpoints()
+	if len(eps) != 1 {
+		t.Fatalf("expected 1 endpoint matching 'space', got %d", len(eps))
+	}
+	if !strings.Contains(eps[0], "spacex") {
+		t.Errorf("expected spacex endpoint, got %q", eps[0])
+	}
+}
+
+func TestNegatedEndpointEnterKeepsOnlyMatches(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	m.search.Model.SetValue("e:!space")
+
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	result, _ := m.Update(enterKey)
+	model := result.(*Model)
+
+	if len(model.activeEndpoints) != 1 {
+		t.Fatalf("expected 1 active endpoint, got %d", len(model.activeEndpoints))
+	}
+	for ep := range model.activeEndpoints {
+		if !strings.Contains(ep, "spacex") {
+			t.Errorf("expected only spacex to remain active, got %q", ep)
+		}
+	}
+}
+
+func TestNonNegatedSearchIgnoresBang(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	m.search.Model.SetValue("e:space")
+
+	if m.isNegatedEndpointSearch() {
+		t.Error("should not detect negation without ! prefix")
 	}
 }
 
@@ -1266,7 +1323,7 @@ func TestDetailTopHeight(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Model{height: tc.height}
+			m := Model{height: tc.height, helpBarH: tui.HelpBarHeight}
 			got := m.detailTopHeight()
 			if got != tc.want {
 				t.Errorf("detailTopHeight() = %d, want %d", got, tc.want)
@@ -1290,7 +1347,7 @@ func TestResponseAreaHeight(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Model{height: tc.height}
+			m := Model{height: tc.height, helpBarH: tui.HelpBarHeight}
 			got := m.responseAreaHeight()
 			if got != tc.want {
 				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
@@ -1304,7 +1361,7 @@ func TestResponseAreaHeight(t *testing.T) {
 
 func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	for h := 0; h <= 100; h++ {
-		m := Model{height: h}
+		m := Model{height: h, helpBarH: tui.HelpBarHeight}
 		total := m.contentHeight()
 		top := m.detailTopHeight()
 		bottom := m.responseAreaHeight()
@@ -1338,19 +1395,28 @@ func TestRenderLeftContentFitsWithinContentHeight(t *testing.T) {
 }
 
 func TestHelpBarChangesWithFocus(t *testing.T) {
+	// Width must be wider than the longest help constant so lipgloss
+	// centering does not wrap the text (helpDetailPanel is ~125 chars).
+	const w = 160
 	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
-	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	result, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
 	model := result.(*Model)
 
-	leftHelp := model.renderHelpBar(80)
-	if !strings.Contains(leftHelp, "detail") {
-		t.Error("left-focused help should mention 'detail'")
+	leftHelp := model.renderHelpBar(w)
+	if !strings.Contains(leftHelp, helpLeftPanel) {
+		t.Error("left-focused help bar should contain helpLeftPanel text")
 	}
 
 	model.focus.FocusByNumber(model.detailPanel.Number)
-	detailHelp := model.renderHelpBar(80)
-	if !strings.Contains(detailHelp, "toggle") {
-		t.Error("detail-focused help should mention 'toggle'")
+	detailHelp := model.renderHelpBar(w)
+	if !strings.Contains(detailHelp, helpDetailPanel) {
+		t.Error("detail-focused help bar should contain helpDetailPanel text")
+	}
+
+	model.focus.FocusByNumber(model.queryPanel.Number)
+	queryHelp := model.renderHelpBar(w)
+	if !strings.Contains(queryHelp, helpQueryPanel) {
+		t.Error("query-focused help bar should contain helpQueryPanel text")
 	}
 }
 
@@ -1365,5 +1431,338 @@ func TestEnterNoFocusChangeInSinglePanel(t *testing.T) {
 	model = result.(*Model)
 	if !model.focus.LeftFocused() {
 		t.Error("expected left panel to stay focused in single-panel layout after enter")
+	}
+}
+
+func opsWithFields() []UnifiedOperation {
+	return []UnifiedOperation{
+		{
+			Name:       "getUser",
+			Type:       TypeQuery,
+			Endpoint:   "http://api/gql",
+			ReturnType: "User!",
+		},
+		{
+			Name:       "getPost",
+			Type:       TypeQuery,
+			Endpoint:   "http://api/gql",
+			ReturnType: "Post!",
+		},
+	}
+}
+
+func TestFormCachePreservesState(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+			{Name: "name", Type: "String"},
+		}},
+		"Post": {Name: "Post", Fields: []graphql.ObjectField{
+			{Name: "title", Type: "String"},
+		}},
+	}
+	m := NewModel(opsWithFields(), nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	if model.detailForm == nil {
+		t.Fatal("expected detail form for getUser")
+	}
+	if model.detailForm.Len() != 2 {
+		t.Fatalf("expected 2 field items, got %d", model.detailForm.Len())
+	}
+	if !model.detailForm.items[0].toggle.Value {
+		t.Fatal("expected first field toggled on by default")
+	}
+
+	model.detailForm.items[0].toggle.Value = false
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = result.(*Model)
+
+	if model.filtered[model.cursor].Name != "getPost" {
+		t.Fatalf("expected cursor on getPost, got %s", model.filtered[model.cursor].Name)
+	}
+	if model.detailForm == nil || model.detailForm.Len() != 1 {
+		t.Fatal("expected detail form for getPost with 1 field")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	model = result.(*Model)
+
+	if model.filtered[model.cursor].Name != "getUser" {
+		t.Fatalf("expected cursor on getUser, got %s", model.filtered[model.cursor].Name)
+	}
+	if model.detailForm == nil {
+		t.Fatal("expected cached detail form for getUser")
+	}
+	if model.detailForm.items[0].toggle.Value {
+		t.Error("expected first field to remain toggled off after cache restore")
+	}
+}
+
+func TestFormCacheCleared(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+		}},
+		"Post": {Name: "Post", Fields: []graphql.ObjectField{
+			{Name: "title", Type: "String"},
+		}},
+	}
+	m := NewModel(opsWithFields(), nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = result.(*Model)
+
+	if len(model.formCache) != 1 {
+		t.Errorf("expected 1 cached form after switching, got %d", len(model.formCache))
+	}
+}
+
+func TestQueryPanelShowsQueryString(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+			{Name: "name", Type: "String"},
+		}},
+	}
+	ops := []UnifiedOperation{{
+		Name: "getUser", Type: TypeQuery, Endpoint: "http://api/gql", ReturnType: "User!",
+	}}
+	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	view := model.View()
+	if !strings.Contains(view, "query getUser") {
+		t.Error("view should contain query string in panel [3]")
+	}
+	if !strings.Contains(view, "id") {
+		t.Error("query string should include selected field 'id'")
+	}
+}
+
+func TestShiftTabCyclesBackward(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+
+	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model := result.(*Model)
+	if !model.focus.IsFocused(model.queryPanel) {
+		t.Error("shift+tab from left panel should wrap to query panel")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = result.(*Model)
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Error("shift+tab from query panel should go to detail panel")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = result.(*Model)
+	if !model.focus.LeftFocused() {
+		t.Error("shift+tab from detail panel should go to left panel")
+	}
+}
+
+func TestEscFromQueryGoesToDetail(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.queryPanel.Number)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Error("esc from query panel should navigate to detail panel, not search")
+	}
+}
+
+func TestEscChainQueryToDetailToSearch(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.queryPanel.Number)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Fatal("first esc should go to detail panel")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+	if !model.focus.LeftFocused() {
+		t.Error("second esc should go to left (search) panel")
+	}
+}
+
+func TestFormatOperationSummary(t *testing.T) {
+	tests := []struct {
+		name string
+		op   UnifiedOperation
+		want string
+	}{
+		{
+			name: "all fields",
+			op:   UnifiedOperation{Name: "getUser", Description: "fetch user", Endpoint: "http://api/gql"},
+			want: "getUser\n  fetch user\n  http://api/gql",
+		},
+		{
+			name: "no description",
+			op:   UnifiedOperation{Name: "listUsers", Endpoint: "http://api/gql"},
+			want: "listUsers\n  http://api/gql",
+		},
+		{
+			name: "no endpoint",
+			op:   UnifiedOperation{Name: "getUser", Description: "fetch user"},
+			want: "getUser\n  fetch user",
+		},
+		{
+			name: "name only",
+			op:   UnifiedOperation{Name: "getUser"},
+			want: "getUser",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatOperationSummary(&tc.op)
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestYankTextQueryPanel(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+		}},
+	}
+	ops := []UnifiedOperation{{
+		Name: "getUser", Type: TypeQuery, Endpoint: "http://api/gql", ReturnType: "User!",
+	}}
+	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.queryPanel.Number)
+	text := model.yankText()
+	if !strings.Contains(text, "query getUser") {
+		t.Errorf("query panel yank should contain query string, got %q", text)
+	}
+}
+
+func TestYankTextLeftPanel(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	text := model.yankText()
+	if !strings.Contains(text, "getUser") {
+		t.Errorf("left panel yank should contain operation name, got %q", text)
+	}
+	if !strings.Contains(text, "fetch user") {
+		t.Errorf("left panel yank should contain description, got %q", text)
+	}
+	if !strings.Contains(text, "http://api/gql") {
+		t.Errorf("left panel yank should contain endpoint, got %q", text)
+	}
+}
+
+func TestSlashOpensSearchInDetailPanel(t *testing.T) {
+	m := NewModel(opsWithArgs(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(*Model)
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncSearchFocus()
+	model.syncViewport()
+
+	if model.detailForm == nil {
+		t.Fatal("detailForm should exist after Enter on operation with args")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = result.(*Model)
+
+	if !model.detailForm.IsSearching() {
+		t.Fatal("/ should activate search in detail panel")
+	}
+}
+
+func TestSlashDoesNotOpenSearchOnLeftPanel(t *testing.T) {
+	m := NewModel(opsWithArgs(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = result.(*Model)
+
+	if model.detailForm != nil && model.detailForm.IsSearching() {
+		t.Fatal("/ on left panel should not activate detail search")
+	}
+}
+
+func TestSearchHelpShownDuringSearch(t *testing.T) {
+	const w = 160
+	m := NewModel(opsWithArgs(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+	model := result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(*Model)
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncSearchFocus()
+	model.syncViewport()
+
+	normalHelp := model.renderHelpBar(w)
+	if !strings.Contains(normalHelp, helpDetailPanel) {
+		t.Error("should show detail help before search")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = result.(*Model)
+
+	searchHelp := model.renderHelpBar(w)
+	if !strings.Contains(searchHelp, helpSearchPanel) {
+		t.Error("should show search help during search")
+	}
+	if strings.Contains(searchHelp, helpDetailPanel) {
+		t.Error("should NOT show detail help during search")
+	}
+}
+
+func TestEscClosesSearchAndRevertsCursor(t *testing.T) {
+	m := NewModel(opsWithArgs(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(*Model)
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncSearchFocus()
+	model.syncViewport()
+
+	original := model.detailForm.cursor
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	model = result.(*Model)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	model = result.(*Model)
+
+	if model.detailForm.IsSearching() {
+		t.Fatal("Esc should close search")
+	}
+	if model.detailForm.cursor != original {
+		t.Errorf("cursor should revert to %d, got %d", original, model.detailForm.cursor)
 	}
 }

@@ -310,3 +310,25 @@ func TestDropdownExpandedReportsState(t *testing.T) {
 		t.Error("expected not expanded after Esc")
 	}
 }
+
+func TestExpandedDropdownVimNavigation(t *testing.T) {
+	dd := NewDropdown("role", testOptions, 0)
+	dd.Focus()
+	dd, _ = dd.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !dd.Expanded() {
+		t.Fatal("expected expanded")
+	}
+	if dd.Cursor() != 0 {
+		t.Fatalf("cursor = %d, want 0", dd.Cursor())
+	}
+
+	dd, _ = dd.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if dd.Cursor() != 1 {
+		t.Fatalf("j should move cursor down, got %d", dd.Cursor())
+	}
+
+	dd, _ = dd.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	if dd.Cursor() != 0 {
+		t.Fatalf("k should move cursor up, got %d", dd.Cursor())
+	}
+}

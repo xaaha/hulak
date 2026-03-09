@@ -146,8 +146,12 @@ func TestFormItemConsumesTextInput(t *testing.T) {
 		t.Fatal("blurred text input should not consume")
 	}
 	ti.Focus()
+	if ti.ConsumesTextInput() {
+		t.Fatal("selected (non-editing) text input should not consume")
+	}
+	ti.input.Model.Focus()
 	if !ti.ConsumesTextInput() {
-		t.Fatal("focused text input should consume")
+		t.Fatal("editing text input should consume")
 	}
 }
 
@@ -395,6 +399,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 		},
 	}
 	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
+	df.FocusCurrent()
 
 	view0, _ := df.View(op)
 	lines0 := strings.Split(view0, "\n")
@@ -498,13 +503,18 @@ func TestDetailFormArrowsAlwaysNavigate(t *testing.T) {
 	if df.cursor != 0 {
 		t.Fatal("cursor should start at 0 (text input arg)")
 	}
+	if df.items[0].ConsumesTextInput() {
+		t.Fatal("selected (non-editing) text input should not consume")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
 	if !df.items[0].ConsumesTextInput() {
-		t.Fatal("focused text input should consume text input")
+		t.Fatal("text input should consume after Enter activates editing")
 	}
 
 	df.CursorDown()
 	if df.cursor != 1 {
-		t.Fatal("CursorDown should move to item 1 even from a focused text input")
+		t.Fatal("CursorDown should move to item 1 even from an editing text input")
 	}
 	if df.items[0].Focused() {
 		t.Fatal("previous text input should be blurred after navigation")
@@ -1092,5 +1102,500 @@ func TestResolveEnumTypeScopedThenBare(t *testing.T) {
 	}
 	if et2.Values[0].Name != "BLUE" {
 		t.Fatalf("bare key should be fallback, got %q", et2.Values[0].Name)
+	}
+}
+
+func TestArgFormItemEnabledDefaults(t *testing.T) {
+	tests := []struct {
+		name   string
+		arg    graphql.Argument
+		wantOn bool
+	}{
+		{"required string", graphql.Argument{Name: "id", Type: "ID!"}, true},
+		{"optional string", graphql.Argument{Name: "search", Type: "String"}, false},
+		{"required bool", graphql.Argument{Name: "active", Type: "Boolean!"}, true},
+		{"optional bool", graphql.Argument{Name: "verbose", Type: "Boolean"}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fi := newArgFormItem(tc.arg, nil, "ep")
+			if fi.enabled != tc.wantOn {
+				t.Errorf("enabled = %v, want %v", fi.enabled, tc.wantOn)
+			}
+		})
+	}
+}
+
+func TestBuildDetailFormSetsArgName(t *testing.T) {
+	ep := "https://api.test/graphql"
+	op := &UnifiedOperation{
+		Name:     "Search",
+		Type:     TypeQuery,
+		Endpoint: ep,
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "Int!"},
+			{Name: "filter", Type: "FilterInput"},
+		},
+	}
+	inputTypes := map[string]graphql.InputType{
+		ScopedTypeKey(ep, "FilterInput"): {
+			Name: "FilterInput",
+			Fields: []graphql.InputField{
+				{Name: "keyword", Type: "String"},
+				{Name: "category", Type: "String"},
+			},
+		},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+	if df.argCount != 3 {
+		t.Fatalf("expected 3 arg items (1 simple + 2 expanded), got %d", df.argCount)
+	}
+	if df.items[0].argName != "id" {
+		t.Errorf("item 0 argName = %q, want %q", df.items[0].argName, "id")
+	}
+	if df.items[1].argName != "filter" {
+		t.Errorf("item 1 argName = %q, want %q", df.items[1].argName, "filter")
+	}
+	if df.items[2].argName != "filter" {
+		t.Errorf("item 2 argName = %q, want %q", df.items[2].argName, "filter")
+	}
+}
+
+func TestSpaceTogglesEnabledOnTextInput(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	df.FocusCurrent()
+
+	if df.items[0].enabled {
+		t.Fatal("optional arg should start disabled")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !df.items[0].enabled {
+		t.Fatal("Space should enable the arg")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if df.items[0].enabled {
+		t.Fatal("second Space should disable the arg")
+	}
+}
+
+func TestSpaceTogglesBooleanArgEnabled(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "active", Type: "Boolean"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	df.FocusCurrent()
+
+	if df.items[0].enabled {
+		t.Fatal("optional bool should start disabled")
+	}
+	if df.items[0].toggle.Value {
+		t.Fatal("toggle value should start false")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !df.items[0].enabled {
+		t.Fatal("Space should enable boolean arg")
+	}
+	if !df.items[0].toggle.Value {
+		t.Fatal("toggle value should be true after Space")
+	}
+}
+
+func TestEnterTogglesTextInputEditing(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	df.FocusCurrent()
+
+	if df.items[0].input.Model.Focused() {
+		t.Fatal("text input should not be focused initially")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if !df.items[0].input.Model.Focused() {
+		t.Fatal("Enter should activate editing")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if df.items[0].input.Model.Focused() {
+		t.Fatal("second Enter should deactivate editing")
+	}
+}
+
+func TestEscExitsTextInputEditing(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	df.FocusCurrent()
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if !df.items[0].input.Model.Focused() {
+		t.Fatal("should be editing after Enter")
+	}
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEscape})
+	if df.items[0].input.Model.Focused() {
+		t.Fatal("Esc should exit editing")
+	}
+}
+
+func TestCheckboxPrefixInView(t *testing.T) {
+	fi := newArgFormItem(graphql.Argument{Name: "q", Type: "String"}, nil, "ep")
+	v := fi.View()
+	if !strings.Contains(v, "[") || !strings.Contains(v, "]") {
+		t.Fatal("non-field text input should have checkbox brackets in view")
+	}
+}
+
+func TestEnabledArgNames(t *testing.T) {
+	df := &DetailForm{
+		argCount: 4,
+		items: []formItem{
+			{name: "a", argName: "a", enabled: true},
+			{name: "b", argName: "b", enabled: false},
+			{name: "kw", argName: "filter", enabled: true},
+			{name: "cat", argName: "filter", enabled: false},
+			{name: "field1", isField: true},
+		},
+	}
+	got := df.enabledArgNames()
+	if !got["a"] {
+		t.Error("a should be enabled")
+	}
+	if got["b"] {
+		t.Error("b should not be enabled")
+	}
+	if !got["filter"] {
+		t.Error("filter should be enabled (kw child is enabled)")
+	}
+	if len(got) != 2 {
+		t.Errorf("expected 2 enabled args, got %d", len(got))
+	}
+}
+
+func TestDetailFormCursorToTopBottom(t *testing.T) {
+	ep := "https://api.test/graphql"
+	op := &UnifiedOperation{
+		Name:       "country",
+		ReturnType: "Country",
+		Endpoint:   ep,
+		Arguments: []graphql.Argument{
+			{Name: "code", Type: "ID!"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "Country"): {
+			Name: "Country",
+			Fields: []graphql.ObjectField{
+				{Name: "name", Type: "String"},
+				{Name: "capital", Type: "String"},
+				{Name: "phone", Type: "String"},
+			},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
+	last := len(df.items) - 1
+
+	df.CursorToBottom()
+	if df.cursor != last {
+		t.Errorf("CursorToBottom: cursor = %d, want %d", df.cursor, last)
+	}
+	if !df.items[last].Focused() {
+		t.Error("last item should be focused after CursorToBottom")
+	}
+
+	df.CursorToTop()
+	if df.cursor != 0 {
+		t.Error("CursorToTop: cursor should be 0")
+	}
+	if !df.items[0].Focused() {
+		t.Error("first item should be focused after CursorToTop")
+	}
+	if df.items[last].Focused() {
+		t.Error("last item should be blurred after CursorToTop")
+	}
+}
+
+func searchFormHelper() *DetailForm {
+	op := &UnifiedOperation{
+		Name:       "findUsers",
+		Type:       TypeQuery,
+		Endpoint:   "http://api/gql",
+		ReturnType: "UserConnection!",
+		Arguments: []graphql.Argument{
+			{Name: "firstName", Type: "String"},
+			{Name: "lastName", Type: "String"},
+			{Name: "email", Type: "String!"},
+			{Name: "age", Type: "Int"},
+			{Name: "country", Type: "String"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		"UserConnection": {Name: "UserConnection", Fields: []graphql.ObjectField{
+			{Name: "totalCount", Type: "Int!"},
+			{Name: "edges", Type: "[UserEdge]"},
+		}},
+	}
+	return buildDetailForm(op, nil, nil, objectTypes, nil, nil)
+}
+
+func TestSearchStartAndStop(t *testing.T) {
+	df := searchFormHelper()
+	if df.IsSearching() {
+		t.Fatal("should not be searching initially")
+	}
+
+	df.cursor = 2
+	df.FocusCurrent()
+	df.StartSearch()
+
+	if !df.IsSearching() {
+		t.Fatal("should be searching after StartSearch")
+	}
+	if df.preSearchCursor != 2 {
+		t.Errorf("preSearchCursor = %d, want 2", df.preSearchCursor)
+	}
+
+	df.StopSearch(false)
+	if df.IsSearching() {
+		t.Fatal("should not be searching after StopSearch")
+	}
+	if df.cursor != 2 {
+		t.Errorf("cursor should revert to %d on cancel, got %d", 2, df.cursor)
+	}
+}
+
+func TestSearchConfirmKeepsCursor(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+
+	df.searchInput.Model.SetValue("email")
+	df.updateSearchMatches()
+
+	matched := df.cursor
+	df.StopSearch(true)
+
+	if df.cursor != matched {
+		t.Errorf("cursor should stay at %d after confirm, got %d", matched, df.cursor)
+	}
+}
+
+func TestSearchMatchesByName(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+
+	if len(df.matchIndices) != 2 {
+		t.Fatalf("expected 2 matches for 'name' (firstName, lastName), got %d", len(df.matchIndices))
+	}
+	if df.cursor != df.matchIndices[0] {
+		t.Errorf("cursor should be at first match %d, got %d", df.matchIndices[0], df.cursor)
+	}
+}
+
+func TestSearchCaseInsensitive(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+
+	df.searchInput.Model.SetValue("EMAIL")
+	df.updateSearchMatches()
+
+	if len(df.matchIndices) == 0 {
+		t.Fatal("expected match for uppercase 'EMAIL'")
+	}
+}
+
+func TestSearchNoMatches(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+
+	df.searchInput.Model.SetValue("zzz")
+	df.updateSearchMatches()
+
+	if len(df.matchIndices) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(df.matchIndices))
+	}
+	if status := df.searchStatus(); status != "no matches" {
+		t.Errorf("status = %q, want 'no matches'", status)
+	}
+}
+
+func TestSearchNextPrevMatch(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+	if len(df.matchIndices) < 2 {
+		t.Fatal("need at least 2 matches")
+	}
+
+	first := df.matchIndices[0]
+	second := df.matchIndices[1]
+
+	df.nextMatch()
+	if df.cursor != second {
+		t.Errorf("after nextMatch: cursor = %d, want %d", df.cursor, second)
+	}
+	if df.searchStatus() != "2/2" {
+		t.Errorf("status = %q, want '2/2'", df.searchStatus())
+	}
+
+	df.nextMatch()
+	if df.cursor != first {
+		t.Error("nextMatch should wrap around to first match")
+	}
+
+	df.prevMatch()
+	if df.cursor != second {
+		t.Error("prevMatch should wrap around to last match")
+	}
+}
+
+func TestSearchHandleKeyEnterConfirms(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+	df.searchInput.Model.SetValue("email")
+	df.updateSearchMatches()
+
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if df.IsSearching() {
+		t.Fatal("Enter should close search")
+	}
+}
+
+func TestSearchHandleKeyEscCancels(t *testing.T) {
+	df := searchFormHelper()
+	original := df.cursor
+	df.StartSearch()
+	df.searchInput.Model.SetValue("email")
+	df.updateSearchMatches()
+
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyEscape})
+
+	if df.IsSearching() {
+		t.Fatal("Esc should close search")
+	}
+	if df.cursor != original {
+		t.Errorf("Esc should revert cursor to %d, got %d", original, df.cursor)
+	}
+}
+
+func TestSearchHandleKeyArrowsCycleMatches(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+
+	first := df.cursor
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyDown})
+	if df.cursor == first {
+		t.Error("Down arrow should cycle to next match")
+	}
+
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyUp})
+	if df.cursor != first {
+		t.Error("Up arrow should cycle back to first match")
+	}
+}
+
+func TestSearchFooterRendering(t *testing.T) {
+	df := searchFormHelper()
+	if df.SearchFooter() != "" {
+		t.Fatal("footer should be empty when not searching")
+	}
+
+	df.StartSearch()
+	footer := df.SearchFooter()
+	if !strings.Contains(footer, "Search(/)") {
+		t.Fatalf("footer should contain label, got %q", footer)
+	}
+
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+	footer = df.SearchFooter()
+	if !strings.Contains(footer, "1/2") {
+		t.Fatalf("footer should show match count, got %q", footer)
+	}
+
+	df.StopSearch(true)
+	if df.SearchFooter() != "" {
+		t.Fatal("footer should be empty after confirming search")
+	}
+}
+
+func TestMatchesClearedAfterConfirm(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+
+	df.StopSearch(true)
+	if len(df.matchIndices) != 0 {
+		t.Fatal("matches should be cleared after confirm")
+	}
+}
+
+func TestMatchesClearedAfterCancel(t *testing.T) {
+	df := searchFormHelper()
+	df.StartSearch()
+	df.searchInput.Model.SetValue("name")
+	df.updateSearchMatches()
+
+	df.StopSearch(false)
+	if len(df.matchIndices) != 0 {
+		t.Fatal("matches should be cleared after cancel")
+	}
+}
+
+func TestEnterTogglesBooleanArgument(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "setFlag",
+		Type:     TypeMutation,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "isAdult", Type: "Boolean"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	df.FocusCurrent()
+
+	item := &df.items[0]
+	if item.kind != formItemToggle {
+		t.Fatalf("expected toggle, got %d", item.kind)
+	}
+	if item.enabled {
+		t.Fatal("optional boolean should start disabled")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if !item.toggle.Value {
+		t.Error("Enter should toggle the boolean value to true")
+	}
+	if !item.enabled {
+		t.Error("Enter should enable the argument")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if item.toggle.Value {
+		t.Error("second Enter should toggle back to false")
+	}
+	if item.enabled {
+		t.Error("second Enter should disable the argument")
 	}
 }
