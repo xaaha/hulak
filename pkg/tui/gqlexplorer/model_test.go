@@ -168,8 +168,17 @@ func TestTabTogglesFocus(t *testing.T) {
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model = result.(*Model)
+	if model.focus.LeftFocused() {
+		t.Error("expected variable panel focused after third tab")
+	}
+	if !model.focus.IsFocused(model.variablePanel) {
+		t.Error("expected variable panel focused after third tab")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(*Model)
 	if !model.focus.LeftFocused() {
-		t.Error("expected left panel focused after third tab")
+		t.Error("expected left panel focused after fourth tab")
 	}
 }
 
@@ -1339,18 +1348,18 @@ func TestResponseAreaHeight(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
-		want   int
 	}{
-		{"typical terminal", 40, 23},
-		{"small terminal", 10, 5},
-		{"zero height", 0, 1},
+		{"typical terminal", 40},
+		{"small terminal", 10},
+		{"zero height", 0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			m := Model{height: tc.height, helpBarH: tui.HelpBarHeight}
-			got := m.responseAreaHeight()
-			if got != tc.want {
-				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
+			got := m.callAreaHeight()
+			want := max(m.contentHeight()-m.detailTopHeight()-m.variablePanelHeight(), 1)
+			if got != want {
+				t.Errorf("responseAreaHeight() = %d, want %d", got, want)
 			}
 			if got < 1 {
 				t.Errorf("responseAreaHeight() = %d, must be >= 1", got)
@@ -1364,14 +1373,15 @@ func TestHeightPartitionSumsCorrectly(t *testing.T) {
 		m := Model{height: h, helpBarH: tui.HelpBarHeight}
 		total := m.contentHeight()
 		top := m.detailTopHeight()
-		bottom := m.responseAreaHeight()
-		sum := top + bottom
+		variable := m.variablePanelHeight()
+		bottom := m.callAreaHeight()
+		sum := top + variable + bottom
 
 		// For very small heights where max() clamps to 1, the sum may exceed
 		// total. For normal heights the partition should be exact.
-		if total >= 2 && sum != total {
-			t.Errorf("height=%d: top(%d) + bottom(%d) = %d, want %d",
-				h, top, bottom, sum, total)
+		if total >= 3 && sum != total {
+			t.Errorf("height=%d: top(%d) + variable(%d) + bottom(%d) = %d, want %d",
+				h, top, variable, bottom, sum, total)
 		}
 	}
 }
@@ -1417,6 +1427,12 @@ func TestHelpBarChangesWithFocus(t *testing.T) {
 	queryHelp := model.renderHelpBar(w)
 	if !strings.Contains(queryHelp, helpQueryPanel) {
 		t.Error("query-focused help bar should contain helpQueryPanel text")
+	}
+
+	model.focus.FocusByNumber(model.variablePanel.Number)
+	variableHelp := model.renderHelpBar(w)
+	if !strings.Contains(variableHelp, helpVariablePanel) {
+		t.Error("variable-focused help bar should contain helpVariablePanel text")
 	}
 }
 
@@ -1550,8 +1566,14 @@ func TestShiftTabCyclesBackward(t *testing.T) {
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
 	model := result.(*Model)
+	if !model.focus.IsFocused(model.variablePanel) {
+		t.Error("shift+tab from left panel should wrap to variable panel")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = result.(*Model)
 	if !model.focus.IsFocused(model.queryPanel) {
-		t.Error("shift+tab from left panel should wrap to query panel")
+		t.Error("shift+tab from variable panel should go to query panel")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
@@ -1564,6 +1586,20 @@ func TestShiftTabCyclesBackward(t *testing.T) {
 	model = result.(*Model)
 	if !model.focus.LeftFocused() {
 		t.Error("shift+tab from detail panel should go to left panel")
+	}
+}
+
+func TestEscFromVariableGoesToQuery(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.variablePanel.Number)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+	if !model.focus.IsFocused(model.queryPanel) {
+		t.Error("esc from variable panel should navigate to query panel")
 	}
 }
 
@@ -1586,18 +1622,24 @@ func TestEscChainQueryToDetailToSearch(t *testing.T) {
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
-	model.focus.FocusByNumber(model.queryPanel.Number)
+	model.focus.FocusByNumber(model.variablePanel.Number)
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+	if !model.focus.IsFocused(model.queryPanel) {
+		t.Fatal("first esc should go to query panel")
+	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model = result.(*Model)
 	if !model.focus.IsFocused(model.detailPanel) {
-		t.Fatal("first esc should go to detail panel")
+		t.Fatal("second esc should go to detail panel")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	model = result.(*Model)
 	if !model.focus.LeftFocused() {
-		t.Error("second esc should go to left (search) panel")
+		t.Error("third esc should go to left (search) panel")
 	}
 }
 
@@ -1609,7 +1651,11 @@ func TestFormatOperationSummary(t *testing.T) {
 	}{
 		{
 			name: "all fields",
-			op:   UnifiedOperation{Name: "getUser", Description: "fetch user", Endpoint: "http://api/gql"},
+			op: UnifiedOperation{
+				Name:        "getUser",
+				Description: "fetch user",
+				Endpoint:    "http://api/gql",
+			},
 			want: "getUser\n  fetch user\n  http://api/gql",
 		},
 		{
