@@ -138,6 +138,83 @@ func TestBuildVariablesStringListArgAllowsNullItems(t *testing.T) {
 	}
 }
 
+func TestBuildVariablesStringListEnumArg(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUsers",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "statuses", Type: "[Status!]!"},
+		},
+	}
+	enums := map[string]graphql.EnumType{
+		"Status": {Name: "Status", Values: []graphql.EnumValue{{Name: "OPEN"}, {Name: "CLOSED"}}},
+	}
+	df := buildDetailForm(op, nil, enums, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].dropdown.Selected = 1
+	df.syncListArgRows("statuses")
+	df.items[1].dropdown.Selected = 2
+	df.syncListArgRows("statuses")
+
+	got := BuildVariablesString(op, df)
+	want := "{\n" +
+		"  \"statuses\": [\"OPEN\", \"CLOSED\"]\n" +
+		"}"
+	if got != want {
+		t.Fatalf("BuildVariablesString()\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestBuildVariablesStringListInputObjectArg(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "searchUsers",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "filters", Type: "[UserFilter!]!"},
+		},
+	}
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "name", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].enabled = true
+	df.items[0].input.Model.SetValue("alice")
+	df.items[1].enabled = true
+	df.items[1].toggle.Value = true
+	df.syncListArgRows("filters")
+	df.items[2].enabled = true
+	df.items[2].input.Model.SetValue("bob")
+	df.syncListArgRows("filters")
+
+	got := BuildVariablesString(op, df)
+	want := "{\n" +
+		"  \"filters\": [{\n" +
+		"    \"name\": \"alice\",\n" +
+		"    \"active\": true\n" +
+		"  }, {\n" +
+		"    \"name\": \"bob\"\n" +
+		"  }]\n" +
+		"}"
+	if got != want {
+		t.Fatalf("BuildVariablesString()\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestBuildVariablesStringOmitsEmptyTextInputs(t *testing.T) {
 	op := &UnifiedOperation{
 		Name:     "getUser",

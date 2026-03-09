@@ -27,12 +27,7 @@ func BuildVariablesString(op *UnifiedOperation, df *DetailForm) string {
 		}
 
 		if IsListType(arg.Type) {
-			var values []string
-			for _, item := range argItems {
-				if value, ok := formatVariableValue(item); ok {
-					values = append(values, value)
-				}
-			}
+			values := buildListVariableValues(argItems)
 			if len(values) == 0 {
 				continue
 			}
@@ -72,6 +67,45 @@ func BuildVariablesString(op *UnifiedOperation, df *DetailForm) string {
 		return ""
 	}
 	return renderVariablesObject(entries, 0)
+}
+
+func buildListVariableValues(items []*formItem) []string {
+	if len(items) == 0 {
+		return nil
+	}
+
+	var values []string
+	for i := 0; i < len(items); {
+		group := items[i].listGroup
+		groupItems := items[i : i+1]
+		j := i + 1
+		for j < len(items) && items[j].listGroup == group {
+			groupItems = items[i : j+1]
+			j++
+		}
+		if len(groupItems) == 1 {
+			if value, ok := formatVariableValue(groupItems[0]); ok {
+				values = append(values, value)
+			}
+			i = j
+			continue
+		}
+
+		var objectEntries []variableEntry
+		for _, item := range groupItems {
+			if value, ok := formatVariableValue(item); ok {
+				objectEntries = append(objectEntries, variableEntry{
+					key:   item.name,
+					value: value,
+				})
+			}
+		}
+		if len(objectEntries) > 0 {
+			values = append(values, renderVariablesObject(objectEntries, 1))
+		}
+		i = j
+	}
+	return values
 }
 
 func formatVariableValue(item *formItem) (string, bool) {
