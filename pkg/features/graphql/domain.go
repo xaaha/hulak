@@ -4,12 +4,14 @@ package graphql
 // This is a thin domain model independent of the graphql-go-tools library,
 // making it easier to test and allowing us to swap libraries in the future.
 type Schema struct {
-	Queries       []Operation
-	Mutations     []Operation
-	Subscriptions []Operation
-	InputTypes    map[string]InputType  // Map of input type name to InputType for TUI lookup
-	EnumTypes     map[string]EnumType   // Map of enum type name to EnumType for TUI lookup
-	ObjectTypes   map[string]ObjectType // Map of object type name to ObjectType for TUI field display
+	Queries        []Operation
+	Mutations      []Operation
+	Subscriptions  []Operation
+	InputTypes     map[string]InputType     // Map of input type name to InputType for TUI lookup
+	EnumTypes      map[string]EnumType      // Map of enum type name to EnumType for TUI lookup
+	ObjectTypes    map[string]ObjectType    // Map of object type name to ObjectType for TUI field display
+	UnionTypes     map[string]UnionType     // Map of union type name to UnionType for inline fragments
+	InterfaceTypes map[string]InterfaceType // Map of interface type name to InterfaceType for inline fragments
 }
 
 // Operation represents a query, mutation, or subscription field.
@@ -45,6 +47,24 @@ type InputField struct {
 	Type         string
 	Description  string
 	DefaultValue string
+}
+
+// UnionType represents a GraphQL union type (e.g., SearchResult, NotificationUnion).
+// Unions have no shared fields; all field selection must use inline fragments.
+type UnionType struct {
+	Name          string
+	Description   string
+	PossibleTypes []string // concrete OBJECT type names
+}
+
+// InterfaceType represents a GraphQL interface type (e.g., Node, Character).
+// Interfaces have shared fields that can be selected directly, plus concrete
+// types accessed via inline fragments for type-specific fields.
+type InterfaceType struct {
+	Name          string
+	Description   string
+	Fields        []ObjectField // shared fields selectable directly
+	PossibleTypes []string      // concrete types implementing this interface
 }
 
 // ObjectType represents a GraphQL output object type (e.g., Country, User).

@@ -52,9 +52,11 @@ type Model struct {
 	width      int
 	height     int
 
-	inputTypes  map[string]graphql.InputType
-	enumTypes   map[string]graphql.EnumType
-	objectTypes map[string]graphql.ObjectType
+	inputTypes     map[string]graphql.InputType
+	enumTypes      map[string]graphql.EnumType
+	objectTypes    map[string]graphql.ObjectType
+	unionTypes     map[string]graphql.UnionType
+	interfaceTypes map[string]graphql.InterfaceType
 
 	endpoints        []string
 	activeEndpoints  map[string]bool
@@ -74,6 +76,8 @@ func NewModel(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) Model {
 	for i := range operations {
 		if operations[i].NameLower == "" {
@@ -102,6 +106,8 @@ func NewModel(
 		inputTypes:      inputTypes,
 		enumTypes:       enumTypes,
 		objectTypes:     objectTypes,
+		unionTypes:      unionTypes,
+		interfaceTypes:  interfaceTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
@@ -445,7 +451,7 @@ func (m *Model) syncViewport() {
 
 		formKey := op.Endpoint + "\x1f" + op.Name
 		if m.detailFormKey != formKey {
-			m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
+			m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes, m.unionTypes, m.interfaceTypes)
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 		}
@@ -460,7 +466,7 @@ func (m *Model) syncViewport() {
 			m.detailPanel.SyncContent(content, cursorLine)
 		} else {
 			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes, m.unionTypes, m.interfaceTypes), cacheKey) {
 				m.detailPanel.GotoTop()
 			}
 		}
@@ -543,8 +549,10 @@ func RunExplorer(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) error {
-	model := NewModel(operations, inputTypes, enumTypes, objectTypes)
+	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes)
 	p := tea.NewProgram(
 		&model,
 		tea.WithAltScreen(),

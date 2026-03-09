@@ -551,6 +551,138 @@ func TestConvertToSchemaExcludesRootOperationTypes(t *testing.T) {
 	}
 }
 
+func TestConvertToSchemaExtractsUnionTypes(t *testing.T) {
+	queryType := createQueryType()
+
+	introspectionSchema := &introspection.Schema{
+		QueryType: queryType,
+		Types: []*introspection.FullType{
+			&queryType,
+			{
+				Kind:        introspection.UNION,
+				Name:        "SearchResult",
+				Description: "A search result union",
+				PossibleTypes: []introspection.TypeRef{
+					{Kind: introspection.OBJECT, Name: stringPtr("User")},
+					{Kind: introspection.OBJECT, Name: stringPtr("Post")},
+				},
+			},
+			{
+				Kind: introspection.OBJECT,
+				Name: "User",
+				Fields: []introspection.Field{
+					{Name: "id", Type: introspection.TypeRef{Kind: introspection.SCALAR, Name: stringPtr("ID")}},
+				},
+			},
+			{
+				Kind: introspection.OBJECT,
+				Name: "Post",
+				Fields: []introspection.Field{
+					{Name: "title", Type: introspection.TypeRef{Kind: introspection.SCALAR, Name: stringPtr("String")}},
+				},
+			},
+		},
+	}
+
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(schema.UnionTypes) != 1 {
+		t.Fatalf("Expected 1 union type, got %d", len(schema.UnionTypes))
+	}
+
+	ut, ok := schema.UnionTypes["SearchResult"]
+	if !ok {
+		t.Fatal("Expected 'SearchResult' union type")
+	}
+	if ut.Description != "A search result union" {
+		t.Errorf("Expected description 'A search result union', got %q", ut.Description)
+	}
+	if len(ut.PossibleTypes) != 2 {
+		t.Fatalf("Expected 2 possible types, got %d", len(ut.PossibleTypes))
+	}
+	if ut.PossibleTypes[0] != "User" || ut.PossibleTypes[1] != "Post" {
+		t.Errorf("Expected [User, Post], got %v", ut.PossibleTypes)
+	}
+}
+
+func TestConvertToSchemaExtractsInterfaceTypes(t *testing.T) {
+	queryType := createQueryType()
+
+	introspectionSchema := &introspection.Schema{
+		QueryType: queryType,
+		Types: []*introspection.FullType{
+			&queryType,
+			{
+				Kind:        introspection.INTERFACE,
+				Name:        "Node",
+				Description: "An object with an ID",
+				Fields: []introspection.Field{
+					{
+						Name: "id",
+						Type: introspection.TypeRef{Kind: introspection.NONNULL, OfType: &introspection.TypeRef{Kind: introspection.SCALAR, Name: stringPtr("ID")}},
+					},
+				},
+				PossibleTypes: []introspection.TypeRef{
+					{Kind: introspection.OBJECT, Name: stringPtr("User")},
+					{Kind: introspection.OBJECT, Name: stringPtr("Post")},
+				},
+			},
+		},
+	}
+
+	schema, err := ConvertToSchema(introspectionSchema)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(schema.InterfaceTypes) != 1 {
+		t.Fatalf("Expected 1 interface type, got %d", len(schema.InterfaceTypes))
+	}
+
+	it, ok := schema.InterfaceTypes["Node"]
+	if !ok {
+		t.Fatal("Expected 'Node' interface type")
+	}
+	if it.Description != "An object with an ID" {
+		t.Errorf("Expected description 'An object with an ID', got %q", it.Description)
+	}
+	if len(it.Fields) != 1 {
+		t.Fatalf("Expected 1 shared field, got %d", len(it.Fields))
+	}
+	if it.Fields[0].Name != "id" || it.Fields[0].Type != "ID!" {
+		t.Errorf("Expected shared field id:ID!, got %s:%s", it.Fields[0].Name, it.Fields[0].Type)
+	}
+	if len(it.PossibleTypes) != 2 {
+		t.Fatalf("Expected 2 possible types, got %d", len(it.PossibleTypes))
+	}
+	if it.PossibleTypes[0] != "User" || it.PossibleTypes[1] != "Post" {
+		t.Errorf("Expected [User, Post], got %v", it.PossibleTypes)
+	}
+}
+
+func TestExtractPossibleTypeNames(t *testing.T) {
+	refs := []introspection.TypeRef{
+		{Kind: introspection.OBJECT, Name: stringPtr("A")},
+		{Kind: introspection.OBJECT, Name: stringPtr("B")},
+		{Kind: introspection.OBJECT, Name: nil},
+	}
+	names := extractPossibleTypeNames(refs)
+	if len(names) != 2 {
+		t.Fatalf("Expected 2 names (nil skipped), got %d", len(names))
+	}
+	if names[0] != "A" || names[1] != "B" {
+		t.Errorf("Expected [A, B], got %v", names)
+	}
+
+	empty := extractPossibleTypeNames(nil)
+	if len(empty) != 0 {
+		t.Errorf("Expected empty slice for nil input, got %d", len(empty))
+	}
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

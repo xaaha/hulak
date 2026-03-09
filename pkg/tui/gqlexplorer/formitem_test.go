@@ -203,7 +203,7 @@ func TestBuildDetailFormFieldsAndArgs(t *testing.T) {
 		},
 	}
 
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("buildDetailForm returned nil")
 	}
@@ -230,7 +230,7 @@ func TestBuildDetailFormNilForEmptyOp(t *testing.T) {
 		Name:     "hello",
 		Endpoint: "ep",
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df != nil {
 		t.Fatal("expected nil form for operation with no fields and no args")
 	}
@@ -245,7 +245,7 @@ func TestBuildDetailFormArgsOnly(t *testing.T) {
 			{Name: "name", Type: "String!"},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form for operation with args")
 	}
@@ -276,7 +276,7 @@ func TestDetailFormCursorNavigation(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df.cursor != 0 {
 		t.Fatal("cursor should start at 0")
 	}
@@ -331,7 +331,7 @@ func TestDetailFormBlurAll(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.FocusCurrent()
 	if !df.items[0].Focused() {
 		t.Fatal("item 0 should be focused")
@@ -363,7 +363,7 @@ func TestDetailFormViewSections(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	view, _ := df.View(op)
 
 	for _, want := range []string{"country", "Country", "name", "code"} {
@@ -394,7 +394,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	view0, _ := df.View(op)
 	lines0 := strings.Split(view0, "\n")
@@ -433,7 +433,7 @@ func TestDetailFormViewCursorLineTracking(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	_, line0 := df.View(op)
 	df.CursorDown()
@@ -464,7 +464,7 @@ func TestDetailFormHasExpandedDropdown(t *testing.T) {
 			{Name: "status", Type: "Status"},
 		},
 	}
-	df := buildDetailForm(op, nil, enums, nil)
+	df := buildDetailForm(op, nil, enums, nil, nil, nil)
 	if df.hasExpandedDropdown() {
 		t.Fatal("should not have expanded dropdown initially")
 	}
@@ -492,7 +492,7 @@ func TestDetailFormArrowsAlwaysNavigate(t *testing.T) {
 			Fields: []graphql.ObjectField{{Name: "a", Type: "String"}},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.FocusCurrent()
 
 	if df.cursor != 0 {
@@ -530,7 +530,7 @@ func TestBuildDetailFormExpandsInputObject(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, inputTypes, nil, nil)
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -583,7 +583,7 @@ func TestBuildDetailFormExpandsInputObjectWithScalarArgs(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, inputTypes, nil, objectTypes)
+	df := buildDetailForm(op, inputTypes, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -629,7 +629,7 @@ func TestBuildDetailFormObjectFieldsStartUnchecked(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -674,7 +674,7 @@ func TestToggleExpandInsertsAndRemovesChildren(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df.Len() != 2 {
 		t.Fatalf("expected 2 items initially, got %d", df.Len())
 	}
@@ -716,7 +716,7 @@ func TestToggleExpandRecursive(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	countriesIdx := 1
 	if !df.items[countriesIdx].expandable {
@@ -771,7 +771,7 @@ func TestCollapseRemovesNestedChildren(t *testing.T) {
 		ReturnType: "A",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	df.cursor = 0
 	df.FocusCurrent()
@@ -809,7 +809,7 @@ func TestExpandedFieldIndentation(t *testing.T) {
 		ReturnType: "T",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.cursor = 0
 	df.FocusCurrent()
 	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
@@ -834,6 +834,239 @@ func TestExpandedFieldIndentation(t *testing.T) {
 	childIndent := len(childLine) - len(strings.TrimLeft(childLine, " "))
 	if childIndent <= parentIndent {
 		t.Errorf("child should be indented more than parent: parent=%d child=%d", parentIndent, childIndent)
+	}
+}
+
+func TestBuildDetailFormUnionReturnType(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "SearchResult"): {
+			Name:          "SearchResult",
+			PossibleTypes: []string{"User", "Post"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+		ScopedTypeKey(ep, "Post"): {
+			Name: "Post",
+			Fields: []graphql.ObjectField{
+				{Name: "title", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "search",
+		ReturnType: "SearchResult",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, unionTypes, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form for union return type")
+	}
+	if df.argCount != 0 {
+		t.Fatalf("expected 0 args, got %d", df.argCount)
+	}
+	if df.Len() != 2 {
+		t.Fatalf("expected 2 items (2 inline fragments), got %d", df.Len())
+	}
+	if df.items[0].name != fragmentPrefix+"User" {
+		t.Errorf("expected first fragment '... on User', got %q", df.items[0].name)
+	}
+	if df.items[1].name != fragmentPrefix+"Post" {
+		t.Errorf("expected second fragment '... on Post', got %q", df.items[1].name)
+	}
+	if !df.items[0].expandable || !df.items[1].expandable {
+		t.Error("fragment items should be expandable")
+	}
+	if !df.items[0].isField || !df.items[1].isField {
+		t.Error("fragment items should be marked as fields")
+	}
+}
+
+func TestBuildDetailFormUnionFragmentExpand(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "SearchResult"): {
+			Name:          "SearchResult",
+			PossibleTypes: []string{"User"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "search",
+		ReturnType: "SearchResult",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, unionTypes, nil)
+	if df.Len() != 1 {
+		t.Fatalf("expected 1 fragment item, got %d", df.Len())
+	}
+
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 3 {
+		t.Fatalf("expected 3 items after expand (1 fragment + 2 children), got %d", df.Len())
+	}
+	if df.items[1].name != "id" || df.items[2].name != "name" {
+		t.Errorf("children should be User fields, got %q and %q", df.items[1].name, df.items[2].name)
+	}
+	if df.items[1].depth != 1 || df.items[2].depth != 1 {
+		t.Error("children should have depth 1")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+	if df.Len() != 1 {
+		t.Fatalf("expected 1 item after collapse, got %d", df.Len())
+	}
+}
+
+func TestBuildDetailFormInterfaceReturnType(t *testing.T) {
+	ep := "ep"
+	interfaceTypes := map[string]graphql.InterfaceType{
+		ScopedTypeKey(ep, "Node"): {
+			Name: "Node",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+			},
+			PossibleTypes: []string{"User", "Post"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+		ScopedTypeKey(ep, "Post"): {
+			Name: "Post",
+			Fields: []graphql.ObjectField{
+				{Name: "title", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "node",
+		ReturnType: "Node",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, interfaceTypes)
+	if df == nil {
+		t.Fatal("expected non-nil form for interface return type")
+	}
+	if df.Len() != 3 {
+		t.Fatalf("expected 3 items (1 shared field + 2 fragments), got %d", df.Len())
+	}
+	if df.items[0].name != "id" || !df.items[0].isField {
+		t.Error("first item should be shared field 'id'")
+	}
+	if df.items[1].name != fragmentPrefix+"User" {
+		t.Errorf("expected second item '... on User', got %q", df.items[1].name)
+	}
+	if df.items[2].name != fragmentPrefix+"Post" {
+		t.Errorf("expected third item '... on Post', got %q", df.items[2].name)
+	}
+}
+
+func TestBuildDetailFormUnionWithArgs(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "NotificationUnion"): {
+			Name:          "NotificationUnion",
+			PossibleTypes: []string{"AiringNotification", "FollowingNotification"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "AiringNotification"): {
+			Name: "AiringNotification",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "Int!"},
+				{Name: "type", Type: "NotificationType"},
+			},
+		},
+		ScopedTypeKey(ep, "FollowingNotification"): {
+			Name: "FollowingNotification",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "Int!"},
+				{Name: "userId", Type: "Int!"},
+			},
+		},
+	}
+	enums := map[string]graphql.EnumType{
+		ScopedTypeKey(ep, "NotificationType"): {
+			Name:   "NotificationType",
+			Values: []graphql.EnumValue{{Name: "AIRING"}, {Name: "FOLLOWING"}},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "Notification",
+		ReturnType: "NotificationUnion",
+		Endpoint:   ep,
+		Arguments: []graphql.Argument{
+			{Name: "type", Type: "NotificationType"},
+			{Name: "resetNotificationCount", Type: "Boolean"},
+		},
+	}
+	df := buildDetailForm(op, nil, enums, objectTypes, unionTypes, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+	if df.argCount != 2 {
+		t.Fatalf("expected 2 args, got %d", df.argCount)
+	}
+	if df.Len() != 4 {
+		t.Fatalf("expected 4 items (2 args + 2 fragments), got %d", df.Len())
+	}
+	if df.items[0].kind != formItemDropdown {
+		t.Error("first arg should be dropdown for NotificationType enum")
+	}
+	if df.items[1].kind != formItemToggle {
+		t.Error("second arg should be toggle for Boolean")
+	}
+	if df.items[2].name != fragmentPrefix+"AiringNotification" {
+		t.Errorf("expected fragment for AiringNotification, got %q", df.items[2].name)
+	}
+	if df.items[3].name != fragmentPrefix+"FollowingNotification" {
+		t.Errorf("expected fragment for FollowingNotification, got %q", df.items[3].name)
+	}
+}
+
+func TestNewFragmentFormItem(t *testing.T) {
+	fi := newFragmentFormItem("AiringNotification")
+	if fi.kind != formItemToggle {
+		t.Fatal("fragment item should be a toggle")
+	}
+	if fi.name != fragmentPrefix+"AiringNotification" {
+		t.Errorf("expected name %q, got %q", fragmentPrefix+"AiringNotification", fi.name)
+	}
+	if fi.typeHint != "AiringNotification" {
+		t.Errorf("typeHint should be the concrete type name, got %q", fi.typeHint)
+	}
+	if !fi.expandable {
+		t.Error("fragment item should be expandable")
+	}
+	if !fi.isField {
+		t.Error("fragment item should be marked as field")
+	}
+	if fi.Value() != "false" {
+		t.Error("fragment should start unchecked")
 	}
 }
 

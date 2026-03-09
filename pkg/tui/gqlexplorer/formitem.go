@@ -12,6 +12,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+const fragmentPrefix = utils.Ellipsis + " on "
+
 type formItemKind int
 
 const (
@@ -168,6 +170,18 @@ func newFieldFormItem(field graphql.ObjectField, selected bool) formItem {
 	}
 }
 
+func newFragmentFormItem(typeName string) formItem {
+	label := fragmentPrefix + typeName
+	return formItem{
+		kind:       formItemToggle,
+		name:       label,
+		typeHint:   typeName,
+		isField:    true,
+		expandable: true,
+		toggle:     tui.NewToggle(label, false),
+	}
+}
+
 func newInputFieldFormItem(
 	field graphql.InputField,
 	enumTypes map[string]graphql.EnumType,
@@ -239,6 +253,8 @@ func buildDetailForm(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) *DetailForm {
 	var items []formItem
 
@@ -256,7 +272,22 @@ func buildDetailForm(
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
-		if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
+		if ut, ok := resolveType(unionTypes, op.Endpoint, base); ok {
+			for _, pt := range ut.PossibleTypes {
+				items = append(items, newFragmentFormItem(pt))
+			}
+		} else if it, ok := resolveType(interfaceTypes, op.Endpoint, base); ok {
+			for _, f := range it.Fields {
+				childBase := ExtractBaseType(f.Type)
+				_, isObj := resolveType(objectTypes, op.Endpoint, childBase)
+				fi := newFieldFormItem(f, !isObj)
+				fi.expandable = isObj
+				items = append(items, fi)
+			}
+			for _, pt := range it.PossibleTypes {
+				items = append(items, newFragmentFormItem(pt))
+			}
+		} else if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
 			for _, f := range ot.Fields {
 				childBase := ExtractBaseType(f.Type)
 				_, isObj := resolveType(objectTypes, op.Endpoint, childBase)
