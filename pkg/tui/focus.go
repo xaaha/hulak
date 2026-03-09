@@ -86,6 +86,9 @@ func (f *FocusRing) HandleKey(key string) (consumed, quit bool) {
 	case KeyTab:
 		f.Next()
 		return true, false
+	case KeyShiftTab:
+		f.Prev()
+		return true, false
 
 	case KeyEnter:
 		if !f.typing {

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -1322,7 +1323,7 @@ func TestDetailTopHeight(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Model{height: tc.height}
+			m := Model{height: tc.height, helpBarH: tui.HelpBarHeight}
 			got := m.detailTopHeight()
 			if got != tc.want {
 				t.Errorf("detailTopHeight() = %d, want %d", got, tc.want)
@@ -1346,7 +1347,7 @@ func TestResponseAreaHeight(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := Model{height: tc.height}
+			m := Model{height: tc.height, helpBarH: tui.HelpBarHeight}
 			got := m.responseAreaHeight()
 			if got != tc.want {
 				t.Errorf("responseAreaHeight() = %d, want %d", got, tc.want)
@@ -1360,7 +1361,7 @@ func TestResponseAreaHeight(t *testing.T) {
 
 func TestHeightPartitionSumsCorrectly(t *testing.T) {
 	for h := 0; h <= 100; h++ {
-		m := Model{height: h}
+		m := Model{height: h, helpBarH: tui.HelpBarHeight}
 		total := m.contentHeight()
 		top := m.detailTopHeight()
 		bottom := m.responseAreaHeight()

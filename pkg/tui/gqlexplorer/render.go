@@ -312,13 +312,12 @@ func (m *Model) renderLeftContent() string {
 	if badges != "" {
 		badges = truncateToWidth(badges, panelW)
 	}
-	searchStyle := tui.BorderStyle
+	searchStyle := tui.BorderStyle.Padding(0, 1)
 	if m.focus.LeftFocused() {
 		searchStyle = tui.FocusedInputStyle
 	}
 	search := searchStyle.
-		Padding(0, 1).
-		Width(max(panelW-2, 1)).
+		Width(max(panelW-searchStyle.GetHorizontalFrameSize(), 1)).
 		Render(m.search.Model.View())
 
 	content := ""

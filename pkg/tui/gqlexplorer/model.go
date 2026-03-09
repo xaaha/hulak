@@ -20,7 +20,7 @@ const (
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
 	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | G/gg: bottom/top | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
-	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: top/bottom | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
@@ -71,6 +71,7 @@ type Model struct {
 	queryPanel    *tui.Panel
 	focus         tui.FocusRing
 	pendingG      bool
+	helpBarH      int
 }
 
 func NewModel(
@@ -116,6 +117,7 @@ func NewModel(
 		formCache:   make(map[string]*DetailForm),
 		queryPanel:  qp,
 		focus:       tui.NewFocusRing([]*tui.Panel{dp, qp}),
+		helpBarH:    tui.HelpBarHeight,
 	}
 	m.focus.SetTyping(true)
 	m.syncSearchFocus()
@@ -165,8 +167,24 @@ func (m *Model) contentWidth() int {
 	return max(m.width-_containerStyle.GetHorizontalFrameSize(), 1)
 }
 
+func (m *Model) updateHelpBarHeight() {
+	contentW := m.contentWidth()
+	m.helpBarH = 1
+	for _, h := range []string{
+		helpLeftPanel, helpDetailPanel, helpSearchPanel,
+		helpQueryPanel, helpEndpointFilter,
+	} {
+		rendered := tui.HelpBarStyle.Render(
+			lipgloss.NewStyle().Width(contentW).Align(lipgloss.Center).Render(h),
+		)
+		if lines := lipgloss.Height(rendered); lines > m.helpBarH {
+			m.helpBarH = lines
+		}
+	}
+}
+
 func (m *Model) contentHeight() int {
-	return max(m.height-_containerStyle.GetVerticalFrameSize()-tui.HelpBarHeight, 1)
+	return max(m.height-_containerStyle.GetVerticalFrameSize()-m.helpBarH, 1)
 }
 
 func (m *Model) detailTopHeight() int {
@@ -241,9 +259,13 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tui.CopiedMsg:
+		// TODO: surface clipboard errors via a status flash once one exists.
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.updateHelpBarHeight()
 		m.updateSearchPlaceholder()
 		panelW := m.leftPanelWidth()
 		listHeight := m.viewportHeight()
@@ -340,6 +362,19 @@ func (m *Model) jumpToEdge(top bool) {
 	}
 }
 
+func (m *Model) switchPanel(key string) {
+	if key == tui.KeyShiftTab {
+		m.focus.Prev()
+	} else {
+		m.focus.Next()
+	}
+	if m.focus.LeftFocused() {
+		m.focus.SetTyping(true)
+	}
+	m.syncSearchFocus()
+	m.syncViewport()
+}
+
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.pendingG {
 		m.pendingG = false
@@ -413,21 +448,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	// ── Tab / Shift+Tab: cycle panels ───────────────────────────
-	case tui.KeyTab:
-		m.focus.Next()
-		if m.focus.LeftFocused() {
-			m.focus.SetTyping(true)
-		}
-		m.syncSearchFocus()
-		m.syncViewport()
-		return m, nil
-	case tui.KeyShiftTab:
-		m.focus.Prev()
-		if m.focus.LeftFocused() {
-			m.focus.SetTyping(true)
-		}
-		m.syncSearchFocus()
-		m.syncViewport()
+	case tui.KeyTab, tui.KeyShiftTab:
+		m.switchPanel(msg.String())
 		return m, nil
 	// ── Enter: detail panel form input / left panel → detail ────
 	case tui.KeyEnter:
@@ -720,6 +742,7 @@ func (m *Model) View() string {
 	body := lipgloss.JoinVertical(lipgloss.Left, combined, helpBar)
 
 	boxH := max(m.height-_containerStyle.GetVerticalFrameSize(), 1)
+
 	box := _containerStyle.
 		Height(boxH).
 		Render(body)

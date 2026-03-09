@@ -20,6 +20,21 @@ const (
 	formItemDropdown
 )
 
+var (
+	cbOnFocused  = renderCheckbox(true, true)
+	cbOnBlurred  = renderCheckbox(true, false)
+	cbOffFocused = renderCheckbox(false, true)
+	cbOffBlurred = renderCheckbox(false, false)
+)
+
+func renderCheckbox(enabled, focused bool) string {
+	t := tui.NewToggle("", enabled)
+	if focused {
+		t.Focus()
+	}
+	return t.View()
+}
+
 type formItem struct {
 	kind       formItemKind
 	name       string
@@ -90,11 +105,16 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (f *formItem) checkboxPrefix() string {
-	t := tui.NewToggle("", f.enabled)
-	if f.selected {
-		t.Focus()
+	switch {
+	case f.enabled && f.selected:
+		return cbOnFocused
+	case f.enabled:
+		return cbOnBlurred
+	case f.selected:
+		return cbOffFocused
+	default:
+		return cbOffBlurred
 	}
-	return t.View()
 }
 
 func (f *formItem) View() string {
