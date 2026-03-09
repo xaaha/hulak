@@ -82,7 +82,7 @@ func TestBuildVariablesStringInputObjectArg(t *testing.T) {
 	}
 }
 
-func TestBuildVariablesStringListArgFromCommaSeparatedInput(t *testing.T) {
+func TestBuildVariablesStringListArgFromRepeatedInputs(t *testing.T) {
 	op := &UnifiedOperation{
 		Name:     "getUsers",
 		Type:     TypeQuery,
@@ -96,7 +96,10 @@ func TestBuildVariablesStringListArgFromCommaSeparatedInput(t *testing.T) {
 		t.Fatal("expected detail form")
 	}
 
-	df.items[0].input.Model.SetValue("11111111-1111-1111-1111-111111111111, 22222222-2222-2222-2222-222222222222")
+	df.items[0].input.Model.SetValue("11111111-1111-1111-1111-111111111111")
+	df.syncListArgRows("ids")
+	df.items[1].input.Model.SetValue("22222222-2222-2222-2222-222222222222")
+	df.syncListArgRows("ids")
 
 	got := BuildVariablesString(op, df)
 	want := "{\n" +
@@ -107,7 +110,7 @@ func TestBuildVariablesStringListArgFromCommaSeparatedInput(t *testing.T) {
 	}
 }
 
-func TestBuildVariablesStringListArgFromNewlineSeparatedInput(t *testing.T) {
+func TestBuildVariablesStringListArgAllowsNullItems(t *testing.T) {
 	op := &UnifiedOperation{
 		Name:     "getUsers",
 		Type:     TypeQuery,
@@ -121,36 +124,14 @@ func TestBuildVariablesStringListArgFromNewlineSeparatedInput(t *testing.T) {
 		t.Fatal("expected detail form")
 	}
 
-	df.items[0].input.Model.SetValue("a\nb\nc")
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+	df.items[1].input.Model.SetValue("null")
+	df.syncListArgRows("ids")
 
 	got := BuildVariablesString(op, df)
 	want := "{\n" +
-		"  \"ids\": [\"a\", \"b\", \"c\"]\n" +
-		"}"
-	if got != want {
-		t.Fatalf("BuildVariablesString()\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func TestBuildVariablesStringListArgAcceptsJSONArray(t *testing.T) {
-	op := &UnifiedOperation{
-		Name:     "listUsers",
-		Type:     TypeQuery,
-		Endpoint: "http://api/gql",
-		Arguments: []graphql.Argument{
-			{Name: "ids", Type: "[ID!]!"},
-		},
-	}
-	df := buildDetailForm(op, nil, nil, nil, nil, nil)
-	if df == nil {
-		t.Fatal("expected detail form")
-	}
-
-	df.items[0].input.Model.SetValue("[\"a\", \"b\"]")
-
-	got := BuildVariablesString(op, df)
-	want := "{\n" +
-		"  \"ids\": [\"a\", \"b\"]\n" +
+		"  \"ids\": [\"a\", null]\n" +
 		"}"
 	if got != want {
 		t.Fatalf("BuildVariablesString()\ngot:\n%s\nwant:\n%s", got, want)
@@ -173,6 +154,32 @@ func TestBuildVariablesStringOmitsEmptyTextInputs(t *testing.T) {
 
 	if got := BuildVariablesString(op, df); got != "" {
 		t.Fatalf("expected empty variables string for blank text input, got %q", got)
+	}
+}
+
+func TestBuildVariablesStringSupportsNull(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUser",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "ID"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].enabled = true
+	df.items[0].input.Model.SetValue("null")
+
+	got := BuildVariablesString(op, df)
+	want := "{\n" +
+		"  \"id\": null\n" +
+		"}"
+	if got != want {
+		t.Fatalf("BuildVariablesString()\ngot:\n%s\nwant:\n%s", got, want)
 	}
 }
 

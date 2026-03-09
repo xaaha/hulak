@@ -26,6 +26,23 @@ func BuildVariablesString(op *UnifiedOperation, df *DetailForm) string {
 			continue
 		}
 
+		if IsListType(arg.Type) {
+			var values []string
+			for _, item := range argItems {
+				if value, ok := formatVariableValue(item); ok {
+					values = append(values, value)
+				}
+			}
+			if len(values) == 0 {
+				continue
+			}
+			entries = append(entries, variableEntry{
+				key:   arg.Name,
+				value: "[" + strings.Join(values, ", ") + "]",
+			})
+			continue
+		}
+
 		if len(argItems) == 1 && argItems[0].name == arg.Name {
 			if value, ok := formatVariableValue(argItems[0]); ok {
 				entries = append(entries, variableEntry{key: arg.Name, value: value})
@@ -74,7 +91,7 @@ func formatVariableValue(item *formItem) (string, bool) {
 		}
 		return marshalJSONString(item.Value()), true
 	case formItemTextInput:
-		return formatTypedVariableText(item.Value(), item.typeHint)
+		return formatTypedVariableText(item.Value(), item.valueType)
 	default:
 		return "", false
 	}
@@ -85,9 +102,8 @@ func formatTypedVariableText(raw, typeHint string) (string, bool) {
 	if trimmed == "" {
 		return "", false
 	}
-
-	if strings.HasPrefix(strings.TrimSpace(typeHint), "[") {
-		return formatListVariableText(trimmed, typeHint)
+	if strings.EqualFold(trimmed, "null") {
+		return "null", true
 	}
 
 	switch ExtractBaseType(typeHint) {
@@ -115,62 +131,6 @@ func formatTypedVariableText(raw, typeHint string) (string, bool) {
 		}
 		return marshalJSONString(trimmed), true
 	}
-}
-
-func formatListVariableText(raw, typeHint string) (string, bool) {
-	if json.Valid([]byte(raw)) {
-		var arr []any
-		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
-			return raw, true
-		}
-	}
-
-	itemType := extractListItemType(typeHint)
-	parts := splitListInput(raw)
-	if len(parts) == 0 {
-		return "", false
-	}
-
-	values := make([]string, 0, len(parts))
-	for _, part := range parts {
-		value, ok := formatTypedVariableText(part, itemType)
-		if !ok {
-			continue
-		}
-		values = append(values, value)
-	}
-	if len(values) == 0 {
-		return "", false
-	}
-	return "[" + strings.Join(values, ", ") + "]", true
-}
-
-func extractListItemType(typeHint string) string {
-	t := strings.TrimSpace(typeHint)
-	t = strings.TrimSuffix(t, "!")
-	t = strings.TrimPrefix(t, "[")
-	t = strings.TrimSuffix(t, "]")
-	return strings.TrimSpace(t)
-}
-
-func splitListInput(raw string) []string {
-	raw = strings.ReplaceAll(raw, "\r\n", "\n")
-	raw = strings.ReplaceAll(raw, "\r", "\n")
-
-	if !strings.ContainsAny(raw, ",\n") {
-		return strings.Fields(raw)
-	}
-
-	var parts []string
-	for _, chunk := range strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == '\n'
-	}) {
-		trimmed := strings.TrimSpace(chunk)
-		if trimmed != "" {
-			parts = append(parts, trimmed)
-		}
-	}
-	return parts
 }
 
 func renderVariablesObject(entries []variableEntry, level int) string {
