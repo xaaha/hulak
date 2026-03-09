@@ -1232,6 +1232,97 @@ func TestEnterTogglesTextInputEditing(t *testing.T) {
 	}
 }
 
+func TestBuildDetailFormListArgStartsWithSingleInput(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.argCount != 1 {
+		t.Fatalf("expected 1 list input initially, got %d", df.argCount)
+	}
+	if !df.items[0].listItem {
+		t.Fatal("expected first argument item to be marked as a list item")
+	}
+}
+
+func TestListArgAddsFollowUpInputAfterValueEntered(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+
+	if df.argCount != 2 {
+		t.Fatalf("expected second list input to be added, got %d arg items", df.argCount)
+	}
+	if !df.items[1].continued {
+		t.Fatal("expected second list input to render as a continuation row")
+	}
+}
+
+func TestListArgRemovesExtraTrailingBlankInputs(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+	df.items[1].input.Model.SetValue("b")
+	df.syncListArgRows("ids")
+	if df.argCount != 3 {
+		t.Fatalf("expected 3 arg items after typing two values, got %d", df.argCount)
+	}
+
+	df.items[1].input.Model.SetValue("")
+	df.items[2].input.Model.SetValue("")
+	df.syncListArgRows("ids")
+
+	if df.argCount != 2 {
+		t.Fatalf("expected trailing blank list inputs to collapse, got %d", df.argCount)
+	}
+}
+
+func TestListArgSpaceTogglesAllRows(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID]"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+
+	for i := 0; i < df.argCount; i++ {
+		if !df.items[i].enabled {
+			t.Fatalf("expected list row %d to be enabled", i)
+		}
+	}
+}
+
 func TestEscExitsTextInputEditing(t *testing.T) {
 	ep := "ep"
 	op := &UnifiedOperation{
@@ -1256,6 +1347,17 @@ func TestCheckboxPrefixInView(t *testing.T) {
 	v := fi.View()
 	if !strings.Contains(v, "[") || !strings.Contains(v, "]") {
 		t.Fatal("non-field text input should have checkbox brackets in view")
+	}
+}
+
+func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
+	fi := newListArgFormItem(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, "ep", true, true)
+	v := fi.View()
+	if strings.Contains(v, "[") || strings.Contains(v, "]") {
+		t.Fatal("continuation list input should not render a checkbox prefix")
+	}
+	if !strings.Contains(v, utils.Connector) {
+		t.Fatal("continuation list input should render a connector")
 	}
 }
 
