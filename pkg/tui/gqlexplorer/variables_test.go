@@ -260,6 +260,39 @@ func TestBuildVariablesStringSupportsNull(t *testing.T) {
 	}
 }
 
+func TestLeftArrowMovesDetailInputCursorWithinText(t *testing.T) {
+	ops := []UnifiedOperation{{
+		Name:     "getUser",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "ID!"},
+		},
+	}}
+	m := NewModel(ops, nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncViewport()
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(*Model)
+
+	for _, r := range "ab" {
+		result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		model = result.(*Model)
+	}
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	model = result.(*Model)
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = result.(*Model)
+
+	if got := model.detailForm.items[0].input.Model.Value(); got != "aXb" {
+		t.Fatalf("left arrow should move detail input cursor within text, got %q", got)
+	}
+}
+
 func TestVariablePanelShowsVariables(t *testing.T) {
 	objTypes := map[string]graphql.ObjectType{
 		"User": {

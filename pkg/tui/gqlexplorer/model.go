@@ -507,6 +507,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Left panel: move operation cursor.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
 		tui.KeyK, tui.KeyJ, tui.KeyH, tui.KeyL, tui.KeyG, tui.KeyShiftG:
+		if (msg.String() == tui.KeyLeft || msg.String() == tui.KeyRight) &&
+			m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
+			m.detailForm.ConsumesTextInput() {
+			return m.forwardKeyToForm(msg)
+		}
+		if (msg.String() == tui.KeyLeft || msg.String() == tui.KeyRight) &&
+			m.focus.LeftFocused() && m.focus.Typing() {
+			var cmd tea.Cmd
+			_, cmd = m.search.Update(msg)
+			return m, cmd
+		}
 		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK ||
 			msg.String() == tui.KeyH || msg.String() == tui.KeyL ||
 			msg.String() == tui.KeyG || msg.String() == tui.KeyShiftG {

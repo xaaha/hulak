@@ -217,6 +217,25 @@ func TestEnterReactivatesTypingWhenBlurred(t *testing.T) {
 	}
 }
 
+func TestLeftArrowMovesSearchCursorWithinText(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	for _, r := range "ab" {
+		result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		model = result.(*Model)
+	}
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	model = result.(*Model)
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	model = result.(*Model)
+
+	if got := model.search.Model.Value(); got != "aXb" {
+		t.Fatalf("left arrow should move search cursor within text, got %q", got)
+	}
+}
+
 func TestScrollLeftPanelWhenFocused(t *testing.T) {
 	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
 
