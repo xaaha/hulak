@@ -1250,6 +1250,54 @@ func TestBuildDetailFormListArgStartsWithSingleInput(t *testing.T) {
 	}
 }
 
+func TestBuildDetailFormListEnumStartsBlank(t *testing.T) {
+	ep := "ep"
+	enums := map[string]graphql.EnumType{
+		"Status": {Name: "Status", Values: []graphql.EnumValue{{Name: "OPEN"}, {Name: "CLOSED"}}},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "statuses", Type: "[Status!]!"}},
+	}
+	df := buildDetailForm(op, nil, enums, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.items[0].kind != formItemDropdown {
+		t.Fatalf("expected dropdown list item, got %d", df.items[0].kind)
+	}
+	if got := df.items[0].Value(); got != "" {
+		t.Fatalf("expected blank initial dropdown value, got %q", got)
+	}
+}
+
+func TestBuildDetailFormListInputObjectStartsWithSingleGroup(t *testing.T) {
+	ep := "ep"
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "name", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "filters", Type: "[UserFilter!]!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.argCount != 2 {
+		t.Fatalf("expected one input-object group with 2 rows, got %d", df.argCount)
+	}
+	if got := df.items[0].label; got != "filters[0].name" {
+		t.Fatalf("unexpected first label %q", got)
+	}
+}
+
 func TestListArgAddsFollowUpInputAfterValueEntered(t *testing.T) {
 	ep := "ep"
 	op := &UnifiedOperation{
@@ -1323,6 +1371,37 @@ func TestListArgSpaceTogglesAllRows(t *testing.T) {
 	}
 }
 
+func TestListInputObjectAddsFollowUpGroupAfterValueEntered(t *testing.T) {
+	ep := "ep"
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "name", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "filters", Type: "[UserFilter!]!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("alice")
+	df.syncListArgRows("filters")
+
+	if df.argCount != 4 {
+		t.Fatalf("expected second object group to be added, got %d arg items", df.argCount)
+	}
+	if got := df.items[2].label; got != "filters[1].name" {
+		t.Fatalf("unexpected second-group label %q", got)
+	}
+}
+
 func TestEscExitsTextInputEditing(t *testing.T) {
 	ep := "ep"
 	op := &UnifiedOperation{
@@ -1351,7 +1430,7 @@ func TestCheckboxPrefixInView(t *testing.T) {
 }
 
 func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
-	fi := newListArgFormItem(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, "ep", true, true)
+	fi := newListArgFormItems(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, nil, "ep", 1, true)[0]
 	v := fi.View()
 	if strings.Contains(v, "[") || strings.Contains(v, "]") {
 		t.Fatal("continuation list input should not render a checkbox prefix")
