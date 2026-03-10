@@ -292,7 +292,7 @@ func RunSelector(
 		return "", emptyErr
 	}
 	model := NewSelector(items, prompt, helpMessage...)
-	m, err := tea.NewProgram(&model).Run()
+	m, err := tea.NewProgram(&model, tea.WithMouseCellMotion()).Run()
 	if err != nil {
 		return "", err
 	}
