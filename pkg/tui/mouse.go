@@ -58,6 +58,16 @@ func Hit(id string, msg tea.MouseMsg) bool {
 	return zone.Get(id).InBounds(msg)
 }
 
+// ZoneBounds returns the stored bounds for the given zone ID.
+func ZoneBounds(id string) (startX, startY, endX, endY int, ok bool) {
+	ensureMouseZoneManager()
+	info := zone.Get(id)
+	if info == nil || info.IsZero() {
+		return 0, 0, 0, 0, false
+	}
+	return info.StartX, info.StartY, info.EndX, info.EndY, true
+}
+
 // ZonePos reports the mouse position relative to the given zone.
 func ZonePos(id string, msg tea.MouseMsg) (int, int) {
 	ensureMouseZoneManager()
