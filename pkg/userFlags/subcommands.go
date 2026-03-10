@@ -6,10 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
@@ -124,167 +120,59 @@ func loadGraphQLOperations(arg string, env string) (
 	map[string]graphql.UnionType,
 	map[string]graphql.InterfaceType,
 ) {
-	resolved := resolveGQLPath(arg)
-	var results []graphql.ProcessResult
-
-	info, err := os.Stat(resolved)
+	prepared, err := graphql.PrepareSchemaLoad(arg, env)
 	if err != nil {
-		utils.PanicRedAndExit("cannot access %q: %v", arg, err)
+		utils.PanicRedAndExit("Schema preparation error: %v", err)
 	}
-
-	if info.IsDir() {
-		results = loadFromDirectory(resolved, env)
-	} else {
-		results = loadFromFile(resolved, env)
-	}
-
-	type schemaResult struct {
-		ops            []gqlexplorer.UnifiedOperation
-		inputTypes     map[string]graphql.InputType
-		enumTypes      map[string]graphql.EnumType
-		objectTypes    map[string]graphql.ObjectType
-		unionTypes     map[string]graphql.UnionType
-		interfaceTypes map[string]graphql.InterfaceType
+	if prepared.Cancelled {
+		return nil, nil, nil, nil, nil, nil
 	}
 
 	// load spinner while waiting
 	raw, err := tui.RunWithSpinnerAfter("Fetching schemas...", func() (any, error) {
-		type fetchResult struct {
-			url    string
-			schema graphql.Schema
-			err    error
-		}
-
-		sr := schemaResult{
-			inputTypes:     make(map[string]graphql.InputType),
-			enumTypes:      make(map[string]graphql.EnumType),
-			objectTypes:    make(map[string]graphql.ObjectType),
-			unionTypes:     make(map[string]graphql.UnionType),
-			interfaceTypes: make(map[string]graphql.InterfaceType),
-		}
-		var errors []string
-		endpointResults := make(map[string]graphql.ProcessResult)
-		for _, result := range results {
-			if result.Error != nil {
-				errors = append(errors, fmt.Sprintf("%s: %v", result.APIInfo.URL, result.Error))
-				continue
-			}
-			endpointResults[result.APIInfo.URL] = result
-		}
-
-		if len(endpointResults) > 0 {
-			jobs := make(chan graphql.ProcessResult, len(endpointResults))
-			fetched := make(chan fetchResult, len(endpointResults))
-			endpointResultsLen := len(endpointResults)
-			workerCount := utils.GetWorkers(&endpointResultsLen)
-
-			var wg sync.WaitGroup
-			for range workerCount {
-				wg.Go(func() {
-					for result := range jobs {
-						schema, schemaErr := graphql.FetchAndParseSchema(result.APIInfo)
-						fetched <- fetchResult{url: result.APIInfo.URL, schema: schema, err: schemaErr}
-					}
-				})
-			}
-
-			for _, result := range endpointResults {
-				jobs <- result
-			}
-			close(jobs)
-			wg.Wait()
-			close(fetched)
-
-			merged := make([]fetchResult, 0, len(endpointResults))
-			for result := range fetched {
-				merged = append(merged, result)
-			}
-
-			sort.Slice(merged, func(i, j int) bool {
-				return merged[i].url < merged[j].url
-			})
-
-			for i := range merged {
-				result := &merged[i]
-				if result.err != nil {
-					errors = append(errors, fmt.Sprintf("%s: %v", result.url, result.err))
-					continue
-				}
-				sr.ops = append(
-					sr.ops,
-					gqlexplorer.CollectOperations(&result.schema, result.url)...)
-				for k, v := range result.schema.InputTypes {
-					sr.inputTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
-				}
-				for k, v := range result.schema.EnumTypes {
-					sr.enumTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
-				}
-				for k, v := range result.schema.ObjectTypes {
-					sr.objectTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
-				}
-				for k, v := range result.schema.UnionTypes {
-					sr.unionTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
-				}
-				for k, v := range result.schema.InterfaceTypes {
-					sr.interfaceTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
-				}
-			}
-		}
-
-		if len(sr.ops) == 0 && len(errors) > 0 {
-			return nil, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(errors, "\n  "))
-		}
-		for _, e := range errors {
-			utils.PrintWarning("schema fetch warning: " + e)
-		}
-		return sr, nil
+		return graphql.FetchPreparedSchemas(prepared)
 	})
 	if err != nil {
 		utils.PanicRedAndExit("Schema fetch error: %v", err)
 	}
-	sr, ok := raw.(schemaResult)
+	loadResult, ok := raw.(graphql.LoadResult)
 	if !ok && raw != nil {
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
-	return sr.ops, sr.inputTypes, sr.enumTypes, sr.objectTypes, sr.unionTypes, sr.interfaceTypes
-}
 
-func resolveGQLPath(arg string) string {
-	if arg == "." {
-		cwd, err := os.Getwd()
-		if err != nil {
-			utils.PanicRedAndExit("error getting current directory: %v", err)
+	if loadResult.Cancelled {
+		return nil, nil, nil, nil, nil, nil
+	}
+	for _, warning := range loadResult.Warnings {
+		utils.PrintWarning("schema fetch warning: " + warning)
+	}
+
+	inputTypes := make(map[string]graphql.InputType)
+	enumTypes := make(map[string]graphql.EnumType)
+	objectTypes := make(map[string]graphql.ObjectType)
+	unionTypes := make(map[string]graphql.UnionType)
+	interfaceTypes := make(map[string]graphql.InterfaceType)
+	var ops []gqlexplorer.UnifiedOperation
+
+	for i := range loadResult.Endpoints {
+		endpoint := &loadResult.Endpoints[i]
+		ops = append(ops, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
+		for k, v := range endpoint.Schema.InputTypes {
+			inputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
-		return cwd
+		for k, v := range endpoint.Schema.EnumTypes {
+			enumTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+		}
+		for k, v := range endpoint.Schema.ObjectTypes {
+			objectTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+		}
+		for k, v := range endpoint.Schema.UnionTypes {
+			unionTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+		}
+		for k, v := range endpoint.Schema.InterfaceTypes {
+			interfaceTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+		}
 	}
-	return filepath.Clean(arg)
-}
 
-func loadFromDirectory(dir string, env string) []graphql.ProcessResult {
-	urlToFileMap, needsEnv, err := graphql.FindGraphQLFiles(dir)
-	if err != nil {
-		utils.PanicRedAndExit("%v", err)
-	}
-	filePaths := make([]string, 0, len(urlToFileMap))
-	for _, fp := range urlToFileMap {
-		filePaths = append(filePaths, fp)
-	}
-	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, needsEnv, env)
-	if secretsMap == nil {
-		return nil
-	}
-	return graphql.ProcessFilesConcurrent(filePaths, secretsMap)
-}
-
-func loadFromFile(filePath string, env string) []graphql.ProcessResult {
-	rawURL, needsEnv, err := graphql.ValidateGraphQLFile(filePath)
-	if err != nil {
-		utils.PanicRedAndExit("%v", err)
-	}
-	urlToFileMap := map[string]string{rawURL: filePath}
-	secretsMap := graphql.GetSecretsForEnv(urlToFileMap, needsEnv, env)
-	if secretsMap == nil {
-		return nil
-	}
-	return graphql.ProcessFilesConcurrent([]string{filePath}, secretsMap)
+	return ops, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes
 }
