@@ -355,6 +355,7 @@ func (m *Model) renderLeftContent() string {
 	search := searchStyle.
 		Width(max(panelW-searchStyle.GetHorizontalFrameSize(), 1)).
 		Render(m.search.Model.View())
+	search = m.mouse.Mark(m.searchZoneID(), search)
 
 	content := ""
 	if m.isEndpointMode() {
