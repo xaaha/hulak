@@ -76,7 +76,6 @@ const (
 	// Detail panel sizing (percentage of the top-right area).
 	// Query panel fills the remaining width and matching height.
 	DetailPanelWPct = 50
-	DetailPanelHPct = 100
 
 	// Fixed-height rows (lines). Subtract these from the total
 	// vertical budget before giving the remainder to scrollable

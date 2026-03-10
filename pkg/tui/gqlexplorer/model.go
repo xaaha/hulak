@@ -300,8 +300,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rightW := m.rightPanelWidth()
 		topH := m.detailTopHeight()
 		variableH := m.variablePanelHeight()
-		detailW := max(rightW*tui.DetailPanelWPct/100, 1)
-		detailH := max(topH*tui.DetailPanelHPct/100, 1)
+		detailW := max(rightW/2, 1) // split the top row evenly
+		detailH := topH             // detail panel height uses the full top-row height
 		m.detailPanel.Resize(detailW, detailH)
 		m.queryPanel.Resize(max(rightW-detailW, 1), detailH)
 		m.variablePanel.Resize(max(rightW-detailW, 1), variableH)
