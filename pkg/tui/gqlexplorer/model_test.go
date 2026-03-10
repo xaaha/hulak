@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -12,6 +13,20 @@ import (
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+func waitForMouseZone(t *testing.T, id string) (int, int) {
+	t.Helper()
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		startX, startY, _, _, ok := tui.ZoneBounds(id)
+		if ok {
+			return startX, startY
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("zone %q was not registered", id)
+	return 0, 0
+}
 
 func sampleOps() []UnifiedOperation {
 	return []UnifiedOperation{
@@ -142,6 +157,74 @@ func TestNavigateCtrlP(t *testing.T) {
 
 	if model.cursor != 2 {
 		t.Errorf("expected cursor 2, got %d", model.cursor)
+	}
+}
+
+func TestMouseClickSelectsOperationAndMovesCursor(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+	model.cursor = len(model.filtered) - 1
+	model.syncViewport()
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.operationZoneID(1))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if model.cursor != 1 {
+		t.Fatalf("expected cursor at clicked operation, got %d", model.cursor)
+	}
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected left panel to be focused after operation click")
+	}
+	if model.focus.Typing() {
+		t.Fatal("expected typing mode off after clicking operation row")
+	}
+}
+
+func TestMouseClickTogglesEndpointAndMovesEndpointCursor(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+	model.search.Model.SetValue("e:")
+	model.endpointCursor = 0
+	model.applyFilterAndReset()
+
+	eps := model.filteredEndpoints()
+	if len(eps) < 2 {
+		t.Fatal("expected at least two endpoints")
+	}
+	clicked := eps[1]
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.endpointZoneID(1))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if model.endpointCursor != 1 {
+		t.Fatalf("expected endpoint cursor at clicked row, got %d", model.endpointCursor)
+	}
+	if model.activeEndpoints[clicked] {
+		t.Fatalf("expected clicked endpoint %q to be toggled off", clicked)
+	}
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected left panel to be focused after endpoint click")
+	}
+	if model.focus.Typing() {
+		t.Fatal("expected typing mode off after clicking endpoint row")
 	}
 }
 

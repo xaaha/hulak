@@ -38,17 +38,6 @@ func truncateToWidth(s string, width int) string {
 	return ansi.Truncate(s, width, utils.Ellipsis)
 }
 
-func appendWrappedHelpLines(lines []string, text string, width int, prefix string) []string {
-	if text == "" {
-		return lines
-	}
-	wrapped := lipgloss.NewStyle().Width(width).Render(text)
-	for line := range strings.SplitSeq(wrapped, "\n") {
-		lines = append(lines, tui.HelpStyle.Render(prefix+line))
-	}
-	return lines
-}
-
 func (m *Model) renderList() (string, int) {
 	if len(m.filtered) == 0 {
 		return tui.HelpStyle.Render(
@@ -71,17 +60,26 @@ func (m *Model) renderList() (string, int) {
 		}
 		if i == m.cursor {
 			cursorLine = len(lines)
+			var row strings.Builder
 			if focused {
-				lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+				row.WriteString(tui.SubtitleStyle.Render(selectedPrefix + op.Name))
 			} else {
-				lines = append(lines, selectedPrefix+op.Name)
+				row.WriteString(selectedPrefix + op.Name)
 			}
 			wrapW := max(m.leftPanelWidth()-detailPadding, 1)
-			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
-			// Full URL shown intentionally; badges/filters use shortened form.
-			lines = appendWrappedHelpLines(lines, op.Endpoint, wrapW, detailPrefix)
+			for _, text := range []string{op.Description, op.Endpoint} {
+				if text == "" {
+					continue
+				}
+				wrapped := lipgloss.NewStyle().Width(wrapW).Render(text)
+				for line := range strings.SplitSeq(wrapped, "\n") {
+					row.WriteString("\n")
+					row.WriteString(tui.HelpStyle.Render(detailPrefix + line))
+				}
+			}
+			lines = append(lines, m.mouse.Mark(m.operationZoneID(i), row.String()))
 		} else {
-			lines = append(lines, itemPrefix+op.Name)
+			lines = append(lines, m.mouse.Mark(m.operationZoneID(i), itemPrefix+op.Name))
 		}
 	}
 	return strings.Join(lines, "\n"), cursorLine
@@ -109,7 +107,7 @@ func (m *Model) renderEndpointPicker() (string, int) {
 		}
 
 		styledChevron := lipgloss.NewStyle().Foreground(chevronColor).Render(chevron)
-		lines = append(lines, styledChevron+tui.KeySpace+toggle.View())
+		lines = append(lines, m.mouse.Mark(m.endpointZoneID(i), styledChevron+tui.KeySpace+toggle.View()))
 	}
 	return strings.Join(lines, "\n"), cursorLine
 }
