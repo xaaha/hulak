@@ -71,8 +71,7 @@ const (
 	MinRightPanelWidth = 32
 
 	// Right panel vertical split (percentage of contentHeight)
-	DetailTopPct     = 40
-	VariablePanelPct = 40 // gql variable panel height
+	DetailTopPct = 40
 
 	// Detail panel sizing (percentage of the top-right area).
 	// Query panel fills the remaining width and matching height.

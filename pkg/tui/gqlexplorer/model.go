@@ -201,8 +201,10 @@ func (m *Model) detailTopHeight() int {
 	return max(m.contentHeight()*tui.DetailTopPct/100, 1)
 }
 
+// gql variable panel height, 2/3 of the remaining height below the top row
 func (m *Model) variablePanelHeight() int {
-	return max(m.contentHeight()*tui.VariablePanelPct/100, 1)
+	remaining := max(m.contentHeight()-m.detailTopHeight(), 1)
+	return max((remaining*2)/3, 1)
 }
 
 // callAreaHeight returns the remaining height allocated to extras
