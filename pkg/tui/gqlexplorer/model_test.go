@@ -1578,6 +1578,28 @@ func TestQueryPanelShowsQueryString(t *testing.T) {
 	if !strings.Contains(view, "id") {
 		t.Error("query string should include selected field 'id'")
 	}
+	if !strings.Contains(view, "Query") {
+		t.Error("view should contain query panel bottom-left label")
+	}
+}
+
+func TestVariablePanelShowsBottomLeftLabelWhenEmpty(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+		}},
+	}
+	ops := []UnifiedOperation{{
+		Name: "getUser", Type: TypeQuery, Endpoint: "http://api/gql", ReturnType: "User!",
+	}}
+	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	view := model.View()
+	if !strings.Contains(view, "Variables") {
+		t.Error("view should contain variable panel bottom-left label")
+	}
 }
 
 func TestShiftTabCyclesBackward(t *testing.T) {

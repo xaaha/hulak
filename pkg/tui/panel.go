@@ -20,12 +20,13 @@ type Panel struct {
 	cacheKey string
 	Number   int
 	Footer   string
+	Label    string
 }
 
 // Resize updates the panel's outer dimensions. Panel subtracts the border
 // frame internally to size the viewport.
 func (p *Panel) titleHeight() int {
-	if p.Number > 0 {
+	if p.Number > 0 || p.Footer != "" || p.Label != "" {
 		return 1
 	}
 	return 0
@@ -119,14 +120,24 @@ func (p *Panel) View(focused bool) string {
 	content := p.viewport.View()
 	contentH := p.viewport.Height
 
-	if p.Number > 0 {
-		label := fmt.Sprintf("[%d]", p.Number)
-		styledLabel := lipgloss.NewStyle().Foreground(borderColor).Render(label)
-		labelLen := len([]rune(label))
+	if p.titleHeight() > 0 {
+		leftText := p.Label
+		if p.Footer != "" {
+			leftText = p.Footer
+		}
+		styledLeftText := lipgloss.NewStyle().Foreground(ColorMuted).Render(leftText)
 
-		footerW := lipgloss.Width(p.Footer)
-		gap := max(p.viewport.Width-footerW-labelLen, 1)
-		labelLine := p.Footer + fmt.Sprintf("%*s%s", gap, "", styledLabel)
+		styledLabel := ""
+		labelLen := 0
+		label := fmt.Sprintf("[%d]", p.Number)
+		if p.Number > 0 {
+			styledLabel = lipgloss.NewStyle().Foreground(borderColor).Render(label)
+			labelLen = len([]rune(label))
+		}
+
+		leftW := lipgloss.Width(leftText)
+		gap := max(p.viewport.Width-leftW-labelLen, 1)
+		labelLine := styledLeftText + fmt.Sprintf("%*s%s", gap, "", styledLabel)
 
 		content = content + "\n" + labelLine
 		contentH += p.titleHeight()
