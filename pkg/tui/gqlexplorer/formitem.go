@@ -796,21 +796,21 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// ── Argument text inputs: Esc exits editing ──
+	// Argument text inputs: Esc exits editing
 	if !item.isField && item.kind == formItemTextInput &&
 		key == tui.KeyCancel && item.input.Model.Focused() {
 		item.input.Model.Blur()
 		return nil
 	}
 
-	// ── Pass through to widget ──
+	// Pass through to widget
 	cmd := item.HandleKey(msg)
 
 	if !item.isField && item.listItem {
 		df.syncListArgRows(item.argName)
 	}
 
-	// ── Field toggles: expand/collapse children on Space ──
+	// Field toggles: expand/collapse children on Space
 	if key == tui.KeySpace && item.expandable && item.kind == formItemToggle {
 		df.toggleExpand(df.cursor)
 	}
