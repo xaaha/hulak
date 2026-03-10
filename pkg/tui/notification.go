@@ -194,10 +194,10 @@ func (n *NotificationCenter) expiryCmd(id int, ttl time.Duration) tea.Cmd {
 func notificationStyles(severity NotificationSeverity) (lipgloss.Style, lipgloss.AdaptiveColor) {
 	switch severity {
 	case NotificationError:
-		color := lipgloss.AdaptiveColor{Light: "160", Dark: "203"}
+		color := ColorError
 		return lipgloss.NewStyle().Bold(true).Foreground(color), color
 	case NotificationWarn:
-		color := lipgloss.AdaptiveColor{Light: "130", Dark: "214"}
+		color := ColorWarn
 		return lipgloss.NewStyle().Bold(true).Foreground(color), color
 	default:
 		color := ColorPrimary
