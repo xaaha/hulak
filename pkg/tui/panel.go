@@ -19,6 +19,7 @@ type Panel struct {
 	ready    bool
 	cacheKey string
 	Number   int
+	Footer   string
 }
 
 // Resize updates the panel's outer dimensions. Panel subtracts the border
@@ -91,6 +92,13 @@ func (p *Panel) GotoTop() {
 	}
 }
 
+// GotoBottom sets the viewport scroll position to the bottom.
+func (p *Panel) GotoBottom() {
+	if p.ready {
+		p.viewport.GotoBottom()
+	}
+}
+
 // ScrollPercent returns the viewport's current scroll position as 0.0–1.0.
 func (p *Panel) ScrollPercent() float64 {
 	if !p.ready {
@@ -114,8 +122,12 @@ func (p *Panel) View(focused bool) string {
 	if p.Number > 0 {
 		label := fmt.Sprintf("[%d]", p.Number)
 		styledLabel := lipgloss.NewStyle().Foreground(borderColor).Render(label)
-		padding := p.viewport.Width - len([]rune(label))
-		labelLine := fmt.Sprintf("%*s%s", padding, "", styledLabel)
+		labelLen := len([]rune(label))
+
+		footerW := lipgloss.Width(p.Footer)
+		gap := max(p.viewport.Width-footerW-labelLen, 1)
+		labelLine := p.Footer + fmt.Sprintf("%*s%s", gap, "", styledLabel)
+
 		content = content + "\n" + labelLine
 		contentH += p.titleHeight()
 	}

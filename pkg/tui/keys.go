@@ -13,15 +13,22 @@ const (
 	KeyRight = "right"
 
 	// Vim-style navigation (use only when text input is inactive)
-	KeyJ = "j"
-	KeyK = "k"
+	KeyJ      = "j"
+	KeyK      = "k"
+	KeyH      = "h"
+	KeyL      = "l"
+	KeyG      = "g"      // first press of gg (go to top)
+	KeyShiftG = "G"      // go to bottom
+	KeyYank   = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
+	KeySlash  = "/"      // vim-style search trigger
 
 	// Actions
-	KeyEnter  = "enter"
-	KeyTab    = "tab"
-	KeySpace  = " "
-	KeyQuit   = "ctrl+c" // Force quit - always works
-	KeyCancel = "esc"    // Cancel/back - context aware
+	KeyEnter    = "enter"
+	KeyTab      = "tab"
+	KeySpace    = " "
+	KeyShiftTab = "shift+tab" // Reverse tab - navigate backward
+	KeyQuit     = "ctrl+c"    // Force quit - always works
+	KeyCancel   = "esc"       // Cancel/back - context aware
 
 	// Rendering
 	listPadding = "   " // 3-space indent for non-selected list items

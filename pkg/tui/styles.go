@@ -26,9 +26,15 @@ var (
 	SubtitleStyle = lipgloss.NewStyle().
 			Foreground(ColorSecondary)
 
-	// HelpStyle for help text at bottom
+	// HelpStyle for inline help text (muted gray)
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted)
+
+	// HelpBarStyle for the bottom help bar — more noticeable than
+	// HelpStyle but not as prominent as body text.
+	HelpBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "243", Dark: "250"}).
+			Italic(true)
 
 	// BorderStyle for boxes with borders
 	BorderStyle = lipgloss.NewStyle().
@@ -65,9 +71,12 @@ const (
 	MinRightPanelWidth = 32
 
 	// Right panel vertical split (percentage of contentHeight)
-	DetailTopPct    = 40
-	DetailFocusBoxW = 50
-	DetailFocusBoxH = 100
+	DetailTopPct = 40
+
+	// Detail panel sizing (percentage of the top-right area).
+	// Query panel fills the remaining width and matching height.
+	DetailPanelWPct = 50
+	DetailPanelHPct = 100
 
 	// Fixed-height rows (lines). Subtract these from the total
 	// vertical budget before giving the remainder to scrollable

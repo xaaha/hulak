@@ -37,6 +37,16 @@ func (f *FocusRing) Next() {
 	}
 }
 
+// Prev moves focus to the previous panel, wrapping from the left panel
+// back to the last panel. Exits typing mode on switch.
+func (f *FocusRing) Prev() {
+	f.typing = false
+	f.index--
+	if f.index < -1 {
+		f.index = len(f.panels) - 1
+	}
+}
+
 // FocusByNumber jumps to the panel with the given Number field.
 // Number 1 focuses the left panel. Returns false if no match found.
 // Exits typing mode on switch.
@@ -75,6 +85,9 @@ func (f *FocusRing) HandleKey(key string) (consumed, quit bool) {
 	switch key {
 	case KeyTab:
 		f.Next()
+		return true, false
+	case KeyShiftTab:
+		f.Prev()
 		return true, false
 
 	case KeyEnter:

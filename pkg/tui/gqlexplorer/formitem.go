@@ -20,6 +20,21 @@ const (
 	formItemDropdown
 )
 
+var (
+	cbOnFocused  = renderCheckbox(true, true)
+	cbOnBlurred  = renderCheckbox(true, false)
+	cbOffFocused = renderCheckbox(false, true)
+	cbOffBlurred = renderCheckbox(false, false)
+)
+
+func renderCheckbox(enabled, focused bool) string {
+	t := tui.NewToggle("", enabled)
+	if focused {
+		t.Focus()
+	}
+	return t.View()
+}
+
 type formItem struct {
 	kind       formItemKind
 	name       string
@@ -29,23 +44,39 @@ type formItem struct {
 	depth      int
 	expandable bool
 
+	// enabled controls whether this argument is included in the generated
+	// query string. Only meaningful for argument items (isField == false).
+	// Required args default to true; optional args default to false.
+	enabled bool
+	// argName is the top-level operation argument name this item belongs to.
+	// For simple args it equals name. For InputType-expanded fields it is
+	// the parent argument name, allowing the query builder to map multiple
+	// form items back to a single argument declaration.
+	argName string
+
+	selected bool // cursor is on this item (set by Focus/Blur)
+
 	toggle   tui.Toggle
 	input    tui.TextInput
 	dropdown tui.Dropdown
 }
 
 func (f *formItem) Focus() {
+	f.selected = true
 	switch f.kind {
 	case formItemToggle:
 		f.toggle.Focus()
 	case formItemTextInput:
-		f.input.Model.Focus()
+		if f.isField {
+			f.input.Model.Focus()
+		}
 	case formItemDropdown:
 		f.dropdown.Focus()
 	}
 }
 
 func (f *formItem) Blur() {
+	f.selected = false
 	switch f.kind {
 	case formItemToggle:
 		f.toggle.Blur()
@@ -57,15 +88,7 @@ func (f *formItem) Blur() {
 }
 
 func (f *formItem) Focused() bool {
-	switch f.kind {
-	case formItemToggle:
-		return f.toggle.Focused()
-	case formItemTextInput:
-		return f.input.Model.Focused()
-	case formItemDropdown:
-		return f.dropdown.Focused()
-	}
-	return false
+	return f.selected
 }
 
 func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
@@ -81,29 +104,46 @@ func (f *formItem) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
+func (f *formItem) checkboxPrefix() string {
+	switch {
+	case f.enabled && f.selected:
+		return cbOnFocused
+	case f.enabled:
+		return cbOnBlurred
+	case f.selected:
+		return cbOffFocused
+	default:
+		return cbOffBlurred
+	}
+}
+
 func (f *formItem) View() string {
 	hint := tui.HelpStyle.Render(f.typeHint)
 	switch f.kind {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
 	case formItemTextInput:
-		focused := f.input.Model.Focused()
+		editing := f.input.Model.Focused()
+		highlighted := f.selected || editing
 		name := f.name
-		if focused {
+		if highlighted {
 			name = lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render(f.name)
 		}
 		label := name + tui.KeySpace + hint
 		if f.required {
 			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
 		}
+		if !f.isField {
+			label = f.checkboxPrefix() + label
+		}
 		boxStyle := tui.InputStyle
-		if focused {
+		if editing {
 			boxStyle = tui.FocusedInputStyle
 		}
 		inputBox := boxStyle.Render(f.input.Model.View())
 
 		connectorStyle := tui.HelpStyle
-		if focused {
+		if highlighted {
 			connectorStyle = lipgloss.NewStyle().Foreground(tui.ColorPrimary)
 		}
 		connector := connectorStyle.Render(utils.Connector)
@@ -120,7 +160,11 @@ func (f *formItem) View() string {
 		}
 		return b.String()
 	case formItemDropdown:
-		return f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
+		prefix := ""
+		if !f.isField {
+			prefix = f.checkboxPrefix()
+		}
+		return prefix + f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
 	}
 	return ""
 }
@@ -190,6 +234,7 @@ func newTypedFormItem(
 			name:     name,
 			typeHint: typeStr,
 			required: required,
+			enabled:  required,
 			toggle:   tui.NewToggle(name, false),
 		}
 	}
@@ -204,6 +249,7 @@ func newTypedFormItem(
 			name:     name,
 			typeHint: typeStr,
 			required: required,
+			enabled:  required,
 			dropdown: tui.NewDropdown(name, options, 0),
 		}
 	}
@@ -220,6 +266,7 @@ func newTypedFormItem(
 		name:     name,
 		typeHint: typeStr,
 		required: required,
+		enabled:  required,
 		input:    ti,
 	}
 }
@@ -232,6 +279,13 @@ type DetailForm struct {
 	argCount    int // number of leading argument items
 	objectTypes map[string]graphql.ObjectType
 	endpoint    string
+
+	// ── Search state (vim-style / search) ──────────────────────
+	searching       bool
+	searchInput     tui.TextInput
+	matchIndices    []int
+	matchCursor     int
+	preSearchCursor int
 }
 
 func buildDetailForm(
@@ -246,10 +300,14 @@ func buildDetailForm(
 		base := ExtractBaseType(arg.Type)
 		if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 			for _, field := range it.Fields {
-				items = append(items, newInputFieldFormItem(field, enumTypes, op.Endpoint))
+				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
+				fi.argName = arg.Name
+				items = append(items, fi)
 			}
 		} else {
-			items = append(items, newArgFormItem(arg, enumTypes, op.Endpoint))
+			fi := newArgFormItem(arg, enumTypes, op.Endpoint)
+			fi.argName = arg.Name
+			items = append(items, fi)
 		}
 	}
 	argCount := len(items)
@@ -271,12 +329,20 @@ func buildDetailForm(
 		return nil
 	}
 
+	si := tui.NewFilterInput(tui.TextInputOpts{
+		Prompt:      "",
+		Placeholder: "",
+		MinWidth:    10,
+	})
+	si.Model.Blur()
+
 	return &DetailForm{
 		items:       items,
 		cursor:      0,
 		argCount:    argCount,
 		objectTypes: objectTypes,
 		endpoint:    op.Endpoint,
+		searchInput: si,
 	}
 }
 
@@ -304,6 +370,16 @@ func (df *DetailForm) BlurAll() {
 	}
 }
 
+func (df *DetailForm) enabledArgNames() map[string]bool {
+	names := make(map[string]bool)
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].enabled {
+			names[df.items[i].argName] = true
+		}
+	}
+	return names
+}
+
 // CursorUp moves the inner cursor up, clamping at 0.
 func (df *DetailForm) CursorUp() {
 	df.cursor = tui.MoveCursorUp(df.cursor)
@@ -316,17 +392,173 @@ func (df *DetailForm) CursorDown() {
 	df.FocusCurrent()
 }
 
+func (df *DetailForm) CursorToTop() {
+	df.cursor = 0
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) CursorToBottom() {
+	df.cursor = len(df.items) - 1
+	df.FocusCurrent()
+}
+
+// ── Search ─────────────────────────────────────────────────
+
+func (df *DetailForm) IsSearching() bool { return df.searching }
+
+func (df *DetailForm) StartSearch() {
+	df.searching = true
+	df.preSearchCursor = df.cursor
+	df.searchInput.Model.SetValue("")
+	df.searchInput.Model.Focus()
+	df.matchIndices = nil
+	df.matchCursor = 0
+}
+
+func (df *DetailForm) StopSearch(confirm bool) {
+	df.searching = false
+	df.searchInput.Model.Blur()
+	if !confirm {
+		df.cursor = df.preSearchCursor
+		df.FocusCurrent()
+	}
+	df.matchIndices = nil
+}
+
+func (df *DetailForm) updateSearchMatches() {
+	query := strings.ToLower(df.searchInput.Model.Value())
+	df.matchIndices = nil
+	if query == "" {
+		return
+	}
+	for i := range df.items {
+		if strings.Contains(strings.ToLower(df.items[i].name), query) {
+			df.matchIndices = append(df.matchIndices, i)
+		}
+	}
+	if len(df.matchIndices) > 0 {
+		df.matchCursor = 0
+		df.cursor = df.matchIndices[0]
+		df.FocusCurrent()
+	}
+}
+
+func (df *DetailForm) nextMatch() {
+	if len(df.matchIndices) == 0 {
+		return
+	}
+	df.matchCursor = (df.matchCursor + 1) % len(df.matchIndices)
+	df.cursor = df.matchIndices[df.matchCursor]
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) prevMatch() {
+	if len(df.matchIndices) == 0 {
+		return
+	}
+	df.matchCursor--
+	if df.matchCursor < 0 {
+		df.matchCursor = len(df.matchIndices) - 1
+	}
+	df.cursor = df.matchIndices[df.matchCursor]
+	df.FocusCurrent()
+}
+
+func (df *DetailForm) searchStatus() string {
+	if df.searchInput.Model.Value() == "" {
+		return ""
+	}
+	if len(df.matchIndices) == 0 {
+		return "no matches"
+	}
+	return fmt.Sprintf("%d/%d", df.matchCursor+1, len(df.matchIndices))
+}
+
+func (df *DetailForm) SearchFooter() string {
+	if !df.searching {
+		return ""
+	}
+	label := lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render("Search(/)")
+	input := df.searchInput.Model.View()
+	result := label + " " + input
+	if status := df.searchStatus(); status != "" {
+		result += "  " + tui.HelpStyle.Render(status)
+	}
+	return result
+}
+
+func (df *DetailForm) HandleSearchKey(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case tui.KeyEnter:
+		df.StopSearch(true)
+		return nil
+	case tui.KeyCancel:
+		df.StopSearch(false)
+		return nil
+	case tui.KeyUp, tui.KeyCtrlP:
+		df.prevMatch()
+		return nil
+	case tui.KeyDown, tui.KeyCtrlN:
+		df.nextMatch()
+		return nil
+	}
+	_, cmd := df.searchInput.Update(msg)
+	df.updateSearchMatches()
+	return cmd
+}
+
 // HandleKey routes a key message to the currently focused item.
 func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
-	if df.cursor >= 0 && df.cursor < len(df.items) {
-		item := &df.items[df.cursor]
-		cmd := item.HandleKey(msg)
-		if msg.String() == tui.KeySpace && item.expandable && item.kind == formItemToggle {
-			df.toggleExpand(df.cursor)
+	if df.cursor < 0 || df.cursor >= len(df.items) {
+		return nil
+	}
+	item := &df.items[df.cursor]
+	key := msg.String()
+
+	// ── Argument items: Space toggles the enabled checkbox ──
+	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
+		if item.kind == formItemToggle {
+			cmd := item.HandleKey(msg)
+			item.enabled = item.toggle.Value
+			return cmd
 		}
+		item.enabled = !item.enabled
+		return nil
+	}
+
+	// ── Argument text inputs: Enter activates/deactivates editing ──
+	if !item.isField && item.kind == formItemTextInput && key == tui.KeyEnter {
+		if item.input.Model.Focused() {
+			item.input.Model.Blur()
+		} else {
+			item.input.Model.Focus()
+		}
+		return nil
+	}
+
+	// ── Argument toggles: Enter toggles value + enabled ──
+	if !item.isField && item.kind == formItemToggle && key == tui.KeyEnter {
+		cmd := item.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+		item.enabled = item.toggle.Value
 		return cmd
 	}
-	return nil
+
+	// ── Argument text inputs: Esc exits editing ──
+	if !item.isField && item.kind == formItemTextInput &&
+		key == tui.KeyCancel && item.input.Model.Focused() {
+		item.input.Model.Blur()
+		return nil
+	}
+
+	// ── Pass through to widget ──
+	cmd := item.HandleKey(msg)
+
+	// ── Field toggles: expand/collapse children on Space ──
+	if key == tui.KeySpace && item.expandable && item.kind == formItemToggle {
+		df.toggleExpand(df.cursor)
+	}
+
+	return cmd
 }
 
 // ConsumesTextInput returns true if the focused item is a text input
@@ -397,7 +629,12 @@ func (df *DetailForm) hasExpandedDropdown() bool {
 func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 	var lines []string
 
-	header := tui.SubtitleStyle.Render("›" + op.Name)
+	focused := df.items[df.cursor].Focused()
+	headerStyle := tui.HelpStyle
+	if focused {
+		headerStyle = tui.SubtitleStyle
+	}
+	header := headerStyle.Render(utils.ChevronRight + op.Name)
 	if op.ReturnType != "" {
 		header += tui.HelpStyle.Render(": " + op.ReturnType)
 	}
@@ -405,17 +642,17 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 
 	const basePad = 4
 	const depthIndent = 2
-
 	cursorLine := 0
 	for i := range df.items {
 		depth := df.items[i].depth
 		pad := basePad + depth*depthIndent
 		itemPad := strings.Repeat(tui.KeySpace, pad)
-		cursorPad := strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
 
 		prefix := itemPad
 		if i == df.cursor {
-			prefix = cursorPad
+			if focused {
+				prefix = strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
+			}
 			cursorLine = len(lines)
 		}
 		view := df.items[i].View()

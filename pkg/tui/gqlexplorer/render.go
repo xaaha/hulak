@@ -27,8 +27,6 @@ var (
 		itemPadding-len(utils.ChevronRight),
 	) + utils.ChevronRight
 	detailPrefix = strings.Repeat(tui.KeySpace, detailPadding)
-	toggleOff    = strings.Repeat(tui.KeySpace, 2)
-	toggleOn     = checkMark + tui.KeySpace
 )
 
 // truncateToWidth truncates s to at most width visual columns,
@@ -58,6 +56,7 @@ func (m *Model) renderList() (string, int) {
 		), 0
 	}
 
+	focused := m.focus.LeftFocused()
 	var lines []string
 	cursorLine := 0
 	var currentType OperationType
@@ -72,7 +71,11 @@ func (m *Model) renderList() (string, int) {
 		}
 		if i == m.cursor {
 			cursorLine = len(lines)
-			lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+			if focused {
+				lines = append(lines, tui.SubtitleStyle.Render(selectedPrefix+op.Name))
+			} else {
+				lines = append(lines, selectedPrefix+op.Name)
+			}
 			wrapW := max(m.leftPanelWidth()-detailPadding, 1)
 			lines = appendWrappedHelpLines(lines, op.Description, wrapW, detailPrefix)
 			// Full URL shown intentionally; badges/filters use shortened form.
@@ -85,27 +88,28 @@ func (m *Model) renderList() (string, int) {
 }
 
 func (m *Model) renderEndpointPicker() (string, int) {
-	if len(m.endpoints) == 0 {
+	eps := m.filteredEndpoints()
+	if len(eps) == 0 {
 		return tui.HelpStyle.Render(itemPrefix + noMatchesLabel), 0
 	}
 
 	var lines []string
 	cursorLine := 0
-	for i, ep := range m.endpoints {
-		prefix := itemPrefix
-		if i == m.endpointCursor {
-			prefix = selectedPrefix
+	for i, ep := range eps {
+		toggle := tui.NewToggle(ep, m.activeEndpoints[ep])
+		isCursor := i == m.endpointCursor
+
+		chevron := utils.ChevronRightCircled
+		chevronColor := tui.ColorMuted
+		if isCursor {
+			chevron = utils.ChevronDownCircled
+			chevronColor = tui.ColorPrimary
+			toggle.Focus()
 			cursorLine = len(lines)
 		}
-		toggle := toggleOff
-		if m.pendingEndpoints[ep] {
-			toggle = toggleOn
-		}
-		style := lipgloss.NewStyle()
-		if i == m.endpointCursor {
-			style = tui.SubtitleStyle
-		}
-		lines = append(lines, style.Render(prefix+toggle+ep))
+
+		styledChevron := lipgloss.NewStyle().Foreground(chevronColor).Render(chevron)
+		lines = append(lines, styledChevron+tui.KeySpace+toggle.View())
 	}
 	return strings.Join(lines, "\n"), cursorLine
 }
@@ -308,18 +312,18 @@ func (m *Model) renderLeftContent() string {
 	if badges != "" {
 		badges = truncateToWidth(badges, panelW)
 	}
-	searchStyle := tui.BorderStyle
+	searchStyle := tui.BorderStyle.Padding(0, 1)
 	if m.focus.LeftFocused() {
 		searchStyle = tui.FocusedInputStyle
 	}
 	search := searchStyle.
-		Padding(0, 1).
-		Width(max(panelW-2, 1)).
+		Width(max(panelW-searchStyle.GetHorizontalFrameSize(), 1)).
 		Render(m.search.Model.View())
 
 	content := ""
-	if m.pickingEndpoints {
-		content += endpointPickerTitle
+	if m.isEndpointMode() {
+		eps := m.filteredEndpoints()
+		content += fmt.Sprintf("%d/%d endpoints", len(eps), len(m.endpoints))
 	} else {
 		content += fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations))
 	}

@@ -150,7 +150,7 @@ func (m *SelectorModel) View() string {
 	} else {
 		list, _ = m.RenderItems()
 	}
-	help := HelpStyle.Render(m.helpMessage)
+	help := HelpBarStyle.Render(m.helpMessage)
 	if m.width > 0 {
 		help = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(help)
 	}

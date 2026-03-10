@@ -80,9 +80,9 @@ func (d Dropdown) updateExpanded(msg tea.KeyMsg) (Dropdown, tea.Cmd) {
 		d.expanded = false
 	case KeyCancel:
 		d.expanded = false
-	case KeyUp, KeyCtrlP:
+	case KeyUp, KeyCtrlP, KeyK:
 		d.cursor = MoveCursorUp(d.cursor)
-	case KeyDown, KeyCtrlN:
+	case KeyDown, KeyCtrlN, KeyJ:
 		d.cursor = MoveCursorDown(d.cursor, len(d.Options)-1)
 	}
 	return d, nil
