@@ -60,7 +60,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 			"introspection request returned status %d (%s).\nResponse body:\n%s",
 			statusCode,
 			resp.Response.Status,
-			bodyStr,
+			truncateBody(bodyStr, 2000),
 		)
 	}
 
@@ -69,7 +69,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 			"expected JSON response but received %s (status %d).\nResponse body:\n%s",
 			detectContentType(bodyStr),
 			statusCode,
-			bodyStr,
+			truncateBody(bodyStr, 2000),
 		)
 	}
 
@@ -84,6 +84,13 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 	}
 
 	return schema, nil
+}
+
+func truncateBody(body string, maxLen int) string {
+	if len(body) <= maxLen {
+		return body
+	}
+	return body[:maxLen] + "\n... (truncated)"
 }
 
 func detectContentType(body string) string {

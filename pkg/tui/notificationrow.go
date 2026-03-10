@@ -1,3 +1,5 @@
+// notificationrow.go contains ActionRow and ActionBadge, the bottom-row UI
+// for action buttons (refresh, send, save) and the notification reopen badge.
 package tui
 
 import (

@@ -86,13 +86,12 @@ func (n *NotificationCenter) Enqueue(severity NotificationSeverity, message stri
 }
 
 func (n *NotificationCenter) Update(msg tea.Msg) tea.Cmd {
+	n.expireIfNeeded()
 	tick, ok := msg.(notificationTickMsg)
 	if !ok || tick.id != n.activeID || n.active == nil {
 		return nil
 	}
-	if !n.nowTime().Before(n.active.ExpiresAt) {
-		n.active = nil
-	}
+	n.active = nil
 	return nil
 }
 
@@ -206,12 +205,15 @@ func (n *NotificationCenter) renderCard(displayed *Notification, width, height i
 	return lipgloss.Place(width, height, hPos, vPos, card)
 }
 
+func (n *NotificationCenter) expireIfNeeded() {
+	if n.active != nil && !n.nowTime().Before(n.active.ExpiresAt) {
+		n.active = nil
+	}
+}
+
 func (n *NotificationCenter) displayed() *Notification {
 	if n.active != nil && n.nowTime().Before(n.active.ExpiresAt) {
 		return n.active
-	}
-	if n.active != nil && !n.nowTime().Before(n.active.ExpiresAt) {
-		n.active = nil
 	}
 	if n.expanded && n.last != nil {
 		return n.last

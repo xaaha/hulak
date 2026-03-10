@@ -1148,7 +1148,6 @@ func (m *Model) View() string {
 
 	if m.notification.Visible() {
 		box = tui.OverlayCenter(
-			box,
 			m.notification.RenderModal(max(m.width-8, 1), max(m.height-6, 1)),
 			m.width,
 			m.height,

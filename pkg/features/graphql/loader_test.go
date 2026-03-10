@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -254,6 +255,7 @@ func TestLoadSchemasUsesFilePathWhenProcessWarningHasNoURL(t *testing.T) {
 }
 
 func TestLoadSchemasDoesNotCollapseWarningsBeforeConcurrentFetch(t *testing.T) {
+	var mu sync.Mutex
 	var fetchCalls []string
 	loader := schemaLoader{
 		stat:  func(string) (os.FileInfo, error) { return stubFileInfo(true), nil },
@@ -287,7 +289,9 @@ func TestLoadSchemasDoesNotCollapseWarningsBeforeConcurrentFetch(t *testing.T) {
 			}
 		},
 		fetchAndParseSchema: func(apiInfo yamlparser.APIInfo) (Schema, error) {
+			mu.Lock()
 			fetchCalls = append(fetchCalls, apiInfo.URL)
+			mu.Unlock()
 			return Schema{}, errors.New("forbidden")
 		},
 		getWorkers: func(*int) int { return 2 },
