@@ -15,11 +15,15 @@ import (
 )
 
 func waitForMouseZone(t *testing.T, id string) (int, int) {
+	return waitForMouseZoneMinHeight(t, id, 0)
+}
+
+func waitForMouseZoneMinHeight(t *testing.T, id string, minHeight int) (int, int) {
 	t.Helper()
 	deadline := time.Now().Add(250 * time.Millisecond)
 	for time.Now().Before(deadline) {
-		startX, startY, _, _, ok := tui.ZoneBounds(id)
-		if ok {
+		startX, startY, _, endY, ok := tui.ZoneBounds(id)
+		if ok && endY-startY >= minHeight {
 			return startX, startY
 		}
 		time.Sleep(time.Millisecond)
@@ -225,6 +229,73 @@ func TestMouseClickTogglesEndpointAndMovesEndpointCursor(t *testing.T) {
 	}
 	if model.focus.Typing() {
 		t.Fatal("expected typing mode off after clicking endpoint row")
+	}
+}
+
+func TestMouseClickDetailFormItemFocusesDetailPanel(t *testing.T) {
+	ep := "ep"
+	op := UnifiedOperation{
+		Name: "Search", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
+	}
+	m := NewModel([]UnifiedOperation{op}, nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.detailForm.itemZoneID(model.detailMousePrefix(), 0))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Fatal("expected detail panel to be focused after clicking detail item")
+	}
+	if model.detailForm.cursor != 0 {
+		t.Fatalf("expected detail cursor on clicked item, got %d", model.detailForm.cursor)
+	}
+	if !model.detailForm.items[0].input.Model.Focused() {
+		t.Fatal("expected clicked text input to enter editing")
+	}
+}
+
+func TestMouseClickSearchInputFocusesLeftPanelAndTyping(t *testing.T) {
+	ep := "ep"
+	op := UnifiedOperation{
+		Name: "Search", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
+	}
+	m := NewModel([]UnifiedOperation{op}, nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncSearchFocus()
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.searchZoneID())
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected search click to focus left panel")
+	}
+	if !model.focus.Typing() {
+		t.Fatal("expected search click to enable typing mode")
+	}
+	if !model.search.Model.Focused() {
+		t.Fatal("expected search input to be focused after click")
 	}
 }
 

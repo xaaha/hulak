@@ -333,6 +333,9 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if m.handleLeftPanelClick(msg) {
 			return m, nil
 		}
+		if m.handleDetailFormClick(msg) {
+			return m, nil
+		}
 	}
 
 	var cmds []tea.Cmd
@@ -346,6 +349,14 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleLeftPanelClick(msg tea.MouseMsg) bool {
 	if !m.ready {
 		return false
+	}
+
+	if tui.Hit(m.searchZoneID(), msg) {
+		m.focus.FocusByNumber(1)
+		m.focus.SetTyping(true)
+		m.syncSearchFocus()
+		m.syncViewport()
+		return true
 	}
 
 	if m.isEndpointMode() {
@@ -394,12 +405,33 @@ func (m *Model) handleLeftPanelClick(msg tea.MouseMsg) bool {
 	return false
 }
 
+func (m *Model) handleDetailFormClick(msg tea.MouseMsg) bool {
+	if m.detailForm == nil || m.isEndpointMode() {
+		return false
+	}
+	if !m.detailForm.HandleMouse(m.detailMousePrefix(), msg) {
+		return false
+	}
+	m.focus.FocusByNumber(m.detailPanel.Number)
+	m.syncSearchFocus()
+	m.syncViewport()
+	return true
+}
+
 func (m *Model) operationZoneID(index int) string {
 	return m.mouse.ID("operation", strconv.Itoa(index))
 }
 
 func (m *Model) endpointZoneID(index int) string {
 	return m.mouse.ID("endpoint", strconv.Itoa(index))
+}
+
+func (m *Model) detailMousePrefix() string {
+	return m.mouse.ID("detail")
+}
+
+func (m *Model) searchZoneID() string {
+	return m.mouse.ID("search")
 }
 
 var vimToArrowMap = map[string]tea.KeyType{
@@ -794,7 +826,7 @@ func (m *Model) syncViewport() {
 			} else {
 				m.detailForm.BlurAll()
 			}
-			content, cursorLine := m.detailForm.View(op)
+			content, cursorLine := m.detailForm.ViewMarked(op, m.detailMousePrefix(), m.mouse.Mark)
 			m.detailPanel.SyncContent(content, cursorLine)
 			m.detailPanel.Footer = m.detailForm.SearchFooter()
 		} else {
