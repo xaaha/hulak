@@ -24,9 +24,9 @@ func ParseIntrospectionResponse(jsonData []byte) (*introspection.Schema, error) 
 	var response IntrospectionResponse
 	if err := json.Unmarshal(jsonData, &response); err != nil {
 		return nil, fmt.Errorf(
-			"failed to parse introspection response: %w\nResponse preview:\n%s",
+			"failed to parse introspection response: %w\nResponse body:\n%s",
 			err,
-			truncateBody(string(jsonData), 300),
+			string(jsonData),
 		)
 	}
 

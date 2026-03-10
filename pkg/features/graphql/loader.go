@@ -31,6 +31,7 @@ type LoadResult struct {
 type PreparedLoad struct {
 	Results   []ProcessResult
 	Cancelled bool
+	Env       string
 }
 
 type schemaLoader struct {
@@ -38,7 +39,7 @@ type schemaLoader struct {
 	getwd                  func() (string, error)
 	findGraphQLFiles       func(string) (map[string]string, bool, error)
 	validateGraphQLFile    func(string) (string, bool, error)
-	getSecretsForEnv       func(map[string]string, bool, string) map[string]any
+	resolveSecretsForEnv   func(map[string]string, bool, string) (map[string]any, string, bool)
 	processFilesConcurrent func([]string, map[string]any) []ProcessResult
 	fetchAndParseSchema    func(yamlparser.APIInfo) (Schema, error)
 	getWorkers             func(*int) int
@@ -50,7 +51,7 @@ func newSchemaLoader() schemaLoader {
 		getwd:                  os.Getwd,
 		findGraphQLFiles:       FindGraphQLFiles,
 		validateGraphQLFile:    ValidateGraphQLFile,
-		getSecretsForEnv:       GetSecretsForEnv,
+		resolveSecretsForEnv:   ResolveSecretsForEnv,
 		processFilesConcurrent: ProcessFilesConcurrent,
 		fetchAndParseSchema:    FetchAndParseSchema,
 		getWorkers:             utils.GetWorkers,
@@ -92,7 +93,7 @@ func (l schemaLoader) Prepare(path, env string) (PreparedLoad, error) {
 		return PreparedLoad{}, err
 	}
 
-	results, cancelled, err := l.loadProcessResults(resolved, env)
+	results, selectedEnv, cancelled, err := l.loadProcessResults(resolved, env)
 	if err != nil {
 		return PreparedLoad{}, err
 	}
@@ -100,7 +101,7 @@ func (l schemaLoader) Prepare(path, env string) (PreparedLoad, error) {
 		return PreparedLoad{Cancelled: true}, nil
 	}
 
-	return PreparedLoad{Results: results}, nil
+	return PreparedLoad{Results: results, Env: selectedEnv}, nil
 }
 
 func (l schemaLoader) Fetch(prepared PreparedLoad) (LoadResult, error) {
@@ -121,10 +122,10 @@ func (l schemaLoader) resolvePath(path string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-func (l schemaLoader) loadProcessResults(path, env string) ([]ProcessResult, bool, error) {
+func (l schemaLoader) loadProcessResults(path, env string) ([]ProcessResult, string, bool, error) {
 	info, err := l.stat(path)
 	if err != nil {
-		return nil, false, fmt.Errorf("cannot access %q: %w", path, err)
+		return nil, "", false, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
 	if info.IsDir() {
@@ -133,10 +134,10 @@ func (l schemaLoader) loadProcessResults(path, env string) ([]ProcessResult, boo
 	return l.loadFromFile(path, env)
 }
 
-func (l schemaLoader) loadFromDirectory(dir, env string) ([]ProcessResult, bool, error) {
+func (l schemaLoader) loadFromDirectory(dir, env string) ([]ProcessResult, string, bool, error) {
 	urlToFileMap, needsEnv, err := l.findGraphQLFiles(dir)
 	if err != nil {
-		return nil, false, err
+		return nil, "", false, err
 	}
 
 	filePaths := make([]string, 0, len(urlToFileMap))
@@ -145,27 +146,27 @@ func (l schemaLoader) loadFromDirectory(dir, env string) ([]ProcessResult, bool,
 	}
 	sort.Strings(filePaths)
 
-	secretsMap := l.getSecretsForEnv(urlToFileMap, needsEnv, env)
-	if secretsMap == nil {
-		return nil, true, nil
+	secretsMap, selectedEnv, cancelled := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	if cancelled {
+		return nil, "", true, nil
 	}
 
-	return l.processFilesConcurrent(filePaths, secretsMap), false, nil
+	return l.processFilesConcurrent(filePaths, secretsMap), selectedEnv, false, nil
 }
 
-func (l schemaLoader) loadFromFile(filePath, env string) ([]ProcessResult, bool, error) {
+func (l schemaLoader) loadFromFile(filePath, env string) ([]ProcessResult, string, bool, error) {
 	rawURL, needsEnv, err := l.validateGraphQLFile(filePath)
 	if err != nil {
-		return nil, false, err
+		return nil, "", false, err
 	}
 
 	urlToFileMap := map[string]string{rawURL: filePath}
-	secretsMap := l.getSecretsForEnv(urlToFileMap, needsEnv, env)
-	if secretsMap == nil {
-		return nil, true, nil
+	secretsMap, selectedEnv, cancelled := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	if cancelled {
+		return nil, "", true, nil
 	}
 
-	return l.processFilesConcurrent([]string{filePath}, secretsMap), false, nil
+	return l.processFilesConcurrent([]string{filePath}, secretsMap), selectedEnv, false, nil
 }
 
 func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) {
@@ -176,21 +177,43 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 	}
 
 	var warnings []string
-	endpointResults := make(map[string]ProcessResult)
+	uniqueFetchResults := make(map[string]ProcessResult)
 	for _, result := range results {
 		if result.Error != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", result.APIInfo.URL, result.Error))
+			warnings = append(warnings, l.formatProcessWarning(&result))
 			continue
 		}
-		endpointResults[result.APIInfo.URL] = result
+		url := strings.TrimSpace(result.APIInfo.URL)
+		if url == "" {
+			warnings = append(warnings, l.formatProcessWarning(&ProcessResult{
+				FilePath: result.FilePath,
+				APIInfo:  result.APIInfo,
+				Error:    fmt.Errorf("missing resolved URL for schema fetch"),
+			}))
+			continue
+		}
+		if _, exists := uniqueFetchResults[url]; !exists {
+			uniqueFetchResults[url] = result
+		}
 	}
 
-	if len(endpointResults) == 0 {
+	if len(uniqueFetchResults) == 0 {
 		if len(warnings) == 0 {
 			return LoadResult{}, nil
 		}
 		return LoadResult{}, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(warnings, "\n  "))
 	}
+
+	endpointResults := make([]ProcessResult, 0, len(uniqueFetchResults))
+	for _, result := range uniqueFetchResults {
+		endpointResults = append(endpointResults, result)
+	}
+	sort.Slice(endpointResults, func(i, j int) bool {
+		if endpointResults[i].APIInfo.URL == endpointResults[j].APIInfo.URL {
+			return endpointResults[i].FilePath < endpointResults[j].FilePath
+		}
+		return endpointResults[i].APIInfo.URL < endpointResults[j].APIInfo.URL
+	})
 
 	jobs := make(chan ProcessResult, len(endpointResults))
 	fetched := make(chan fetchResult, len(endpointResults))
@@ -244,4 +267,34 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 		Endpoints: loaded,
 		Warnings:  warnings,
 	}, nil
+}
+
+func (l schemaLoader) formatProcessWarning(result *ProcessResult) string {
+	label := l.relativeLabel(result.FilePath)
+	if label == "" {
+		label = strings.TrimSpace(result.APIInfo.URL)
+	}
+	if label == "" {
+		label = "(unknown source)"
+	}
+	return fmt.Sprintf("%s: %v", label, result.Error)
+}
+
+func (l schemaLoader) relativeLabel(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if !filepath.IsAbs(path) {
+		return path
+	}
+	cwd, err := l.getwd()
+	if err != nil || cwd == "" {
+		return path
+	}
+	rel, err := filepath.Rel(cwd, path)
+	if err != nil || rel == "" {
+		return path
+	}
+	return rel
 }

@@ -60,7 +60,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 			"introspection request returned status %d (%s).\nResponse body:\n%s",
 			statusCode,
 			resp.Response.Status,
-			truncateBody(bodyStr, 500),
+			bodyStr,
 		)
 	}
 
@@ -69,7 +69,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 			"expected JSON response but received %s (status %d).\nResponse body:\n%s",
 			detectContentType(bodyStr),
 			statusCode,
-			truncateBody(bodyStr, 500),
+			bodyStr,
 		)
 	}
 
@@ -97,34 +97,42 @@ func detectContentType(body string) string {
 	}
 }
 
-func truncateBody(body string, maxLen int) string {
-	if len(body) <= maxLen {
-		return body
-	}
-	return body[:maxLen] + "\n... (truncated)"
-}
-
 // GetSecretsForEnv loads secrets based on whether templates exist in the files.
 // If env is provided, uses that environment directly.
 // If env is empty and templates are needed, shows the interactive selector.
 // Returns empty map if no templates needed, nil if user cancelled.
 func GetSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) map[string]any {
+	secretsMap, _, cancelled := ResolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	if cancelled {
+		return nil
+	}
+	return secretsMap
+}
+
+// ResolveSecretsForEnv loads secrets and returns the resolved environment name.
+// If no environment is needed, the returned env name is empty.
+func ResolveSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) (map[string]any, string, bool) {
 	// If env is explicitly provided, always load it (user knows what they want)
 	if env != "" {
-		return loadSecretsForEnv(env)
+		secretsMap, selectedEnv := loadSecretsForEnv(env)
+		return secretsMap, selectedEnv, false
 	}
 
 	if NeedsEnvResolution(urlToFileMap) || needsEnv {
-		return loadSecretsForEnv("")
+		secretsMap, selectedEnv := loadSecretsForEnv("")
+		if secretsMap == nil {
+			return nil, "", true
+		}
+		return secretsMap, selectedEnv, false
 	}
 
-	return map[string]any{}
+	return map[string]any{}, "", false
 }
 
 // loadSecretsForEnv loads secrets from the specified environment.
 // If env is empty, shows the interactive env selector TUI.
 // Returns nil if user cancelled the selector.
-func loadSecretsForEnv(env string) map[string]any {
+func loadSecretsForEnv(env string) (map[string]any, string) {
 	selectedEnv := env
 
 	// If no env provided, show the interactive selector
@@ -135,7 +143,7 @@ func loadSecretsForEnv(env string) map[string]any {
 			utils.PanicRedAndExit("Environment selector error: %v", err)
 		}
 		if selectedEnv == "" {
-			return nil
+			return nil, ""
 		}
 	}
 
@@ -145,5 +153,5 @@ func loadSecretsForEnv(env string) map[string]any {
 		utils.PanicRedAndExit("Failed to load environment '%s': %v", selectedEnv, err)
 	}
 
-	return secretsMap
+	return secretsMap, selectedEnv
 }

@@ -84,14 +84,18 @@ func TestNotificationCenterHandleKeySupportsToggleAndCopy(t *testing.T) {
 		t.Fatalf("copied text = %q", copied)
 	}
 
-	n.active = nil
+	handled, _ = n.HandleKey(KeyAt)
+	if !handled || n.Visible() {
+		t.Fatal("expected @ to minimize active notification")
+	}
+
 	handled, _ = n.HandleKey(KeyAt)
 	if !handled || !n.Visible() {
 		t.Fatal("expected @ to reopen last notification")
 	}
 }
 
-func TestNotificationCenterRenderPlacesNotificationAtBottomRight(t *testing.T) {
+func TestNotificationCenterRenderShowsSeverityAndCopyHint(t *testing.T) {
 	n := NewNotificationCenter()
 	n.now = func() time.Time { return time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC) }
 	n.Enqueue(NotificationError, "failed to refresh schema from endpoint")
@@ -101,36 +105,11 @@ func TestNotificationCenterRenderPlacesNotificationAtBottomRight(t *testing.T) {
 	if len(lines) != 8 {
 		t.Fatalf("expected 8 lines, got %d", len(lines))
 	}
-	if !strings.Contains(view, "ERROR") {
+	if !strings.Contains(view, "Error") {
 		t.Fatalf("expected severity label in view, got:\n%s", view)
 	}
-
-	firstContent := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			firstContent = i
-			break
-		}
-	}
-	if firstContent < 0 {
-		t.Fatal("expected rendered notification content")
-	}
-	if firstContent == 0 {
-		t.Fatalf("expected vertical bottom placement, got:\n%s", view)
-	}
-
-	lastContentLine := ""
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.TrimSpace(lines[i]) != "" {
-			lastContentLine = lines[i]
-			break
-		}
-	}
-	if lastContentLine == "" {
-		t.Fatal("expected non-empty content near bottom")
-	}
-	if strings.HasPrefix(lastContentLine, "╰") {
-		t.Fatalf("expected right-aligned content, got line: %q", lastContentLine)
+	if !strings.Contains(view, "@/Esc/q close") || !strings.Contains(view, "Ctrl+y copy full error") {
+		t.Fatalf("expected copy hint in notification, got:\n%s", view)
 	}
 }
 

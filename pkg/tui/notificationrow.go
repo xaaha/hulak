@@ -46,8 +46,8 @@ func (r *ActionRow) SetBadge(badge ActionBadge) {
 
 func (r *ActionRow) View() string {
 	parts := make([]string, 0, len(r.items)+1)
-	if r.badge.Visible && strings.TrimSpace(r.badge.Label) != "" {
-		parts = append(parts, r.mouse.Mark(r.badgeZoneID(), renderActionBadge(r.badge)))
+	if badge := r.BadgeView(); badge != "" {
+		parts = append(parts, badge)
 	}
 	for i := range r.items {
 		item := r.items[i]
@@ -57,6 +57,69 @@ func (r *ActionRow) View() string {
 		parts = append(parts, r.mouse.Mark(r.itemZoneID(item.ID), renderActionItem(item)))
 	}
 	return strings.Join(parts, "  ")
+}
+
+func (r *ActionRow) BadgeView() string {
+	if !r.badge.Visible || strings.TrimSpace(r.badge.Label) == "" {
+		return ""
+	}
+	return r.mouse.Mark(r.badgeZoneID(), renderActionBadge(r.badge))
+}
+
+func (r *ActionRow) ViewList() string {
+	lines := make([]string, 0, len(r.items)+1)
+	for i := range r.items {
+		item := r.items[i]
+		if strings.TrimSpace(item.Label) == "" {
+			continue
+		}
+		lines = append(lines, r.mouse.Mark(r.itemZoneID(item.ID), renderActionItem(item)))
+	}
+	if badge := r.BadgeListView(); badge != "" {
+		lines = append(lines, badge)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (r *ActionRow) BadgeListView() string {
+	if !r.badge.Visible || strings.TrimSpace(r.badge.Label) == "" {
+		return ""
+	}
+	return r.mouse.Mark(r.badgeZoneID(), renderActionBadgeLine(r.badge))
+}
+
+func (r *ActionRow) ViewColumn(width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	visible := make([]ActionItem, 0, len(r.items))
+	for i := range r.items {
+		if strings.TrimSpace(r.items[i].Label) != "" {
+			visible = append(visible, r.items[i])
+		}
+	}
+	if len(visible) == 0 {
+		return ""
+	}
+
+	gaps := len(visible) - 1
+	availableHeight := max(height-gaps, len(visible))
+	entries := make([]LayoutEntry, len(visible))
+	for i := range visible {
+		entries[i] = LayoutEntry{Weight: 1, MinSize: 1}
+	}
+	heights := DistributeSpace(availableHeight, entries)
+
+	lines := make([]string, 0, len(visible))
+	for i := range visible {
+		item := visible[i]
+		lines = append(lines, r.mouse.Mark(
+			r.itemZoneID(item.ID),
+			renderActionItemBlock(item, width, heights[i]),
+		))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (r *ActionRow) HandleKey(key string) (id string, handled bool) {
@@ -101,27 +164,24 @@ func (r *ActionRow) itemZoneID(id string) string {
 }
 
 func renderActionItem(item ActionItem) string {
-	text := item.Label
-	if item.Key != "" {
-		text = item.Key + " " + text
-	}
+	return TitleStyle.Render(item.Label)
+}
 
-	style := MutedActionChipStyle
+func renderActionItemBlock(item ActionItem, width, height int) string {
+	color := ColorMuted
 	if item.Enabled {
-		style = ActionChipStyle
+		color = ColorPrimary
 	}
-	return style.Render(text)
+	return RenderChipBlock(item.Label, ChipVariantButton, color, width, height)
 }
 
 func renderActionBadge(badge ActionBadge) string {
 	bg := ColorPrimary
-	fg := lipgloss.AdaptiveColor{Light: "255", Dark: "255"}
 	switch badge.Severity {
 	case NotificationError:
 		bg = ColorError
 	case NotificationWarn:
 		bg = ColorWarn
-		fg = lipgloss.AdaptiveColor{Light: "16", Dark: "16"}
 	}
 
 	text := badge.Label
@@ -129,8 +189,18 @@ func renderActionBadge(badge ActionBadge) string {
 		text = badge.Key
 	}
 
-	return NotificationBadgeBaseStyle.
-		Foreground(fg).
-		Background(bg).
-		Render(text)
+	return RenderChip(text, ChipVariantSolid, bg)
+}
+
+func renderActionBadgeLine(badge ActionBadge) string {
+	var style lipgloss.Style
+	switch badge.Severity {
+	case NotificationError:
+		style = lipgloss.NewStyle().Foreground(ColorError)
+	case NotificationWarn:
+		style = lipgloss.NewStyle().Foreground(ColorWarn)
+	default:
+		style = lipgloss.NewStyle().Foreground(ColorPrimary)
+	}
+	return style.Render(badge.Label)
 }

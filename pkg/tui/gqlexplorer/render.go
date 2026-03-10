@@ -142,6 +142,47 @@ func (m *Model) renderBadges() string {
 	return result
 }
 
+func (m *Model) renderCallArea(width int) string {
+	height := m.callAreaHeight()
+	if height <= 0 {
+		return ""
+	}
+
+	detailW := m.detailPanelWidth(width)
+	actionW := max(width-detailW, 1)
+	actionPanel := m.renderActionsPanel(actionW, height)
+	rightCol := lipgloss.NewStyle().Width(actionW).Height(height).Render(actionPanel)
+
+	return lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		lipgloss.NewStyle().Width(detailW).Height(height).Render(""),
+		rightCol,
+	)
+}
+
+func (m *Model) renderActionsPanel(width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	lines := m.actionRow.ViewList()
+	if lines == "" {
+		lines = tui.HelpStyle.Render("(no actions)")
+	}
+
+	title := tui.HelpStyle.Render("Actions")
+	body := lipgloss.NewStyle().
+		Width(width).
+		Height(max(height-1, 1)).
+		Render(lines)
+
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		title,
+		body,
+	)
+}
+
 func renderDetail(
 	op *UnifiedOperation,
 	inputTypes map[string]graphql.InputType,

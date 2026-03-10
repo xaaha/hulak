@@ -94,11 +94,11 @@ func HandleSubcommands() error {
 			utils.PrintGQLUsage()
 			os.Exit(0)
 		}
-		operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes := loadGraphQLOperations(args[0], *gqlEnv)
-		if operations == nil {
+		data, refreshFn, warnings := loadGraphQLOperations(args[0], *gqlEnv)
+		if data.Operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes); err != nil {
+		if err := gqlexplorer.RunExplorerWithRefresh(data, refreshFn, warnings); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -113,19 +113,16 @@ func HandleSubcommands() error {
 
 // handles single file mode and directory mode along with unifying the operation
 func loadGraphQLOperations(arg string, env string) (
-	[]gqlexplorer.UnifiedOperation,
-	map[string]graphql.InputType,
-	map[string]graphql.EnumType,
-	map[string]graphql.ObjectType,
-	map[string]graphql.UnionType,
-	map[string]graphql.InterfaceType,
+	gqlexplorer.ExplorerData,
+	gqlexplorer.RefreshFunc,
+	[]string,
 ) {
 	prepared, err := graphql.PrepareSchemaLoad(arg, env)
 	if err != nil {
 		utils.PanicRedAndExit("Schema preparation error: %v", err)
 	}
 	if prepared.Cancelled {
-		return nil, nil, nil, nil, nil, nil
+		return gqlexplorer.ExplorerData{}, nil, nil
 	}
 
 	// load spinner while waiting
@@ -141,38 +138,50 @@ func loadGraphQLOperations(arg string, env string) (
 	}
 
 	if loadResult.Cancelled {
-		return nil, nil, nil, nil, nil, nil
+		return gqlexplorer.ExplorerData{}, nil, nil
 	}
-	for _, warning := range loadResult.Warnings {
-		utils.PrintWarning("schema fetch warning: " + warning)
+	refreshFn := func() (gqlexplorer.RefreshPayload, error) {
+		loadResult, err := graphql.LoadSchemas(arg, prepared.Env)
+		if err != nil {
+			return gqlexplorer.RefreshPayload{}, err
+		}
+		return gqlexplorer.RefreshPayload{
+			Data:     explorerDataFromLoadResult(loadResult),
+			Warnings: loadResult.Warnings,
+		}, nil
 	}
 
-	inputTypes := make(map[string]graphql.InputType)
-	enumTypes := make(map[string]graphql.EnumType)
-	objectTypes := make(map[string]graphql.ObjectType)
-	unionTypes := make(map[string]graphql.UnionType)
-	interfaceTypes := make(map[string]graphql.InterfaceType)
-	var ops []gqlexplorer.UnifiedOperation
+	return explorerDataFromLoadResult(loadResult), refreshFn, loadResult.Warnings
+}
+
+func explorerDataFromLoadResult(loadResult graphql.LoadResult) gqlexplorer.ExplorerData {
+	data := gqlexplorer.ExplorerData{
+		InputTypes:     make(map[string]graphql.InputType),
+		EnumTypes:      make(map[string]graphql.EnumType),
+		ObjectTypes:    make(map[string]graphql.ObjectType),
+		UnionTypes:     make(map[string]graphql.UnionType),
+		InterfaceTypes: make(map[string]graphql.InterfaceType),
+	}
 
 	for i := range loadResult.Endpoints {
 		endpoint := &loadResult.Endpoints[i]
-		ops = append(ops, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
+		data.Operations = append(data.Operations, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
 		for k, v := range endpoint.Schema.InputTypes {
-			inputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+			data.InputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
 		for k, v := range endpoint.Schema.EnumTypes {
-			enumTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+			data.EnumTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
 		for k, v := range endpoint.Schema.ObjectTypes {
-			objectTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+			data.ObjectTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
 		for k, v := range endpoint.Schema.UnionTypes {
-			unionTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+			data.UnionTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
 		for k, v := range endpoint.Schema.InterfaceTypes {
-			interfaceTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
+			data.InterfaceTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
 	}
 
-	return ops, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes
+	return data
 }

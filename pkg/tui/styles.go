@@ -8,6 +8,7 @@ import "github.com/charmbracelet/lipgloss"
 var (
 	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
 	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
+	ColorText      = lipgloss.AdaptiveColor{Light: "0", Dark: "252"}   // Default readable text
 	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
 	ColorWarn      = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Yellow/amber
 	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // Red
@@ -52,17 +53,14 @@ var (
 
 	// ActionChipStyle renders compact action controls.
 	ActionChipStyle = lipgloss.NewStyle().
-			Padding(0, 1).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorPrimary).
-			Foreground(ColorPrimary)
+			Bold(true).
+			Padding(0, 1)
 
 	// MutedActionChipStyle renders disabled actions.
 	MutedActionChipStyle = lipgloss.NewStyle().
 				Padding(0, 1).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorMuted).
-				Foreground(ColorMuted)
+				Foreground(ColorMuted).
+				Background(lipgloss.AdaptiveColor{Light: "252", Dark: "238"})
 
 	// NotificationBadgeBaseStyle renders the @ reopen badge.
 	NotificationBadgeBaseStyle = lipgloss.NewStyle().
@@ -104,10 +102,5 @@ const (
 
 // RenderBadge creates a colored badge with the given foreground color.
 func RenderBadge(text string, color lipgloss.AdaptiveColor) string {
-	bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}
-	return lipgloss.NewStyle().
-		Foreground(color).
-		Background(bgColor).
-		Padding(0, 1).
-		Render(text)
+	return RenderChip(text, ChipVariantBadge, color)
 }
