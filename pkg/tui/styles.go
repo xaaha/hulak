@@ -9,6 +9,8 @@ var (
 	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
 	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
 	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
+	ColorWarn      = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Yellow/amber
+	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // Red
 )
 
 var (
@@ -47,6 +49,25 @@ var (
 
 	// InputStyle for unfocused/locked input fields
 	InputStyle = BorderStyle.Padding(0, 1)
+
+	// ActionChipStyle renders compact action controls.
+	ActionChipStyle = lipgloss.NewStyle().
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(ColorPrimary).
+			Foreground(ColorPrimary)
+
+	// MutedActionChipStyle renders disabled actions.
+	MutedActionChipStyle = lipgloss.NewStyle().
+				Padding(0, 1).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(ColorMuted).
+				Foreground(ColorMuted)
+
+	// NotificationBadgeBaseStyle renders the @ reopen badge.
+	NotificationBadgeBaseStyle = lipgloss.NewStyle().
+					Bold(true).
+					Padding(0, 1)
 )
 
 // BoxStyle for full-screen content containers with rounded border and padding.
