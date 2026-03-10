@@ -20,11 +20,11 @@ const (
 
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
-	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | G/gg: bottom/top | Enter: detail | Tab/Shift+Tab: switch | Ctrl+r: refresh | Ctrl+y: copy | @: notification | Esc: unfocus/quit"
-	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+r: refresh | Ctrl+y: copy | @: notification | Esc: back"
+	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
+	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
-	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+r: refresh | Ctrl+Enter: send | Ctrl+y: copy | @: notification | Esc: back"
-	helpVariablePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+r: refresh | Ctrl+Enter: send | Ctrl+y: copy | @: notification | Esc: back"
+	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpVariablePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -1105,7 +1105,9 @@ func (m *Model) View() string {
 			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
 			Render(body)
 
-		return tui.ScanMouseZones(lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box))
+		return tui.ScanMouseZones(
+			lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box),
+		)
 	}
 
 	rightW := m.rightPanelWidth()
