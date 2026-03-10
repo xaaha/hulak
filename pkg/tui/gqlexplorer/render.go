@@ -148,6 +148,8 @@ func renderDetail(
 	op *UnifiedOperation,
 	inputTypes map[string]graphql.InputType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) string {
 	pad := strings.Repeat(tui.KeySpace, 2)
 	argPad := strings.Repeat(tui.KeySpace, 4)
@@ -199,21 +201,57 @@ func renderDetail(
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
-		if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
+		if ut, ok := resolveType(unionTypes, op.Endpoint, base); ok {
+			lines = append(lines, pad+tui.HelpStyle.Render("Inline Fragments:"))
+			lines = appendFragmentTypes(lines, ut.PossibleTypes, argPad, objectTypes, op.Endpoint)
+			lines = append(lines, "")
+		} else if it, ok := resolveType(interfaceTypes, op.Endpoint, base); ok {
+			if len(it.Fields) > 0 {
+				lines = append(lines, pad+tui.HelpStyle.Render("Fields:"))
+				ot := graphql.ObjectType{Name: it.Name, Fields: it.Fields}
+				lines = appendObjectTypeFields(lines, ot, argPad, objectTypes, op.Endpoint, 1)
+				lines = append(lines, "")
+			}
+			if len(it.PossibleTypes) > 0 {
+				lines = append(lines, pad+tui.HelpStyle.Render("Inline Fragments:"))
+				lines = appendFragmentTypes(lines, it.PossibleTypes, argPad, objectTypes, op.Endpoint)
+				lines = append(lines, "")
+			}
+		} else if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
 			lines = append(lines, pad+tui.HelpStyle.Render("Fields:"))
-			lines = appendObjectTypeFields(
-				lines,
-				ot,
-				argPad,
-				objectTypes,
-				op.Endpoint,
-				1,
-			)
+			lines = appendObjectTypeFields(lines, ot, argPad, objectTypes, op.Endpoint, 1)
 			lines = append(lines, "")
 		}
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func appendFragmentTypes(
+	lines []string,
+	possibleTypes []string,
+	indent string,
+	objectTypes map[string]graphql.ObjectType,
+	endpoint string,
+) []string {
+	for i, pt := range possibleTypes {
+		connector := "├─"
+		if i == len(possibleTypes)-1 {
+			connector = "└─"
+		}
+		label := fragmentPrefix + pt
+		line := indent + tui.HelpStyle.Render(connector) + tui.KeySpace + label
+		lines = append(lines, line)
+
+		if ot, ok := resolveType(objectTypes, endpoint, pt); ok {
+			childIndent := indent + tui.KeySpace + tui.KeySpace
+			if i < len(possibleTypes)-1 {
+				childIndent = indent + tui.HelpStyle.Render(treeBranch) + tui.KeySpace
+			}
+			lines = appendObjectTypeFields(lines, ot, childIndent, objectTypes, endpoint, 1)
+		}
+	}
+	return lines
 }
 
 func resolveType[T any](types map[string]T, endpoint, baseType string) (T, bool) {

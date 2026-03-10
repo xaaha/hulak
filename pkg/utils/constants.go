@@ -72,6 +72,7 @@ const (
 	ChevronDownCircled  = "\uf13a"
 	Asterisk            = "\uf069"
 	Connector           = "└─"
+	ConnectorVertical   = "|"
 )
 
 const Ellipsis = "..."

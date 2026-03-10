@@ -207,7 +207,7 @@ func TestBuildDetailFormFieldsAndArgs(t *testing.T) {
 		},
 	}
 
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("buildDetailForm returned nil")
 	}
@@ -234,7 +234,7 @@ func TestBuildDetailFormNilForEmptyOp(t *testing.T) {
 		Name:     "hello",
 		Endpoint: "ep",
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df != nil {
 		t.Fatal("expected nil form for operation with no fields and no args")
 	}
@@ -249,7 +249,7 @@ func TestBuildDetailFormArgsOnly(t *testing.T) {
 			{Name: "name", Type: "String!"},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form for operation with args")
 	}
@@ -280,7 +280,7 @@ func TestDetailFormCursorNavigation(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df.cursor != 0 {
 		t.Fatal("cursor should start at 0")
 	}
@@ -335,7 +335,7 @@ func TestDetailFormBlurAll(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.FocusCurrent()
 	if !df.items[0].Focused() {
 		t.Fatal("item 0 should be focused")
@@ -367,7 +367,7 @@ func TestDetailFormViewSections(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	view, _ := df.View(op)
 
 	for _, want := range []string{"country", "Country", "name", "code"} {
@@ -398,7 +398,7 @@ func TestDetailFormViewCursorIndicator(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.FocusCurrent()
 
 	view0, _ := df.View(op)
@@ -438,7 +438,7 @@ func TestDetailFormViewCursorLineTracking(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	_, line0 := df.View(op)
 	df.CursorDown()
@@ -469,7 +469,7 @@ func TestDetailFormHasExpandedDropdown(t *testing.T) {
 			{Name: "status", Type: "Status"},
 		},
 	}
-	df := buildDetailForm(op, nil, enums, nil)
+	df := buildDetailForm(op, nil, enums, nil, nil, nil)
 	if df.hasExpandedDropdown() {
 		t.Fatal("should not have expanded dropdown initially")
 	}
@@ -497,7 +497,7 @@ func TestDetailFormArrowsAlwaysNavigate(t *testing.T) {
 			Fields: []graphql.ObjectField{{Name: "a", Type: "String"}},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.FocusCurrent()
 
 	if df.cursor != 0 {
@@ -540,7 +540,7 @@ func TestBuildDetailFormExpandsInputObject(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, inputTypes, nil, nil)
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -593,7 +593,7 @@ func TestBuildDetailFormExpandsInputObjectWithScalarArgs(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, inputTypes, nil, objectTypes)
+	df := buildDetailForm(op, inputTypes, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -639,7 +639,7 @@ func TestBuildDetailFormObjectFieldsStartUnchecked(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -684,7 +684,7 @@ func TestToggleExpandInsertsAndRemovesChildren(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df.Len() != 2 {
 		t.Fatalf("expected 2 items initially, got %d", df.Len())
 	}
@@ -697,7 +697,11 @@ func TestToggleExpandInsertsAndRemovesChildren(t *testing.T) {
 		t.Fatalf("expected 4 items after expand (2 original + 2 children), got %d", df.Len())
 	}
 	if df.items[2].name != "name" || df.items[3].name != "rtl" {
-		t.Errorf("children should be Language fields, got %q and %q", df.items[2].name, df.items[3].name)
+		t.Errorf(
+			"children should be Language fields, got %q and %q",
+			df.items[2].name,
+			df.items[3].name,
+		)
 	}
 	if df.items[2].depth != 1 {
 		t.Errorf("children should have depth 1, got %d", df.items[2].depth)
@@ -726,7 +730,7 @@ func TestToggleExpandRecursive(t *testing.T) {
 		ReturnType: "Country",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	countriesIdx := 1
 	if !df.items[countriesIdx].expandable {
@@ -781,7 +785,7 @@ func TestCollapseRemovesNestedChildren(t *testing.T) {
 		ReturnType: "A",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 
 	df.cursor = 0
 	df.FocusCurrent()
@@ -819,7 +823,7 @@ func TestExpandedFieldIndentation(t *testing.T) {
 		ReturnType: "T",
 		Endpoint:   ep,
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	df.cursor = 0
 	df.FocusCurrent()
 	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
@@ -843,7 +847,248 @@ func TestExpandedFieldIndentation(t *testing.T) {
 	parentIndent := len(parentLine) - len(strings.TrimLeft(parentLine, " "))
 	childIndent := len(childLine) - len(strings.TrimLeft(childLine, " "))
 	if childIndent <= parentIndent {
-		t.Errorf("child should be indented more than parent: parent=%d child=%d", parentIndent, childIndent)
+		t.Errorf(
+			"child should be indented more than parent: parent=%d child=%d",
+			parentIndent,
+			childIndent,
+		)
+	}
+}
+
+func TestBuildDetailFormUnionReturnType(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "SearchResult"): {
+			Name:          "SearchResult",
+			PossibleTypes: []string{"User", "Post"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+		ScopedTypeKey(ep, "Post"): {
+			Name: "Post",
+			Fields: []graphql.ObjectField{
+				{Name: "title", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "search",
+		ReturnType: "SearchResult",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, unionTypes, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form for union return type")
+	}
+	if df.argCount != 0 {
+		t.Fatalf("expected 0 args, got %d", df.argCount)
+	}
+	if df.Len() != 2 {
+		t.Fatalf("expected 2 items (2 inline fragments), got %d", df.Len())
+	}
+	if df.items[0].name != fragmentPrefix+"User" {
+		t.Errorf("expected first fragment '... on User', got %q", df.items[0].name)
+	}
+	if df.items[1].name != fragmentPrefix+"Post" {
+		t.Errorf("expected second fragment '... on Post', got %q", df.items[1].name)
+	}
+	if !df.items[0].expandable || !df.items[1].expandable {
+		t.Error("fragment items should be expandable")
+	}
+	if !df.items[0].isField || !df.items[1].isField {
+		t.Error("fragment items should be marked as fields")
+	}
+}
+
+func TestBuildDetailFormUnionFragmentExpand(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "SearchResult"): {
+			Name:          "SearchResult",
+			PossibleTypes: []string{"User"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "search",
+		ReturnType: "SearchResult",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, unionTypes, nil)
+	if df.Len() != 1 {
+		t.Fatalf("expected 1 fragment item, got %d", df.Len())
+	}
+
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	if df.Len() != 3 {
+		t.Fatalf("expected 3 items after expand (1 fragment + 2 children), got %d", df.Len())
+	}
+	if df.items[1].name != "id" || df.items[2].name != "name" {
+		t.Errorf(
+			"children should be User fields, got %q and %q",
+			df.items[1].name,
+			df.items[2].name,
+		)
+	}
+	if df.items[1].depth != 1 || df.items[2].depth != 1 {
+		t.Error("children should have depth 1")
+	}
+
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+	if df.Len() != 1 {
+		t.Fatalf("expected 1 item after collapse, got %d", df.Len())
+	}
+}
+
+func TestBuildDetailFormInterfaceReturnType(t *testing.T) {
+	ep := "ep"
+	interfaceTypes := map[string]graphql.InterfaceType{
+		ScopedTypeKey(ep, "Node"): {
+			Name: "Node",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+			},
+			PossibleTypes: []string{"User", "Post"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "User"): {
+			Name: "User",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "ID!"},
+				{Name: "name", Type: "String"},
+			},
+		},
+		ScopedTypeKey(ep, "Post"): {
+			Name: "Post",
+			Fields: []graphql.ObjectField{
+				{Name: "title", Type: "String"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "node",
+		ReturnType: "Node",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, interfaceTypes)
+	if df == nil {
+		t.Fatal("expected non-nil form for interface return type")
+	}
+	if df.Len() != 3 {
+		t.Fatalf("expected 3 items (1 shared field + 2 fragments), got %d", df.Len())
+	}
+	if df.items[0].name != "id" || !df.items[0].isField {
+		t.Error("first item should be shared field 'id'")
+	}
+	if df.items[1].name != fragmentPrefix+"User" {
+		t.Errorf("expected second item '... on User', got %q", df.items[1].name)
+	}
+	if df.items[2].name != fragmentPrefix+"Post" {
+		t.Errorf("expected third item '... on Post', got %q", df.items[2].name)
+	}
+}
+
+func TestBuildDetailFormUnionWithArgs(t *testing.T) {
+	ep := "ep"
+	unionTypes := map[string]graphql.UnionType{
+		ScopedTypeKey(ep, "NotificationUnion"): {
+			Name:          "NotificationUnion",
+			PossibleTypes: []string{"AiringNotification", "FollowingNotification"},
+		},
+	}
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "AiringNotification"): {
+			Name: "AiringNotification",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "Int!"},
+				{Name: "type", Type: "NotificationType"},
+			},
+		},
+		ScopedTypeKey(ep, "FollowingNotification"): {
+			Name: "FollowingNotification",
+			Fields: []graphql.ObjectField{
+				{Name: "id", Type: "Int!"},
+				{Name: "userId", Type: "Int!"},
+			},
+		},
+	}
+	enums := map[string]graphql.EnumType{
+		ScopedTypeKey(ep, "NotificationType"): {
+			Name:   "NotificationType",
+			Values: []graphql.EnumValue{{Name: "AIRING"}, {Name: "FOLLOWING"}},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "Notification",
+		ReturnType: "NotificationUnion",
+		Endpoint:   ep,
+		Arguments: []graphql.Argument{
+			{Name: "type", Type: "NotificationType"},
+			{Name: "resetNotificationCount", Type: "Boolean"},
+		},
+	}
+	df := buildDetailForm(op, nil, enums, objectTypes, unionTypes, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+	if df.argCount != 2 {
+		t.Fatalf("expected 2 args, got %d", df.argCount)
+	}
+	if df.Len() != 4 {
+		t.Fatalf("expected 4 items (2 args + 2 fragments), got %d", df.Len())
+	}
+	if df.items[0].kind != formItemDropdown {
+		t.Error("first arg should be dropdown for NotificationType enum")
+	}
+	if df.items[1].kind != formItemToggle {
+		t.Error("second arg should be toggle for Boolean")
+	}
+	if df.items[2].name != fragmentPrefix+"AiringNotification" {
+		t.Errorf("expected fragment for AiringNotification, got %q", df.items[2].name)
+	}
+	if df.items[3].name != fragmentPrefix+"FollowingNotification" {
+		t.Errorf("expected fragment for FollowingNotification, got %q", df.items[3].name)
+	}
+}
+
+func TestNewFragmentFormItem(t *testing.T) {
+	fi := newFragmentFormItem("AiringNotification")
+	if fi.kind != formItemToggle {
+		t.Fatal("fragment item should be a toggle")
+	}
+	if fi.name != fragmentPrefix+"AiringNotification" {
+		t.Errorf("expected name %q, got %q", fragmentPrefix+"AiringNotification", fi.name)
+	}
+	if fi.typeHint != "AiringNotification" {
+		t.Errorf("typeHint should be the concrete type name, got %q", fi.typeHint)
+	}
+	if !fi.expandable {
+		t.Error("fragment item should be expandable")
+	}
+	if !fi.isField {
+		t.Error("fragment item should be marked as field")
+	}
+	if fi.Value() != "false" {
+		t.Error("fragment should start unchecked")
 	}
 }
 
@@ -913,7 +1158,7 @@ func TestBuildDetailFormSetsArgName(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, inputTypes, nil, nil)
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
 	}
@@ -937,7 +1182,7 @@ func TestSpaceTogglesEnabledOnTextInput(t *testing.T) {
 		Name: "Test", Type: TypeQuery, Endpoint: ep,
 		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	df.FocusCurrent()
 
 	if df.items[0].enabled {
@@ -959,7 +1204,7 @@ func TestSpaceTogglesBooleanArgEnabled(t *testing.T) {
 		Name: "Test", Type: TypeQuery, Endpoint: ep,
 		Arguments: []graphql.Argument{{Name: "active", Type: "Boolean"}},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	df.FocusCurrent()
 
 	if df.items[0].enabled {
@@ -983,7 +1228,7 @@ func TestEnterTogglesTextInputEditing(t *testing.T) {
 		Name: "Test", Type: TypeQuery, Endpoint: ep,
 		Arguments: []graphql.Argument{{Name: "q", Type: "String!"}},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	df.FocusCurrent()
 
 	if df.items[0].input.Model.Focused() {
@@ -999,13 +1244,183 @@ func TestEnterTogglesTextInputEditing(t *testing.T) {
 	}
 }
 
+func TestBuildDetailFormListArgStartsWithSingleInput(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.argCount != 1 {
+		t.Fatalf("expected 1 list input initially, got %d", df.argCount)
+	}
+	if !df.items[0].listItem {
+		t.Fatal("expected first argument item to be marked as a list item")
+	}
+}
+
+func TestBuildDetailFormListEnumStartsBlank(t *testing.T) {
+	ep := "ep"
+	enums := map[string]graphql.EnumType{
+		"Status": {Name: "Status", Values: []graphql.EnumValue{{Name: "OPEN"}, {Name: "CLOSED"}}},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "statuses", Type: "[Status!]!"}},
+	}
+	df := buildDetailForm(op, nil, enums, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.items[0].kind != formItemDropdown {
+		t.Fatalf("expected dropdown list item, got %d", df.items[0].kind)
+	}
+	if got := df.items[0].Value(); got != "" {
+		t.Fatalf("expected blank initial dropdown value, got %q", got)
+	}
+}
+
+func TestBuildDetailFormListInputObjectStartsWithSingleGroup(t *testing.T) {
+	ep := "ep"
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "name", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "filters", Type: "[UserFilter!]!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+	if df.argCount != 2 {
+		t.Fatalf("expected one input-object group with 2 rows, got %d", df.argCount)
+	}
+	if got := df.items[0].label; got != "filters[0].name" {
+		t.Fatalf("unexpected first label %q", got)
+	}
+}
+
+func TestListArgAddsFollowUpInputAfterValueEntered(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+
+	if df.argCount != 2 {
+		t.Fatalf("expected second list input to be added, got %d arg items", df.argCount)
+	}
+	if !df.items[1].continued {
+		t.Fatal("expected second list input to render as a continuation row")
+	}
+}
+
+func TestListArgRemovesExtraTrailingBlankInputs(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID!]!"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+	df.items[1].input.Model.SetValue("b")
+	df.syncListArgRows("ids")
+	if df.argCount != 3 {
+		t.Fatalf("expected 3 arg items after typing two values, got %d", df.argCount)
+	}
+
+	df.items[1].input.Model.SetValue("")
+	df.items[2].input.Model.SetValue("")
+	df.syncListArgRows("ids")
+
+	if df.argCount != 2 {
+		t.Fatalf("expected trailing blank list inputs to collapse, got %d", df.argCount)
+	}
+}
+
+func TestListArgSpaceTogglesAllRows(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "ids", Type: "[ID]"}},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("a")
+	df.syncListArgRows("ids")
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+
+	for i := 0; i < df.argCount; i++ {
+		if !df.items[i].enabled {
+			t.Fatalf("expected list row %d to be enabled", i)
+		}
+	}
+}
+
+func TestListInputObjectAddsFollowUpGroupAfterValueEntered(t *testing.T) {
+	ep := "ep"
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "name", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "filters", Type: "[UserFilter!]!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil detail form")
+	}
+
+	df.items[0].input.Model.SetValue("alice")
+	df.syncListArgRows("filters")
+
+	if df.argCount != 4 {
+		t.Fatalf("expected second object group to be added, got %d arg items", df.argCount)
+	}
+	if got := df.items[2].label; got != "filters[1].name" {
+		t.Fatalf("unexpected second-group label %q", got)
+	}
+}
+
 func TestEscExitsTextInputEditing(t *testing.T) {
 	ep := "ep"
 	op := &UnifiedOperation{
 		Name: "Test", Type: TypeQuery, Endpoint: ep,
 		Arguments: []graphql.Argument{{Name: "q", Type: "String!"}},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	df.FocusCurrent()
 
 	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
@@ -1023,6 +1438,17 @@ func TestCheckboxPrefixInView(t *testing.T) {
 	v := fi.View()
 	if !strings.Contains(v, "[") || !strings.Contains(v, "]") {
 		t.Fatal("non-field text input should have checkbox brackets in view")
+	}
+}
+
+func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
+	fi := newListArgFormItems(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, nil, "ep", 1, true)[0]
+	v := fi.View()
+	if strings.Contains(v, "[") || strings.Contains(v, "]") {
+		t.Fatal("continuation list input should not render a checkbox prefix")
+	}
+	if !strings.Contains(v, utils.Connector) {
+		t.Fatal("continuation list input should render a connector")
 	}
 }
 
@@ -1072,7 +1498,7 @@ func TestDetailFormCursorToTopBottom(t *testing.T) {
 			},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, objectTypes)
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	last := len(df.items) - 1
 
 	df.CursorToBottom()
@@ -1115,7 +1541,7 @@ func searchFormHelper() *DetailForm {
 			{Name: "edges", Type: "[UserEdge]"},
 		}},
 	}
-	return buildDetailForm(op, nil, nil, objectTypes)
+	return buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 }
 
 func TestSearchStartAndStop(t *testing.T) {
@@ -1167,7 +1593,10 @@ func TestSearchMatchesByName(t *testing.T) {
 	df.updateSearchMatches()
 
 	if len(df.matchIndices) != 2 {
-		t.Fatalf("expected 2 matches for 'name' (firstName, lastName), got %d", len(df.matchIndices))
+		t.Fatalf(
+			"expected 2 matches for 'name' (firstName, lastName), got %d",
+			len(df.matchIndices),
+		)
 	}
 	if df.cursor != df.matchIndices[0] {
 		t.Errorf("cursor should be at first match %d, got %d", df.matchIndices[0], df.cursor)
@@ -1339,7 +1768,7 @@ func TestEnterTogglesBooleanArgument(t *testing.T) {
 			{Name: "isAdult", Type: "Boolean"},
 		},
 	}
-	df := buildDetailForm(op, nil, nil, nil)
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	df.FocusCurrent()
 
 	item := &df.items[0]

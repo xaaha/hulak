@@ -116,7 +116,9 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 	return graphqlFiles, needsEnv, nil
 }
 
-// ValidateGraphQLFile checks if a file exists, has kind: GraphQL, and has a non-empty url field.
+// ValidateGraphQLFile checks if a file exists and has a non-empty url field.
+// Single-file mode intentionally does not require kind: GraphQL because the
+// caller has already selected the file explicitly.
 // Returns the raw URL (template or full URL) and whether env variable references were found,
 // without performing template substitution.
 func ValidateGraphQLFile(filePath string) (string, bool, error) {
@@ -129,10 +131,6 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	info, err := peekFileInfo(filePath)
 	if err != nil {
 		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
-	}
-
-	if !strings.EqualFold(info.kind, "GraphQL") {
-		return "", false, fmt.Errorf("file '%s' does not have 'kind: GraphQL'", filePath)
 	}
 
 	if info.url == "" {

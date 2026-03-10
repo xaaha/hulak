@@ -617,17 +617,36 @@ func TestValidateGraphQLFile_WrongKind(t *testing.T) {
 
 	url, needsEnv, err := ValidateGraphQLFile(filePath)
 
-	if err == nil {
-		t.Errorf("Expected error for wrong kind")
+	if err != nil {
+		t.Errorf("Expected no error for single-file mode, got: %v", err)
 	}
 	if needsEnv {
 		t.Errorf("Expected needsEnv=false, got true")
 	}
-	if url != "" {
-		t.Errorf("Expected empty URL string, got '%s'", url)
+	if url != "http://example.com" {
+		t.Errorf("Expected URL 'http://example.com', got '%s'", url)
 	}
-	if !strings.Contains(err.Error(), "does not have 'kind: GraphQL'") {
-		t.Errorf("Expected 'wrong kind' error message, got: %v", err)
+}
+
+func TestValidateGraphQLFile_MissingKind(t *testing.T) {
+	tempDir := setupTestDirectory(t)
+
+	content := "---\nurl: \"http://example.com\"\nmethod: POST\n"
+	filePath := filepath.Join(tempDir, "missing_kind.yaml")
+	err := os.WriteFile(filePath, []byte(content), 0o600)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	url, needsEnv, err := ValidateGraphQLFile(filePath)
+	if err != nil {
+		t.Errorf("Expected no error for single-file mode without kind, got: %v", err)
+	}
+	if needsEnv {
+		t.Errorf("Expected needsEnv=false, got true")
+	}
+	if url != "http://example.com" {
+		t.Errorf("Expected URL 'http://example.com', got '%s'", url)
 	}
 }
 

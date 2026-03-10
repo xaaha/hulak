@@ -57,7 +57,7 @@ func TestRenderDetailShowsReturnTypeFields(t *testing.T) {
 		},
 	}
 
-	got := renderDetail(op, nil, objectTypes)
+	got := renderDetail(op, nil, objectTypes, nil, nil)
 
 	for _, want := range []string{"country", "Country", "Fields:", "awsRegion", "capital", "code", "name"} {
 		if !strings.Contains(got, want) {
@@ -93,7 +93,7 @@ func TestRenderDetailNestedObjectTypes(t *testing.T) {
 		},
 	}
 
-	got := renderDetail(op, nil, objectTypes)
+	got := renderDetail(op, nil, objectTypes, nil, nil)
 
 	for _, want := range []string{"languages", "Language", "name"} {
 		if !strings.Contains(got, want) {
@@ -109,7 +109,7 @@ func TestRenderDetailNoObjectTypeFallsBack(t *testing.T) {
 		Endpoint:   "https://api.test/graphql",
 	}
 
-	got := renderDetail(op, nil, nil)
+	got := renderDetail(op, nil, nil, nil, nil)
 
 	if strings.Contains(got, "Fields:") {
 		t.Error("scalar return type should not show Fields section")
@@ -129,7 +129,7 @@ func TestRenderDetailHeaderFormat(t *testing.T) {
 		Endpoint:   "https://api.test/graphql",
 	}
 
-	got := renderDetail(op, nil, nil)
+	got := renderDetail(op, nil, nil, nil, nil)
 
 	if !strings.Contains(got, "country") || !strings.Contains(got, "Country") {
 		t.Error("header should contain operation name and return type")

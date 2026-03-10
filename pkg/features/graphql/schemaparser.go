@@ -61,9 +61,11 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 	}
 
 	schema := Schema{
-		InputTypes:  make(map[string]InputType),
-		EnumTypes:   make(map[string]EnumType),
-		ObjectTypes: make(map[string]ObjectType),
+		InputTypes:     make(map[string]InputType),
+		EnumTypes:      make(map[string]EnumType),
+		ObjectTypes:    make(map[string]ObjectType),
+		UnionTypes:     make(map[string]UnionType),
+		InterfaceTypes: make(map[string]InterfaceType),
 	}
 
 	// Collect root operation type names so we can exclude them from ObjectTypes.
@@ -103,6 +105,19 @@ func ConvertToSchema(introspectionSchema *introspection.Schema) (Schema, error) 
 					Description: t.Description,
 					Fields:      convertObjectFields(t.Fields),
 				}
+			}
+		case introspection.UNION:
+			schema.UnionTypes[t.Name] = UnionType{
+				Name:          t.Name,
+				Description:   t.Description,
+				PossibleTypes: extractPossibleTypeNames(t.PossibleTypes),
+			}
+		case introspection.INTERFACE:
+			schema.InterfaceTypes[t.Name] = InterfaceType{
+				Name:          t.Name,
+				Description:   t.Description,
+				Fields:        convertObjectFields(t.Fields),
+				PossibleTypes: extractPossibleTypeNames(t.PossibleTypes),
 			}
 		}
 	}
@@ -206,6 +221,16 @@ func convertObjectFields(fields []introspection.Field) []ObjectField {
 		})
 	}
 	return objectFields
+}
+
+func extractPossibleTypeNames(refs []introspection.TypeRef) []string {
+	names := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Name != nil {
+			names = append(names, *ref.Name)
+		}
+	}
+	return names
 }
 
 func convertEnumValues(values []introspection.EnumValue) []EnumValue {

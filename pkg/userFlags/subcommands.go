@@ -98,11 +98,11 @@ func HandleSubcommands() error {
 			utils.PrintGQLUsage()
 			os.Exit(0)
 		}
-		operations, inputTypes, enumTypes, objectTypes := loadGraphQLOperations(args[0], *gqlEnv)
+		operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes := loadGraphQLOperations(args[0], *gqlEnv)
 		if operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes, objectTypes); err != nil {
+		if err := gqlexplorer.RunExplorer(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -121,6 +121,8 @@ func loadGraphQLOperations(arg string, env string) (
 	map[string]graphql.InputType,
 	map[string]graphql.EnumType,
 	map[string]graphql.ObjectType,
+	map[string]graphql.UnionType,
+	map[string]graphql.InterfaceType,
 ) {
 	resolved := resolveGQLPath(arg)
 	var results []graphql.ProcessResult
@@ -137,10 +139,12 @@ func loadGraphQLOperations(arg string, env string) (
 	}
 
 	type schemaResult struct {
-		ops         []gqlexplorer.UnifiedOperation
-		inputTypes  map[string]graphql.InputType
-		enumTypes   map[string]graphql.EnumType
-		objectTypes map[string]graphql.ObjectType
+		ops            []gqlexplorer.UnifiedOperation
+		inputTypes     map[string]graphql.InputType
+		enumTypes      map[string]graphql.EnumType
+		objectTypes    map[string]graphql.ObjectType
+		unionTypes     map[string]graphql.UnionType
+		interfaceTypes map[string]graphql.InterfaceType
 	}
 
 	// load spinner while waiting
@@ -152,9 +156,11 @@ func loadGraphQLOperations(arg string, env string) (
 		}
 
 		sr := schemaResult{
-			inputTypes:  make(map[string]graphql.InputType),
-			enumTypes:   make(map[string]graphql.EnumType),
-			objectTypes: make(map[string]graphql.ObjectType),
+			inputTypes:     make(map[string]graphql.InputType),
+			enumTypes:      make(map[string]graphql.EnumType),
+			objectTypes:    make(map[string]graphql.ObjectType),
+			unionTypes:     make(map[string]graphql.UnionType),
+			interfaceTypes: make(map[string]graphql.InterfaceType),
 		}
 		var errors []string
 		endpointResults := make(map[string]graphql.ProcessResult)
@@ -216,6 +222,12 @@ func loadGraphQLOperations(arg string, env string) (
 				for k, v := range result.schema.ObjectTypes {
 					sr.objectTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
 				}
+				for k, v := range result.schema.UnionTypes {
+					sr.unionTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
+				for k, v := range result.schema.InterfaceTypes {
+					sr.interfaceTypes[gqlexplorer.ScopedTypeKey(result.url, k)] = v
+				}
 			}
 		}
 
@@ -234,7 +246,7 @@ func loadGraphQLOperations(arg string, env string) (
 	if !ok && raw != nil {
 		utils.PanicRedAndExit("unexpected result type from schema fetch")
 	}
-	return sr.ops, sr.inputTypes, sr.enumTypes, sr.objectTypes
+	return sr.ops, sr.inputTypes, sr.enumTypes, sr.objectTypes, sr.unionTypes, sr.interfaceTypes
 }
 
 func resolveGQLPath(arg string) string {

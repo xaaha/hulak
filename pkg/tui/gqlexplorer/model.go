@@ -23,6 +23,7 @@ const (
 	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpVariablePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -55,9 +56,11 @@ type Model struct {
 	width      int
 	height     int
 
-	inputTypes  map[string]graphql.InputType
-	enumTypes   map[string]graphql.EnumType
-	objectTypes map[string]graphql.ObjectType
+	inputTypes     map[string]graphql.InputType
+	enumTypes      map[string]graphql.EnumType
+	objectTypes    map[string]graphql.ObjectType
+	unionTypes     map[string]graphql.UnionType
+	interfaceTypes map[string]graphql.InterfaceType
 
 	endpoints       []string
 	activeEndpoints map[string]bool
@@ -65,6 +68,7 @@ type Model struct {
 	badgeCache      string
 
 	detailPanel   *tui.Panel
+	variablePanel *tui.Panel
 	detailForm    *DetailForm
 	detailFormKey string
 	formCache     map[string]*DetailForm
@@ -79,6 +83,8 @@ func NewModel(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) Model {
 	for i := range operations {
 		if operations[i].NameLower == "" {
@@ -100,6 +106,7 @@ func NewModel(
 	// numbers for navigation.
 	dp := &tui.Panel{Number: 2}
 	qp := &tui.Panel{Number: 3}
+	vp := &tui.Panel{Number: 4}
 	m := Model{
 		operations:      operations,
 		filtered:        operations,
@@ -109,15 +116,18 @@ func NewModel(
 		inputTypes:      inputTypes,
 		enumTypes:       enumTypes,
 		objectTypes:     objectTypes,
+		unionTypes:      unionTypes,
+		interfaceTypes:  interfaceTypes,
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
-		detailPanel: dp,
-		formCache:   make(map[string]*DetailForm),
-		queryPanel:  qp,
-		focus:       tui.NewFocusRing([]*tui.Panel{dp, qp}),
-		helpBarH:    tui.HelpBarHeight,
+		detailPanel:   dp,
+		variablePanel: vp,
+		formCache:     make(map[string]*DetailForm),
+		queryPanel:    qp,
+		focus:         tui.NewFocusRing([]*tui.Panel{dp, qp, vp}),
+		helpBarH:      tui.HelpBarHeight,
 	}
 	m.focus.SetTyping(true)
 	m.syncSearchFocus()
@@ -172,7 +182,7 @@ func (m *Model) updateHelpBarHeight() {
 	m.helpBarH = 1
 	for _, h := range []string{
 		helpLeftPanel, helpDetailPanel, helpSearchPanel,
-		helpQueryPanel, helpEndpointFilter,
+		helpQueryPanel, helpVariablePanel, helpEndpointFilter,
 	} {
 		rendered := tui.HelpBarStyle.Render(
 			lipgloss.NewStyle().Width(contentW).Align(lipgloss.Center).Render(h),
@@ -191,11 +201,20 @@ func (m *Model) detailTopHeight() int {
 	return max(m.contentHeight()*tui.DetailTopPct/100, 1)
 }
 
-// responseAreaHeight returns the height allocated to the response area
-// (bottom half of the right panel).
-func (m *Model) responseAreaHeight() int {
-	top := m.detailTopHeight()
-	return max(m.contentHeight()-top, 1)
+func (m *Model) detailPanelWidth(rightW int) int {
+	return max(rightW/2, 1)
+}
+
+// gql variable panel height, 2/3 of the remaining height below the top row
+func (m *Model) variablePanelHeight() int {
+	remaining := max(m.contentHeight()-m.detailTopHeight(), 1)
+	return max((remaining*2)/3, 1)
+}
+
+// callAreaHeight returns the remaining height allocated to extras
+// below the variable panel. I am calling it callAreaheight
+func (m *Model) callAreaHeight() int {
+	return max(m.contentHeight()-m.detailTopHeight()-m.variablePanelHeight(), 1)
 }
 
 func (m *Model) updateBadgeCache() {
@@ -222,6 +241,9 @@ func (m *Model) updateFocusedViewport(msg tea.Msg) tea.Cmd {
 	}
 	if m.focus.IsFocused(m.queryPanel) {
 		return m.queryPanel.Update(msg)
+	}
+	if m.focus.IsFocused(m.variablePanel) {
+		return m.variablePanel.Update(msg)
 	}
 	return m.detailPanel.Update(msg)
 }
@@ -281,10 +303,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		rightW := m.rightPanelWidth()
 		topH := m.detailTopHeight()
-		detailW := max(rightW*tui.DetailPanelWPct/100, 1)
-		detailH := max(topH*tui.DetailPanelHPct/100, 1)
+		variableH := m.variablePanelHeight()
+		detailW := m.detailPanelWidth(rightW) // split the top row evenly in half
+		detailH := topH                       // detail panel height uses the full top-row height
 		m.detailPanel.Resize(detailW, detailH)
 		m.queryPanel.Resize(max(rightW-detailW, 1), detailH)
+		m.variablePanel.Resize(max(rightW-detailW, 1), variableH)
 		m.updateBadgeCache()
 		m.syncViewport()
 		return m, nil
@@ -345,6 +369,12 @@ func (m *Model) jumpToEdge(top bool) {
 		} else {
 			m.queryPanel.GotoBottom()
 		}
+	case m.focus.IsFocused(m.variablePanel):
+		if top {
+			m.variablePanel.GotoTop()
+		} else {
+			m.variablePanel.GotoBottom()
+		}
 	case m.focus.IsFocused(m.detailPanel) && m.detailForm != nil:
 		if top {
 			m.detailForm.CursorToTop()
@@ -403,8 +433,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tui.KeyQuit:
 		return m, tea.Quit
 
-	// Esc: step backward one panel at a time
-	// query panel → detail panel → search (left) → quit
+		// Esc: step backward one panel at a time
+		// variable panel → query panel → detail panel → search (left) → quit
 	case tui.KeyCancel:
 		// Detail panel: close dropdown first, exit text editing, then step back.
 		if m.focus.IsFocused(m.detailPanel) {
@@ -423,6 +453,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.focus.FocusByNumber(1)
 			m.focus.SetTyping(true)
+			m.syncSearchFocus()
+			m.syncViewport()
+			return m, nil
+		}
+		// Variable panel: step back to query panel.
+		if m.focus.IsFocused(m.variablePanel) {
+			m.focus.FocusByNumber(m.queryPanel.Number)
 			m.syncSearchFocus()
 			m.syncViewport()
 			return m, nil
@@ -476,6 +513,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Left panel: move operation cursor.
 	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN, tui.KeyLeft, tui.KeyRight,
 		tui.KeyK, tui.KeyJ, tui.KeyH, tui.KeyL, tui.KeyG, tui.KeyShiftG:
+		if (msg.String() == tui.KeyLeft || msg.String() == tui.KeyRight) &&
+			m.focus.IsFocused(m.detailPanel) && m.detailForm != nil &&
+			m.detailForm.ConsumesTextInput() {
+			return m.forwardKeyToForm(msg)
+		}
+		if (msg.String() == tui.KeyLeft || msg.String() == tui.KeyRight) &&
+			m.focus.LeftFocused() && m.focus.Typing() {
+			var cmd tea.Cmd
+			_, cmd = m.search.Update(msg)
+			return m, cmd
+		}
 		if msg.String() == tui.KeyJ || msg.String() == tui.KeyK ||
 			msg.String() == tui.KeyH || msg.String() == tui.KeyL ||
 			msg.String() == tui.KeyG || msg.String() == tui.KeyShiftG {
@@ -499,6 +547,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// because the bubbles viewport only understands arrow key types.
 		if m.focus.IsFocused(m.queryPanel) {
 			cmd := m.queryPanel.Update(vimToArrow(msg))
+			return m, cmd
+		}
+		// Variable panel: scroll viewport. Vim keys are mapped to arrows
+		// because the bubbles viewport only understands arrow key types.
+		if m.focus.IsFocused(m.variablePanel) {
+			cmd := m.variablePanel.Update(vimToArrow(msg))
 			return m, cmd
 		}
 		// Detail panel: navigate form or scroll.
@@ -585,6 +639,8 @@ func (m *Model) yankText() string {
 	switch {
 	case m.focus.IsFocused(m.queryPanel):
 		return BuildQueryString(op, m.detailForm)
+	case m.focus.IsFocused(m.variablePanel):
+		return BuildVariablesString(op, m.detailForm)
 	case m.focus.IsFocused(m.detailPanel):
 		return m.detailPanelPlainText(op)
 	case m.focus.LeftFocused():
@@ -598,7 +654,7 @@ func (m *Model) detailPanelPlainText(op *UnifiedOperation) string {
 	if m.detailForm != nil {
 		styled, _ = m.detailForm.View(op)
 	} else {
-		styled = renderDetail(op, m.inputTypes, m.objectTypes)
+		styled = renderDetail(op, m.inputTypes, m.objectTypes, m.unionTypes, m.interfaceTypes)
 	}
 	return ansi.Strip(styled)
 }
@@ -648,7 +704,7 @@ func (m *Model) syncViewport() {
 			if cached, ok := m.formCache[formKey]; ok {
 				m.detailForm = cached
 			} else {
-				m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes)
+				m.detailForm = buildDetailForm(op, m.inputTypes, m.enumTypes, m.objectTypes, m.unionTypes, m.interfaceTypes)
 			}
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
@@ -665,18 +721,20 @@ func (m *Model) syncViewport() {
 			m.detailPanel.Footer = m.detailForm.SearchFooter()
 		} else {
 			cacheKey := op.Endpoint + "\x1f" + op.Name + "\x1f" + strconv.Itoa(m.rightPanelWidth())
-			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes), cacheKey) {
+			if m.detailPanel.SetContent(renderDetail(op, m.inputTypes, m.objectTypes, m.unionTypes, m.interfaceTypes), cacheKey) {
 				m.detailPanel.GotoTop()
 			}
 		}
 
 		m.queryPanel.SetContent(BuildQueryString(op, m.detailForm), "")
+		m.variablePanel.SetContent(BuildVariablesString(op, m.detailForm), "")
 	} else {
 		m.detailForm = nil
 		m.detailFormKey = ""
 		m.detailPanel.Footer = ""
 		m.detailPanel.SetContent("", "")
 		m.queryPanel.SetContent("", "")
+		m.variablePanel.SetContent("", "")
 	}
 }
 
@@ -687,6 +745,8 @@ func (m *Model) renderHelpBar(width int) string {
 		raw = helpEndpointFilter
 	case m.focus.IsFocused(m.queryPanel):
 		raw = helpQueryPanel
+	case m.focus.IsFocused(m.variablePanel):
+		raw = helpVariablePanel
 	case m.focus.IsFocused(m.detailPanel) && m.detailForm != nil && m.detailForm.IsSearching():
 		raw = helpSearchPanel
 	case m.focus.IsFocused(m.detailPanel):
@@ -722,22 +782,31 @@ func (m *Model) View() string {
 
 	rightW := m.rightPanelWidth()
 
-	var detailView, queryView string
+	var detailView, queryView, variableView string
 	if m.detailPanel.CanRender() {
 		detailView = m.detailPanel.View(m.focus.IsFocused(m.detailPanel))
 	}
 	if m.queryPanel.CanRender() {
 		queryView = m.queryPanel.View(m.focus.IsFocused(m.queryPanel))
 	}
+	if m.variablePanel.CanRender() {
+		variableView = m.variablePanel.View(m.focus.IsFocused(m.variablePanel))
+	}
 
 	topRight := lipgloss.JoinHorizontal(lipgloss.Top, detailView, queryView)
+	detailW := m.detailPanelWidth(rightW)
+	middleRight := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		lipgloss.NewStyle().Width(detailW).Height(m.variablePanelHeight()).Render(""),
+		variableView,
+	)
 
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
-		Height(m.responseAreaHeight()).
+		Height(m.callAreaHeight()).
 		Render("")
 
-	rightCol := lipgloss.JoinVertical(lipgloss.Left, topRight, responsePlaceholder)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, topRight, middleRight, responsePlaceholder)
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 	body := lipgloss.JoinVertical(lipgloss.Left, combined, helpBar)
 
@@ -755,8 +824,10 @@ func RunExplorer(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) error {
-	model := NewModel(operations, inputTypes, enumTypes, objectTypes)
+	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes)
 	p := tea.NewProgram(
 		&model,
 		tea.WithAltScreen(),

@@ -12,6 +12,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+const fragmentPrefix = utils.Ellipsis + " on "
+
 type formItemKind int
 
 const (
@@ -38,11 +40,17 @@ func renderCheckbox(enabled, focused bool) string {
 type formItem struct {
 	kind       formItemKind
 	name       string
+	label      string
 	typeHint   string
+	valueType  string
 	required   bool
 	isField    bool // true for return type fields, false for arguments
 	depth      int
 	expandable bool
+	listType   string
+	listItem   bool
+	listGroup  int
+	continued  bool
 
 	// enabled controls whether this argument is included in the generated
 	// query string. Only meaningful for argument items (isField == false).
@@ -119,23 +127,16 @@ func (f *formItem) checkboxPrefix() string {
 
 func (f *formItem) View() string {
 	hint := tui.HelpStyle.Render(f.typeHint)
+	labelText := f.name
+	if f.label != "" {
+		labelText = f.label
+	}
 	switch f.kind {
 	case formItemToggle:
 		return f.toggle.View() + tui.KeySpace + hint
 	case formItemTextInput:
 		editing := f.input.Model.Focused()
 		highlighted := f.selected || editing
-		name := f.name
-		if highlighted {
-			name = lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render(f.name)
-		}
-		label := name + tui.KeySpace + hint
-		if f.required {
-			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
-		}
-		if !f.isField {
-			label = f.checkboxPrefix() + label
-		}
 		boxStyle := tui.InputStyle
 		if editing {
 			boxStyle = tui.FocusedInputStyle
@@ -148,6 +149,29 @@ func (f *formItem) View() string {
 		}
 		connector := connectorStyle.Render(utils.Connector)
 		continuePad := tui.KeySpace + tui.KeySpace
+		if f.continued {
+			var b strings.Builder
+			for i, line := range strings.Split(inputBox, "\n") {
+				b.WriteString("\n")
+				if i == 0 {
+					b.WriteString(connector + line)
+				} else {
+					b.WriteString(continuePad + line)
+				}
+			}
+			return strings.TrimPrefix(b.String(), "\n")
+		}
+		name := labelText
+		if highlighted {
+			name = lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render(labelText)
+		}
+		label := name + tui.KeySpace + hint
+		if f.required {
+			label += tui.KeySpace + tui.HelpStyle.Render(utils.Asterisk)
+		}
+		if !f.isField {
+			label = f.checkboxPrefix() + label
+		}
 		var b strings.Builder
 		b.WriteString(label)
 		for i, line := range strings.Split(inputBox, "\n") {
@@ -164,7 +188,7 @@ func (f *formItem) View() string {
 		if !f.isField {
 			prefix = f.checkboxPrefix()
 		}
-		return prefix + f.name + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
+		return prefix + labelText + tui.KeySpace + hint + tui.KeySpace + f.dropdown.View()
 	}
 	return ""
 }
@@ -194,6 +218,54 @@ func (f *formItem) ConsumesTextInput() bool {
 	return false
 }
 
+func newListArgFormItems(
+	arg graphql.Argument,
+	inputTypes map[string]graphql.InputType,
+	enumTypes map[string]graphql.EnumType,
+	endpoint string,
+	group int,
+	enabled bool,
+) []formItem {
+	itemType := ExtractListItemType(arg.Type)
+	if it, ok := resolveType(inputTypes, endpoint, ExtractBaseType(itemType)); ok {
+		items := make([]formItem, 0, len(it.Fields))
+		for _, field := range it.Fields {
+			fi := newInputFieldFormItem(field, enumTypes, endpoint)
+			fi.argName = arg.Name
+			fi.listType = arg.Type
+			fi.listItem = true
+			fi.listGroup = group
+			fi.enabled = false
+			fi.required = strings.HasSuffix(field.Type, "!")
+			fi.label = fmt.Sprintf("%s[%d].%s", arg.Name, group, field.Name)
+			items = append(items, fi)
+		}
+		return items
+	}
+
+	fi := newTypedFormItem(arg.Name, itemType, enumTypes, endpoint)
+	fi.argName = arg.Name
+	fi.listType = arg.Type
+	fi.listItem = true
+	fi.listGroup = group
+	fi.valueType = itemType
+	fi.enabled = enabled
+	fi.required = strings.HasSuffix(arg.Type, "!")
+	fi.typeHint = arg.Type
+	if fi.kind == formItemDropdown {
+		fi.dropdown = listDropdown(fi.dropdown)
+		fi.enabled = enabled
+		fi.required = strings.HasSuffix(arg.Type, "!")
+		fi.label = fmt.Sprintf("%s[%d]", arg.Name, group)
+		return []formItem{fi}
+	}
+	if group > 0 {
+		fi.continued = true
+		fi.required = false
+	}
+	return []formItem{fi}
+}
+
 func newArgFormItem(
 	arg graphql.Argument,
 	enumTypes map[string]graphql.EnumType,
@@ -209,6 +281,18 @@ func newFieldFormItem(field graphql.ObjectField, selected bool) formItem {
 		typeHint: field.Type,
 		isField:  true,
 		toggle:   tui.NewToggle(field.Name, selected),
+	}
+}
+
+func newFragmentFormItem(typeName string) formItem {
+	label := fragmentPrefix + typeName
+	return formItem{
+		kind:       formItemToggle,
+		name:       label,
+		typeHint:   typeName,
+		isField:    true,
+		expandable: true,
+		toggle:     tui.NewToggle(label, false),
 	}
 }
 
@@ -230,12 +314,13 @@ func newTypedFormItem(
 
 	if base == "Boolean" {
 		return formItem{
-			kind:     formItemToggle,
-			name:     name,
-			typeHint: typeStr,
-			required: required,
-			enabled:  required,
-			toggle:   tui.NewToggle(name, false),
+			kind:      formItemToggle,
+			name:      name,
+			typeHint:  typeStr,
+			valueType: typeStr,
+			required:  required,
+			enabled:   required,
+			toggle:    tui.NewToggle(name, false),
 		}
 	}
 
@@ -245,12 +330,13 @@ func newTypedFormItem(
 			options[i] = v.Name
 		}
 		return formItem{
-			kind:     formItemDropdown,
-			name:     name,
-			typeHint: typeStr,
-			required: required,
-			enabled:  required,
-			dropdown: tui.NewDropdown(name, options, 0),
+			kind:      formItemDropdown,
+			name:      name,
+			typeHint:  typeStr,
+			valueType: typeStr,
+			required:  required,
+			enabled:   required,
+			dropdown:  tui.NewDropdown(name, options, 0),
 		}
 	}
 
@@ -262,12 +348,13 @@ func newTypedFormItem(
 	})
 	ti.Model.Blur()
 	return formItem{
-		kind:     formItemTextInput,
-		name:     name,
-		typeHint: typeStr,
-		required: required,
-		enabled:  required,
-		input:    ti,
+		kind:      formItemTextInput,
+		name:      name,
+		typeHint:  typeStr,
+		valueType: typeStr,
+		required:  required,
+		enabled:   required,
+		input:     ti,
 	}
 }
 
@@ -277,6 +364,8 @@ type DetailForm struct {
 	items       []formItem
 	cursor      int
 	argCount    int // number of leading argument items
+	inputTypes  map[string]graphql.InputType
+	enumTypes   map[string]graphql.EnumType
 	objectTypes map[string]graphql.ObjectType
 	endpoint    string
 
@@ -293,12 +382,18 @@ func buildDetailForm(
 	inputTypes map[string]graphql.InputType,
 	enumTypes map[string]graphql.EnumType,
 	objectTypes map[string]graphql.ObjectType,
+	unionTypes map[string]graphql.UnionType,
+	interfaceTypes map[string]graphql.InterfaceType,
 ) *DetailForm {
 	var items []formItem
 
 	for _, arg := range op.Arguments {
 		base := ExtractBaseType(arg.Type)
-		if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
+		if IsListType(arg.Type) {
+			items = append(items, newListArgFormItems(
+				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"),
+			)...)
+		} else if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 			for _, field := range it.Fields {
 				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
 				fi.argName = arg.Name
@@ -314,7 +409,22 @@ func buildDetailForm(
 
 	if op.ReturnType != "" {
 		base := ExtractBaseType(op.ReturnType)
-		if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
+		if ut, ok := resolveType(unionTypes, op.Endpoint, base); ok {
+			for _, pt := range ut.PossibleTypes {
+				items = append(items, newFragmentFormItem(pt))
+			}
+		} else if it, ok := resolveType(interfaceTypes, op.Endpoint, base); ok {
+			for _, f := range it.Fields {
+				childBase := ExtractBaseType(f.Type)
+				_, isObj := resolveType(objectTypes, op.Endpoint, childBase)
+				fi := newFieldFormItem(f, !isObj)
+				fi.expandable = isObj
+				items = append(items, fi)
+			}
+			for _, pt := range it.PossibleTypes {
+				items = append(items, newFragmentFormItem(pt))
+			}
+		} else if ot, ok := resolveType(objectTypes, op.Endpoint, base); ok {
 			for _, f := range ot.Fields {
 				childBase := ExtractBaseType(f.Type)
 				_, isObj := resolveType(objectTypes, op.Endpoint, childBase)
@@ -340,6 +450,8 @@ func buildDetailForm(
 		items:       items,
 		cursor:      0,
 		argCount:    argCount,
+		inputTypes:  inputTypes,
+		enumTypes:   enumTypes,
 		objectTypes: objectTypes,
 		endpoint:    op.Endpoint,
 		searchInput: si,
@@ -378,6 +490,150 @@ func (df *DetailForm) enabledArgNames() map[string]bool {
 		}
 	}
 	return names
+}
+
+func (df *DetailForm) argRange(argName string) (int, int, bool) {
+	start := -1
+	end := -1
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].argName != argName {
+			if start != -1 {
+				break
+			}
+			continue
+		}
+		if start == -1 {
+			start = i
+		}
+		end = i + 1
+	}
+	if start == -1 {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
+func (df *DetailForm) argDefinition(argName string) (graphql.Argument, bool) {
+	start, _, ok := df.argRange(argName)
+	if !ok {
+		return graphql.Argument{}, false
+	}
+	item := df.items[start]
+	if !item.listItem {
+		return graphql.Argument{Name: argName, Type: item.valueType}, true
+	}
+	return graphql.Argument{Name: argName, Type: item.listType}, true
+}
+
+func (df *DetailForm) argItems(argName string) []*formItem {
+	var items []*formItem
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].argName == argName {
+			items = append(items, &df.items[i])
+		}
+	}
+	return items
+}
+
+func (df *DetailForm) setArgEnabled(argName string, enabled bool) {
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].argName == argName {
+			df.items[i].enabled = enabled
+		}
+	}
+}
+
+func (df *DetailForm) syncListArgRows(argName string) {
+	start, end, ok := df.argRange(argName)
+	if !ok || !df.items[start].listItem {
+		return
+	}
+
+	lastNonEmptyGroup := -1
+	currentGroups := 0
+	for i := start; i < end; {
+		group := df.items[i].listGroup
+		groupNonEmpty := false
+		for i < end && df.items[i].listGroup == group {
+			if hasMeaningfulListValue(&df.items[i]) {
+				groupNonEmpty = true
+			}
+			i++
+		}
+		if groupNonEmpty {
+			lastNonEmptyGroup = group
+		}
+		currentGroups++
+	}
+
+	desiredGroups := 1
+	if lastNonEmptyGroup >= 0 {
+		desiredGroups = lastNonEmptyGroup + 2
+	}
+
+	if desiredGroups < currentGroups {
+		cut := start
+		for cut < end && df.items[cut].listGroup < desiredGroups {
+			cut++
+		}
+		removed := end - cut
+		df.items = append(df.items[:cut], df.items[end:]...)
+		df.argCount -= removed
+		if df.cursor >= end {
+			df.cursor -= removed
+		} else if df.cursor >= cut {
+			df.cursor = max(cut-1, 0)
+		}
+		end = cut
+		currentGroups = desiredGroups
+	}
+
+	if desiredGroups > currentGroups {
+		enabled := df.items[start].enabled
+		arg, ok := df.argDefinition(argName)
+		if !ok {
+			return
+		}
+		insertAt := end
+		for group := currentGroups; group < desiredGroups; group++ {
+			next := newListArgFormItems(
+				arg,
+				df.inputTypes,
+				df.enumTypes,
+				df.endpoint,
+				group,
+				enabled,
+			)
+			df.items = append(df.items[:insertAt], append(next, df.items[insertAt:]...)...)
+			df.argCount += len(next)
+			insertAt += len(next)
+		}
+	}
+
+	df.FocusCurrent()
+}
+
+func hasMeaningfulListValue(item *formItem) bool {
+	if item == nil {
+		return false
+	}
+	switch item.kind {
+	case formItemTextInput:
+		return strings.TrimSpace(item.Value()) != ""
+	case formItemDropdown:
+		return strings.TrimSpace(item.Value()) != ""
+	case formItemToggle:
+		return item.enabled
+	default:
+		return false
+	}
+}
+
+func listDropdown(d tui.Dropdown) tui.Dropdown {
+	options := make([]string, 0, len(d.Options)+1)
+	options = append(options, "")
+	options = append(options, d.Options...)
+	return tui.NewDropdown(d.Label, options, 0)
 }
 
 // CursorUp moves the inner cursor up, clamping at 0.
@@ -519,10 +775,10 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
 		if item.kind == formItemToggle {
 			cmd := item.HandleKey(msg)
-			item.enabled = item.toggle.Value
+			df.setArgEnabled(item.argName, item.toggle.Value)
 			return cmd
 		}
-		item.enabled = !item.enabled
+		df.setArgEnabled(item.argName, !item.enabled)
 		return nil
 	}
 
@@ -552,6 +808,10 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 
 	// ── Pass through to widget ──
 	cmd := item.HandleKey(msg)
+
+	if !item.isField && item.listItem {
+		df.syncListArgRows(item.argName)
+	}
 
 	// ── Field toggles: expand/collapse children on Space ──
 	if key == tui.KeySpace && item.expandable && item.kind == formItemToggle {
