@@ -1795,3 +1795,43 @@ func TestEnterTogglesBooleanArgument(t *testing.T) {
 		t.Error("second Enter should disable the argument")
 	}
 }
+
+func TestEnterExpandsRecursiveToggleLikeSpace(t *testing.T) {
+	ep := "ep"
+	objectTypes := map[string]graphql.ObjectType{
+		ScopedTypeKey(ep, "Country"): {
+			Name: "Country",
+			Fields: []graphql.ObjectField{
+				{Name: "name", Type: "String!"},
+				{Name: "countries", Type: "[Country!]!"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name:       "country",
+		ReturnType: "Country",
+		Endpoint:   ep,
+	}
+	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
+
+	df.cursor = 1
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if df.Len() != 4 {
+		t.Fatalf("expected Enter to expand children like Space, got %d items", df.Len())
+	}
+
+	nestedCountries := 3
+	if !df.items[nestedCountries].expandable {
+		t.Fatal("nested 'countries' should also be expandable")
+	}
+
+	df.cursor = nestedCountries
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if df.Len() != 6 {
+		t.Fatalf("expected Enter to recursively expand children like Space, got %d items", df.Len())
+	}
+}

@@ -770,6 +770,10 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	}
 	item := &df.items[df.cursor]
 	key := msg.String()
+	if item.kind == formItemToggle && key == tui.KeyEnter {
+		msg = tea.KeyMsg{Type: tea.KeySpace}
+		key = tui.KeySpace
+	}
 
 	// ── Argument items: Space toggles the enabled checkbox ──
 	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
@@ -782,7 +786,7 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// ── Argument text inputs: Enter activates/deactivates editing ──
+	// Argument text inputs: Enter activates/deactivates editing
 	if !item.isField && item.kind == formItemTextInput && key == tui.KeyEnter {
 		if item.input.Model.Focused() {
 			item.input.Model.Blur()
@@ -790,13 +794,6 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 			item.input.Model.Focus()
 		}
 		return nil
-	}
-
-	// ── Argument toggles: Enter toggles value + enabled ──
-	if !item.isField && item.kind == formItemToggle && key == tui.KeyEnter {
-		cmd := item.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
-		item.enabled = item.toggle.Value
-		return cmd
 	}
 
 	// ── Argument text inputs: Esc exits editing ──
