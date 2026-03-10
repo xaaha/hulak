@@ -2,6 +2,7 @@ package gqlexplorer
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -881,9 +882,86 @@ func (df *DetailForm) hasExpandedDropdown() bool {
 	return false
 }
 
+func (df *DetailForm) itemZoneID(prefix string, index int) string {
+	return prefix + ":item:" + strconv.Itoa(index)
+}
+
+func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
+	for i := range df.items {
+		id := df.itemZoneID(prefix, i)
+		if !tui.Hit(id, msg) {
+			continue
+		}
+
+		df.cursor = i
+		df.FocusCurrent()
+		item := &df.items[i]
+
+		switch item.kind {
+		case formItemToggle:
+			_ = item.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+			if !item.isField {
+				df.setArgEnabled(item.argName, item.toggle.Value)
+			}
+			if item.expandable {
+				df.toggleExpand(i)
+			}
+		case formItemTextInput:
+			if !item.isField {
+				item.enabled = true
+			}
+			item.input.Model.Focus()
+			if item.listItem {
+				df.syncListArgRows(item.argName)
+			}
+		case formItemDropdown:
+			if !item.dropdown.Expanded() {
+				if !item.isField {
+					item.enabled = true
+				}
+				item.dropdown.Focus()
+				item.dropdown.Expand()
+				return true
+			}
+
+			_, relY := tui.ZonePos(id, msg)
+			optionIndex := relY
+			if optionIndex < 0 || optionIndex >= len(item.dropdown.Options) {
+				return true
+			}
+			item.dropdown.Select(optionIndex)
+			item.dropdown.Focus()
+			if !item.isField {
+				item.enabled = true
+			}
+			if item.listItem {
+				df.syncListArgRows(item.argName)
+			}
+		}
+		return true
+	}
+	return false
+}
+
 // View renders all form items in a single flat list.
 // Returns the rendered string and the line number of the focused item.
 func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
+	return df.viewMarked(op, "", func(_ string, s string) string { return s })
+}
+
+func (df *DetailForm) ViewMarked(
+	op *UnifiedOperation,
+	zonePrefix string,
+	mark func(id, view string) string,
+) (string, int) {
+	return df.viewMarked(op, zonePrefix, mark)
+}
+
+func (df *DetailForm) viewMarked(
+	op *UnifiedOperation,
+	zonePrefix string,
+	mark func(id, view string) string,
+) (string, int) {
 	var lines []string
 
 	focused := df.items[df.cursor].Focused()
@@ -905,17 +983,20 @@ func (df *DetailForm) View(op *UnifiedOperation) (string, int) {
 		pad := basePad + depth*depthIndent
 		itemPad := strings.Repeat(tui.KeySpace, pad)
 
-		prefix := itemPad
+		linePrefix := itemPad
 		if i == df.cursor {
 			if focused {
-				prefix = strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
+				linePrefix = strings.Repeat(tui.KeySpace, pad-2) + utils.ChevronRight
 			}
 			cursorLine = len(lines)
 		}
 		view := df.items[i].View()
+		if zonePrefix != "" {
+			view = mark(df.itemZoneID(zonePrefix, i), view)
+		}
 		for j, line := range strings.Split(view, "\n") {
 			if j == 0 {
-				lines = append(lines, prefix+line)
+				lines = append(lines, linePrefix+line)
 			} else {
 				lines = append(lines, itemPad+line)
 			}

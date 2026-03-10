@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -12,6 +13,24 @@ import (
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+func waitForMouseZone(t *testing.T, id string) (int, int) {
+	return waitForMouseZoneMinHeight(t, id, 0)
+}
+
+func waitForMouseZoneMinHeight(t *testing.T, id string, minHeight int) (int, int) {
+	t.Helper()
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		startX, startY, _, endY, ok := tui.ZoneBounds(id)
+		if ok && endY-startY >= minHeight {
+			return startX, startY
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("zone %q was not registered", id)
+	return 0, 0
+}
 
 func sampleOps() []UnifiedOperation {
 	return []UnifiedOperation{
@@ -142,6 +161,141 @@ func TestNavigateCtrlP(t *testing.T) {
 
 	if model.cursor != 2 {
 		t.Errorf("expected cursor 2, got %d", model.cursor)
+	}
+}
+
+func TestMouseClickSelectsOperationAndMovesCursor(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+	model.cursor = len(model.filtered) - 1
+	model.syncViewport()
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.operationZoneID(1))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if model.cursor != 1 {
+		t.Fatalf("expected cursor at clicked operation, got %d", model.cursor)
+	}
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected left panel to be focused after operation click")
+	}
+	if model.focus.Typing() {
+		t.Fatal("expected typing mode off after clicking operation row")
+	}
+}
+
+func TestMouseClickTogglesEndpointAndMovesEndpointCursor(t *testing.T) {
+	m := NewModel(multiEndpointOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+	model.search.Model.SetValue("e:")
+	model.endpointCursor = 0
+	model.applyFilterAndReset()
+
+	eps := model.filteredEndpoints()
+	if len(eps) < 2 {
+		t.Fatal("expected at least two endpoints")
+	}
+	clicked := eps[1]
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.endpointZoneID(1))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if model.endpointCursor != 1 {
+		t.Fatalf("expected endpoint cursor at clicked row, got %d", model.endpointCursor)
+	}
+	if model.activeEndpoints[clicked] {
+		t.Fatalf("expected clicked endpoint %q to be toggled off", clicked)
+	}
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected left panel to be focused after endpoint click")
+	}
+	if model.focus.Typing() {
+		t.Fatal("expected typing mode off after clicking endpoint row")
+	}
+}
+
+func TestMouseClickDetailFormItemFocusesDetailPanel(t *testing.T) {
+	ep := "ep"
+	op := UnifiedOperation{
+		Name: "Search", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
+	}
+	m := NewModel([]UnifiedOperation{op}, nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.detailForm.itemZoneID(model.detailMousePrefix(), 0))
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if !model.focus.IsFocused(model.detailPanel) {
+		t.Fatal("expected detail panel to be focused after clicking detail item")
+	}
+	if model.detailForm.cursor != 0 {
+		t.Fatalf("expected detail cursor on clicked item, got %d", model.detailForm.cursor)
+	}
+	if !model.detailForm.items[0].input.Model.Focused() {
+		t.Fatal("expected clicked text input to enter editing")
+	}
+}
+
+func TestMouseClickSearchInputFocusesLeftPanelAndTyping(t *testing.T) {
+	ep := "ep"
+	op := UnifiedOperation{
+		Name: "Search", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{{Name: "q", Type: "String"}},
+	}
+	m := NewModel([]UnifiedOperation{op}, nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	model.focus.FocusByNumber(model.detailPanel.Number)
+	model.syncSearchFocus()
+
+	_ = model.View()
+	x, y := waitForMouseZone(t, model.searchZoneID())
+
+	result, _ = model.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model = result.(*Model)
+
+	if !model.focus.LeftFocused() {
+		t.Fatal("expected search click to focus left panel")
+	}
+	if !model.focus.Typing() {
+		t.Fatal("expected search click to enable typing mode")
+	}
+	if !model.search.Model.Focused() {
+		t.Fatal("expected search input to be focused after click")
 	}
 }
 

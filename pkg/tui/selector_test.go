@@ -257,6 +257,53 @@ func TestSelectorFilterThenNavigateThenSelect(t *testing.T) {
 	}
 }
 
+func TestSelectorMouseClickSelectsItem(t *testing.T) {
+	m := NewSelector([]string{"item1", "item2", "item3"}, "Test: ")
+	m.Cursor = 2
+	m.syncViewport()
+
+	_ = m.View()
+	x, y, _, _ := waitForZoneBounds(t, m.itemZoneID(1))
+
+	newModel, cmd := m.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model := newModel.(*SelectorModel)
+
+	if model.Cursor != 1 {
+		t.Fatalf("expected cursor at clicked item, got %d", model.Cursor)
+	}
+	if model.Selected != "item2" {
+		t.Fatalf("expected clicked item to be selected, got %q", model.Selected)
+	}
+	if cmd == nil {
+		t.Fatal("expected quit command after mouse selection")
+	}
+}
+
+func TestSelectorMouseClickSearchFocusesInput(t *testing.T) {
+	m := NewSelector([]string{"item1", "item2"}, "Test: ")
+	m.TextInput.Model.Blur()
+
+	_ = m.View()
+	x, y, _, _ := waitForZoneBounds(t, m.searchZoneID())
+
+	newModel, _ := m.Update(tea.MouseMsg{
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionRelease,
+	})
+	model := newModel.(*SelectorModel)
+
+	if !model.TextInput.Model.Focused() {
+		t.Fatal("expected search click to focus input")
+	}
+}
+
 func TestSelectorViewContainsHelp(t *testing.T) {
 	m := NewSelector([]string{"item1"}, "Test: ")
 	view := m.View()

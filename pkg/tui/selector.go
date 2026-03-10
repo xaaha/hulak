@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -23,6 +24,7 @@ type SelectorModel struct {
 	FilterableList
 	Selected    string
 	Cancelled   bool
+	mouse       MouseZone
 	viewport    viewport.Model
 	vpReady     bool
 	width       int
@@ -43,6 +45,7 @@ func NewSelector(items []string, prompt string, customHelp ...string) SelectorMo
 	m := SelectorModel{
 		FilterableList: NewFilterableList(items, prompt, placeholder, false),
 		helpMessage:    help,
+		mouse:          NewMouseZone(),
 	}
 	m.resizeViewport()
 	m.syncViewport()
@@ -80,6 +83,10 @@ func (m *SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if msg, ok := msg.(tea.MouseMsg); ok {
+		return m.handleMouse(msg)
+	}
+
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		return m.handleKey(msg)
 	}
@@ -91,6 +98,39 @@ func (m *SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport, cmdVP = m.viewport.Update(msg)
 	}
 	// check if the list has changed, if so then re-render
+	if m.TextInput.Model.Value() != prev {
+		m.syncViewport()
+	}
+	return m, tea.Batch(cmdInput, cmdVP)
+}
+
+func (m *SelectorModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if IsLeftClick(msg) {
+		if Hit(m.searchZoneID(), msg) {
+			m.TextInput.Model.Focus()
+			return m, nil
+		}
+		for i := range m.Filtered {
+			if !Hit(m.itemZoneID(i), msg) {
+				continue
+			}
+			m.Cursor = i
+			m.syncViewport()
+			val, ok := m.SelectCurrent()
+			if !ok {
+				return m, nil
+			}
+			m.Selected = val
+			return m, tea.Quit
+		}
+	}
+
+	prev := m.TextInput.Model.Value()
+	cmdInput := m.UpdateInput(msg)
+	var cmdVP tea.Cmd
+	if m.vpReady {
+		m.viewport, cmdVP = m.viewport.Update(msg)
+	}
 	if m.TextInput.Model.Value() != prev {
 		m.syncViewport()
 	}
@@ -141,14 +181,15 @@ func (m *SelectorModel) View() string {
 	if m.width > 0 {
 		title = lipgloss.NewStyle().MaxWidth(max(m.width-selectorHorizontalPad, 1)).Render(title)
 	}
+	title = m.mouse.Mark(m.searchZoneID(), title)
 	list := ""
 	if m.vpReady {
 		vp := m.viewport
-		content, cursorLine := m.RenderItemsWidth(vp.Width)
+		content, cursorLine := m.renderItemsWidthMarked(vp.Width)
 		SyncViewport(&vp, content, cursorLine, DefaultScrollMargin)
 		list = vp.View()
 	} else {
-		list, _ = m.RenderItems()
+		list, _ = m.renderItemsWidthMarked(0)
 	}
 	help := HelpBarStyle.Render(m.helpMessage)
 	if m.width > 0 {
@@ -156,7 +197,15 @@ func (m *SelectorModel) View() string {
 	}
 
 	content := title + "\n\n" + list + "\n" + help
-	return "\n" + content + "\n"
+	return ScanMouseZones("\n" + content + "\n")
+}
+
+func (m *SelectorModel) itemZoneID(index int) string {
+	return m.mouse.ID("item", strconv.Itoa(index))
+}
+
+func (m *SelectorModel) searchZoneID() string {
+	return m.mouse.ID("search")
 }
 
 func (m *SelectorModel) resizeViewport() {
@@ -190,8 +239,42 @@ func (m *SelectorModel) syncViewport() {
 	if !m.vpReady {
 		return
 	}
-	content, cursorLine := m.RenderItemsWidth(m.viewport.Width)
+	content, cursorLine := m.renderItemsWidthMarked(m.viewport.Width)
 	SyncViewport(&m.viewport, content, cursorLine, DefaultScrollMargin)
+}
+
+func (m *SelectorModel) renderItemsWidthMarked(maxWidth int) (string, int) {
+	if len(m.Filtered) == 0 {
+		if m.requireInput && !m.HasFilterValue() {
+			return "", 0
+		}
+		return HelpStyle.Render(listPadding + "(no matches)"), 0
+	}
+
+	selectedPrefix := utils.ChevronRight + KeySpace
+	selectedAvail := maxWidth - lipgloss.Width(selectedPrefix)
+	listAvail := maxWidth - lipgloss.Width(listPadding)
+
+	cursorLine := 0
+	lines := make([]string, 0, len(m.Filtered))
+	for i, item := range m.Filtered {
+		display := item
+		if maxWidth > 0 {
+			avail := listAvail
+			if i == m.Cursor {
+				avail = selectedAvail
+			}
+			display = truncateWithEllipsis(item, avail)
+		}
+
+		line := listPadding + display
+		if i == m.Cursor {
+			cursorLine = len(lines)
+			line = SubtitleStyle.Render(selectedPrefix + display)
+		}
+		lines = append(lines, m.mouse.Mark(m.itemZoneID(i), line))
+	}
+	return strings.Join(lines, "\n"), cursorLine
 }
 
 /*
@@ -209,7 +292,7 @@ func RunSelector(
 		return "", emptyErr
 	}
 	model := NewSelector(items, prompt, helpMessage...)
-	m, err := tea.NewProgram(&model).Run()
+	m, err := tea.NewProgram(&model, tea.WithMouseCellMotion()).Run()
 	if err != nil {
 		return "", err
 	}

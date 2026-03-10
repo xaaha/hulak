@@ -50,6 +50,7 @@ type Model struct {
 	filtered   []UnifiedOperation
 	cursor     int
 	filterHint string
+	mouse      tui.MouseZone
 	search     tui.TextInput
 	viewport   viewport.Model
 	ready      bool
@@ -118,6 +119,7 @@ func NewModel(
 		objectTypes:     objectTypes,
 		unionTypes:      unionTypes,
 		interfaceTypes:  interfaceTypes,
+		mouse:           tui.NewMouseZone(),
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
@@ -312,6 +314,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateBadgeCache()
 		m.syncViewport()
 		return m, nil
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -322,6 +326,112 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmd = m.updateFocusedViewport(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if tui.IsLeftClick(msg) {
+		if m.handleLeftPanelClick(msg) {
+			return m, nil
+		}
+		if m.handleDetailFormClick(msg) {
+			return m, nil
+		}
+	}
+
+	var cmds []tea.Cmd
+	_, cmd := m.search.Update(msg)
+	cmds = append(cmds, cmd)
+	cmd = m.updateFocusedViewport(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleLeftPanelClick(msg tea.MouseMsg) bool {
+	if !m.ready {
+		return false
+	}
+
+	if tui.Hit(m.searchZoneID(), msg) {
+		m.focus.FocusByNumber(1)
+		m.focus.SetTyping(true)
+		m.syncSearchFocus()
+		m.syncViewport()
+		return true
+	}
+
+	if m.isEndpointMode() {
+		eps := m.filteredEndpoints()
+		for i := range eps {
+			if !tui.Hit(m.endpointZoneID(i), msg) {
+				continue
+			}
+			m.focus.FocusByNumber(1)
+			m.focus.SetTyping(false)
+			m.endpointCursor = i
+			m.syncSearchFocus()
+			if m.isNegatedEndpointSearch() {
+				keep := make(map[string]bool, len(eps))
+				for _, ep := range eps {
+					keep[ep] = true
+				}
+				m.activeEndpoints = keep
+			} else {
+				ep := eps[i]
+				if m.activeEndpoints[ep] {
+					delete(m.activeEndpoints, ep)
+				} else {
+					m.activeEndpoints[ep] = true
+				}
+			}
+			m.updateBadgeCache()
+			m.applyFilter()
+			m.syncViewport()
+			return true
+		}
+		return false
+	}
+
+	for i := range m.filtered {
+		if !tui.Hit(m.operationZoneID(i), msg) {
+			continue
+		}
+		m.focus.FocusByNumber(1)
+		m.focus.SetTyping(false)
+		m.syncSearchFocus()
+		m.cursor = i
+		m.syncViewport()
+		return true
+	}
+	return false
+}
+
+func (m *Model) handleDetailFormClick(msg tea.MouseMsg) bool {
+	if m.detailForm == nil || m.isEndpointMode() {
+		return false
+	}
+	if !m.detailForm.HandleMouse(m.detailMousePrefix(), msg) {
+		return false
+	}
+	m.focus.FocusByNumber(m.detailPanel.Number)
+	m.syncSearchFocus()
+	m.syncViewport()
+	return true
+}
+
+func (m *Model) operationZoneID(index int) string {
+	return m.mouse.ID("operation", strconv.Itoa(index))
+}
+
+func (m *Model) endpointZoneID(index int) string {
+	return m.mouse.ID("endpoint", strconv.Itoa(index))
+}
+
+func (m *Model) detailMousePrefix() string {
+	return m.mouse.ID("detail")
+}
+
+func (m *Model) searchZoneID() string {
+	return m.mouse.ID("search")
 }
 
 var vimToArrowMap = map[string]tea.KeyType{
@@ -716,7 +826,7 @@ func (m *Model) syncViewport() {
 			} else {
 				m.detailForm.BlurAll()
 			}
-			content, cursorLine := m.detailForm.View(op)
+			content, cursorLine := m.detailForm.ViewMarked(op, m.detailMousePrefix(), m.mouse.Mark)
 			m.detailPanel.SyncContent(content, cursorLine)
 			m.detailPanel.Footer = m.detailForm.SearchFooter()
 		} else {
@@ -777,7 +887,7 @@ func (m *Model) View() string {
 			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
 			Render(body)
 
-		return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
+		return tui.ScanMouseZones(lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box))
 	}
 
 	rightW := m.rightPanelWidth()
@@ -816,7 +926,7 @@ func (m *Model) View() string {
 		Height(boxH).
 		Render(body)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box)
+	return tui.ScanMouseZones(lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box))
 }
 
 func RunExplorer(

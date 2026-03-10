@@ -65,10 +65,7 @@ func (d Dropdown) Update(msg tea.Msg) (Dropdown, tea.Cmd) {
 func (d Dropdown) updateCollapsed(msg tea.KeyMsg) (Dropdown, tea.Cmd) {
 	switch msg.String() {
 	case KeyEnter, KeySpace:
-		if len(d.Options) > 0 {
-			d.expanded = true
-			d.cursor = d.Selected
-		}
+		d.Expand()
 	}
 	return d, nil
 }
@@ -150,4 +147,32 @@ func (d Dropdown) Value() string {
 		return ""
 	}
 	return d.Options[d.Selected]
+}
+
+// Expand opens the dropdown and aligns the cursor with the selected option.
+func (d *Dropdown) Expand() {
+	if len(d.Options) == 0 {
+		return
+	}
+	d.expanded = true
+	d.cursor = d.Selected
+}
+
+// Select chooses the option at index and collapses the dropdown.
+func (d *Dropdown) Select(index int) {
+	if len(d.Options) == 0 {
+		d.Selected = 0
+		d.cursor = 0
+		d.expanded = false
+		return
+	}
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(d.Options) {
+		index = len(d.Options) - 1
+	}
+	d.Selected = index
+	d.cursor = index
+	d.expanded = false
 }

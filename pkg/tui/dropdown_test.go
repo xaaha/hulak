@@ -158,6 +158,31 @@ func TestDropdownSelectOnSpace(t *testing.T) {
 	}
 }
 
+func TestDropdownExpandMethod(t *testing.T) {
+	dd := NewDropdown("role", testOptions, 1)
+
+	dd.Expand()
+	if !dd.Expanded() {
+		t.Fatal("expected Expand to open dropdown")
+	}
+	if dd.Cursor() != 1 {
+		t.Fatalf("expected cursor to match selected option, got %d", dd.Cursor())
+	}
+}
+
+func TestDropdownSelectMethod(t *testing.T) {
+	dd := NewDropdown("role", testOptions, 0)
+	dd.Expand()
+
+	dd.Select(2)
+	if dd.Expanded() {
+		t.Fatal("expected Select to collapse dropdown")
+	}
+	if dd.Selected != 2 || dd.Value() != "MODERATOR" {
+		t.Fatalf("Selected = %d, Value = %q; want 2, MODERATOR", dd.Selected, dd.Value())
+	}
+}
+
 func TestDropdownEscCollapsesWithoutChanging(t *testing.T) {
 	dd := NewDropdown("role", testOptions, 0)
 	dd.Focus()
