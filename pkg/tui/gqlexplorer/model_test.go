@@ -620,8 +620,8 @@ func TestViewContainsOperationCount(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, "5/5 operations") {
-		t.Errorf("view should contain '5/5 operations', got:\n%s", view)
+	if !strings.Contains(view, "1/5 operations") {
+		t.Errorf("view should contain '1/5 operations', got:\n%s", view)
 	}
 }
 
@@ -714,8 +714,21 @@ func TestViewFilteredCountUpdates(t *testing.T) {
 	m.applyFilter()
 	view := m.View()
 
-	if !strings.Contains(view, "2/5 operations") {
-		t.Errorf("view should contain '2/5 operations' after filtering, got:\n%s", view)
+	if !strings.Contains(view, "1/2 operations") {
+		t.Errorf("view should contain '1/2 operations' after filtering, got:\n%s", view)
+	}
+}
+
+func TestViewOperationCountTracksCursorPosition(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	m.width = 160
+	m.height = 40
+	m.cursor = 2
+
+	view := m.View()
+
+	if !strings.Contains(view, "3/5 operations") {
+		t.Errorf("view should contain '3/5 operations' for the third selected item, got:\n%s", view)
 	}
 }
 
