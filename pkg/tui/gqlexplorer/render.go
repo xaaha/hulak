@@ -363,7 +363,12 @@ func (m *Model) renderLeftContent() string {
 		eps := m.filteredEndpoints()
 		content += fmt.Sprintf("%d/%d endpoints", len(eps), len(m.endpoints))
 	} else {
-		content += fmt.Sprintf(operationFormat, len(m.filtered), len(m.operations))
+		current := 0
+		total := len(m.filtered)
+		if total > 0 {
+			current = min(m.cursor+1, total)
+		}
+		content += fmt.Sprintf(operationFormat, current, total)
 	}
 	statusLine := tui.HelpStyle.Render(truncateToWidth(content, panelW))
 

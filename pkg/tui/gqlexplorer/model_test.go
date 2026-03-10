@@ -620,8 +620,8 @@ func TestViewContainsOperationCount(t *testing.T) {
 	m.height = 40
 	view := m.View()
 
-	if !strings.Contains(view, "5/5 operations") {
-		t.Errorf("view should contain '5/5 operations', got:\n%s", view)
+	if !strings.Contains(view, "1/5 operations") {
+		t.Errorf("view should contain '1/5 operations', got:\n%s", view)
 	}
 }
 
@@ -714,8 +714,21 @@ func TestViewFilteredCountUpdates(t *testing.T) {
 	m.applyFilter()
 	view := m.View()
 
-	if !strings.Contains(view, "2/5 operations") {
-		t.Errorf("view should contain '2/5 operations' after filtering, got:\n%s", view)
+	if !strings.Contains(view, "1/2 operations") {
+		t.Errorf("view should contain '1/2 operations' after filtering, got:\n%s", view)
+	}
+}
+
+func TestViewOperationCountTracksCursorPosition(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	m.width = 160
+	m.height = 40
+	m.cursor = 2
+
+	view := m.View()
+
+	if !strings.Contains(view, "3/5 operations") {
+		t.Errorf("view should contain '3/5 operations' for the third selected item, got:\n%s", view)
 	}
 }
 
@@ -1577,6 +1590,28 @@ func TestQueryPanelShowsQueryString(t *testing.T) {
 	}
 	if !strings.Contains(view, "id") {
 		t.Error("query string should include selected field 'id'")
+	}
+	if !strings.Contains(view, "Query") {
+		t.Error("view should contain query panel bottom-left label")
+	}
+}
+
+func TestVariablePanelShowsBottomLeftLabelWhenEmpty(t *testing.T) {
+	objTypes := map[string]graphql.ObjectType{
+		"User": {Name: "User", Fields: []graphql.ObjectField{
+			{Name: "id", Type: "ID!"},
+		}},
+	}
+	ops := []UnifiedOperation{{
+		Name: "getUser", Type: TypeQuery, Endpoint: "http://api/gql", ReturnType: "User!",
+	}}
+	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	view := model.View()
+	if !strings.Contains(view, "Variables") {
+		t.Error("view should contain variable panel bottom-left label")
 	}
 }
 

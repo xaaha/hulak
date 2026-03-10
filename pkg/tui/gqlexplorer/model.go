@@ -104,9 +104,9 @@ func NewModel(
 		active[ep] = true
 	}
 	// numbers for navigation.
-	dp := &tui.Panel{Number: 2}
-	qp := &tui.Panel{Number: 3}
-	vp := &tui.Panel{Number: 4}
+	dp := &tui.Panel{Number: 2, Label: "Form"}
+	qp := &tui.Panel{Number: 3, Label: "Query"}
+	vp := &tui.Panel{Number: 4, Label: "Variables"}
 	m := Model{
 		operations:      operations,
 		filtered:        operations,

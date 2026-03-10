@@ -129,6 +129,34 @@ func TestPanelViewContainsLabelInsideBox(t *testing.T) {
 	}
 }
 
+func TestPanelViewShowsBottomLeftLabel(t *testing.T) {
+	p := &Panel{Number: 4, Label: "Variables"}
+	p.Resize(28, 5)
+	p.SetContent("", "")
+
+	view := p.View(false)
+	if !strings.Contains(view, "Variables") {
+		t.Fatalf("expected bottom-left label in view, got:\n%s", view)
+	}
+	if !strings.Contains(view, "[4]") {
+		t.Fatalf("expected panel number in view, got:\n%s", view)
+	}
+}
+
+func TestPanelFooterOverridesGenericLabel(t *testing.T) {
+	p := &Panel{Number: 2, Label: "Variables", Footer: "Search(/)"}
+	p.Resize(32, 5)
+	p.SetContent("", "")
+
+	view := p.View(false)
+	if !strings.Contains(view, "Search(/)") {
+		t.Fatalf("expected footer text in view, got:\n%s", view)
+	}
+	if strings.Contains(view, "Variables") {
+		t.Fatalf("expected generic label to be suppressed when footer is set, got:\n%s", view)
+	}
+}
+
 func TestPanelViewNoLabelWhenNumberZero(t *testing.T) {
 	p := &Panel{Number: 0}
 	p.Resize(20, 5)
@@ -164,16 +192,18 @@ func TestPanelViewAlwaysStartsWithBorder(t *testing.T) {
 
 func TestPanelTitleHeight(t *testing.T) {
 	tests := []struct {
-		name   string
-		number int
-		want   int
+		name  string
+		panel Panel
+		want  int
 	}{
-		{"zero", 0, 0},
-		{"positive", 2, 1},
+		{"empty", Panel{}, 0},
+		{"number", Panel{Number: 2}, 1},
+		{"footer", Panel{Footer: "Search(/)"}, 1},
+		{"label", Panel{Label: "Variables"}, 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			p := &Panel{Number: tc.number}
+			p := &tc.panel
 			if got := p.titleHeight(); got != tc.want {
 				t.Errorf("titleHeight() = %d, want %d", got, tc.want)
 			}
