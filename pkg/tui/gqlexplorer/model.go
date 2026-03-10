@@ -201,6 +201,10 @@ func (m *Model) detailTopHeight() int {
 	return max(m.contentHeight()*tui.DetailTopPct/100, 1)
 }
 
+func (m *Model) detailPanelWidth(rightW int) int {
+	return max(rightW/2, 1)
+}
+
 // gql variable panel height, 2/3 of the remaining height below the top row
 func (m *Model) variablePanelHeight() int {
 	remaining := max(m.contentHeight()-m.detailTopHeight(), 1)
@@ -300,8 +304,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rightW := m.rightPanelWidth()
 		topH := m.detailTopHeight()
 		variableH := m.variablePanelHeight()
-		detailW := max(rightW/2, 1) // split the top row evenly
-		detailH := topH             // detail panel height uses the full top-row height
+		detailW := m.detailPanelWidth(rightW) // split the top row evenly in half
+		detailH := topH                       // detail panel height uses the full top-row height
 		m.detailPanel.Resize(detailW, detailH)
 		m.queryPanel.Resize(max(rightW-detailW, 1), detailH)
 		m.variablePanel.Resize(max(rightW-detailW, 1), variableH)
@@ -790,7 +794,7 @@ func (m *Model) View() string {
 	}
 
 	topRight := lipgloss.JoinHorizontal(lipgloss.Top, detailView, queryView)
-	detailW := max(rightW*tui.DetailPanelWPct/100, 1)
+	detailW := m.detailPanelWidth(rightW)
 	middleRight := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		lipgloss.NewStyle().Width(detailW).Height(m.variablePanelHeight()).Render(""),
