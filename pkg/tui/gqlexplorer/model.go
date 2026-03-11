@@ -32,7 +32,7 @@ const (
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpVariablePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
-	helpResponsePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | /: search | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpResponsePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | /: search | Ctrl+s: save | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -666,8 +666,16 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmd := m.executeQuery()
 		return m, cmd
 	}
-	if msg.String() == tui.KeySave && m.responseBody != "" {
+	if msg.String() == tui.KeySave && m.responseBody != "" && m.focus.IsFocused(m.responsePanel) {
 		cmd := m.saveResponse()
+		return m, cmd
+	}
+	if msg.String() == tui.KeySaveQuery {
+		cmd := m.saveQueryAndVariables()
+		return m, cmd
+	}
+	if msg.String() == tui.KeyCreateRequest {
+		cmd := m.createHulakRequestFile()
 		return m, cmd
 	}
 	if msg.String() == tui.KeyAt && !m.search.Model.Focused() &&
@@ -904,6 +912,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.focus.SetTyping(true)
 				}
 				m.syncSearchFocus()
+				m.syncViewport()
 			}
 			return m, nil
 		}
@@ -999,6 +1008,7 @@ func (m *Model) executeQuery() tea.Cmd {
 	m.responseColoredBody = ""
 	m.responseStatusCode = 0
 	m.responseDuration = ""
+	m.responsePanel.SetHeader("")
 	m.responsePanel.SetContent(tui.HelpStyle.Render("Executing..."), "")
 	m.responsePanel.Footer = ""
 	m.updateActionRow()
@@ -1096,7 +1106,7 @@ func (m *Model) saveResponse() tea.Cmd {
 	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.FilePer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
 	}
-	return m.enqueueNotification(tui.NotificationInfo, "Saved to "+fullPath)
+	return m.enqueueNotification(tui.NotificationInfo, "Saved "+relativePath(fullPath))
 }
 
 func (m *Model) responseSaveDir(endpoint string) string {
@@ -1111,11 +1121,14 @@ func (m *Model) responseSaveDir(endpoint string) string {
 
 func (m *Model) setResponseContent() {
 	header := m.responseHeader()
-	content := m.responseColoredBody
 	if header != "" {
-		content = header + "\n" + content
+		header = lipgloss.NewStyle().
+			Width(m.responsePanel.Width()).
+			Align(lipgloss.Center).
+			Render(header)
 	}
-	m.responsePanel.SetContent(content, "")
+	m.responsePanel.SetHeader(header)
+	m.responsePanel.SetContent(m.responseColoredBody, "")
 }
 
 func (m *Model) responseHeader() string {
@@ -1137,10 +1150,12 @@ func (m *Model) responseHeader() string {
 		parts = append(parts, tui.HelpStyle.Render(m.responseDuration))
 	}
 	saveColor := tui.ColorMuted
+	saveLabel := "Save"
 	if focused {
 		saveColor = badgeColor[TypeMutation]
+		saveLabel = "Save Ctrl+S"
 	}
-	saveChip := tui.RenderChip("Save", tui.ChipVariantBadge, saveColor)
+	saveChip := tui.RenderChip(saveLabel, tui.ChipVariantBadge, saveColor)
 	parts = append(parts,
 		tui.HelpStyle.Render(formatResponseSize(len(m.responseBody))),
 		m.mouse.Mark(m.saveZoneID(), saveChip),
@@ -1212,15 +1227,8 @@ func (m *Model) scrollResponseToMatch() {
 	}
 
 	content := strings.Join(coloredLines, "\n")
-	header := m.responseHeader()
-	offset := 0
-	if header != "" {
-		content = header + "\n" + content
-		offset = 1
-	}
-
-	m.responsePanel.SyncContent(content, matchLine+offset)
-	m.responsePanel.EnsureVisible(matchLine+offset, colStart, colEnd)
+	m.responsePanel.SyncContent(content, matchLine)
+	m.responsePanel.EnsureVisible(matchLine, colStart, colEnd)
 }
 
 func (m *Model) handleBottomAction(id string) tea.Cmd {
@@ -1236,6 +1244,10 @@ func (m *Model) handleBottomAction(id string) tea.Cmd {
 		return m.executeQuery()
 	case "save":
 		return m.saveResponse()
+	case "saveQuery":
+		return m.saveQueryAndVariables()
+	case "createRequest":
+		return m.createHulakRequestFile()
 	default:
 		return nil
 	}
@@ -1287,25 +1299,41 @@ func (m *Model) canSend() bool {
 	return ok
 }
 
+func (m *Model) canSaveOrCreate() bool {
+	return len(m.filtered) > 0 && m.cursor < len(m.filtered)
+}
+
 func (m *Model) updateActionRow() {
 	items := []tui.ActionItem{
 		{
 			ID:      "refresh",
-			Label:   "Refresh  ctrl+r",
+			Label:   "Refresh         ctrl+r",
 			Key:     tui.KeyRefresh,
 			Enabled: m.refreshFn != nil && !m.refreshing,
 		},
 		{
 			ID:      "send",
-			Label:   "Send     ctrl+g",
+			Label:   "Send            ctrl+g",
 			Key:     tui.KeySend,
 			Enabled: m.canSend(),
 		},
 		{
+			ID:      "saveQuery",
+			Label:   "Save Query      ctrl+q",
+			Key:     tui.KeySaveQuery,
+			Enabled: m.canSaveOrCreate(),
+		},
+		{
+			ID:      "createRequest",
+			Label:   "Save Request    ctrl+h",
+			Key:     tui.KeyCreateRequest,
+			Enabled: m.canSaveOrCreate(),
+		},
+		{
 			ID:      "save",
-			Label:   "Save     ctrl+s",
+			Label:   "Save Response   ctrl+s",
 			Key:     tui.KeySave,
-			Enabled: m.responseBody != "",
+			Enabled: m.responseBody != "" && m.focus.IsFocused(m.responsePanel),
 		},
 	}
 	m.actionRow.SetItems(items)
@@ -1445,6 +1473,7 @@ func (m *Model) syncViewport() {
 		m.detailPanel.SetContent("", "")
 		m.queryPanel.SetContent("", "")
 		m.variablePanel.SetContent("", "")
+		m.responsePanel.SetHeader("")
 		m.responsePanel.SetContent("", "")
 	}
 }

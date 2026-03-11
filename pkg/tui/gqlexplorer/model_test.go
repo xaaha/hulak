@@ -1786,11 +1786,14 @@ func TestViewShowsRefreshButtonInCallArea(t *testing.T) {
 	model := result.(*Model)
 
 	view := model.View()
-	if !strings.Contains(view, "Refresh  ctrl+r") {
+	if !strings.Contains(view, "Refresh") || !strings.Contains(view, "ctrl+r") {
 		t.Fatalf("expected refresh button in view, got:\n%s", view)
 	}
-	if !strings.Contains(view, "Send     ctrl+g") || !strings.Contains(view, "Save     ctrl+s") {
-		t.Fatalf("expected action panel placeholders in view, got:\n%s", view)
+	if !strings.Contains(view, "Send") || !strings.Contains(view, "ctrl+g") {
+		t.Fatalf("expected send action in view, got:\n%s", view)
+	}
+	if !strings.Contains(view, "Save Response") || !strings.Contains(view, "ctrl+s") {
+		t.Fatalf("expected save response action in view, got:\n%s", view)
 	}
 }
 

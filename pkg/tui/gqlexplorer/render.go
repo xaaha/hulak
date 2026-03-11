@@ -156,10 +156,11 @@ func (m *Model) renderActionsPanel(width, height int) string {
 	body := lipgloss.NewStyle().
 		Width(width).
 		Height(max(height-1, 1)).
+		Align(lipgloss.Center).
 		Render(lines)
 
 	return lipgloss.JoinVertical(
-		lipgloss.Left,
+		lipgloss.Center,
 		title,
 		body,
 	)

@@ -210,3 +210,60 @@ func TestPanelTitleHeight(t *testing.T) {
 		})
 	}
 }
+
+func TestPanelHeaderHeight(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		want   int
+	}{
+		{"empty", "", 0},
+		{"single_line", "Status: 200", 1},
+		{"two_lines", "Line1\nLine2", 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Panel{Header: tc.header}
+			if got := p.headerHeight(); got != tc.want {
+				t.Errorf("headerHeight() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPanelSetHeaderRecalcsViewportHeight(t *testing.T) {
+	p := &Panel{Number: 1}
+	p.Resize(30, 10)
+
+	borderH := panelBorderStyle.GetVerticalFrameSize()
+	hNoHeader := 10 - borderH - p.titleHeight()
+	if p.viewport.Height != hNoHeader {
+		t.Fatalf("before SetHeader: viewport height = %d, want %d", p.viewport.Height, hNoHeader)
+	}
+
+	p.SetHeader("Header Line")
+	hWithHeader := 10 - borderH - p.titleHeight() - p.headerHeight()
+	if p.viewport.Height != hWithHeader {
+		t.Errorf("after SetHeader: viewport height = %d, want %d", p.viewport.Height, hWithHeader)
+	}
+
+	p.SetHeader("")
+	if p.viewport.Height != hNoHeader {
+		t.Errorf("after clearing header: viewport height = %d, want %d", p.viewport.Height, hNoHeader)
+	}
+}
+
+func TestPanelViewContainsHeader(t *testing.T) {
+	p := &Panel{Number: 5}
+	p.Resize(40, 10)
+	p.SetHeader("200 OK  1.2s")
+	p.SetContent("response body", "")
+
+	view := p.View(true)
+	if !strings.Contains(view, "200 OK  1.2s") {
+		t.Errorf("expected header text in view, got:\n%s", view)
+	}
+	if !strings.Contains(view, "response body") {
+		t.Errorf("expected body text in view, got:\n%s", view)
+	}
+}
