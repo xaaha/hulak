@@ -70,8 +70,14 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 		return m.enqueueNotification(tui.NotificationError, "Empty query")
 	}
 
+	var stamp string
 	gqlFileName := op.Name + ".gql"
 	gqlPath := filepath.Join(dir, gqlFileName)
+	if fileExists(gqlPath) {
+		stamp = time.Now().Format("20060102-150405")
+		gqlFileName = op.Name + "-" + stamp + ".gql"
+		gqlPath = filepath.Join(dir, gqlFileName)
+	}
 	if err := os.WriteFile(gqlPath, []byte(query), utils.FilePer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save .gql failed: "+err.Error())
 	}
@@ -87,7 +93,9 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 	yamlFileName := op.Name + ".hk.yaml"
 	yamlPath := filepath.Join(dir, yamlFileName)
 	if fileExists(yamlPath) {
-		stamp := time.Now().Format("20060102-150405")
+		if stamp == "" {
+			stamp = time.Now().Format("20060102-150405")
+		}
 		yamlFileName = op.Name + "-" + stamp + ".hk.yaml"
 		yamlPath = filepath.Join(dir, yamlFileName)
 	}

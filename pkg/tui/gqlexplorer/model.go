@@ -377,6 +377,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case queryErrorMsg:
 		m.executing = false
+		m.clearResponse()
 		m.updateActionRow()
 		cmd := m.enqueueNotification(tui.NotificationError, msg.err.Error())
 		return m, cmd
@@ -1025,14 +1026,8 @@ func (m *Model) executeQuery() tea.Cmd {
 
 	m.executing = true
 	m.spinnerFrame = 0
-	m.responseSearch.Stop()
-	m.responseBody = ""
-	m.responseColoredBody = ""
-	m.responseStatusCode = 0
-	m.responseDuration = ""
-	m.responsePanel.SetHeader("")
+	m.clearResponse()
 	m.responsePanel.SetContent(m.spinnerContent(), "")
-	m.responsePanel.Footer = ""
 	m.updateActionRow()
 
 	apiCall := func() tea.Msg {
@@ -1043,6 +1038,17 @@ func (m *Model) executeQuery() tea.Cmd {
 		return queryExecutedMsg{resp: resp}
 	}
 	return tea.Batch(apiCall, spinnerTick())
+}
+
+func (m *Model) clearResponse() {
+	m.responseSearch.Stop()
+	m.responseBody = ""
+	m.responseColoredBody = ""
+	m.responseStatusCode = 0
+	m.responseDuration = ""
+	m.responsePanel.SetHeader("")
+	m.responsePanel.SetContent("", "")
+	m.responsePanel.Footer = ""
 }
 
 func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
@@ -1458,6 +1464,9 @@ func (m *Model) syncViewport() {
 			}
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
+			if !m.executing {
+				m.clearResponse()
+			}
 		}
 
 		if m.detailForm != nil {
