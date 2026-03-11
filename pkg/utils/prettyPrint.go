@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/fatih/color"
 )
 
@@ -35,6 +36,24 @@ func (f fatihColorProvider) ColorNumber(s string) string { return cyan.Sprint(s)
 func (f fatihColorProvider) ColorBool(s string) string   { return yellow.Sprint(s) }
 func (f fatihColorProvider) ColorNull(s string) string   { return magenta.Sprint(s) }
 func (f fatihColorProvider) ColorKey(s string) string    { return s }
+
+// LipglossColorProvider implements ColorProvider using lipgloss AdaptiveColor
+// for TUI-compatible JSON coloring that respects light/dark terminal themes.
+type LipglossColorProvider struct{}
+
+var (
+	lgGreen   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "114"})
+	lgCyan    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "116"})
+	lgYellow  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "130", Dark: "214"})
+	lgMagenta = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "90", Dark: "170"})
+	lgKey     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "252"})
+)
+
+func (l LipglossColorProvider) ColorString(s string) string { return lgGreen.Render(s) }
+func (l LipglossColorProvider) ColorNumber(s string) string { return lgCyan.Render(s) }
+func (l LipglossColorProvider) ColorBool(s string) string   { return lgYellow.Render(s) }
+func (l LipglossColorProvider) ColorNull(s string) string   { return lgMagenta.Render(s) }
+func (l LipglossColorProvider) ColorKey(s string) string    { return lgKey.Render(s) }
 
 // FormatJSONColored formats JSON data as an indented, colored string using the given ColorProvider.
 func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
