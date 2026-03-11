@@ -1717,7 +1717,7 @@ func TestSearchConfirmKeepsCursor(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
 
-	df.searchInput.Model.SetValue("email")
+	df.search.SetQuery("email")
 	df.updateSearchMatches()
 
 	matched := df.cursor
@@ -1732,17 +1732,17 @@ func TestSearchMatchesByName(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
 
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
 
-	if len(df.matchIndices) != 2 {
+	if df.search.MatchCount() != 2 {
 		t.Fatalf(
 			"expected 2 matches for 'name' (firstName, lastName), got %d",
-			len(df.matchIndices),
+			df.search.MatchCount(),
 		)
 	}
-	if df.cursor != df.matchIndices[0] {
-		t.Errorf("cursor should be at first match %d, got %d", df.matchIndices[0], df.cursor)
+	if df.cursor != df.search.CurrentMatch() {
+		t.Errorf("cursor should be at first match %d, got %d", df.search.CurrentMatch(), df.cursor)
 	}
 }
 
@@ -1750,10 +1750,10 @@ func TestSearchCaseInsensitive(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
 
-	df.searchInput.Model.SetValue("EMAIL")
+	df.search.SetQuery("EMAIL")
 	df.updateSearchMatches()
 
-	if len(df.matchIndices) == 0 {
+	if df.search.MatchCount() == 0 {
 		t.Fatal("expected match for uppercase 'EMAIL'")
 	}
 }
@@ -1762,14 +1762,15 @@ func TestSearchNoMatches(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
 
-	df.searchInput.Model.SetValue("zzz")
+	df.search.SetQuery("zzz")
 	df.updateSearchMatches()
 
-	if len(df.matchIndices) != 0 {
-		t.Fatalf("expected 0 matches, got %d", len(df.matchIndices))
+	if df.search.MatchCount() != 0 {
+		t.Fatalf("expected 0 matches, got %d", df.search.MatchCount())
 	}
-	if status := df.searchStatus(); status != "no matches" {
-		t.Errorf("status = %q, want 'no matches'", status)
+	footer := df.SearchFooter()
+	if !strings.Contains(footer, "no matches") {
+		t.Errorf("footer = %q, want to contain 'no matches'", footer)
 	}
 }
 
@@ -1777,29 +1778,31 @@ func TestSearchNextPrevMatch(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
 
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
-	if len(df.matchIndices) < 2 {
+	if df.search.MatchCount() < 2 {
 		t.Fatal("need at least 2 matches")
 	}
 
-	first := df.matchIndices[0]
-	second := df.matchIndices[1]
+	first := df.cursor
 
-	df.nextMatch()
-	if df.cursor != second {
-		t.Errorf("after nextMatch: cursor = %d, want %d", df.cursor, second)
-	}
-	if df.searchStatus() != "2/2" {
-		t.Errorf("status = %q, want '2/2'", df.searchStatus())
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyDown})
+	second := df.cursor
+	if second == first {
+		t.Error("Down should cycle to next match")
 	}
 
-	df.nextMatch()
+	footer := df.SearchFooter()
+	if !strings.Contains(footer, "2/2") {
+		t.Errorf("footer = %q, want to contain '2/2'", footer)
+	}
+
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyDown})
 	if df.cursor != first {
 		t.Error("nextMatch should wrap around to first match")
 	}
 
-	df.prevMatch()
+	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyUp})
 	if df.cursor != second {
 		t.Error("prevMatch should wrap around to last match")
 	}
@@ -1808,7 +1811,7 @@ func TestSearchNextPrevMatch(t *testing.T) {
 func TestSearchHandleKeyEnterConfirms(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
-	df.searchInput.Model.SetValue("email")
+	df.search.SetQuery("email")
 	df.updateSearchMatches()
 
 	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyEnter})
@@ -1822,7 +1825,7 @@ func TestSearchHandleKeyEscCancels(t *testing.T) {
 	df := searchFormHelper()
 	original := df.cursor
 	df.StartSearch()
-	df.searchInput.Model.SetValue("email")
+	df.search.SetQuery("email")
 	df.updateSearchMatches()
 
 	df.HandleSearchKey(tea.KeyMsg{Type: tea.KeyEscape})
@@ -1838,7 +1841,7 @@ func TestSearchHandleKeyEscCancels(t *testing.T) {
 func TestSearchHandleKeyArrowsCycleMatches(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
 
 	first := df.cursor
@@ -1865,7 +1868,7 @@ func TestSearchFooterRendering(t *testing.T) {
 		t.Fatalf("footer should contain label, got %q", footer)
 	}
 
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
 	footer = df.SearchFooter()
 	if !strings.Contains(footer, "1/2") {
@@ -1881,11 +1884,11 @@ func TestSearchFooterRendering(t *testing.T) {
 func TestMatchesClearedAfterConfirm(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
 
 	df.StopSearch(true)
-	if len(df.matchIndices) != 0 {
+	if df.search.MatchCount() != 0 {
 		t.Fatal("matches should be cleared after confirm")
 	}
 }
@@ -1893,11 +1896,11 @@ func TestMatchesClearedAfterConfirm(t *testing.T) {
 func TestMatchesClearedAfterCancel(t *testing.T) {
 	df := searchFormHelper()
 	df.StartSearch()
-	df.searchInput.Model.SetValue("name")
+	df.search.SetQuery("name")
 	df.updateSearchMatches()
 
 	df.StopSearch(false)
-	if len(df.matchIndices) != 0 {
+	if df.search.MatchCount() != 0 {
 		t.Fatal("matches should be cleared after cancel")
 	}
 }

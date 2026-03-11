@@ -37,6 +37,9 @@ func (ps *PanelSearch) Active() bool { return ps.active }
 // Query returns the current raw search text.
 func (ps *PanelSearch) Query() string { return ps.input.Model.Value() }
 
+// SetQuery replaces the current search text programmatically.
+func (ps *PanelSearch) SetQuery(value string) { ps.input.Model.SetValue(value) }
+
 // MatchCount returns how many matches are currently tracked.
 func (ps *PanelSearch) MatchCount() int { return len(ps.matchIndices) }
 

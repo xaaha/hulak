@@ -370,11 +370,8 @@ type DetailForm struct {
 	objectTypes map[string]graphql.ObjectType
 	endpoint    string
 
-	// ── Search state (vim-style / search) ──────────────────────
-	searching       bool
-	searchInput     tui.TextInput
-	matchIndices    []int
-	matchCursor     int
+	// Search state (vim-style / search)
+	search          tui.PanelSearch
 	preSearchCursor int
 }
 
@@ -440,13 +437,6 @@ func buildDetailForm(
 		return nil
 	}
 
-	si := tui.NewFilterInput(tui.TextInputOpts{
-		Prompt:      "",
-		Placeholder: "",
-		MinWidth:    10,
-	})
-	si.Model.Blur()
-
 	return &DetailForm{
 		items:       items,
 		cursor:      0,
@@ -455,7 +445,7 @@ func buildDetailForm(
 		enumTypes:   enumTypes,
 		objectTypes: objectTypes,
 		endpoint:    op.Endpoint,
-		searchInput: si,
+		search:      tui.NewPanelSearch(),
 	}
 }
 
@@ -659,108 +649,63 @@ func (df *DetailForm) CursorToBottom() {
 	df.FocusCurrent()
 }
 
-// ── Search ─────────────────────────────────────────────────
+// Search
 
-func (df *DetailForm) IsSearching() bool { return df.searching }
+func (df *DetailForm) IsSearching() bool { return df.search.Active() }
 
 func (df *DetailForm) StartSearch() {
-	df.searching = true
 	df.preSearchCursor = df.cursor
-	df.searchInput.Model.SetValue("")
-	df.searchInput.Model.Focus()
-	df.matchIndices = nil
-	df.matchCursor = 0
+	df.search.Start()
 }
 
 func (df *DetailForm) StopSearch(confirm bool) {
-	df.searching = false
-	df.searchInput.Model.Blur()
+	df.search.Stop()
 	if !confirm {
 		df.cursor = df.preSearchCursor
 		df.FocusCurrent()
 	}
-	df.matchIndices = nil
 }
 
 func (df *DetailForm) updateSearchMatches() {
-	query := strings.ToLower(df.searchInput.Model.Value())
-	df.matchIndices = nil
-	if query == "" {
-		return
-	}
-	for i := range df.items {
-		if strings.Contains(strings.ToLower(df.items[i].name), query) {
-			df.matchIndices = append(df.matchIndices, i)
+	query := strings.ToLower(df.search.Query())
+	var indices []int
+	if query != "" {
+		for i := range df.items {
+			if strings.Contains(strings.ToLower(df.items[i].name), query) {
+				indices = append(indices, i)
+			}
 		}
 	}
-	if len(df.matchIndices) > 0 {
-		df.matchCursor = 0
-		df.cursor = df.matchIndices[0]
+	df.search.SetMatches(indices)
+	df.syncSearchCursor()
+}
+
+func (df *DetailForm) syncSearchCursor() {
+	if m := df.search.CurrentMatch(); m >= 0 {
+		df.cursor = m
 		df.FocusCurrent()
 	}
 }
 
-func (df *DetailForm) nextMatch() {
-	if len(df.matchIndices) == 0 {
-		return
-	}
-	df.matchCursor = (df.matchCursor + 1) % len(df.matchIndices)
-	df.cursor = df.matchIndices[df.matchCursor]
-	df.FocusCurrent()
-}
-
-func (df *DetailForm) prevMatch() {
-	if len(df.matchIndices) == 0 {
-		return
-	}
-	df.matchCursor--
-	if df.matchCursor < 0 {
-		df.matchCursor = len(df.matchIndices) - 1
-	}
-	df.cursor = df.matchIndices[df.matchCursor]
-	df.FocusCurrent()
-}
-
-func (df *DetailForm) searchStatus() string {
-	if df.searchInput.Model.Value() == "" {
-		return ""
-	}
-	if len(df.matchIndices) == 0 {
-		return "no matches"
-	}
-	return fmt.Sprintf("%d/%d", df.matchCursor+1, len(df.matchIndices))
-}
-
 func (df *DetailForm) SearchFooter() string {
-	if !df.searching {
-		return ""
-	}
-	label := lipgloss.NewStyle().Foreground(tui.ColorPrimary).Render("Search(/)")
-	input := df.searchInput.Model.View()
-	result := label + " " + input
-	if status := df.searchStatus(); status != "" {
-		result += "  " + tui.HelpStyle.Render(status)
-	}
-	return result
+	return df.search.Footer()
 }
 
 func (df *DetailForm) HandleSearchKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.String() {
-	case tui.KeyEnter:
-		df.StopSearch(true)
-		return nil
-	case tui.KeyCancel:
-		df.StopSearch(false)
-		return nil
-	case tui.KeyUp, tui.KeyCtrlP:
-		df.prevMatch()
-		return nil
-	case tui.KeyDown, tui.KeyCtrlN:
-		df.nextMatch()
-		return nil
+	stopped, confirmed, cmd := df.search.HandleKey(msg)
+	if stopped {
+		if !confirmed {
+			df.cursor = df.preSearchCursor
+			df.FocusCurrent()
+		}
+		return cmd
 	}
-	_, cmd := df.searchInput.Update(msg)
-	df.updateSearchMatches()
+	switch msg.String() {
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN:
+		df.syncSearchCursor()
+	default:
+		df.updateSearchMatches()
+	}
 	return cmd
 }
 
