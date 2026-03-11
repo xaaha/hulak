@@ -29,7 +29,7 @@ const (
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpVariablePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
-	helpResponsePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
+	helpResponsePanel     = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | /: search | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	searchPlaceholderText = "filter operations..."
 	minHeaderContentWidth = 111
 )
@@ -105,23 +105,26 @@ type Model struct {
 	endpointCursor  int
 	badgeCache      string
 
-	detailPanel   *tui.Panel
-	variablePanel *tui.Panel
-	detailForm    *DetailForm
-	detailFormKey string
-	formCache     map[string]*DetailForm
-	queryPanel    *tui.Panel
-	responsePanel *tui.Panel
-	responseBody  string
-	executing     bool
-	focus         tui.FocusRing
-	pendingG      bool
-	helpBarH      int
-	refreshFn     RefreshFunc
-	refreshing    bool
-	notification  tui.NotificationCenter
-	actionRow     tui.ActionRow
-	initCmd       tea.Cmd
+	detailPanel         *tui.Panel
+	variablePanel       *tui.Panel
+	detailForm          *DetailForm
+	detailFormKey       string
+	formCache           map[string]*DetailForm
+	queryPanel          *tui.Panel
+	responsePanel       *tui.Panel
+	responseBody        string
+	responseColoredBody string
+	responseStatusLine  string
+	responseSearch      tui.PanelSearch
+	executing           bool
+	focus               tui.FocusRing
+	pendingG            bool
+	helpBarH            int
+	refreshFn           RefreshFunc
+	refreshing          bool
+	notification        tui.NotificationCenter
+	actionRow           tui.ActionRow
+	initCmd             tea.Cmd
 }
 
 func NewModel(
@@ -172,15 +175,16 @@ func NewModel(
 			Prompt:      "[1] Search: ",
 			Placeholder: searchPlaceholderText,
 		}),
-		detailPanel:   dp,
-		variablePanel: vp,
-		formCache:     make(map[string]*DetailForm),
-		queryPanel:    qp,
-		responsePanel: rp,
-		focus:         tui.NewFocusRing([]*tui.Panel{dp, qp, vp, rp}),
-		helpBarH:      tui.HelpBarHeight,
-		notification:  tui.NewNotificationCenter(),
-		actionRow:     tui.NewActionRow(),
+		detailPanel:    dp,
+		variablePanel:  vp,
+		formCache:      make(map[string]*DetailForm),
+		queryPanel:     qp,
+		responsePanel:  rp,
+		responseSearch: tui.NewPanelSearch(),
+		focus:          tui.NewFocusRing([]*tui.Panel{dp, qp, vp, rp}),
+		helpBarH:       tui.HelpBarHeight,
+		notification:   tui.NewNotificationCenter(),
+		actionRow:      tui.NewActionRow(),
 	}
 	m.focus.SetTyping(true)
 	m.syncSearchFocus()
@@ -683,6 +687,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	if m.focus.IsFocused(m.responsePanel) && m.responseSearch.Active() {
+		if msg.String() == tui.KeyQuit {
+			return m, tea.Quit
+		}
+		cmd := m.handleResponseSearchKey(msg)
+		return m, cmd
+	}
+
 	switch msg.String() {
 	case tui.KeyQuit:
 		return m, tea.Quit
@@ -853,6 +865,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.syncViewport()
 			return m, nil
 		}
+		if m.focus.IsFocused(m.responsePanel) && m.responseBody != "" {
+			m.responseSearch.Start()
+			m.syncResponseFooter()
+			return m, nil
+		}
 
 	// Yank: copy focused panel content to system clipboard
 	case tui.KeyYank:
@@ -934,12 +951,18 @@ func (m *Model) executeQuery() tea.Cmd {
 	op := &m.filtered[m.cursor]
 
 	if op.Type == TypeSubscription {
-		return m.enqueueNotification(tui.NotificationWarn, "Subscriptions cannot be executed from the explorer")
+		return m.enqueueNotification(
+			tui.NotificationWarn,
+			"Subscriptions execution is not supported yet",
+		)
 	}
 
 	info, ok := m.apiInfos[op.Endpoint]
 	if !ok {
-		return m.enqueueNotification(tui.NotificationError, "No API configuration found for "+op.Endpoint)
+		return m.enqueueNotification(
+			tui.NotificationError,
+			"No API configuration found for "+op.Endpoint,
+		)
 	}
 
 	query := BuildQueryString(op, m.detailForm)
@@ -957,6 +980,10 @@ func (m *Model) executeQuery() tea.Cmd {
 	apiInfo.Body = body
 
 	m.executing = true
+	m.responseSearch.Stop()
+	m.responseBody = ""
+	m.responseColoredBody = ""
+	m.responseStatusLine = ""
 	m.responsePanel.SetContent(tui.HelpStyle.Render("Executing..."), "")
 	m.responsePanel.Footer = ""
 	m.updateActionRow()
@@ -982,11 +1009,13 @@ func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 
 	colored, err := utils.FormatJSONColored(bodyJSON, utils.LipglossColorProvider{})
 	if err != nil {
-		m.responsePanel.SetContent(m.responseBody, "")
+		m.responseColoredBody = m.responseBody
 	} else {
-		m.responsePanel.SetContent(colored, "")
+		m.responseColoredBody = colored
 	}
+	m.responsePanel.SetContent(m.responseColoredBody, "")
 	m.responsePanel.GotoTop()
+	m.responseSearch.Stop()
 
 	var parts []string
 	if msg.resp.Response != nil {
@@ -995,8 +1024,51 @@ func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 	if msg.resp.Duration != "" {
 		parts = append(parts, msg.resp.Duration)
 	}
-	if len(parts) > 0 {
-		m.responsePanel.Footer = strings.Join(parts, "  ")
+	m.responseStatusLine = strings.Join(parts, "  ")
+	m.responsePanel.Footer = m.responseStatusLine
+}
+
+func (m *Model) handleResponseSearchKey(msg tea.KeyMsg) tea.Cmd {
+	stopped, _, cmd := m.responseSearch.HandleKey(msg)
+	if stopped {
+		m.syncResponseFooter()
+		return cmd
+	}
+	switch msg.String() {
+	case tui.KeyUp, tui.KeyCtrlP, tui.KeyDown, tui.KeyCtrlN:
+		m.scrollResponseToMatch()
+	default:
+		m.updateResponseSearchMatches()
+	}
+	m.syncResponseFooter()
+	return cmd
+}
+
+func (m *Model) updateResponseSearchMatches() {
+	query := strings.ToLower(m.responseSearch.Query())
+	var indices []int
+	if query != "" {
+		for i, line := range strings.Split(m.responseBody, "\n") {
+			if strings.Contains(strings.ToLower(line), query) {
+				indices = append(indices, i)
+			}
+		}
+	}
+	m.responseSearch.SetMatches(indices)
+	m.scrollResponseToMatch()
+}
+
+func (m *Model) syncResponseFooter() {
+	if footer := m.responseSearch.Footer(); footer != "" {
+		m.responsePanel.Footer = footer
+	} else {
+		m.responsePanel.Footer = m.responseStatusLine
+	}
+}
+
+func (m *Model) scrollResponseToMatch() {
+	if line := m.responseSearch.CurrentMatch(); line >= 0 {
+		m.responsePanel.SyncContent(m.responseColoredBody, line)
 	}
 }
 
@@ -1229,6 +1301,8 @@ func (m *Model) renderHelpBar(width int) string {
 		raw = helpQueryPanel
 	case m.focus.IsFocused(m.variablePanel):
 		raw = helpVariablePanel
+	case m.focus.IsFocused(m.responsePanel) && m.responseSearch.Active():
+		raw = helpSearchPanel
 	case m.focus.IsFocused(m.responsePanel):
 		raw = helpResponsePanel
 	case m.focus.IsFocused(m.detailPanel) && m.detailForm != nil && m.detailForm.IsSearching():
@@ -1322,7 +1396,15 @@ func RunExplorer(
 	unionTypes map[string]graphql.UnionType,
 	interfaceTypes map[string]graphql.InterfaceType,
 ) error {
-	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes, make(map[string]yamlparser.APIInfo))
+	model := NewModel(
+		operations,
+		inputTypes,
+		enumTypes,
+		objectTypes,
+		unionTypes,
+		interfaceTypes,
+		make(map[string]yamlparser.APIInfo),
+	)
 	return runExplorerModel(&model)
 }
 
