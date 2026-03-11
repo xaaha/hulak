@@ -1242,8 +1242,6 @@ func (m *Model) handleBottomAction(id string) tea.Cmd {
 		return m.startRefresh()
 	case "send":
 		return m.executeQuery()
-	case "save":
-		return m.saveResponse()
 	case "saveQuery":
 		return m.saveQueryAndVariables()
 	case "createRequest":
@@ -1328,12 +1326,6 @@ func (m *Model) updateActionRow() {
 			Label:   "Save Request    ctrl+h",
 			Key:     tui.KeyCreateRequest,
 			Enabled: m.canSaveOrCreate(),
-		},
-		{
-			ID:      "save",
-			Label:   "Save Response   ctrl+s",
-			Key:     tui.KeySave,
-			Enabled: m.responseBody != "" && m.focus.IsFocused(m.responsePanel),
 		},
 	}
 	m.actionRow.SetItems(items)

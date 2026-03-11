@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	yaml "github.com/goccy/go-yaml"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
@@ -75,8 +76,13 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 		return m.enqueueNotification(tui.NotificationError, "Save .gql failed: "+err.Error())
 	}
 
+	var raw rawParentFields
+	if parentPath, ok := m.schemaFilePaths[op.Endpoint]; ok && parentPath != "" {
+		raw, _ = readRawParentFields(parentPath) // best-effort; zero-value falls back to resolved
+	}
+
 	gqlRelPath := relativePath(gqlPath)
-	yamlContent := buildHkYaml(op, m.detailForm, m.apiInfos, gqlRelPath)
+	yamlContent := buildHkYaml(op, m.detailForm, m.apiInfos, gqlRelPath, raw)
 
 	yamlFileName := op.Name + ".hk.yaml"
 	yamlPath := filepath.Join(dir, yamlFileName)
@@ -101,16 +107,32 @@ func buildHkYaml(
 	df *DetailForm,
 	apiInfos map[string]yamlparser.APIInfo,
 	gqlRelPath string,
+	raw rawParentFields,
 ) string {
 	var sb strings.Builder
-	sb.WriteString("---\nmethod: POST\n")
-	fmt.Fprintf(&sb, "url: %q\n", op.Endpoint)
+	sb.WriteString("---\nmethod: POST\nkind: GraphQL\n")
 
-	info, hasInfo := apiInfos[op.Endpoint]
-	if hasInfo && len(info.Headers) > 0 {
+	url := raw.url
+	if url == "" {
+		url = op.Endpoint
+	}
+	fmt.Fprintf(&sb, "url: %q\n", url)
+
+	headers := raw.headers
+	if len(headers) == 0 {
+		if info, ok := apiInfos[op.Endpoint]; ok && len(info.Headers) > 0 {
+			headers = info.Headers
+		}
+	}
+	if len(headers) > 0 {
 		sb.WriteString("headers:\n")
-		for _, k := range sortedKeys(info.Headers) {
-			fmt.Fprintf(&sb, "  %s: %s\n", k, info.Headers[k])
+		for _, k := range sortedKeys(headers) {
+			v := headers[k]
+			if strings.HasPrefix(v, "{") {
+				fmt.Fprintf(&sb, "  %s: %q\n", k, v)
+			} else {
+				fmt.Fprintf(&sb, "  %s: %s\n", k, v)
+			}
 		}
 	} else {
 		sb.WriteString("headers:\n  Content-Type: application/json\n")
@@ -137,6 +159,42 @@ func buildHkYaml(
 	}
 
 	return sb.String()
+}
+
+type rawParentFields struct {
+	url     string
+	headers map[string]string
+}
+
+func readRawParentFields(filePath string) (rawParentFields, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return rawParentFields{}, err
+	}
+	defer func() { _ = file.Close() }()
+
+	var data map[string]any
+	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
+		return rawParentFields{}, err
+	}
+
+	var raw rawParentFields
+	for k, v := range data {
+		switch strings.ToLower(k) {
+		case "url":
+			if s, ok := v.(string); ok {
+				raw.url = s
+			}
+		case "headers":
+			if hdr, ok := v.(map[string]any); ok {
+				raw.headers = make(map[string]string, len(hdr))
+				for hk, hv := range hdr {
+					raw.headers[hk] = fmt.Sprintf("%v", hv)
+				}
+			}
+		}
+	}
+	return raw, nil
 }
 
 func yamlScalar(v any) string {
