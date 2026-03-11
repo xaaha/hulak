@@ -21,7 +21,7 @@ const (
 	KeyShiftG  = "G"      // go to bottom
 	KeyYank    = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
 	KeyRefresh = "ctrl+r"
-	KeySend    = "ctrl+enter"
+	KeySend    = "ctrl+g"
 	KeySave    = "ctrl+s"
 	KeySlash   = "/" // vim-style search trigger
 	KeyAt      = "@" // reopen or hide the most recent notification

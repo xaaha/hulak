@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -10,8 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -69,6 +72,14 @@ type refreshLoadedMsg struct {
 	err     error
 }
 
+type queryExecutedMsg struct {
+	resp apicalls.CustomResponse
+}
+
+type queryErrorMsg struct {
+	err error
+}
+
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
 	operations []UnifiedOperation
@@ -102,6 +113,7 @@ type Model struct {
 	queryPanel    *tui.Panel
 	responsePanel *tui.Panel
 	responseBody  string
+	executing     bool
 	focus         tui.FocusRing
 	pendingG      bool
 	helpBarH      int
@@ -345,6 +357,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
+	case queryExecutedMsg:
+		m.executing = false
+		m.updateActionRow()
+		m.handleQueryExecuted(msg)
+		return m, nil
+	case queryErrorMsg:
+		m.executing = false
+		m.updateActionRow()
+		cmd := m.enqueueNotification(tui.NotificationError, msg.err.Error())
+		return m, cmd
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -626,6 +648,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmd := m.startRefresh()
 		return m, cmd
 	}
+	if msg.String() == tui.KeySend {
+		cmd := m.executeQuery()
+		return m, cmd
+	}
 	if msg.String() == tui.KeyAt && !m.search.Model.Focused() &&
 		(m.detailForm == nil || !m.detailForm.ConsumesTextInput()) {
 		if _, handled := m.actionRow.HandleKey(msg.String()); handled {
@@ -898,6 +924,82 @@ func (m *Model) startRefresh() tea.Cmd {
 	}
 }
 
+func (m *Model) executeQuery() tea.Cmd {
+	if m.executing {
+		return nil
+	}
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return nil
+	}
+	op := &m.filtered[m.cursor]
+
+	if op.Type == TypeSubscription {
+		return m.enqueueNotification(tui.NotificationWarn, "Subscriptions cannot be executed from the explorer")
+	}
+
+	info, ok := m.apiInfos[op.Endpoint]
+	if !ok {
+		return m.enqueueNotification(tui.NotificationError, "No API configuration found for "+op.Endpoint)
+	}
+
+	query := BuildQueryString(op, m.detailForm)
+	if query == "" {
+		return m.enqueueNotification(tui.NotificationError, "Empty query")
+	}
+
+	varsMap := BuildVariablesMap(op, m.detailForm)
+	apiInfo := yamlparser.CloneAPIInfo(info)
+
+	body, err := yamlparser.EncodeGraphQlBody(query, varsMap)
+	if err != nil {
+		return m.enqueueNotification(tui.NotificationError, "Failed to encode query: "+err.Error())
+	}
+	apiInfo.Body = body
+
+	m.executing = true
+	m.responsePanel.SetContent(tui.HelpStyle.Render("Executing..."), "")
+	m.responsePanel.Footer = ""
+	m.updateActionRow()
+
+	return func() tea.Msg {
+		resp, err := apicalls.StandardCall(apiInfo, false)
+		if err != nil {
+			return queryErrorMsg{err: err}
+		}
+		return queryExecutedMsg{resp: resp}
+	}
+}
+
+func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
+	var bodyJSON []byte
+	if msg.resp.Response != nil && msg.resp.Response.Body != nil {
+		bodyJSON, _ = json.MarshalIndent(msg.resp.Response.Body, "", "  ")
+	}
+	if len(bodyJSON) == 0 {
+		bodyJSON, _ = json.MarshalIndent(msg.resp, "", "  ")
+	}
+	m.responseBody = string(bodyJSON)
+
+	colored, err := utils.FormatJSONColored(bodyJSON, utils.LipglossColorProvider{})
+	if err != nil {
+		m.responsePanel.SetContent(m.responseBody, "")
+	} else {
+		m.responsePanel.SetContent(colored, "")
+	}
+	m.responsePanel.GotoTop()
+
+	var parts []string
+	if msg.resp.Response != nil {
+		parts = append(parts, msg.resp.Response.Status)
+	}
+	if msg.resp.Duration != "" {
+		parts = append(parts, msg.resp.Duration)
+	}
+	if len(parts) > 0 {
+		m.responsePanel.Footer = strings.Join(parts, "  ")
+	}
+}
+
 func (m *Model) handleBottomAction(id string) tea.Cmd {
 	switch id {
 	case "badge":
@@ -907,6 +1009,8 @@ func (m *Model) handleBottomAction(id string) tea.Cmd {
 		return nil
 	case "refresh":
 		return m.startRefresh()
+	case "send":
+		return m.executeQuery()
 	default:
 		return nil
 	}
@@ -942,6 +1046,21 @@ func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
 	m.applyFilterAndReset()
 }
 
+func (m *Model) canSend() bool {
+	if m.executing {
+		return false
+	}
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return false
+	}
+	op := &m.filtered[m.cursor]
+	if op.Type == TypeSubscription {
+		return false
+	}
+	_, ok := m.apiInfos[op.Endpoint]
+	return ok
+}
+
 func (m *Model) updateActionRow() {
 	items := []tui.ActionItem{
 		{
@@ -952,9 +1071,9 @@ func (m *Model) updateActionRow() {
 		},
 		{
 			ID:      "send",
-			Label:   "Send     ctrl+enter",
+			Label:   "Send     ctrl+g",
 			Key:     tui.KeySend,
-			Enabled: false,
+			Enabled: m.canSend(),
 		},
 		{
 			ID:      "save",

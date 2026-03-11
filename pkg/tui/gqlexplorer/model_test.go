@@ -1789,7 +1789,7 @@ func TestViewShowsRefreshButtonInCallArea(t *testing.T) {
 	if !strings.Contains(view, "Refresh  ctrl+r") {
 		t.Fatalf("expected refresh button in view, got:\n%s", view)
 	}
-	if !strings.Contains(view, "Send     ctrl+enter") || !strings.Contains(view, "Save     ctrl+s") {
+	if !strings.Contains(view, "Send     ctrl+g") || !strings.Contains(view, "Save     ctrl+s") {
 		t.Fatalf("expected action panel placeholders in view, got:\n%s", view)
 	}
 }
