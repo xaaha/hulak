@@ -9,6 +9,8 @@ var (
 	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
 	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
 	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
+	ColorWarn      = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Yellow/amber
+	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // Red
 )
 
 var (
@@ -47,6 +49,16 @@ var (
 
 	// InputStyle for unfocused/locked input fields
 	InputStyle = BorderStyle.Padding(0, 1)
+
+	// ActionChipStyle renders compact action controls.
+	ActionChipStyle = lipgloss.NewStyle().
+			Bold(true).
+			Padding(0, 1)
+
+	// NotificationBadgeBaseStyle renders the @ reopen badge.
+	NotificationBadgeBaseStyle = lipgloss.NewStyle().
+					Bold(true).
+					Padding(0, 1)
 )
 
 // BoxStyle for full-screen content containers with rounded border and padding.
@@ -83,10 +95,5 @@ const (
 
 // RenderBadge creates a colored badge with the given foreground color.
 func RenderBadge(text string, color lipgloss.AdaptiveColor) string {
-	bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}
-	return lipgloss.NewStyle().
-		Foreground(color).
-		Background(bgColor).
-		Padding(0, 1).
-		Render(text)
+	return RenderChip(text, ChipVariantBadge, color)
 }

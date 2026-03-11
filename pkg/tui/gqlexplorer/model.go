@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,7 +20,7 @@ const (
 
 	noMatchesLabel        = "(no matches)"
 	operationFormat       = "%d/%d operations"
-	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | G/gg: bottom/top | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
+	helpLeftPanel         = "Navigate: ↑↓ Ctrl+n/p | Enter: detail | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: unfocus/quit"
 	helpDetailPanel       = "↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
 	helpSearchPanel       = "↑↓ Ctrl+n/p: cycle matches | Enter: done | Esc: cancel"
 	helpQueryPanel        = "Navigate: ↑↓ j/k h/l | G/gg: bottom/top | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back"
@@ -43,6 +44,27 @@ var typeRank = map[OperationType]int{
 // Cached styles — these never change at runtime, so building them once
 // at package init avoids repeated allocations per View() frame.
 var _containerStyle = tui.BoxStyle.Padding(0, 1)
+
+type ExplorerData struct {
+	Operations     []UnifiedOperation
+	InputTypes     map[string]graphql.InputType
+	EnumTypes      map[string]graphql.EnumType
+	ObjectTypes    map[string]graphql.ObjectType
+	UnionTypes     map[string]graphql.UnionType
+	InterfaceTypes map[string]graphql.InterfaceType
+}
+
+type RefreshPayload struct {
+	Data     ExplorerData
+	Warnings []string
+}
+
+type RefreshFunc func() (RefreshPayload, error)
+
+type refreshLoadedMsg struct {
+	payload RefreshPayload
+	err     error
+}
 
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
@@ -77,6 +99,11 @@ type Model struct {
 	focus         tui.FocusRing
 	pendingG      bool
 	helpBarH      int
+	refreshFn     RefreshFunc
+	refreshing    bool
+	notification  tui.NotificationCenter
+	actionRow     tui.ActionRow
+	initCmd       tea.Cmd
 }
 
 func NewModel(
@@ -130,9 +157,12 @@ func NewModel(
 		queryPanel:    qp,
 		focus:         tui.NewFocusRing([]*tui.Panel{dp, qp, vp}),
 		helpBarH:      tui.HelpBarHeight,
+		notification:  tui.NewNotificationCenter(),
+		actionRow:     tui.NewActionRow(),
 	}
 	m.focus.SetTyping(true)
 	m.syncSearchFocus()
+	m.updateActionRow()
 	return m
 }
 
@@ -278,6 +308,9 @@ func wrappedLineCount(text string, width int) int {
 }
 
 func (m *Model) Init() tea.Cmd {
+	if m.initCmd != nil {
+		return tea.Batch(m.search.Init(), m.initCmd)
+	}
 	return m.search.Init()
 }
 
@@ -285,6 +318,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tui.CopiedMsg:
 		// TODO: surface clipboard errors via a status flash once one exists.
+		return m, nil
+	case refreshLoadedMsg:
+		m.refreshing = false
+		m.updateActionRow()
+		if msg.err != nil {
+			cmd := m.enqueueNotification(tui.NotificationError, msg.err.Error())
+			return m, cmd
+		}
+		m.applyRefreshPayload(&msg.payload)
+		if len(msg.payload.Warnings) > 0 {
+			cmd := m.enqueueNotification(tui.NotificationWarn, joinWarnings(msg.payload.Warnings))
+			return m, cmd
+		}
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -312,12 +358,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.queryPanel.Resize(max(rightW-detailW, 1), detailH)
 		m.variablePanel.Resize(max(rightW-detailW, 1), variableH)
 		m.updateBadgeCache()
+		m.updateActionRow()
 		m.syncViewport()
 		return m, nil
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	}
+
+	if cmd := m.notification.Update(msg); cmd != nil {
+		m.updateActionRow()
+		return m, cmd
 	}
 
 	var cmds []tea.Cmd
@@ -329,7 +381,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if m.notification.Visible() {
+		return m, nil
+	}
 	if tui.IsLeftClick(msg) {
+		if cmd, ok := m.handleBottomRowClick(msg); ok {
+			return m, cmd
+		}
 		if m.handleLeftPanelClick(msg) {
 			return m, nil
 		}
@@ -344,6 +402,14 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	cmd = m.updateFocusedViewport(msg)
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleBottomRowClick(msg tea.MouseMsg) (tea.Cmd, bool) {
+	id, ok := m.actionRow.HandleMouse(msg)
+	if !ok {
+		return nil, false
+	}
+	return m.handleBottomAction(id), true
 }
 
 func (m *Model) handleLeftPanelClick(msg tea.MouseMsg) bool {
@@ -516,6 +582,38 @@ func (m *Model) switchPanel(key string) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.notification.Visible() {
+		switch msg.String() {
+		case tui.KeyAt, tui.KeyCancel, "q":
+			if _, handled := m.actionRow.HandleKey(msg.String()); handled {
+				cmd := m.handleBottomAction("badge")
+				return m, cmd
+			}
+			if m.notification.ToggleLast() {
+				m.updateActionRow()
+			}
+			return m, nil
+		case tui.KeyYank:
+			if text := m.notification.CopyText(); text != "" {
+				return m, tui.CopyToClipboard(text)
+			}
+			return m, nil
+		default:
+			return m, nil
+		}
+	}
+	if msg.String() == tui.KeyRefresh {
+		cmd := m.startRefresh()
+		return m, cmd
+	}
+	if msg.String() == tui.KeyAt && !m.search.Model.Focused() &&
+		(m.detailForm == nil || !m.detailForm.ConsumesTextInput()) {
+		if _, handled := m.actionRow.HandleKey(msg.String()); handled {
+			cmd := m.handleBottomAction("badge")
+			return m, cmd
+		}
+	}
+
 	if m.pendingG {
 		m.pendingG = false
 		if msg.String() == tui.KeyG {
@@ -701,6 +799,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Yank: copy focused panel content to system clipboard
 	case tui.KeyYank:
+		if text := m.notification.CopyText(); text != "" {
+			return m, tui.CopyToClipboard(text)
+		}
 		if text := m.yankText(); text != "" {
 			return m, tui.CopyToClipboard(text)
 		}
@@ -739,6 +840,123 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.applyFilterAndReset()
 	}
 	return m, cmd
+}
+
+func (m *Model) SetRefresh(fn RefreshFunc) {
+	m.refreshFn = fn
+	m.updateActionRow()
+}
+
+func (m *Model) SetInitialWarnings(warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+	m.initCmd = m.enqueueNotification(tui.NotificationWarn, joinWarnings(warnings))
+}
+
+func (m *Model) startRefresh() tea.Cmd {
+	if m.refreshFn == nil || m.refreshing {
+		return nil
+	}
+	m.refreshing = true
+	m.updateActionRow()
+	refreshFn := m.refreshFn
+	return func() tea.Msg {
+		payload, err := refreshFn()
+		return refreshLoadedMsg{payload: payload, err: err}
+	}
+}
+
+func (m *Model) handleBottomAction(id string) tea.Cmd {
+	switch id {
+	case "badge":
+		if m.notification.ToggleLast() {
+			m.updateActionRow()
+		}
+		return nil
+	case "refresh":
+		return m.startRefresh()
+	default:
+		return nil
+	}
+}
+
+func (m *Model) enqueueNotification(severity tui.NotificationSeverity, message string) tea.Cmd {
+	cmd := m.notification.Enqueue(severity, message)
+	m.updateActionRow()
+	return cmd
+}
+
+func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
+	m.operations = payload.Data.Operations
+	m.filtered = payload.Data.Operations
+	m.inputTypes = payload.Data.InputTypes
+	m.enumTypes = payload.Data.EnumTypes
+	m.objectTypes = payload.Data.ObjectTypes
+	m.unionTypes = payload.Data.UnionTypes
+	m.interfaceTypes = payload.Data.InterfaceTypes
+	m.endpoints = collectEndpoints(m.operations)
+	m.activeEndpoints = make(map[string]bool, len(m.endpoints))
+	for _, ep := range m.endpoints {
+		m.activeEndpoints[ep] = true
+	}
+	m.filterHint = buildFilterHint(m.operations, m.endpoints)
+	m.cursor = 0
+	m.endpointCursor = 0
+	m.formCache = make(map[string]*DetailForm)
+	m.detailForm = nil
+	m.detailFormKey = ""
+	m.updateBadgeCache()
+	m.applyFilterAndReset()
+}
+
+func (m *Model) updateActionRow() {
+	items := []tui.ActionItem{
+		{
+			ID:      "refresh",
+			Label:   "Refresh  ctrl+r",
+			Key:     tui.KeyRefresh,
+			Enabled: m.refreshFn != nil && !m.refreshing,
+		},
+		{
+			ID:      "send",
+			Label:   "Send     ctrl+enter",
+			Key:     tui.KeySend,
+			Enabled: false,
+		},
+		{
+			ID:      "save",
+			Label:   "Save     ctrl+s",
+			Key:     tui.KeySave,
+			Enabled: false,
+		},
+	}
+	m.actionRow.SetItems(items)
+	m.actionRow.SetBadge(tui.ActionBadge{
+		Label:    "Notification @",
+		Key:      tui.KeyAt,
+		Severity: m.notification.Severity(),
+		Visible:  m.notification.HasLast(),
+	})
+}
+
+func joinWarnings(warnings []string) string {
+	if len(warnings) == 0 {
+		return ""
+	}
+	if len(warnings) == 1 {
+		return warnings[0]
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d schema warnings:\n", len(warnings))
+	for i, warning := range warnings {
+		fmt.Fprintf(&b, "%d. %s", i+1, warning)
+		if i < len(warnings)-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 func (m *Model) yankText() string {
@@ -887,7 +1105,9 @@ func (m *Model) View() string {
 			Height(max(m.height-_containerStyle.GetVerticalFrameSize(), 1)).
 			Render(body)
 
-		return tui.ScanMouseZones(lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box))
+		return tui.ScanMouseZones(
+			lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box),
+		)
 	}
 
 	rightW := m.rightPanelWidth()
@@ -914,7 +1134,7 @@ func (m *Model) View() string {
 	responsePlaceholder := lipgloss.NewStyle().
 		Width(rightW).
 		Height(m.callAreaHeight()).
-		Render("")
+		Render(m.renderCallArea(rightW))
 
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, topRight, middleRight, responsePlaceholder)
 	combined := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
@@ -925,6 +1145,14 @@ func (m *Model) View() string {
 	box := _containerStyle.
 		Height(boxH).
 		Render(body)
+
+	if m.notification.Visible() {
+		box = tui.OverlayCenter(
+			m.notification.RenderModal(max(m.width-8, 1), max(m.height-6, 1)),
+			m.width,
+			m.height,
+		)
+	}
 
 	return tui.ScanMouseZones(lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, box))
 }
@@ -938,8 +1166,30 @@ func RunExplorer(
 	interfaceTypes map[string]graphql.InterfaceType,
 ) error {
 	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes)
+	return runExplorerModel(&model)
+}
+
+func RunExplorerWithRefresh(
+	data ExplorerData,
+	refreshFn RefreshFunc,
+	initialWarnings []string,
+) error {
+	model := NewModel(
+		data.Operations,
+		data.InputTypes,
+		data.EnumTypes,
+		data.ObjectTypes,
+		data.UnionTypes,
+		data.InterfaceTypes,
+	)
+	model.SetRefresh(refreshFn)
+	model.SetInitialWarnings(initialWarnings)
+	return runExplorerModel(&model)
+}
+
+func runExplorerModel(model *Model) error {
 	p := tea.NewProgram(
-		&model,
+		model,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

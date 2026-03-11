@@ -1592,8 +1592,8 @@ func TestRenderLeftContentFitsWithinContentHeight(t *testing.T) {
 
 func TestHelpBarChangesWithFocus(t *testing.T) {
 	// Width must be wider than the longest help constant so lipgloss
-	// centering does not wrap the text (helpDetailPanel is ~125 chars).
-	const w = 160
+	// centering does not wrap the text.
+	const w = 240
 	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
 	model := result.(*Model)
@@ -1766,6 +1766,107 @@ func TestVariablePanelShowsBottomLeftLabelWhenEmpty(t *testing.T) {
 	view := model.View()
 	if !strings.Contains(view, "Variables") {
 		t.Error("view should contain variable panel bottom-left label")
+	}
+}
+
+func TestViewShowsRefreshButtonInCallArea(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	m.SetRefresh(func() (RefreshPayload, error) {
+		return RefreshPayload{}, nil
+	})
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	view := model.View()
+	if !strings.Contains(view, "Refresh  ctrl+r") {
+		t.Fatalf("expected refresh button in view, got:\n%s", view)
+	}
+	if !strings.Contains(view, "Send     ctrl+enter") || !strings.Contains(view, "Save     ctrl+s") {
+		t.Fatalf("expected action panel placeholders in view, got:\n%s", view)
+	}
+}
+
+func TestCtrlRRefreshesExplorerData(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	m.SetRefresh(func() (RefreshPayload, error) {
+		return RefreshPayload{
+			Data: ExplorerData{
+				Operations: []UnifiedOperation{
+					{Name: "refreshedUser", Type: TypeQuery, Endpoint: "http://api/gql"},
+				},
+			},
+		}, nil
+	})
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	model = result.(*Model)
+	if cmd == nil {
+		t.Fatal("expected refresh command")
+	}
+
+	result, _ = model.Update(cmd())
+	model = result.(*Model)
+
+	if len(model.operations) != 1 || model.operations[0].Name != "refreshedUser" {
+		t.Fatalf("expected refreshed operations, got %#v", model.operations)
+	}
+}
+
+func TestRefreshWarningsShowNotificationBadge(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	m.SetRefresh(func() (RefreshPayload, error) {
+		return RefreshPayload{
+			Data: ExplorerData{Operations: sampleOps()},
+			Warnings: []string{
+				"http://bad/graphql: introspection request returned status 500",
+				"/tmp/other.yaml: error in headers",
+			},
+		}, nil
+	})
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+
+	result, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	model = result.(*Model)
+	result, notifyCmd := model.Update(cmd())
+	model = result.(*Model)
+	if notifyCmd == nil {
+		t.Fatal("expected notification expiry command")
+	}
+
+	view := model.View()
+	if !strings.Contains(view, "Warning") ||
+		!strings.Contains(view, "http://bad/graphql: introspection request") {
+		t.Fatalf("expected warning notification content in view, got:\n%s", view)
+	}
+	copied := model.notification.CopyText()
+	if !strings.Contains(copied, "2 schema warnings:") ||
+		!strings.Contains(copied, "1. http://bad/graphql: introspection request returned status 500") ||
+		!strings.Contains(copied, "2. /tmp/other.yaml: error in headers") {
+		t.Fatalf("expected full multi-warning text in copy buffer, got:\n%s", copied)
+	}
+}
+
+func TestEscDismissesVisibleNotificationModal(t *testing.T) {
+	m := NewModel(sampleOps(), nil, nil, nil, nil, nil)
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	model := result.(*Model)
+	_ = model.enqueueNotification(tui.NotificationWarn, "schema warning")
+
+	if !model.notification.Visible() {
+		t.Fatal("expected visible notification")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = result.(*Model)
+
+	if model.notification.Visible() {
+		t.Fatal("expected esc to dismiss notification modal")
 	}
 }
 
@@ -1966,7 +2067,7 @@ func TestSlashDoesNotOpenSearchOnLeftPanel(t *testing.T) {
 }
 
 func TestSearchHelpShownDuringSearch(t *testing.T) {
-	const w = 160
+	const w = 240
 	m := NewModel(opsWithArgs(), nil, nil, nil, nil, nil)
 	result, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
 	model := result.(*Model)
