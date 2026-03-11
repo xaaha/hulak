@@ -283,3 +283,79 @@ func TestAPICallFilePrepareGraphQLStruct(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneAPIInfo(t *testing.T) {
+	t.Run("copies scalar fields", func(t *testing.T) {
+		src := APIInfo{Method: "POST", URL: "https://example.com/graphql"}
+		clone := CloneAPIInfo(src)
+
+		if clone.Method != src.Method {
+			t.Errorf("expected Method %q, got %q", src.Method, clone.Method)
+		}
+		if clone.URL != src.URL {
+			t.Errorf("expected URL %q, got %q", src.URL, clone.URL)
+		}
+	})
+
+	t.Run("deep copies Headers", func(t *testing.T) {
+		src := APIInfo{
+			Method:  "POST",
+			URL:     "https://example.com/graphql",
+			Headers: map[string]string{"authorization": "Bearer tok", "content-type": "application/json"},
+		}
+		clone := CloneAPIInfo(src)
+
+		if clone.Headers["authorization"] != "Bearer tok" {
+			t.Errorf("expected authorization header, got %q", clone.Headers["authorization"])
+		}
+
+		clone.Headers["authorization"] = "changed"
+		if src.Headers["authorization"] != "Bearer tok" {
+			t.Error("mutating clone.Headers affected source")
+		}
+	})
+
+	t.Run("deep copies URLParams", func(t *testing.T) {
+		src := APIInfo{
+			Method:    "POST",
+			URL:       "https://example.com/graphql",
+			URLParams: map[string]string{"env": "prod"},
+		}
+		clone := CloneAPIInfo(src)
+
+		if clone.URLParams["env"] != "prod" {
+			t.Errorf("expected URLParams env=prod, got %q", clone.URLParams["env"])
+		}
+
+		clone.URLParams["env"] = "staging"
+		if src.URLParams["env"] != "prod" {
+			t.Error("mutating clone.URLParams affected source")
+		}
+	})
+
+	t.Run("nil maps stay nil", func(t *testing.T) {
+		src := APIInfo{Method: "GET", URL: "https://example.com"}
+		clone := CloneAPIInfo(src)
+
+		if clone.Headers != nil {
+			t.Error("expected nil Headers")
+		}
+		if clone.URLParams != nil {
+			t.Error("expected nil URLParams")
+		}
+	})
+
+	t.Run("body is always nil", func(t *testing.T) {
+		src := APIInfo{
+			Method:  "POST",
+			URL:     "https://example.com/graphql",
+			Headers: map[string]string{"content-type": "application/json"},
+			Body:    strings.NewReader(`{"query":"{ users { id } }"}`),
+		}
+		clone := CloneAPIInfo(src)
+
+		if clone.Body != nil {
+			t.Error("expected cloned Body to be nil")
+		}
+	})
+}
