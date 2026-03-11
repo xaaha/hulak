@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 func TestBuildVariablesStringScalarArgs(t *testing.T) {
@@ -269,7 +270,7 @@ func TestLeftArrowMovesDetailInputCursorWithinText(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, nil, nil, nil)
+	m := NewModel(ops, nil, nil, nil, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
@@ -311,7 +312,7 @@ func TestVariablePanelShowsVariables(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	m := NewModel(ops, nil, nil, objTypes, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
@@ -336,7 +337,7 @@ func TestYankTextVariablePanel(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, nil, nil, nil)
+	m := NewModel(ops, nil, nil, nil, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
