@@ -8,6 +8,8 @@ import (
 
 const spinnerDelay = 100 * time.Millisecond
 
+var SpinnerFrames = []rune{'|', '/', '-', '\\'}
+
 func RunWithSpinnerAfter(message string, task func() (any, error)) (any, error) {
 	stdinInfo, stdinErr := os.Stdin.Stat()
 	stdoutInfo, stdoutErr := os.Stdout.Stat()
@@ -41,7 +43,7 @@ func RunWithSpinnerAfter(message string, task func() (any, error)) (any, error) 
 	case <-timer.C:
 	}
 
-	frames := []rune{'|', '/', '-', '\\'}
+	frames := SpinnerFrames
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	clearLine := "\r" + fmt.Sprintf("%*s", len(message)+2, "") + "\r"

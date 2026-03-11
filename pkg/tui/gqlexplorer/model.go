@@ -84,6 +84,8 @@ type queryErrorMsg struct {
 	err error
 }
 
+type spinnerTickMsg struct{}
+
 // Model is the full-screen GraphQL explorer TUI.
 type Model struct {
 	operations []UnifiedOperation
@@ -123,6 +125,7 @@ type Model struct {
 	responseDuration    string
 	responseSearch      tui.PanelSearch
 	executing           bool
+	spinnerFrame        int
 	focus               tui.FocusRing
 	pendingG            bool
 	helpBarH            int
@@ -377,6 +380,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateActionRow()
 		cmd := m.enqueueNotification(tui.NotificationError, msg.err.Error())
 		return m, cmd
+	case spinnerTickMsg:
+		if !m.executing {
+			return m, nil
+		}
+		m.spinnerFrame++
+		m.responsePanel.SetContent(m.spinnerContent(), "")
+		return m, spinnerTick()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -964,6 +974,17 @@ func (m *Model) startRefresh() tea.Cmd {
 	}
 }
 
+func spinnerTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return spinnerTickMsg{}
+	})
+}
+
+func (m *Model) spinnerContent() string {
+	frame := tui.SpinnerFrames[m.spinnerFrame%len(tui.SpinnerFrames)]
+	return tui.HelpStyle.Render(string(frame) + " Executing...")
+}
+
 func (m *Model) executeQuery() tea.Cmd {
 	if m.executing {
 		return nil
@@ -1003,23 +1024,25 @@ func (m *Model) executeQuery() tea.Cmd {
 	apiInfo.Body = body
 
 	m.executing = true
+	m.spinnerFrame = 0
 	m.responseSearch.Stop()
 	m.responseBody = ""
 	m.responseColoredBody = ""
 	m.responseStatusCode = 0
 	m.responseDuration = ""
 	m.responsePanel.SetHeader("")
-	m.responsePanel.SetContent(tui.HelpStyle.Render("Executing..."), "")
+	m.responsePanel.SetContent(m.spinnerContent(), "")
 	m.responsePanel.Footer = ""
 	m.updateActionRow()
 
-	return func() tea.Msg {
+	apiCall := func() tea.Msg {
 		resp, err := apicalls.StandardCall(apiInfo, false)
 		if err != nil {
 			return queryErrorMsg{err: err}
 		}
 		return queryExecutedMsg{resp: resp}
 	}
+	return tea.Batch(apiCall, spinnerTick())
 }
 
 func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
