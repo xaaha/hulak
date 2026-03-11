@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 const (
@@ -52,6 +53,7 @@ type ExplorerData struct {
 	ObjectTypes    map[string]graphql.ObjectType
 	UnionTypes     map[string]graphql.UnionType
 	InterfaceTypes map[string]graphql.InterfaceType
+	APIInfos       map[string]yamlparser.APIInfo
 }
 
 type RefreshPayload struct {
@@ -84,6 +86,7 @@ type Model struct {
 	objectTypes    map[string]graphql.ObjectType
 	unionTypes     map[string]graphql.UnionType
 	interfaceTypes map[string]graphql.InterfaceType
+	apiInfos       map[string]yamlparser.APIInfo
 
 	endpoints       []string
 	activeEndpoints map[string]bool
@@ -113,6 +116,7 @@ func NewModel(
 	objectTypes map[string]graphql.ObjectType,
 	unionTypes map[string]graphql.UnionType,
 	interfaceTypes map[string]graphql.InterfaceType,
+	apiInfos map[string]yamlparser.APIInfo,
 ) Model {
 	for i := range operations {
 		if operations[i].NameLower == "" {
@@ -146,6 +150,7 @@ func NewModel(
 		objectTypes:     objectTypes,
 		unionTypes:      unionTypes,
 		interfaceTypes:  interfaceTypes,
+		apiInfos:        apiInfos,
 		mouse:           tui.NewMouseZone(),
 		search: tui.NewFilterInput(tui.TextInputOpts{
 			Prompt:      "[1] Search: ",
@@ -895,6 +900,7 @@ func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
 	m.objectTypes = payload.Data.ObjectTypes
 	m.unionTypes = payload.Data.UnionTypes
 	m.interfaceTypes = payload.Data.InterfaceTypes
+	m.apiInfos = payload.Data.APIInfos
 	m.endpoints = collectEndpoints(m.operations)
 	m.activeEndpoints = make(map[string]bool, len(m.endpoints))
 	for _, ep := range m.endpoints {
@@ -1165,7 +1171,7 @@ func RunExplorer(
 	unionTypes map[string]graphql.UnionType,
 	interfaceTypes map[string]graphql.InterfaceType,
 ) error {
-	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes)
+	model := NewModel(operations, inputTypes, enumTypes, objectTypes, unionTypes, interfaceTypes, make(map[string]yamlparser.APIInfo))
 	return runExplorerModel(&model)
 }
 
@@ -1181,6 +1187,7 @@ func RunExplorerWithRefresh(
 		data.ObjectTypes,
 		data.UnionTypes,
 		data.InterfaceTypes,
+		data.APIInfos,
 	)
 	model.SetRefresh(refreshFn)
 	model.SetInitialWarnings(initialWarnings)
