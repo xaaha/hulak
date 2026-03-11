@@ -3,9 +3,12 @@ package gqlexplorer
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,13 +54,14 @@ var typeRank = map[OperationType]int{
 var _containerStyle = tui.BoxStyle.Padding(0, 1)
 
 type ExplorerData struct {
-	Operations     []UnifiedOperation
-	InputTypes     map[string]graphql.InputType
-	EnumTypes      map[string]graphql.EnumType
-	ObjectTypes    map[string]graphql.ObjectType
-	UnionTypes     map[string]graphql.UnionType
-	InterfaceTypes map[string]graphql.InterfaceType
-	APIInfos       map[string]yamlparser.APIInfo
+	Operations      []UnifiedOperation
+	InputTypes      map[string]graphql.InputType
+	EnumTypes       map[string]graphql.EnumType
+	ObjectTypes     map[string]graphql.ObjectType
+	UnionTypes      map[string]graphql.UnionType
+	InterfaceTypes  map[string]graphql.InterfaceType
+	APIInfos        map[string]yamlparser.APIInfo
+	SchemaFilePaths map[string]string // endpoint URL → .hk.yaml file path
 }
 
 type RefreshPayload struct {
@@ -93,12 +97,13 @@ type Model struct {
 	width      int
 	height     int
 
-	inputTypes     map[string]graphql.InputType
-	enumTypes      map[string]graphql.EnumType
-	objectTypes    map[string]graphql.ObjectType
-	unionTypes     map[string]graphql.UnionType
-	interfaceTypes map[string]graphql.InterfaceType
-	apiInfos       map[string]yamlparser.APIInfo
+	inputTypes      map[string]graphql.InputType
+	enumTypes       map[string]graphql.EnumType
+	objectTypes     map[string]graphql.ObjectType
+	unionTypes      map[string]graphql.UnionType
+	interfaceTypes  map[string]graphql.InterfaceType
+	apiInfos        map[string]yamlparser.APIInfo
+	schemaFilePaths map[string]string
 
 	endpoints       []string
 	activeEndpoints map[string]bool
@@ -114,7 +119,8 @@ type Model struct {
 	responsePanel       *tui.Panel
 	responseBody        string
 	responseColoredBody string
-	responseStatusLine  string
+	responseStatusCode  int
+	responseDuration    string
 	responseSearch      tui.PanelSearch
 	executing           bool
 	focus               tui.FocusRing
@@ -428,6 +434,10 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if cmd, ok := m.handleBottomRowClick(msg); ok {
 			return m, cmd
 		}
+		if m.responseBody != "" && tui.Hit(m.saveZoneID(), msg) {
+			cmd := m.saveResponse()
+			return m, cmd
+		}
 		if m.handleLeftPanelClick(msg) {
 			return m, nil
 		}
@@ -654,6 +664,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if msg.String() == tui.KeySend {
 		cmd := m.executeQuery()
+		return m, cmd
+	}
+	if msg.String() == tui.KeySave && m.responseBody != "" {
+		cmd := m.saveResponse()
 		return m, cmd
 	}
 	if msg.String() == tui.KeyAt && !m.search.Model.Focused() &&
@@ -983,7 +997,8 @@ func (m *Model) executeQuery() tea.Cmd {
 	m.responseSearch.Stop()
 	m.responseBody = ""
 	m.responseColoredBody = ""
-	m.responseStatusLine = ""
+	m.responseStatusCode = 0
+	m.responseDuration = ""
 	m.responsePanel.SetContent(tui.HelpStyle.Render("Executing..."), "")
 	m.responsePanel.Footer = ""
 	m.updateActionRow()
@@ -1013,19 +1028,18 @@ func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 	} else {
 		m.responseColoredBody = colored
 	}
-	m.responsePanel.SetContent(m.responseColoredBody, "")
+
+	if msg.resp.Response != nil {
+		m.responseStatusCode = msg.resp.Response.StatusCode
+	} else {
+		m.responseStatusCode = 0
+	}
+	m.responseDuration = msg.resp.Duration
+
+	m.setResponseContent()
 	m.responsePanel.GotoTop()
 	m.responseSearch.Stop()
-
-	var parts []string
-	if msg.resp.Response != nil {
-		parts = append(parts, msg.resp.Response.Status)
-	}
-	if msg.resp.Duration != "" {
-		parts = append(parts, msg.resp.Duration)
-	}
-	m.responseStatusLine = strings.Join(parts, "  ")
-	m.responsePanel.Footer = m.responseStatusLine
+	m.responsePanel.Footer = ""
 }
 
 func (m *Model) handleResponseSearchKey(msg tea.KeyMsg) tea.Cmd {
@@ -1058,18 +1072,155 @@ func (m *Model) updateResponseSearchMatches() {
 	m.scrollResponseToMatch()
 }
 
-func (m *Model) syncResponseFooter() {
-	if footer := m.responseSearch.Footer(); footer != "" {
-		m.responsePanel.Footer = footer
-	} else {
-		m.responsePanel.Footer = m.responseStatusLine
+func (m *Model) saveZoneID() string { return m.mouse.ID("resp-save") }
+
+func (m *Model) saveResponse() tea.Cmd {
+	if m.responseBody == "" {
+		return nil
+	}
+	if len(m.filtered) == 0 || m.cursor >= len(m.filtered) {
+		return nil
+	}
+	op := &m.filtered[m.cursor]
+
+	dir := m.responseSaveDir(op.Endpoint)
+	if dir == "" {
+		return m.enqueueNotification(tui.NotificationError, "Cannot determine save directory")
+	}
+
+	// if we need to make this customizable, we need to re-think how we save name
+	stamp := time.Now().Format("02-01-2006-15:04:05.00")
+	fileName := op.Name + "-" + stamp + utils.ResponseBase + ".json"
+	fullPath := filepath.Join(dir, fileName)
+
+	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.FilePer); err != nil {
+		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
+	}
+	return m.enqueueNotification(tui.NotificationInfo, "Saved to "+fullPath)
+}
+
+func (m *Model) responseSaveDir(endpoint string) string {
+	if p, ok := m.schemaFilePaths[endpoint]; ok && p != "" {
+		return filepath.Dir(p)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return ""
+}
+
+func (m *Model) setResponseContent() {
+	header := m.responseHeader()
+	content := m.responseColoredBody
+	if header != "" {
+		content = header + "\n" + content
+	}
+	m.responsePanel.SetContent(content, "")
+}
+
+func (m *Model) responseHeader() string {
+	if m.responseBody == "" {
+		return ""
+	}
+	focused := m.focus.IsFocused(m.responsePanel)
+	var parts []string
+
+	if m.responseStatusCode > 0 {
+		code := strconv.Itoa(m.responseStatusCode)
+		chipColor := tui.ColorMuted
+		if focused {
+			chipColor = statusChipColor(m.responseStatusCode)
+		}
+		parts = append(parts, tui.RenderChip(code, tui.ChipVariantBadge, chipColor))
+	}
+	if m.responseDuration != "" {
+		parts = append(parts, tui.HelpStyle.Render(m.responseDuration))
+	}
+	saveColor := tui.ColorMuted
+	if focused {
+		saveColor = badgeColor[TypeMutation]
+	}
+	saveChip := tui.RenderChip("Save", tui.ChipVariantBadge, saveColor)
+	parts = append(parts,
+		tui.HelpStyle.Render(formatResponseSize(len(m.responseBody))),
+		m.mouse.Mark(m.saveZoneID(), saveChip),
+	)
+
+	return strings.Join(parts, "  ")
+}
+
+func statusChipColor(code int) lipgloss.AdaptiveColor {
+	switch {
+	case code >= 200 && code < 300:
+		return lipgloss.AdaptiveColor{Light: "22", Dark: "34"}
+	case code >= 400 && code < 500:
+		return tui.ColorWarn
+	default:
+		return tui.ColorError
 	}
 }
 
-func (m *Model) scrollResponseToMatch() {
-	if line := m.responseSearch.CurrentMatch(); line >= 0 {
-		m.responsePanel.SyncContent(m.responseColoredBody, line)
+func formatResponseSize(n int) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+	)
+	switch {
+	case n >= mb:
+		return fmt.Sprintf("%.1f MB", float64(n)/float64(mb))
+	case n >= kb:
+		return fmt.Sprintf("%.1f KB", float64(n)/float64(kb))
+	default:
+		return fmt.Sprintf("%d B", n)
 	}
+}
+
+func (m *Model) syncResponseFooter() {
+	m.responsePanel.Footer = m.responseSearch.Footer()
+	if !m.responseSearch.Active() {
+		m.setResponseContent()
+	}
+}
+
+var searchHighlightStyle = lipgloss.NewStyle().
+	Background(lipgloss.AdaptiveColor{Light: "228", Dark: "24"}).
+	Foreground(lipgloss.AdaptiveColor{Light: "16", Dark: "231"})
+
+func (m *Model) scrollResponseToMatch() {
+	matchLine := m.responseSearch.CurrentMatch()
+	if matchLine < 0 {
+		return
+	}
+
+	query := strings.ToLower(m.responseSearch.Query())
+	plainLines := strings.Split(m.responseBody, "\n")
+	coloredLines := strings.Split(m.responseColoredBody, "\n")
+
+	colStart := 0
+	colEnd := 0
+	if matchLine < len(plainLines) && matchLine < len(coloredLines) {
+		plain := plainLines[matchLine]
+		idx := strings.Index(strings.ToLower(plain), query)
+		if idx >= 0 {
+			colStart = idx
+			colEnd = idx + len(query)
+			before := plain[:idx]
+			match := plain[idx : idx+len(query)]
+			after := plain[idx+len(query):]
+			coloredLines[matchLine] = before + searchHighlightStyle.Render(match) + after
+		}
+	}
+
+	content := strings.Join(coloredLines, "\n")
+	header := m.responseHeader()
+	offset := 0
+	if header != "" {
+		content = header + "\n" + content
+		offset = 1
+	}
+
+	m.responsePanel.SyncContent(content, matchLine+offset)
+	m.responsePanel.EnsureVisible(matchLine+offset, colStart, colEnd)
 }
 
 func (m *Model) handleBottomAction(id string) tea.Cmd {
@@ -1083,6 +1234,8 @@ func (m *Model) handleBottomAction(id string) tea.Cmd {
 		return m.startRefresh()
 	case "send":
 		return m.executeQuery()
+	case "save":
+		return m.saveResponse()
 	default:
 		return nil
 	}
@@ -1103,6 +1256,7 @@ func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
 	m.unionTypes = payload.Data.UnionTypes
 	m.interfaceTypes = payload.Data.InterfaceTypes
 	m.apiInfos = payload.Data.APIInfos
+	m.schemaFilePaths = payload.Data.SchemaFilePaths
 	m.endpoints = collectEndpoints(m.operations)
 	m.activeEndpoints = make(map[string]bool, len(m.endpoints))
 	for _, ep := range m.endpoints {
@@ -1151,7 +1305,7 @@ func (m *Model) updateActionRow() {
 			ID:      "save",
 			Label:   "Save     ctrl+s",
 			Key:     tui.KeySave,
-			Enabled: false,
+			Enabled: m.responseBody != "",
 		},
 	}
 	m.actionRow.SetItems(items)
@@ -1281,6 +1435,9 @@ func (m *Model) syncViewport() {
 
 		m.queryPanel.SetContent(BuildQueryString(op, m.detailForm), "")
 		m.variablePanel.SetContent(BuildVariablesString(op, m.detailForm), "")
+		if m.responseBody != "" {
+			m.setResponseContent()
+		}
 	} else {
 		m.detailForm = nil
 		m.detailFormKey = ""
@@ -1409,7 +1566,7 @@ func RunExplorer(
 }
 
 func RunExplorerWithRefresh(
-	data ExplorerData,
+	data *ExplorerData,
 	refreshFn RefreshFunc,
 	initialWarnings []string,
 ) error {
@@ -1422,6 +1579,7 @@ func RunExplorerWithRefresh(
 		data.InterfaceTypes,
 		data.APIInfos,
 	)
+	model.schemaFilePaths = data.SchemaFilePaths
 	model.SetRefresh(refreshFn)
 	model.SetInitialWarnings(initialWarnings)
 	return runExplorerModel(&model)

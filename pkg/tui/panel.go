@@ -86,6 +86,23 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
+// EnsureVisible scrolls both axes so the given line and column range are on screen.
+func (p *Panel) EnsureVisible(line, colStart, colEnd int) {
+	if !p.ready {
+		return
+	}
+	w := p.viewport.Width
+	if colEnd > w {
+		p.viewport.SetXOffset(max(colStart-2, 0))
+	} else {
+		p.viewport.SetXOffset(0)
+	}
+	h := p.viewport.Height
+	if line < p.viewport.YOffset || line >= p.viewport.YOffset+h {
+		p.viewport.SetYOffset(max(line-1, 0))
+	}
+}
+
 // GotoTop resets the viewport scroll position to the top.
 func (p *Panel) GotoTop() {
 	if p.ready {

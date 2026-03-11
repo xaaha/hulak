@@ -42,18 +42,17 @@ func (f fatihColorProvider) ColorKey(s string) string    { return s }
 type LipglossColorProvider struct{}
 
 var (
-	lgGreen   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "28", Dark: "114"})
-	lgCyan    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "30", Dark: "116"})
-	lgYellow  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "130", Dark: "214"})
-	lgMagenta = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "90", Dark: "170"})
-	lgKey     = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "252"})
+	lgGreen   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "16", Dark: "151"})
+	lgCyan    = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "24", Dark: "152"})
+	lgYellow  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "94", Dark: "222"})
+	lgMagenta = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "53", Dark: "183"})
 )
 
 func (l LipglossColorProvider) ColorString(s string) string { return lgGreen.Render(s) }
 func (l LipglossColorProvider) ColorNumber(s string) string { return lgCyan.Render(s) }
 func (l LipglossColorProvider) ColorBool(s string) string   { return lgYellow.Render(s) }
 func (l LipglossColorProvider) ColorNull(s string) string   { return lgMagenta.Render(s) }
-func (l LipglossColorProvider) ColorKey(s string) string    { return lgKey.Render(s) }
+func (l LipglossColorProvider) ColorKey(s string) string    { return s }
 
 // FormatJSONColored formats JSON data as an indented, colored string using the given ColorProvider.
 func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {

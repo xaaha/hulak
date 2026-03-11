@@ -96,7 +96,7 @@ func HandleSubcommands() error {
 		if data.Operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorerWithRefresh(data, refreshFn, warnings); err != nil {
+		if err := gqlexplorer.RunExplorerWithRefresh(&data, refreshFn, warnings); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)

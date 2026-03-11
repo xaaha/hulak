@@ -63,18 +63,19 @@ func loadGraphQLOperations(arg string, env string) (
 // results into the unified ExplorerData consumed by the TUI explorer.
 func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []graphql.ProcessResult) gqlexplorer.ExplorerData {
 	data := gqlexplorer.ExplorerData{
-		InputTypes:     make(map[string]graphql.InputType),
-		EnumTypes:      make(map[string]graphql.EnumType),
-		ObjectTypes:    make(map[string]graphql.ObjectType),
-		UnionTypes:     make(map[string]graphql.UnionType),
-		InterfaceTypes: make(map[string]graphql.InterfaceType),
-		APIInfos:       make(map[string]yamlparser.APIInfo),
+		InputTypes:      make(map[string]graphql.InputType),
+		EnumTypes:       make(map[string]graphql.EnumType),
+		ObjectTypes:     make(map[string]graphql.ObjectType),
+		UnionTypes:      make(map[string]graphql.UnionType),
+		InterfaceTypes:  make(map[string]graphql.InterfaceType),
+		APIInfos:        make(map[string]yamlparser.APIInfo),
+		SchemaFilePaths: make(map[string]string),
 	}
 
-	// Build APIInfos map from ProcessResults
 	for _, result := range processResults {
 		if result.Error == nil {
 			data.APIInfos[result.APIInfo.URL] = result.APIInfo
+			data.SchemaFilePaths[result.APIInfo.URL] = result.FilePath
 		}
 	}
 
