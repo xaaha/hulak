@@ -117,6 +117,7 @@ type Model struct {
 	detailForm          *DetailForm
 	detailFormKey       string
 	formCache           map[string]*DetailForm
+	responseCache       map[string]*cachedResponse
 	queryPanel          *tui.Panel
 	responsePanel       *tui.Panel
 	responseBody        string
@@ -187,6 +188,7 @@ func NewModel(
 		detailPanel:    dp,
 		variablePanel:  vp,
 		formCache:      make(map[string]*DetailForm),
+		responseCache:  make(map[string]*cachedResponse),
 		queryPanel:     qp,
 		responsePanel:  rp,
 		responseSearch: tui.NewPanelSearch(),
@@ -1051,6 +1053,41 @@ func (m *Model) clearResponse() {
 	m.responsePanel.Footer = ""
 }
 
+type cachedResponse struct {
+	body        string
+	coloredBody string
+	statusCode  int
+	duration    string
+}
+
+func (m *Model) saveResponseToCache() {
+	if m.detailFormKey == "" || m.responseBody == "" {
+		return
+	}
+	m.responseCache[m.detailFormKey] = &cachedResponse{
+		body:        m.responseBody,
+		coloredBody: m.responseColoredBody,
+		statusCode:  m.responseStatusCode,
+		duration:    m.responseDuration,
+	}
+}
+
+func (m *Model) restoreResponseFromCache(formKey string) {
+	cached, ok := m.responseCache[formKey]
+	if !ok {
+		m.clearResponse()
+		return
+	}
+	m.responseSearch.Stop()
+	m.responseBody = cached.body
+	m.responseColoredBody = cached.coloredBody
+	m.responseStatusCode = cached.statusCode
+	m.responseDuration = cached.duration
+	m.setResponseContent()
+	m.responsePanel.GotoTop()
+	m.responsePanel.Footer = ""
+}
+
 func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 	var bodyJSON []byte
 	if msg.resp.Response != nil && msg.resp.Response.Body != nil {
@@ -1079,6 +1116,7 @@ func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 	m.responsePanel.GotoTop()
 	m.responseSearch.Stop()
 	m.responsePanel.Footer = ""
+	m.saveResponseToCache()
 }
 
 func (m *Model) handleResponseSearchKey(msg tea.KeyMsg) tea.Cmd {
@@ -1305,6 +1343,7 @@ func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
 	m.cursor = 0
 	m.endpointCursor = 0
 	m.formCache = make(map[string]*DetailForm)
+	m.responseCache = make(map[string]*cachedResponse)
 	m.detailForm = nil
 	m.detailFormKey = ""
 	m.updateBadgeCache()
@@ -1457,6 +1496,9 @@ func (m *Model) syncViewport() {
 			if m.detailForm != nil && m.detailFormKey != "" {
 				m.formCache[m.detailFormKey] = m.detailForm
 			}
+			if !m.executing {
+				m.saveResponseToCache()
+			}
 			if cached, ok := m.formCache[formKey]; ok {
 				m.detailForm = cached
 			} else {
@@ -1465,7 +1507,7 @@ func (m *Model) syncViewport() {
 			m.detailFormKey = formKey
 			m.detailPanel.GotoTop()
 			if !m.executing {
-				m.clearResponse()
+				m.restoreResponseFromCache(formKey)
 			}
 		}
 

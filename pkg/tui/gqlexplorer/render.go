@@ -153,17 +153,13 @@ func (m *Model) renderActionsPanel(width, height int) string {
 	}
 
 	title := tui.HelpStyle.Render("Actions")
-	body := lipgloss.NewStyle().
-		Width(width).
-		Height(max(height-1, 1)).
-		Align(lipgloss.Center).
-		Render(lines)
+	content := lipgloss.JoinVertical(lipgloss.Center, title, lines)
 
-	return lipgloss.JoinVertical(
-		lipgloss.Center,
-		title,
-		body,
-	)
+	return lipgloss.NewStyle().
+		Width(width).
+		Height(height).
+		Align(lipgloss.Center, lipgloss.Center).
+		Render(content)
 }
 
 func renderDetail(
