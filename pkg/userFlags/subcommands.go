@@ -12,6 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 //go:embed apiOptions.hk.yaml
@@ -141,26 +142,41 @@ func loadGraphQLOperations(arg string, env string) (
 		return gqlexplorer.ExplorerData{}, nil, nil
 	}
 	refreshFn := func() (gqlexplorer.RefreshPayload, error) {
-		loadResult, err := graphql.LoadSchemas(arg, prepared.Env)
+		freshPrepared, err := graphql.PrepareSchemaLoad(arg, prepared.Env)
+		if err != nil {
+			return gqlexplorer.RefreshPayload{}, err
+		}
+		if freshPrepared.Cancelled {
+			return gqlexplorer.RefreshPayload{}, nil
+		}
+		freshLoadResult, err := graphql.FetchPreparedSchemas(freshPrepared)
 		if err != nil {
 			return gqlexplorer.RefreshPayload{}, err
 		}
 		return gqlexplorer.RefreshPayload{
-			Data:     explorerDataFromLoadResult(loadResult),
-			Warnings: loadResult.Warnings,
+			Data:     explorerDataFromLoadResult(freshLoadResult, freshPrepared.Results),
+			Warnings: freshLoadResult.Warnings,
 		}, nil
 	}
 
-	return explorerDataFromLoadResult(loadResult), refreshFn, loadResult.Warnings
+	return explorerDataFromLoadResult(loadResult, prepared.Results), refreshFn, loadResult.Warnings
 }
 
-func explorerDataFromLoadResult(loadResult graphql.LoadResult) gqlexplorer.ExplorerData {
+func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []graphql.ProcessResult) gqlexplorer.ExplorerData {
 	data := gqlexplorer.ExplorerData{
 		InputTypes:     make(map[string]graphql.InputType),
 		EnumTypes:      make(map[string]graphql.EnumType),
 		ObjectTypes:    make(map[string]graphql.ObjectType),
 		UnionTypes:     make(map[string]graphql.UnionType),
 		InterfaceTypes: make(map[string]graphql.InterfaceType),
+		APIInfos:       make(map[string]yamlparser.APIInfo),
+	}
+
+	// Build APIInfos map from ProcessResults
+	for _, result := range processResults {
+		if result.Error == nil {
+			data.APIInfos[result.APIInfo.URL] = result.APIInfo
+		}
 	}
 
 	for i := range loadResult.Endpoints {
