@@ -332,8 +332,14 @@ func TestTabTogglesFocus(t *testing.T) {
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 	model = result.(*Model)
+	if !model.focus.IsFocused(model.responsePanel) {
+		t.Error("expected response panel focused after fourth tab")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(*Model)
 	if !model.focus.LeftFocused() {
-		t.Error("expected left panel focused after fourth tab")
+		t.Error("expected left panel focused after fifth tab")
 	}
 }
 
@@ -1876,8 +1882,14 @@ func TestShiftTabCyclesBackward(t *testing.T) {
 
 	result, _ := m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
 	model := result.(*Model)
+	if !model.focus.IsFocused(model.responsePanel) {
+		t.Error("shift+tab from left panel should wrap to response panel")
+	}
+
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	model = result.(*Model)
 	if !model.focus.IsFocused(model.variablePanel) {
-		t.Error("shift+tab from left panel should wrap to variable panel")
+		t.Error("shift+tab from response panel should go to variable panel")
 	}
 
 	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyShiftTab})

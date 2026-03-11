@@ -142,24 +142,6 @@ func (m *Model) renderBadges() string {
 	return result
 }
 
-func (m *Model) renderCallArea(width int) string {
-	height := m.callAreaHeight()
-	if height <= 0 {
-		return ""
-	}
-
-	detailW := m.detailPanelWidth(width)
-	actionW := max(width-detailW, 1)
-	actionPanel := m.renderActionsPanel(actionW, height)
-	rightCol := lipgloss.NewStyle().Width(actionW).Height(height).Render(actionPanel)
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		lipgloss.NewStyle().Width(detailW).Height(height).Render(""),
-		rightCol,
-	)
-}
-
 func (m *Model) renderActionsPanel(width, height int) string {
 	if width <= 0 || height <= 0 {
 		return ""
