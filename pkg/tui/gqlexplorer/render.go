@@ -56,7 +56,7 @@ func (m *Model) renderList() (string, int) {
 			if len(lines) > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, tui.RenderBadge(string(currentType), badgeColor[currentType]))
+			lines = append(lines, tui.RenderBadge(string(currentType), m.operationBadgeColor(currentType, focused)))
 		}
 		if i == m.cursor {
 			cursorLine = len(lines)
@@ -83,6 +83,17 @@ func (m *Model) renderList() (string, int) {
 		}
 	}
 	return strings.Join(lines, "\n"), cursorLine
+}
+
+func focusColor(focused bool, active lipgloss.AdaptiveColor) lipgloss.AdaptiveColor {
+	if focused {
+		return active
+	}
+	return tui.ColorMuted
+}
+
+func (m *Model) operationBadgeColor(opType OperationType, focused bool) lipgloss.AdaptiveColor {
+	return focusColor(focused, badgeColor[opType])
 }
 
 func (m *Model) renderEndpointPicker() (string, int) {

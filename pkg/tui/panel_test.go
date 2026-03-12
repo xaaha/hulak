@@ -183,10 +183,21 @@ func TestPanelViewAlwaysStartsWithBorder(t *testing.T) {
 			p.SetContent("test", "")
 
 			view := p.View(true)
-			if !strings.HasPrefix(view, "╭") {
-				t.Errorf("expected view to start with ╭, got %q", view[:20])
+			if !strings.HasPrefix(view, "╔") {
+				t.Errorf("expected focused view to start with ╔, got %q", view[:20])
 			}
 		})
+	}
+}
+
+func TestPanelViewUnfocusedStartsWithRoundedBorder(t *testing.T) {
+	p := &Panel{Number: 2}
+	p.Resize(20, 5)
+	p.SetContent("test", "")
+
+	view := p.View(false)
+	if !strings.HasPrefix(view, "╭") {
+		t.Errorf("expected unfocused view to start with ╭, got %q", view[:20])
 	}
 }
 

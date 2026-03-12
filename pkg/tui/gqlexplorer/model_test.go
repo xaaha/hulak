@@ -720,6 +720,16 @@ func TestViewContainsFilterHint(t *testing.T) {
 	}
 }
 
+func TestFocusColor(t *testing.T) {
+	if got := focusColor(true, badgeColor[TypeQuery]); got != badgeColor[TypeQuery] {
+		t.Fatal("expected active color while focused")
+	}
+
+	if got := focusColor(false, badgeColor[TypeQuery]); got != tui.ColorMuted {
+		t.Fatal("expected muted color while unfocused")
+	}
+}
+
 func TestFilterHelpText(t *testing.T) {
 	tests := []struct {
 		name    string

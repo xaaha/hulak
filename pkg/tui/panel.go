@@ -10,6 +10,8 @@ import (
 
 var panelBorderStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder())
 
+var focusedPanelBorderStyle = lipgloss.NewStyle().Border(lipgloss.DoubleBorder())
+
 // Panel is a reusable bordered viewport box for right-side content panels.
 // Parent owns layout sizing; Panel owns viewport state, border rendering,
 // and content caching. Not a full tea.Model — embed in a parent model
@@ -168,6 +170,10 @@ func (p *Panel) View(focused bool) string {
 	if focused {
 		borderColor = ColorPrimary
 	}
+	borderStyle := panelBorderStyle
+	if focused {
+		borderStyle = focusedPanelBorderStyle
+	}
 
 	content := p.viewport.View()
 	contentH := p.viewport.Height
@@ -182,13 +188,21 @@ func (p *Panel) View(focused bool) string {
 		if p.Footer != "" {
 			leftText = p.Footer
 		}
-		styledLeftText := lipgloss.NewStyle().Foreground(ColorMuted).Render(leftText)
+		leftTextStyle := lipgloss.NewStyle().Foreground(ColorMuted)
+		if focused {
+			leftTextStyle = leftTextStyle.Foreground(ColorPrimary).Bold(true)
+		}
+		styledLeftText := leftTextStyle.Render(leftText)
 
 		styledLabel := ""
 		labelLen := 0
 		label := fmt.Sprintf("[%d]", p.Number)
 		if p.Number > 0 {
-			styledLabel = lipgloss.NewStyle().Foreground(borderColor).Render(label)
+			labelStyle := lipgloss.NewStyle().Foreground(borderColor)
+			if focused {
+				labelStyle = labelStyle.Bold(true)
+			}
+			styledLabel = labelStyle.Render(label)
 			labelLen = len([]rune(label))
 		}
 
@@ -200,7 +214,7 @@ func (p *Panel) View(focused bool) string {
 		contentH += p.titleHeight()
 	}
 
-	style := panelBorderStyle.
+	style := borderStyle.
 		BorderForeground(borderColor).
 		Width(p.viewport.Width).
 		Height(contentH)
