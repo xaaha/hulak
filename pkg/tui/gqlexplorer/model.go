@@ -1379,7 +1379,7 @@ func (m *Model) updateActionRow() {
 		},
 		{
 			ID:      "send",
-			Label:   "Send            ctrl+g",
+			Label:   "Send            ctrl+u",
 			Key:     tui.KeySend,
 			Enabled: m.canSend(),
 		},
@@ -1391,7 +1391,7 @@ func (m *Model) updateActionRow() {
 		},
 		{
 			ID:      "createRequest",
-			Label:   "Save Request    ctrl+h",
+			Label:   "Save Request    ctrl+x",
 			Key:     tui.KeyCreateRequest,
 			Enabled: m.canSaveOrCreate(),
 		},

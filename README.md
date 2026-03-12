@@ -48,9 +48,11 @@ hulak -env staging -f test_gql
   - [Verify Installation with](#verify-installation-with)
   - [Initialize Project](#initialize-project)
   - [Create An API file](#create-an-api-file)
+- [GraphQL Explorer](#graphql-explorer)
 - [Flags and Subcommands](#flags-and-subcommands)
   - [Flags](#flags)
   - [Subcommands](#subcommands)
+- [Documentation](#documentation)
 - [Schema](#schema)
 - [Actions](#actions)
   - [.Key](#key)
@@ -209,6 +211,38 @@ Read more about response in [response documentation](./docs/response.md).
 }
 ```
 
+# GraphQL Explorer
+
+Hulak has a dedicated GraphQL explorer for schema discovery, operation search, query building, validation, and saving generated files.
+
+Use it when you know a query or mutation exists somewhere but do not remember which endpoint or file owns it.
+
+```bash
+# Explore one GraphQL source file
+hulak gql e2etests/gql_schemas/countries.yml
+
+# Explore all GraphQL source files in the current directory
+hulak gql .
+
+# Skip the environment selector
+hulak gql -env staging ./collections/graphql
+```
+
+Directory mode auto-detects GraphQL source files by looking for `kind: GraphQL` with a non-empty `url`. Single-file mode only requires a valid file with a non-empty `url`.
+
+The explorer gives you:
+
+- fast operation search
+- type filters with `q:`, `m:`, and `s:`
+- endpoint filtering with `e:`
+- interactive argument and field selection
+- generated query and variables panels
+- inline query execution
+- response inspection and saving
+- generated `.gql` and `.hk.yaml` request files
+
+Read the full guide in [docs/graphql-explorer.md](./docs/graphql-explorer.md).
+
 # Flags and Subcommands
 
 ## Flags
@@ -229,8 +263,20 @@ Interactive mode (`hulak` with no file/directory flags) now picks the request fi
 | Subcommand | Description                                                              | Usage                                                               |
 | ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | help       | display help message                                                     | `hulak help`                                                        |
-| init       | Initialize environment directory and files in it                         | `hulak init` or ` hulak init -env global prod staging`              |
-| migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json` |
+| init       | Initialize environment directory and files in it                         | `hulak init` or `hulak init -env global prod staging`               |
+| migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json"` |
+| gql        | open the GraphQL explorer for one file or a directory                    | `hulak gql .` or `hulak gql -env staging path/to/graphql`           |
+
+# Documentation
+
+For deeper docs, start here:
+
+- [GraphQL Explorer](./docs/graphql-explorer.md)
+- [Request Body](./docs/body.md)
+- [Actions](./docs/actions.md)
+- [Environment Secrets](./docs/environment.md)
+- [Response Files](./docs/response.md)
+- [Auth2.0](./docs/auth20.md)
 
 # Schema
 
@@ -268,7 +314,7 @@ Once configured, you can simply rename your file to `yourFile.hk.yaml` for auto-
 
 # Actions
 
-Actions make it easier to retrieve values from other files. See, [actions documentation](./docs/body.md) for more detailed explanation.
+Actions make it easier to retrieve values from other files. See [actions documentation](./docs/actions.md) for more detailed explanation.
 
 ### `.Key`
 

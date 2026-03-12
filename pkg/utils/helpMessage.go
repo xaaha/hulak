@@ -5,10 +5,11 @@ import (
 )
 
 func PrintGQLUsage() {
-	PrintWarning("GraphQL Usage (Upcoming Feature):")
+	PrintWarning("GraphQL Usage:")
 	_ = WriteCommandHelp([]*CommandHelp{
-		{Command: "hulak gql .", Description: "Find All GraphQL files in current directory"},
-		{Command: "hulak gql <path/to/file>", Description: "Validate a specific GraphQL file"},
+		{Command: "hulak gql .", Description: "Open the GraphQL explorer for all GraphQL files in the current directory"},
+		{Command: "hulak gql path/to/file.yml", Description: "Open the GraphQL explorer for one GraphQL source file"},
+		{Command: "hulak gql -env staging path/to/dir", Description: "Open the GraphQL explorer with a pre-selected environment"},
 	})
 }
 
@@ -31,6 +32,10 @@ func PrintHelpSubCommands() {
 		{
 			Command:     "hulak migrate <file1> <file2> ...",
 			Description: "Migrates postman env and collections",
+		},
+		{
+			Command:     "hulak gql <path>",
+			Description: "Open the GraphQL explorer for a file or directory",
 		},
 	})
 }

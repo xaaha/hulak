@@ -9,6 +9,7 @@ SYNOPSIS
        hulak [OPTIONS] -fp <file_path>
        hulak [OPTIONS] -dir <directory_path>
        hulak [OPTIONS] -dirseq <directory_path>
+       hulak gql [-env <environment>] <path>
        hulak migrate <json_file>
 
 DESCRIPTION
@@ -18,6 +19,9 @@ DESCRIPTION
        If that file contains environment template vars (for example {{.token}}), hulak then asks you to pick an environment.
        Use -f for multi-match concurrent runs, -dir for directory concurrent runs, and -dirseq for directory sequential runs.
        If only -env is provided without a file, hulak opens the helper with the environment pre-selected.
+
+       Hulak also includes a dedicated GraphQL explorer TUI through the gql subcommand.
+       The explorer loads one GraphQL file or a directory of GraphQL files, fetches schemas, lets you search operations, build queries and variables, execute them, and save generated files.
 
 OPTIONS
        -env <environment>
@@ -37,6 +41,12 @@ OPTIONS
               Run entire directory one file at a time. Only supports (.yaml or .yml) files. All files use the same provided environment. 
               In nested directories, the execution order is not guaranteed to follow the file system appearance. If order matters, 
               it's recommended to use a directory without nested directories, in which case files will run alphabetically.
+
+       gql [-env <environment>] <path>
+              Opens the GraphQL explorer for one file or a directory.
+              In single-file mode, the file only needs a non-empty url field.
+              In directory mode, files are discovered recursively only when they contain kind: GraphQL and a non-empty url field.
+              If GraphQL files need environment values and -env is not provided, Hulak shows the environment selector.
 
        migrate <json_file>
               Migrates the specified JSON file(s) to the new Hulak format.
@@ -122,9 +132,44 @@ EXAMPLES
               # Run all .yaml files in the directory sequentially
               hulak -dirseq path/to/directory/
 
+       GraphQL explorer:
+
+              # Explore one GraphQL source file
+              hulak gql e2etests/gql_schemas/countries.yml
+
+              # Explore GraphQL files in the current directory
+              hulak gql .
+
+              # Explore a directory with a pre-selected environment
+              hulak gql -env staging ./collections/graphql
+
+              # Minimal GraphQL source file for directory discovery
+              ---
+              kind: GraphQL
+              url: https://countries.trevorblades.com/
+              headers:
+                Content-Type: application/json
+
+              # Generated or hand-written GraphQL request file
+              ---
+              method: POST
+              kind: GraphQL
+              url: "{{.graphqlUrl}}"
+              headers:
+                Content-Type: application/json
+              body:
+                graphql:
+                  query: '{{getFile "queries/GetCountry.gql"}}'
+                  variables:
+                    code: "NP"
+
 AUTH 2.0
        Supports OAuth 2.0 web-application flow. Refer to the documentation for detailed setup instructions:
        https://github.com/xaaha/hulak/blob/main/docs/auth20.md
+
+DOCUMENTATION
+       Full GraphQL explorer documentation:
+       https://github.com/xaaha/hulak/blob/main/docs/graphql-explorer.md
 
 COPYRIGHT
        Copyright (c) 2025 Pratik Thapa 

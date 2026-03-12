@@ -2,6 +2,8 @@
 
 This section includes all the key-value structures that can be passed in api (yaml) file.
 
+For the dedicated GraphQL explorer flow, see [graphql-explorer.md](./graphql-explorer.md).
+
 ## Data Structures
 
 ### HTTPMethodType
@@ -51,6 +53,7 @@ Represents the body of an HTTP request. Only one body type is allowed per reques
 > 1. The body must not be empty or nil.
 > 2. Only one body type must be present and non-empty.
 > 3. If using Graphql, the query field must be provided.
+> 4. `kind: GraphQL` is recommended for GraphQL files, and required for GraphQL directory discovery in `hulak gql <directory>`.
 
 ## Examples
 
@@ -105,6 +108,7 @@ body:
 ```yaml
 url: "{{.baseUrl}}" # Mandatory "" when we want to reference secret
 method: POST
+kind: GraphQL
 headers:
   Content-Type: application/json. # doouble quote is optional
 body:
@@ -127,3 +131,21 @@ body:
 > 3.  Headers: Key-value pairs for HTTP headers. Most of the headers are listed in [headers documentation](./headers.yaml)
 > 4.  Body: Only one body type is allowed, and it must be valid.
 > 5.  Secrets are allowed with `{{.secretName}}` but make sure formatting is right
+
+## GraphQL Explorer Source Files
+
+The GraphQL explorer can also start from lightweight schema source files.
+
+These files are usually smaller than normal request files. They are used to discover schema operations and then generate reusable `.gql` and `.hk.yaml` files later.
+
+Example:
+
+```yaml
+---
+kind: GraphQL
+url: "{{.graphqlUrl}}"
+headers:
+  Content-Type: application/json
+```
+
+Read the full explorer flow in [graphql-explorer.md](./graphql-explorer.md).
