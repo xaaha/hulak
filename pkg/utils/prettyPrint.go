@@ -21,15 +21,21 @@ type ColorProvider interface {
 }
 
 // LipglossColorProvider implements ColorProvider for both CLI and TUI output.
-// Uses basic ANSI palette indices (0–15) so the terminal's own palette handles
-// light/dark adaptation — no manual AdaptiveColor mapping needed.
+// Uses app-owned adaptive colors instead of raw terminal palette indexes so
+// response/variables highlighting stays balanced across terminal themes while
+// remaining readable in both light and dark modes.
 type LipglossColorProvider struct{}
 
 var (
-	lgString  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	lgNumber  = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	lgBoolean = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	lgNull    = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	jsonStringColor  = lipgloss.AdaptiveColor{Light: "29", Dark: "114"}
+	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "25", Dark: "81"}
+	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "130", Dark: "214"}
+	jsonNullColor    = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}
+
+	lgString  = lipgloss.NewStyle().Foreground(jsonStringColor)
+	lgNumber  = lipgloss.NewStyle().Foreground(jsonNumberColor)
+	lgBoolean = lipgloss.NewStyle().Foreground(jsonBooleanColor)
+	lgNull    = lipgloss.NewStyle().Foreground(jsonNullColor)
 )
 
 func (l LipglossColorProvider) ColorString(s string) string { return lgString.Render(s) }
