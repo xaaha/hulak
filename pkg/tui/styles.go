@@ -7,7 +7,7 @@ import "github.com/charmbracelet/lipgloss"
 // the right color based on terminal background.
 var (
 	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
-	ColorSecondary = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}  // Purple
+	ColorSecondary = lipgloss.AdaptiveColor{Light: "50", Dark: "141"}  // Purple
 	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
 	ColorWarn      = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Yellow/amber
 	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // Red
