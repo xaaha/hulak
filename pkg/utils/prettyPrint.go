@@ -29,10 +29,10 @@ type ColorProvider interface {
 type LipglossColorProvider struct{}
 
 var (
-	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#3E8F53", Dark: "#47a45f"}
+	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#3E8F53", Dark: "#4bac64"}
 	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "#2F6FA3", Dark: "#2F6FA3"}
 	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "#8C5A00", Dark: "#8C5A00"}
-	jsonNullColor    = lipgloss.AdaptiveColor{Light: "#7653A6", Dark: "#7653A6"}
+	jsonNullColor    = lipgloss.AdaptiveColor{Light: "50", Dark: "141"}
 )
 
 func (l LipglossColorProvider) ColorString(s string) string {
