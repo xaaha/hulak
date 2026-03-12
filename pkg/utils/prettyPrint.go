@@ -21,28 +21,36 @@ type ColorProvider interface {
 }
 
 // LipglossColorProvider implements ColorProvider for both CLI and TUI output.
-// Uses app-owned adaptive colors instead of raw terminal palette indexes so
-// response/variables highlighting stays balanced across terminal themes while
-// remaining readable in both light and dark modes.
+// NOTE: We intentionally use one fixed JSON palette here.
+// Terminal/system light-dark inference was too unreliable across terminals,
+// and several token colors washed out badly in light mode. Keep this simple
+// for now with balanced fixed colors; a proper user-configurable theme can
+// revisit light/dark palettes later.
 type LipglossColorProvider struct{}
 
 var (
-	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#264129", Dark: "#7FD08C"}
-	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "25", Dark: "81"}
-	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "85", Dark: "214"}
-	jsonNullColor    = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}
-
-	lgString  = lipgloss.NewStyle().Foreground(jsonStringColor)
-	lgNumber  = lipgloss.NewStyle().Foreground(jsonNumberColor)
-	lgBoolean = lipgloss.NewStyle().Foreground(jsonBooleanColor)
-	lgNull    = lipgloss.NewStyle().Foreground(jsonNullColor)
+	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#3E8F53", Dark: "#3E8F53"}
+	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "#2F6FA3", Dark: "#2F6FA3"}
+	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "#8C5A00", Dark: "#8C5A00"}
+	jsonNullColor    = lipgloss.AdaptiveColor{Light: "#7653A6", Dark: "#7653A6"}
 )
 
-func (l LipglossColorProvider) ColorString(s string) string { return lgString.Render(s) }
-func (l LipglossColorProvider) ColorNumber(s string) string { return lgNumber.Render(s) }
-func (l LipglossColorProvider) ColorBool(s string) string   { return lgBoolean.Render(s) }
-func (l LipglossColorProvider) ColorNull(s string) string   { return lgNull.Render(s) }
-func (l LipglossColorProvider) ColorKey(s string) string    { return s }
+func (l LipglossColorProvider) ColorString(s string) string {
+	return lipgloss.NewStyle().Foreground(jsonStringColor).Render(s)
+}
+
+func (l LipglossColorProvider) ColorNumber(s string) string {
+	return lipgloss.NewStyle().Foreground(jsonNumberColor).Render(s)
+}
+
+func (l LipglossColorProvider) ColorBool(s string) string {
+	return lipgloss.NewStyle().Foreground(jsonBooleanColor).Render(s)
+}
+
+func (l LipglossColorProvider) ColorNull(s string) string {
+	return lipgloss.NewStyle().Foreground(jsonNullColor).Render(s)
+}
+func (l LipglossColorProvider) ColorKey(s string) string { return s }
 
 // FormatJSONColored formats JSON data as an indented, colored string using the given ColorProvider.
 func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
