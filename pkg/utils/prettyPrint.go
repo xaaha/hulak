@@ -27,9 +27,9 @@ type ColorProvider interface {
 type LipglossColorProvider struct{}
 
 var (
-	jsonStringColor  = lipgloss.AdaptiveColor{Light: "29", Dark: "114"}
+	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#264129", Dark: "#7FD08C"}
 	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "25", Dark: "81"}
-	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "130", Dark: "214"}
+	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "85", Dark: "214"}
 	jsonNullColor    = lipgloss.AdaptiveColor{Light: "55", Dark: "141"}
 
 	lgString  = lipgloss.NewStyle().Foreground(jsonStringColor)
