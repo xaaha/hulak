@@ -1523,8 +1523,10 @@ func (m *Model) syncViewport() {
 			}
 		}
 
-		m.queryPanel.SetContent(BuildQueryString(op, m.detailForm), "")
-		m.variablePanel.SetContent(BuildVariablesString(op, m.detailForm), "")
+		query := BuildQueryString(op, m.detailForm)
+		variables := BuildVariablesString(op, m.detailForm)
+		m.queryPanel.SetContent(formatQueryForPanel(query, m.focus.IsFocused(m.queryPanel)), "")
+		m.variablePanel.SetContent(formatVariablesForPanel(variables, m.focus.IsFocused(m.variablePanel)), "")
 		if m.responseBody != "" {
 			m.setResponseContent()
 		}
