@@ -1207,21 +1207,17 @@ func (m *Model) responseHeader() string {
 
 	if m.responseStatusCode > 0 {
 		code := strconv.Itoa(m.responseStatusCode)
-		chipColor := tui.ColorMuted
-		if focused {
-			chipColor = statusChipColor(m.responseStatusCode)
-		}
+		chipColor := focusColor(focused, statusChipColor(m.responseStatusCode))
 		parts = append(parts, tui.RenderChip(code, tui.ChipVariantBadge, chipColor))
 	}
 	if m.responseDuration != "" {
 		parts = append(parts, tui.HelpStyle.Render(m.responseDuration))
 	}
-	saveColor := tui.ColorMuted
 	saveLabel := "Save"
 	if focused {
-		saveColor = badgeColor[TypeMutation]
 		saveLabel = "Save Ctrl+S"
 	}
+	saveColor := focusColor(focused, badgeColor[TypeMutation])
 	saveChip := tui.RenderChip(saveLabel, tui.ChipVariantBadge, saveColor)
 	parts = append(parts,
 		tui.HelpStyle.Render(formatResponseSize(len(m.responseBody))),
