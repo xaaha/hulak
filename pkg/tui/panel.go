@@ -18,7 +18,10 @@ type Panel struct {
 	viewport viewport.Model
 	ready    bool
 	cacheKey string
+	outerW   int
+	outerH   int
 	Number   int
+	Header   string
 	Footer   string
 	Label    string
 }
@@ -32,9 +35,23 @@ func (p *Panel) titleHeight() int {
 	return 0
 }
 
+func (p *Panel) headerHeight() int {
+	if p.Header == "" {
+		return 0
+	}
+	return lipgloss.Height(p.Header)
+}
+
+func (p *Panel) innerSize() (int, int) {
+	w := max(p.outerW-panelBorderStyle.GetHorizontalFrameSize(), 0)
+	h := max(p.outerH-panelBorderStyle.GetVerticalFrameSize()-p.titleHeight()-p.headerHeight(), 0)
+	return w, h
+}
+
 func (p *Panel) Resize(outerW, outerH int) {
-	innerW := max(outerW-panelBorderStyle.GetHorizontalFrameSize(), 0)
-	innerH := max(outerH-panelBorderStyle.GetVerticalFrameSize()-p.titleHeight(), 0)
+	p.outerW = outerW
+	p.outerH = outerH
+	innerW, innerH := p.innerSize()
 
 	if !p.ready {
 		p.viewport = viewport.New(innerW, innerH)
@@ -86,6 +103,41 @@ func (p *Panel) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
+// EnsureVisible scrolls both axes so the given line and column range are on screen.
+func (p *Panel) EnsureVisible(line, colStart, colEnd int) {
+	if !p.ready {
+		return
+	}
+	w := p.viewport.Width
+	if colEnd > w {
+		p.viewport.SetXOffset(max(colStart-2, 0))
+	} else {
+		p.viewport.SetXOffset(0)
+	}
+	h := p.viewport.Height
+	if line < p.viewport.YOffset || line >= p.viewport.YOffset+h {
+		p.viewport.SetYOffset(max(line-1, 0))
+	}
+}
+
+// SetHeader sets the sticky header text and recalculates viewport height.
+func (p *Panel) SetHeader(header string) {
+	p.Header = header
+	if !p.ready {
+		return
+	}
+	_, h := p.innerSize()
+	p.viewport.Height = h
+}
+
+// Width returns the inner viewport width (content area, excluding borders).
+func (p *Panel) Width() int {
+	if !p.ready {
+		return 0
+	}
+	return p.viewport.Width
+}
+
 // GotoTop resets the viewport scroll position to the top.
 func (p *Panel) GotoTop() {
 	if p.ready {
@@ -119,6 +171,11 @@ func (p *Panel) View(focused bool) string {
 
 	content := p.viewport.View()
 	contentH := p.viewport.Height
+
+	if p.headerHeight() > 0 {
+		content = p.Header + "\n" + content
+		contentH += p.headerHeight()
+	}
 
 	if p.titleHeight() > 0 {
 		leftText := p.Label

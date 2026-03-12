@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/migration"
-	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -98,7 +96,7 @@ func HandleSubcommands() error {
 		if data.Operations == nil {
 			os.Exit(0)
 		}
-		if err := gqlexplorer.RunExplorerWithRefresh(data, refreshFn, warnings); err != nil {
+		if err := gqlexplorer.RunExplorerWithRefresh(&data, refreshFn, warnings); err != nil {
 			utils.PanicRedAndExit("TUI error: %v", err)
 		}
 		os.Exit(0)
@@ -109,79 +107,4 @@ func HandleSubcommands() error {
 		os.Exit(1)
 	}
 	return nil
-}
-
-// handles single file mode and directory mode along with unifying the operation
-func loadGraphQLOperations(arg string, env string) (
-	gqlexplorer.ExplorerData,
-	gqlexplorer.RefreshFunc,
-	[]string,
-) {
-	prepared, err := graphql.PrepareSchemaLoad(arg, env)
-	if err != nil {
-		utils.PanicRedAndExit("Schema preparation error: %v", err)
-	}
-	if prepared.Cancelled {
-		return gqlexplorer.ExplorerData{}, nil, nil
-	}
-
-	// load spinner while waiting
-	raw, err := tui.RunWithSpinnerAfter("Fetching schemas...", func() (any, error) {
-		return graphql.FetchPreparedSchemas(prepared)
-	})
-	if err != nil {
-		utils.PanicRedAndExit("Schema fetch error: %v", err)
-	}
-	loadResult, ok := raw.(graphql.LoadResult)
-	if !ok && raw != nil {
-		utils.PanicRedAndExit("unexpected result type from schema fetch")
-	}
-
-	if loadResult.Cancelled {
-		return gqlexplorer.ExplorerData{}, nil, nil
-	}
-	refreshFn := func() (gqlexplorer.RefreshPayload, error) {
-		loadResult, err := graphql.LoadSchemas(arg, prepared.Env)
-		if err != nil {
-			return gqlexplorer.RefreshPayload{}, err
-		}
-		return gqlexplorer.RefreshPayload{
-			Data:     explorerDataFromLoadResult(loadResult),
-			Warnings: loadResult.Warnings,
-		}, nil
-	}
-
-	return explorerDataFromLoadResult(loadResult), refreshFn, loadResult.Warnings
-}
-
-func explorerDataFromLoadResult(loadResult graphql.LoadResult) gqlexplorer.ExplorerData {
-	data := gqlexplorer.ExplorerData{
-		InputTypes:     make(map[string]graphql.InputType),
-		EnumTypes:      make(map[string]graphql.EnumType),
-		ObjectTypes:    make(map[string]graphql.ObjectType),
-		UnionTypes:     make(map[string]graphql.UnionType),
-		InterfaceTypes: make(map[string]graphql.InterfaceType),
-	}
-
-	for i := range loadResult.Endpoints {
-		endpoint := &loadResult.Endpoints[i]
-		data.Operations = append(data.Operations, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
-		for k, v := range endpoint.Schema.InputTypes {
-			data.InputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
-		}
-		for k, v := range endpoint.Schema.EnumTypes {
-			data.EnumTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
-		}
-		for k, v := range endpoint.Schema.ObjectTypes {
-			data.ObjectTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
-		}
-		for k, v := range endpoint.Schema.UnionTypes {
-			data.UnionTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
-		}
-		for k, v := range endpoint.Schema.InterfaceTypes {
-			data.InterfaceTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
-		}
-	}
-
-	return data
 }

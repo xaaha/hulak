@@ -13,18 +13,20 @@ const (
 	KeyRight = "right"
 
 	// Vim-style navigation (use only when text input is inactive)
-	KeyJ       = "j"
-	KeyK       = "k"
-	KeyH       = "h"
-	KeyL       = "l"
-	KeyG       = "g"      // first press of gg (go to top)
-	KeyShiftG  = "G"      // go to bottom
-	KeyYank    = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
-	KeyRefresh = "ctrl+r"
-	KeySend    = "ctrl+enter"
-	KeySave    = "ctrl+s"
-	KeySlash   = "/" // vim-style search trigger
-	KeyAt      = "@" // reopen or hide the most recent notification
+	KeyJ             = "j"
+	KeyK             = "k"
+	KeyH             = "h"
+	KeyL             = "l"
+	KeyG             = "g"      // first press of gg (go to top)
+	KeyShiftG        = "G"      // go to bottom
+	KeyYank          = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
+	KeyRefresh       = "ctrl+r"
+	KeySend          = "ctrl+g"
+	KeySave          = "ctrl+s"
+	KeySaveQuery     = "ctrl+q"
+	KeyCreateRequest = "ctrl+h"
+	KeySlash         = "/" // vim-style search trigger
+	KeyAt            = "@" // reopen or hide the most recent notification
 
 	// Actions
 	KeyEnter    = "enter"

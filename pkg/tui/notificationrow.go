@@ -166,7 +166,11 @@ func (r *ActionRow) itemZoneID(id string) string {
 }
 
 func renderActionItem(item ActionItem) string {
-	return TitleStyle.Render(item.Label)
+	color := ColorPrimary
+	if !item.Enabled {
+		color = ColorMuted
+	}
+	return lipgloss.NewStyle().Foreground(color).Render(item.Label)
 }
 
 func renderActionItemBlock(item ActionItem, width, height int) string {

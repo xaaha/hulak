@@ -8,11 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatih/color"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ColorProvider defines how to apply colors to JSON tokens.
-// Implement this for different rendering backends (CLI, TUI, etc).
 type ColorProvider interface {
 	ColorString(s string) string
 	ColorNumber(s string) string
@@ -21,20 +20,23 @@ type ColorProvider interface {
 	ColorKey(s string) string
 }
 
-type fatihColorProvider struct{}
+// LipglossColorProvider implements ColorProvider for both CLI and TUI output.
+// Uses basic ANSI palette indices (0–15) so the terminal's own palette handles
+// light/dark adaptation — no manual AdaptiveColor mapping needed.
+type LipglossColorProvider struct{}
 
 var (
-	green   = color.New(color.FgHiGreen)   // for strings
-	yellow  = color.New(color.FgHiYellow)  // for booleans
-	cyan    = color.New(color.FgHiCyan)    // for numbers
-	magenta = color.New(color.FgHiMagenta) // for null
+	lgString  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	lgNumber  = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	lgBoolean = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	lgNull    = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
 )
 
-func (f fatihColorProvider) ColorString(s string) string { return green.Sprint(s) }
-func (f fatihColorProvider) ColorNumber(s string) string { return cyan.Sprint(s) }
-func (f fatihColorProvider) ColorBool(s string) string   { return yellow.Sprint(s) }
-func (f fatihColorProvider) ColorNull(s string) string   { return magenta.Sprint(s) }
-func (f fatihColorProvider) ColorKey(s string) string    { return s }
+func (l LipglossColorProvider) ColorString(s string) string { return lgString.Render(s) }
+func (l LipglossColorProvider) ColorNumber(s string) string { return lgNumber.Render(s) }
+func (l LipglossColorProvider) ColorBool(s string) string   { return lgBoolean.Render(s) }
+func (l LipglossColorProvider) ColorNull(s string) string   { return lgNull.Render(s) }
+func (l LipglossColorProvider) ColorKey(s string) string    { return s }
 
 // FormatJSONColored formats JSON data as an indented, colored string using the given ColorProvider.
 func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
@@ -48,10 +50,9 @@ func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
 	return buf.String(), nil
 }
 
-// PrintJSONColored pretty-prints JSON to stdout using fatih/color.
-// Needed as CLI needs std-out
+// PrintJSONColored pretty-prints JSON to stdout with colored tokens.
 func PrintJSONColored(data []byte) error {
-	formatted, err := FormatJSONColored(data, fatihColorProvider{})
+	formatted, err := FormatJSONColored(data, LipglossColorProvider{})
 	if err != nil {
 		return err
 	}

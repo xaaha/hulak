@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 func TestBuildVariablesStringScalarArgs(t *testing.T) {
@@ -269,7 +270,7 @@ func TestLeftArrowMovesDetailInputCursorWithinText(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, nil, nil, nil)
+	m := NewModel(ops, nil, nil, nil, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
@@ -311,7 +312,7 @@ func TestVariablePanelShowsVariables(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, objTypes, nil, nil)
+	m := NewModel(ops, nil, nil, objTypes, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 
@@ -327,6 +328,181 @@ func TestVariablePanelShowsVariables(t *testing.T) {
 	}
 }
 
+func TestBuildVariablesMapScalarArgs(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUser",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "ID!"},
+			{Name: "active", Type: "Boolean"},
+			{Name: "limit", Type: "Int"},
+			{Name: "score", Type: "Float"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].input.Model.SetValue("user-123")
+	df.items[1].enabled = true
+	df.items[1].toggle.Value = true
+	df.items[2].enabled = true
+	df.items[2].input.Model.SetValue("25")
+	df.items[3].enabled = true
+	df.items[3].input.Model.SetValue("3.14")
+
+	got := BuildVariablesMap(op, df)
+	if got == nil {
+		t.Fatal("expected non-nil map")
+	}
+	if got["id"] != "user-123" {
+		t.Errorf("id: got %v, want user-123", got["id"])
+	}
+	if got["active"] != true {
+		t.Errorf("active: got %v, want true", got["active"])
+	}
+	if got["limit"] != 25 {
+		t.Errorf("limit: got %v (%T), want 25", got["limit"], got["limit"])
+	}
+	if got["score"] != 3.14 {
+		t.Errorf("score: got %v (%T), want 3.14", got["score"], got["score"])
+	}
+}
+
+func TestBuildVariablesMapInputObject(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "searchUsers",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "filter", Type: "UserFilter!"},
+		},
+	}
+	inputTypes := map[string]graphql.InputType{
+		"UserFilter": {
+			Name: "UserFilter",
+			Fields: []graphql.InputField{
+				{Name: "query", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].enabled = true
+	df.items[0].input.Model.SetValue("alice")
+	df.items[1].enabled = true
+	df.items[1].toggle.Value = true
+
+	got := BuildVariablesMap(op, df)
+	if got == nil {
+		t.Fatal("expected non-nil map")
+	}
+	filterObj, ok := got["filter"].(map[string]any)
+	if !ok {
+		t.Fatalf("filter: expected map[string]any, got %T", got["filter"])
+	}
+	if filterObj["query"] != "alice" {
+		t.Errorf("filter.query: got %v, want alice", filterObj["query"])
+	}
+	if filterObj["active"] != true {
+		t.Errorf("filter.active: got %v, want true", filterObj["active"])
+	}
+}
+
+func TestBuildVariablesMapList(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUsers",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "ids", Type: "[ID!]!"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].input.Model.SetValue("aaa")
+	df.syncListArgRows("ids")
+	df.items[1].input.Model.SetValue("bbb")
+	df.syncListArgRows("ids")
+
+	got := BuildVariablesMap(op, df)
+	if got == nil {
+		t.Fatal("expected non-nil map")
+	}
+	ids, ok := got["ids"].([]any)
+	if !ok {
+		t.Fatalf("ids: expected []any, got %T", got["ids"])
+	}
+	if len(ids) != 2 || ids[0] != "aaa" || ids[1] != "bbb" {
+		t.Errorf("ids: got %v, want [aaa bbb]", ids)
+	}
+}
+
+func TestBuildVariablesMapNull(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUser",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "ID"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	df.items[0].enabled = true
+	df.items[0].input.Model.SetValue("null")
+
+	got := BuildVariablesMap(op, df)
+	if got == nil {
+		t.Fatal("expected non-nil map")
+	}
+	val, exists := got["id"]
+	if !exists {
+		t.Fatal("expected id key to exist")
+	}
+	if val != nil {
+		t.Errorf("id: got %v, want nil", val)
+	}
+}
+
+func TestBuildVariablesMapEmptyReturnsNil(t *testing.T) {
+	op := &UnifiedOperation{
+		Name:     "getUser",
+		Type:     TypeQuery,
+		Endpoint: "http://api/gql",
+		Arguments: []graphql.Argument{
+			{Name: "id", Type: "ID!"},
+		},
+	}
+	df := buildDetailForm(op, nil, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+
+	got := BuildVariablesMap(op, df)
+	if got != nil {
+		t.Errorf("expected nil for empty inputs, got %v", got)
+	}
+}
+
+func TestBuildVariablesMapNilArgs(t *testing.T) {
+	if got := BuildVariablesMap(nil, nil); got != nil {
+		t.Errorf("expected nil for nil args, got %v", got)
+	}
+}
+
 func TestYankTextVariablePanel(t *testing.T) {
 	ops := []UnifiedOperation{{
 		Name:     "getUser",
@@ -336,7 +512,7 @@ func TestYankTextVariablePanel(t *testing.T) {
 			{Name: "id", Type: "ID!"},
 		},
 	}}
-	m := NewModel(ops, nil, nil, nil, nil, nil)
+	m := NewModel(ops, nil, nil, nil, nil, nil, make(map[string]yamlparser.APIInfo))
 	result, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
 	model := result.(*Model)
 

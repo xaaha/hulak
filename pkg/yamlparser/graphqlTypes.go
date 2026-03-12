@@ -53,3 +53,26 @@ func (user *APICallFile) PrepareGraphQLStruct() APIInfo {
 		Body:      nil, // Body will be set separately for GraphQL
 	}
 }
+
+// CloneAPIInfo returns a deep copy of src with maps copied and Body set to nil.
+// Use this before each API call to avoid mutating the stored template
+// and to get a fresh body slot (io.Reader is single-use).
+func CloneAPIInfo(src APIInfo) APIInfo {
+	clone := APIInfo{
+		Method: src.Method,
+		URL:    src.URL,
+	}
+	if src.Headers != nil {
+		clone.Headers = make(map[string]string, len(src.Headers))
+		for k, v := range src.Headers {
+			clone.Headers[k] = v
+		}
+	}
+	if src.URLParams != nil {
+		clone.URLParams = make(map[string]string, len(src.URLParams))
+		for k, v := range src.URLParams {
+			clone.URLParams[k] = v
+		}
+	}
+	return clone
+}
