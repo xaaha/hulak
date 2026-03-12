@@ -47,7 +47,7 @@ run = "go test ./pkg/tui/... -timeout 30s"
 
 [tasks."test:tui:update"]
 description = "Regenerate TUI golden files after intentional changes"
-run = "go test ./pkg/tui -update"
+run = "go test ./pkg/tui/... -update"
 
 [tasks."watch:tui"]
 description = "Auto-run TUI tests on file changes"
