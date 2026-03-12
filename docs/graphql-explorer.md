@@ -225,7 +225,7 @@ Simple scalar values stay simple.
 
 ## Executing Queries
 
-Press `Ctrl+U` to execute the built query.
+Press `Ctrl+O` to execute the built query.
 
 The explorer:
 
@@ -304,7 +304,7 @@ Useful keys:
 - `/` starts search in the detail or response panel
 - `gg` and `G` jump to top or bottom in supported panels
 - `Ctrl+R` refreshes schemas
-- `Ctrl+U` executes the query
+- `Ctrl+O` executes the query
 - `Ctrl+Q` saves the query
 - `Ctrl+X` creates a Hulak request file
 - `Ctrl+S` saves the response when the response panel is focused
@@ -371,7 +371,7 @@ Inside the explorer:
 2. Open the `country` query
 3. Fill the `code` argument
 4. Toggle fields like `name`, `native`, and `capital`
-5. Press `Ctrl+U` to execute
+5. Press `Ctrl+O` to execute
 6. Press `Ctrl+Q` to save the query or `Ctrl+X` to create a reusable request file
 
 ## Relationship To Normal Hulak Requests

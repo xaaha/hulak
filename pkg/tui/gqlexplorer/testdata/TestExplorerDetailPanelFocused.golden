@@ -31,9 +31,9 @@
 │                                               │                                                     │                                                        │
 │                                               │                                                     │                        Actions                         │
 │                                               │                                                     │                Refresh         ctrl+r                  │
-│                                               │                                                     │                Send            ctrl+g                  │
+│                                               │                                                     │                Send            ctrl+o                  │
 │                                               │                                                     │                Save Query      ctrl+q                  │
-│                                               │                                                     │                Save Request    ctrl+h                  │
+│                                               │                                                     │                Save Request    ctrl+x                  │
 │                                               │Response                                          [5]│                                                        │
 │                                               ╰─────────────────────────────────────────────────────╯                                                        │
 │               ↑↓ j/k Ctrl+n/p | G/gg: bottom/top | /: search | Space: toggle | Enter: edit | Tab/Shift+Tab: switch | Ctrl+y: copy | Esc: back                │

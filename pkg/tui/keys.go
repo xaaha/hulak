@@ -21,7 +21,7 @@ const (
 	KeyShiftG        = "G"      // go to bottom
 	KeyYank          = "ctrl+y" // single 'y' key suffers when the cursor is in TextInput
 	KeyRefresh       = "ctrl+r"
-	KeySend          = "ctrl+u"
+	KeySend          = "ctrl+o"
 	KeySave          = "ctrl+s"
 	KeySaveQuery     = "ctrl+q"
 	KeyCreateRequest = "ctrl+x"

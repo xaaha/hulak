@@ -17,7 +17,7 @@ getuserData_response.json # automated saved response
 
 The GraphQL explorer has a separate response panel.
 
-- `Ctrl+U` executes the built GraphQL query.
+- `Ctrl+O` executes the built GraphQL query.
 - The response panel shows status code, duration, and formatted JSON body.
 - `/` starts search inside the response panel.
 - `Ctrl+S` saves the current response as a timestamped JSON file.

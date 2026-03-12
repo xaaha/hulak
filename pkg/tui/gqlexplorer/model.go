@@ -1375,7 +1375,7 @@ func (m *Model) updateActionRow() {
 		},
 		{
 			ID:      "send",
-			Label:   "Send            ctrl+u",
+			Label:   "Send            ctrl+o",
 			Key:     tui.KeySend,
 			Enabled: m.canSend(),
 		},
