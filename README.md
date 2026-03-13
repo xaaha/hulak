@@ -1,4 +1,8 @@
-From quick single file runs to a rich GraphQL TUI, Hulak scales and lets you manage API workflow like code.
+<p align="center">
+  <strong>
+    From quick single file runs to a rich GraphQL TUI, Hulak scales and lets you manage API workflows like code.
+  </strong>
+</p>
 
 ### Dedicated GraphQL Explorer
 
