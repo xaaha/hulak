@@ -1,37 +1,22 @@
 # GraphQL Explorer
 
-Hulak now has a dedicated GraphQL explorer TUI.
+<img alt="GraphQL Explorer TUI" src="../assets/gql-static.png" align="center"/>
 
-This feature exists for a simple reason. Many teams end up with many GraphQL endpoints and many request files. After a while, the hard part is not sending a request. The hard part is finding the right operation, understanding its input types, checking its return fields, and validating what still works.
+## Why?
 
-The explorer is built to solve that workflow inside the terminal.
+I built this TUI because I work with a lot of GraphQL endpoints and often know a query exists but not where, and when you are dealing with hundreds of operations the hard part is not sending the request but finding the right one, understanding its inputs and outputs, and seeing what still works, especially when tools like Postman only let you explore one endpoint at a time. The explorer is built to solve that workflow inside the terminal.
 
-## What It Does
+## Getting Started
 
-- Loads one GraphQL file or a whole directory of GraphQL files.
-- Fetches schemas from the resolved endpoints.
-- Collects queries, mutations, subscriptions, input types, enums, object types, unions, and interfaces.
-- Shows everything in a full-screen TUI.
-- Lets you filter operations quickly.
-- Lets you build a query interactively.
-- Lets you build variables from the schema.
-- Lets you execute the built query.
-- Lets you save the query, the response, or a new Hulak request file.
+<img alt="Full GraphQL Flow Demo" src="../assets/full-gql-flow.gif" align="center"/>
+<p align="center"><em>Full GraphQL flow Demo</em></p>
 
-## Two Different TUIs
+> [!Note]
+> Think of it like this: edit the GraphQL request in YAML, then use the TUI to view, explore, and run it.
 
-Hulak now has two related but different TUI flows.
+The GraphQL explorer opens a full-screen TUI for browsing schemas, finding operations, building queries and variables, executing requests, and saving the generated query, response, or a new Hulak request file.
 
-- `hulak`
-  This opens the general single-file helper. It helps you pick one request file and then runs it.
-- `hulak gql <path>`
-  This opens the GraphQL explorer. It is for browsing schemas, finding operations, building queries, and saving GraphQL request assets.
-
-If you run `hulak` with no file flags, Hulak first shows the request-file selector. It shows the environment selector only if the selected file needs environment values.
-
-If you run `hulak gql`, Hulak prepares GraphQL files first and then shows the environment selector only if GraphQL files need environment values and you did not already pass `-env`.
-
-## How To Start
+Start it with `hulak gql <file/dir-path>`, where `<path>` is either a GraphQL file or a directory of request yaml files.
 
 Use one of these entry points:
 
@@ -45,6 +30,63 @@ hulak gql .
 # Explore a directory with a pre-selected environment
 hulak gql -env staging ./collections/graphql
 ```
+
+The explorer loads the selected file set, resolves endpoints, fetches schemas, and collects queries, mutations, subscriptions, input types, enums, object types, unions, and interfaces for interactive exploration.
+
+If you run `hulak gql`, Hulak prepares GraphQL files first and then shows the environment selector only if GraphQL files need environment values and you did not already pass `-env`.
+
+## The Explorer Layout
+
+The explorer is a full-screen terminal UI.
+
+### Left Side
+
+<p align="center">
+  <img alt="GraphQL Explorer Left Panel"
+       src="../assets/left-panel.png"
+       height="400"/>
+</p>
+
+<p align="center"><em>Left panel: search and operation discovery</em></p>
+The left panel is the fast navigation side.
+
+It shows:
+
+- operation search
+- operation type filters
+- endpoint filters
+- the matching operations list
+
+Search prefixes:
+
+- `q:` only queries
+- `m:` only mutations
+- `s:` only subscriptions
+- `e:` switch the left panel into endpoint filter mode
+
+When endpoint filter mode is active, the left panel shows toggleable endpoints instead of operations.
+
+You can also type `e:!term` and press Enter to keep only matching endpoints.
+
+### Right Side
+
+<img alt="GraphQL Explorer Right Panel" src="../assets/right-panel.png" align="center"/>
+<p align="center"><em>Right panel: form, query, variables, and response</em></p>
+
+The right side is where you inspect and build the request.
+
+Panels:
+
+- `Form`
+  Shows operation arguments and return fields. You can toggle fields and edit argument values here.
+- `Query`
+  Shows the generated GraphQL query string.
+- `Variables`
+  Shows the generated GraphQL variables payload.
+- `Response`
+  Shows the executed response with status, duration, search, and save support.
+
+There is also an actions row for the main workflow.
 
 ## File Mode And Directory Mode
 
@@ -144,49 +186,6 @@ headers:
 ```
 
 The explorer uses the URL, headers, and params from these files to fetch schemas and later execute the built query.
-
-## The Explorer Layout
-
-The explorer is a full-screen terminal UI.
-
-### Left Side
-
-The left panel is the fast navigation side.
-
-It shows:
-
-- operation search
-- operation type filters
-- endpoint filters
-- the matching operations list
-
-Search prefixes:
-
-- `q:` only queries
-- `m:` only mutations
-- `s:` only subscriptions
-- `e:` switch the left panel into endpoint filter mode
-
-When endpoint filter mode is active, the left panel shows toggleable endpoints instead of operations.
-
-You can also type `e:!term` and press Enter to keep only matching endpoints.
-
-### Right Side
-
-The right side is where you inspect and build the request.
-
-Panels:
-
-- `Form`
-  Shows operation arguments and return fields. You can toggle fields and edit argument values here.
-- `Query`
-  Shows the generated GraphQL query string.
-- `Variables`
-  Shows the generated GraphQL variables payload.
-- `Response`
-  Shows the executed response with status, duration, search, and save support.
-
-There is also an actions row for the main workflow.
 
 ## Main Workflow Inside The TUI
 

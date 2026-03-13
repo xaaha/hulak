@@ -23,7 +23,10 @@ run = "watchexec -r -e go -- go run . gql ."
 
 [tasks.record]
 description = "Record terminal demo GIF with VHS"
-run = "vhs demo.tape"
+run = """
+vhs demo.tape
+vhs assets/fp.tape
+"""
 
 [tasks."test:api"]
 description = "Run E2E API calls"
