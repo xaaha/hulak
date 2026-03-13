@@ -12,3 +12,16 @@
 getUserData.yaml # calling file
 getuserData_response.json # automated saved response
 ```
+
+## GraphQL Explorer Responses
+
+The GraphQL explorer has a separate response panel.
+
+- `Ctrl+O` executes the built GraphQL query.
+- The response panel shows status code, duration, and formatted JSON body.
+- `/` starts search inside the response panel.
+- `Ctrl+S` saves the current response as a timestamped JSON file.
+
+The saved response is written beside the source GraphQL file for that endpoint when Hulak knows the source path.
+
+For the full explorer workflow, see [graphql-explorer.md](./graphql-explorer.md).

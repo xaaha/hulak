@@ -3,6 +3,7 @@
 - Environment secrets files (for example `global.env`) live in the `env/` folder at the project root.
 - The `env/` setup is required only for requests that use environment template vars like `{{.key}}`.
 - If a selected request needs environment vars and `env/global.env` is missing, Hulak asks to initialize the project setup at runtime.
+- The GraphQL explorer also shows the environment selector only when selected GraphQL files need template resolution and `-env` was not already provided.
 - Directory structure
 
 ```text
