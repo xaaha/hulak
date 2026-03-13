@@ -8,6 +8,9 @@ I built this TUI because I work with a lot of GraphQL endpoints and often know a
 
 ## Getting Started
 
+<img alt="Full GraphQL Flow Demo" src="../assets/full-gql-flow.gif.png" align="center"/>
+<p align="center"><em>Full GraphQL flow Demo</em></p>
+
 The GraphQL explorer opens a full-screen TUI for browsing schemas, finding operations, building queries and variables, executing requests, and saving the generated query, response, or a new Hulak request file.
 
 Start it with `hulak gql <path>`, where `<path>` is either a GraphQL file or a directory of request yaml files.
