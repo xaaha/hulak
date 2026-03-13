@@ -32,15 +32,17 @@ body:
       age: "{{.userAge}}"
 ```
 
-```bash
-# Run the file using secrets from staging.env file
-hulak -env staging -f test_gql
-```
-
 <p align="center">
   <img alt="Hulak Demo" src="./assets/fp.gif"/>
   <p align="center">Run with TUI</p>
 </p>
+
+If you prefer CLI
+
+```bash
+# Run the file using secrets from staging.env file
+hulak -env staging -f test_gql
+```
 
 # Table of Contents
 
