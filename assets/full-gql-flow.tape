@@ -66,7 +66,7 @@ Space
 Type "BR"
 Sleep 500ms
 
-Ctrl+o
+Ctrl+O
 Sleep 1s
 
 Tab
@@ -77,9 +77,10 @@ Sleep 1s
 
 Tab
 Sleep 1s
-Ctrl+s
+Ctrl+S
 Sleep 2s
 Escape
-Ctrl+x
+Sleep 2s
+Ctrl+X
 Sleep 2s
 Escape
