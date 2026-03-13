@@ -1,71 +1,56 @@
-<p align="center">
-  <img alt="Hulak Logo" src="./assets/logo.svg" height="140" />
-  <p align="center">File based API client for terminal nerds.</p>
-</p>
+<table>
+  <tr>
+    <td><img alt="Hulak Logo" src="./assets/logo.svg" height="80" /></td>
+    <td>
+      <h1>hulak</h1>
+      <p>File-based API client for terminal nerds.</p>
+    </td>
+  </tr>
+</table>
 
-# Elevator Pitch
+Manage API workflows like code — search, edit, version, and run requests from YAML files.
 
-If you’ve ever wanted to manage your API workflows like a code repository, easily searching, editing, copying, and deleting request files and variables, `hulak` is the tool for you. Hulak is a fast, lightweight, file-based API client that lets you make API calls and organize requests and responses using YAML files.
+### GraphQL Explorer
 
-```yaml
-# ────────────────────────────────────────────────────
-# Example: test_gql.hk.yaml
-# ────────────────────────────────────────────────────
----
-method: POST
+<img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
-# 🚨 Keep secrets separate! Avoid hardcoding credentials.
-url: "{{.graphqlUrl}}"
-headers:
-  Content-Type: application/json
-  # 🔍 Dynamically access nested values from another file
-  # using the `getValueOf` action.
-  Authorization: Bearer {{getValueOf "data.access_token" "employer_auth.json"}}
-body:
-  graphql:
-    # 📂 Store large JSON, GraphQL, XML, or HTML files separately
-    # and access them using the `getFile` action.
-    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
-    variables:
-      # 🏷️ Use templating to dynamically construct values.
-      name: "{{.userName}} of age {{.userAge}}"
-      age: "{{.userAge}}"
-```
+Browse schemas, search operations, build queries interactively, execute inline, and save results — all from the terminal.
 
-<p align="center">
-  <img alt="Hulak Demo" src="./assets/fp.gif"/>
-  <p align="center">Run with TUI</p>
-</p>
+### Interactive Runner
 
-If you prefer CLI
+<img alt="Interactive Runner" src="./assets/fp.gif" width="720" />
+
+Just type `hulak` — fuzzy-find your request file, pick an environment, get your response.
+
+### Quick Install
 
 ```bash
-# Run the file using secrets from staging.env file
-hulak -env staging -f test_gql
+brew install xaaha/tap/hulak
 ```
+
+---
 
 # Table of Contents
 
-- [Elevator Pitch](#elevator-pitch)
 - [Getting Started](#getting-started)
   - [Installation](#installation)
     - [1. Homebrew](#1-homebrew)
     - [2. go install](#2-go-install)
     - [3. Build from source](#3-build-from-source)
-  - [Verify Installation with](#verify-installation-with)
+  - [Verify Installation](#verify-installation)
   - [Initialize Project](#initialize-project)
-  - [Create An API file](#create-an-api-file)
-- [GraphQL Explorer](#graphql-explorer)
-- [Flags and Subcommands](#flags-and-subcommands)
-  - [Flags](#flags)
-  - [Subcommands](#subcommands)
-- [Documentation](#documentation)
-- [Schema](#schema)
+  - [Create An API File](#create-an-api-file)
+- [GraphQL Explorer](#graphql-explorer-1)
 - [Actions](#actions)
   - [.Key](#key)
   - [getValueOf](#getvalueof)
   - [getFile](#getfile)
+- [Flags and Subcommands](#flags-and-subcommands)
+  - [Flags](#flags)
+  - [Subcommands](#subcommands)
+- [Schema](#schema)
 - [Auth2.0 (Beta)](#auth20-beta)
+- [Documentation](#documentation)
 - [Planned Features](#planned-features)
 - [Contributing](#contributing)
 - [Support the Project](#support-the-project)
@@ -89,9 +74,9 @@ go install github.com/xaaha/hulak@latest
 ```
 
 - You need to install `go` in your system
-- In order for any utility, installed with `go install`, to be available for use, you need the path from `go env GOPATH` to be in the shell’s PATH.
+- In order for any utility, installed with `go install`, to be available for use, you need the path from `go env GOPATH` to be in the shell's PATH.
 
-  • If it’s not, add the following to your shell's configuration file.
+  • If it's not, add the following to your shell's configuration file.
 
 ```bash
 export GOPATH=$HOME/go
@@ -116,7 +101,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
       Under `System variables`, find the `Path ` variable and click `Edit`.
       Add the path to your folder (e.g., `C:\Go\bin`) and click `OK`.
 
-## Verify Installation with
+## Verify Installation
 
 ```bash
 hulak version
@@ -128,12 +113,11 @@ hulak help
 
 ## Initialize Project
 
-Create a project directory and cd into it. Then Initialize the project
+Create a project directory and cd into it. Then initialize the project
 
 ```bash
 mkdir my_apis & cd my_apis
 hulak init
-
 ```
 
 Hulak uses `env` directory to store secrets (e.g., passwords, client IDs) used in API calls that reference environment template vars like `{{.key}}`. It allows separation between different environments like local, test, and production. The `hulak init` command above sets up the secrets directory structure `env/` and also provides an `apiOptions.hk.yaml` file for your reference.
@@ -177,9 +161,9 @@ url: http://some.api.com/tests?bar={{.exampleVar}}
 
 would result in the request targeting `http://some.api.com/tests?bar=foo`
 
-## Create An API file
+## Create An API File
 
-Then Basic API call looks like `test.yaml` below. See full documentation on Request Body structure [here](./docs/body.md). More request examples are [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
+A basic API call looks like `test.yaml` below. See full documentation on Request Body structure [here](./docs/body.md). More request examples are [here](https://github.com/xaaha/hulak/tree/main/e2etests/test_collection).
 
 ```yaml
 # test.yaml
@@ -190,20 +174,12 @@ url: https://jsonplaceholder.typicode.com/todos/1
 Run the file with
 
 ```bash
-hulak -env global -f test
-# or
-hulak -env global -fp test.yaml
-```
-
-Since global is default environment, we don't need to specify `-env global`. This is the simplest way of running the file.
-
-```bash
 hulak -f test
 ```
 
-If the matched files do not contain environment template vars (`{{.key}}`), Hulak runs them without requiring `env/`.
+Since global is default environment, we don't need to specify `-env global`. If the matched files do not contain environment template vars (`{{.key}}`), Hulak runs them without requiring `env/`.
 
-File's response is be printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
+File's response is printed in the console and also saved at the same location as the calling file with `_response.json` suffix.
 Read more about response in [response documentation](./docs/response.md).
 
 ```json
@@ -216,6 +192,31 @@ Read more about response in [response documentation](./docs/response.md).
   },
   "status": "200 OK"
 }
+```
+
+Here's a more advanced example using templates, actions, and GraphQL:
+
+```yaml
+# ────────────────────────────────────────────────────
+# Example: test_gql.hk.yaml
+# ────────────────────────────────────────────────────
+---
+method: POST
+url: "{{.graphqlUrl}}"
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{getValueOf "data.access_token" "employer_auth.json"}}
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
+    variables:
+      name: "{{.userName}} of age {{.userAge}}"
+      age: "{{.userAge}}"
+```
+
+```bash
+# Run the file using secrets from staging.env file
+hulak -env staging -f test_gql
 ```
 
 # GraphQL Explorer
@@ -250,6 +251,65 @@ The explorer gives you:
 
 Read the full guide in [docs/graphql-explorer.md](./docs/graphql-explorer.md).
 
+# Actions
+
+Actions make it easier to retrieve values from other files. See [actions documentation](./docs/actions.md) for more detailed explanation.
+
+### `.Key`
+
+```yaml
+# example section
+body:
+  graphql:
+    query: |
+      query Hello($name: String!, $age: Int) {
+        hello(person: { name: $name, age: $age })
+      }
+    variables:
+      name: "{{.userName}} of age {{.userAge}}"
+      age: "{{.userAge}}"
+```
+
+`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from environment files in the `env/` directory in the root of the project [created above](#initialize-project). The value of `Key` is replaced during runtime.
+In the example above, `.userName` and `.userAge` are examples of retrieving key from secrets stored in `env/`.
+
+### `getValueOf`
+
+```yaml
+# example
+url: `{{getValueOf "key" "file_name" }}`
+```
+
+`getValueOf` looks for the value of the `key` inside the `file_name.json` file. Since responses of the api requests are saved in `file_name_response.json` file in the same directory, you don't need to provide `_response.json` suffix when using `getValueOf`.
+If multiple `file_name.json` is found, hulak recurses through the directory and uses the first file match. So, it's recommended that you use a unique name for each file.
+You can also provide the exact file location instead of `file_name` as `./e2etests/test_collection/graphql_response.json`
+
+- `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
+- `key` you are looking for could be in a nested object as well. For example, `user.name` means give me the name inside the user's object. You can escape the dot (.) with single curly brace like `{user.name}`. Here, `user.name` is considered a `key`.
+- `file_name` could be the only file name or the entire file path from project root. If only name is provided, first match will be used.
+
+```yaml
+# name is inside the user object in the user.json file
+name: '{{getValueOf "user.name" "user.json"}}'
+# extract the value of name from nested object from provided json file path
+name: '{{getValueOf "data.users[0].name" "e2etests/test_collection/graphql_response.json"}}'
+# where name is the key in the file
+name: `{{getValueOf "name" "user.json"}}`
+```
+
+### `getFile`
+
+Gets the file content as string and dumps the entire file content in context. It takes file path as an argument. Do not use `getFile` action to pass token in auth header.
+
+```yaml
+# example
+body:
+  graphql:
+    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
+```
+
+Learn more about these actions [here](./docs/actions.md)
+
 # Flags and Subcommands
 
 ## Flags
@@ -261,9 +321,9 @@ Read the full guide in [docs/graphql-explorer.md](./docs/graphql-explorer.md).
 | `-f`      | File name (yaml/yml) to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                | `-f graphql`                     |
 | `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                | `-debug`                         |
 | `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                     | `-dir path/to/directory/`        |
-| `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guranteed that files will run as they appear in the file system. If the order matter, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
+| `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guaranteed that files will run as they appear in the file system. If the order matters, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
 
-Interactive mode (`hulak` with no file/directory flags) now picks the request file first. If the selected file requires `{{.key}}`, Hulak then asks for environment selection. During slow file discovery, a spinner appears after a short delay.
+Interactive mode (`hulak` with no file/directory flags) picks the request file first. If the selected file requires `{{.key}}`, Hulak then asks for environment selection. During slow file discovery, a spinner appears after a short delay.
 
 ## Subcommands
 
@@ -273,17 +333,6 @@ Interactive mode (`hulak` with no file/directory flags) now picks the request fi
 | init       | Initialize environment directory and files in it                         | `hulak init` or `hulak init -env global prod staging`                |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json"` |
 | gql        | open the GraphQL explorer for one file or a directory                    | `hulak gql .` or `hulak gql -env staging path/to/graphql`            |
-
-# Documentation
-
-For deeper docs, start here:
-
-- [GraphQL Explorer](./docs/graphql-explorer.md)
-- [Request Body](./docs/body.md)
-- [Actions](./docs/actions.md)
-- [Environment Secrets](./docs/environment.md)
-- [Response Files](./docs/response.md)
-- [Auth2.0](./docs/auth20.md)
 
 # Schema
 
@@ -319,68 +368,20 @@ OR
 Alternatively, you can configure your editor to enable auto-completion without needing to declare the schema in each file. For Neovim users, you can find my configuration [here](https://github.com/xaaha/dev-env/blob/7d25456e59a3a73081baedfd9060810afa4332e4/nvim/.config/nvim/lua/pratik/plugins/lsp/lspconfig.lua).
 Once configured, you can simply rename your file to `yourFile.hk.yaml` for auto-completion.
 
-# Actions
-
-Actions make it easier to retrieve values from other files. See [actions documentation](./docs/actions.md) for more detailed explanation.
-
-### `.Key`
-
-```yaml
-# example section
-body:
-  graphql:
-    query: |
-      query Hello($name: String!, $age: Int) {
-        hello(person: { name: $name, age: $age })
-      }
-    variables:
-      name: "{{.userName}} of age {{.userAge}}"
-      age: "{{.userAge}}"
-```
-
-`.Key` is a variable, that is present in one of the `.env` files. It grabs the value from environemnt files in the `env/` directory in the root of the project [created above](#Initialize-Environment-Folders). The value of, `Key` is replaced during runtime.
-In the example above, `.userName` and `.userAge` are examples of retrieving key from secrets stored in `env/`.
-
-### `getValueOf`:
-
-```yaml
-# example
-url: `{{getValueOf "key" "file_name" }}`
-```
-
-`getValueOf` looks for the value of the `key` inside the `file_name.json` file. Since responses of the api requests are saved in `file_name_response.json` file in the same directory, you don't need to provide `_response.json` suffix when using `getValueOf`.
-If multiple `file_name.json` is found, hulak recurces through the directory and uses the first file match. So, it's recommended that you use a unique name for each file.
-You can also provide the exact file location instead of `file_name` as `./e2etests/test_collection/graphql_response.json`
-
-- `"key"` and `"file_name"`: Should be surrounded by double quotes (Go template).
-- `key` you are looking for could in a nested object as well. For example, `user.name` means give me the name inside the user's object. You can esacpe the dot (.) with single curly brace like `{user.name}`. Here, `user.name` is considered a `key`.
-- `file_name` could be the only file name or the entire file path from project root. If only name is provided, first match will be used.
-
-```yaml
-# name is inside the user object in the user.json file
-name: '{{getValueOf "user.name" "user.json"}}'
-# extract the value of name from nested object from provided json file path
-name: '{{getValueOf "data.users[0].name" "e2etests/test_collection/graphql_response.json"}}'
-# where name is the key in the file
-name: `{{getValueOf "name" "user.json"}}`
-```
-
-### `getFile`
-
-Gets the file content as string and dumps the entire file content in context. It takes file path as an argument. Do not use `getFile` action to pass token in auth header.
-
-```yaml
-# example
-body:
-  graphql:
-    query: '{{getFile "e2etests/test_collection/test.graphql"}}'
-```
-
-Learn more about these actions [here](./docs/actions.md)
-
 # Auth2.0 (Beta)
 
-Hualk supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
+Hulak supports auth2.0 web-application-flow. Follow the auth2.0 provider instruction to set it up. Read more [here](./docs/auth20.md)
+
+# Documentation
+
+For deeper docs, start here:
+
+- [GraphQL Explorer](./docs/graphql-explorer.md)
+- [Request Body](./docs/body.md)
+- [Actions](./docs/actions.md)
+- [Environment Secrets](./docs/environment.md)
+- [Response Files](./docs/response.md)
+- [Auth2.0](./docs/auth20.md)
 
 # Planned Features
 
