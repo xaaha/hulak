@@ -1,4 +1,4 @@
-Output demo.gif
+Output assets/gql.gif
 Set Shell "bash"
 Set FontSize 18
 Set Width 1920
