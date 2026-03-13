@@ -9,7 +9,7 @@ Set Theme "Dracula"
 
 Type "hulak"
 Enter
-Type "graph"
+Type "gra"
 Enter
 Type "glob"
 Enter

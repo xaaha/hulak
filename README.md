@@ -37,6 +37,11 @@ body:
 hulak -env staging -f test_gql
 ```
 
+<p align="center">
+  <img alt="Hulak Demo" src="./assets/fp.gif"/>
+  <p align="center">Run with TUI</p>
+</p>
+
 # Table of Contents
 
 - [Elevator Pitch](#elevator-pitch)
@@ -260,12 +265,12 @@ Interactive mode (`hulak` with no file/directory flags) now picks the request fi
 
 ## Subcommands
 
-| Subcommand | Description                                                              | Usage                                                               |
-| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| help       | display help message                                                     | `hulak help`                                                        |
-| init       | Initialize environment directory and files in it                         | `hulak init` or `hulak init -env global prod staging`               |
+| Subcommand | Description                                                              | Usage                                                                |
+| ---------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| help       | display help message                                                     | `hulak help`                                                         |
+| init       | Initialize environment directory and files in it                         | `hulak init` or `hulak init -env global prod staging`                |
 | migrate    | migrates postman environment and collection (v2.1 only) files for hulak. | `hulak migrate "path/to/environment.json" "path/to/collection.json"` |
-| gql        | open the GraphQL explorer for one file or a directory                    | `hulak gql .` or `hulak gql -env staging path/to/graphql`           |
+| gql        | open the GraphQL explorer for one file or a directory                    | `hulak gql .` or `hulak gql -env staging path/to/graphql`            |
 
 # Documentation
 
