@@ -41,9 +41,13 @@ The explorer is a full-screen terminal UI.
 
 ### Left Side
 
-<img alt="GraphQL Explorer Left Panel" src="../assets/left-panel.png" align="center"/>
-<p align="center"><em>Left panel: search and operation discovery</em></p>
+<p align="center">
+  <img alt="GraphQL Explorer Left Panel"
+       src="../assets/left-panel.png"
+       height="400"/>
+</p>
 
+<p align="center"><em>Left panel: search and operation discovery</em></p>
 The left panel is the fast navigation side.
 
 It shows:
