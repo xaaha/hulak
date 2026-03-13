@@ -11,9 +11,12 @@ I built this TUI because I work with a lot of GraphQL endpoints and often know a
 <img alt="Full GraphQL Flow Demo" src="../assets/full-gql-flow.gif" align="center"/>
 <p align="center"><em>Full GraphQL flow Demo</em></p>
 
+> [!Note]
+> Think of it like this: edit the GraphQL request in YAML, then use the TUI to view, explore, and run it.
+
 The GraphQL explorer opens a full-screen TUI for browsing schemas, finding operations, building queries and variables, executing requests, and saving the generated query, response, or a new Hulak request file.
 
-Start it with `hulak gql <path>`, where `<path>` is either a GraphQL file or a directory of request yaml files.
+Start it with `hulak gql <file/dir-path>`, where `<path>` is either a GraphQL file or a directory of request yaml files.
 
 Use one of these entry points:
 
@@ -38,6 +41,9 @@ The explorer is a full-screen terminal UI.
 
 ### Left Side
 
+<img alt="GraphQL Explorer Left Panel" src="../assets/left-panel.png" align="center"/>
+<p align="center"><em>Left panel: search and operation discovery</em></p>
+
 The left panel is the fast navigation side.
 
 It shows:
@@ -59,6 +65,9 @@ When endpoint filter mode is active, the left panel shows toggleable endpoints i
 You can also type `e:!term` and press Enter to keep only matching endpoints.
 
 ### Right Side
+
+<img alt="GraphQL Explorer Right Panel" src="../assets/right-panel.png" align="center"/>
+<p align="center"><em>Right panel: form, query, variables, and response</em></p>
 
 The right side is where you inspect and build the request.
 
