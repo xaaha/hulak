@@ -21,7 +21,7 @@ Sleep 1s
 Enter
 Sleep 1s
 
-Type "xaaha here"
+Type "xaaha"
 Sleep 500ms
 
 Ctrl+o
