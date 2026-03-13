@@ -2,7 +2,6 @@
   <tr>
     <td><img alt="Hulak Logo" src="./assets/logo.svg" height="80" /></td>
     <td>
-      <h1>hulak</h1>
       <p>File-based API client for terminal nerds.</p>
     </td>
   </tr>
@@ -14,13 +13,13 @@ Manage API workflows like code — search, edit, version, and run requests from 
 
 <img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
-Browse schemas, search operations, build queries interactively, execute inline, and save results — all from the terminal.
+Browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results, responses, all from the terminal.
 
 ### Interactive Runner
 
 <img alt="Interactive Runner" src="./assets/fp.gif" width="720" />
 
-Just type `hulak` — fuzzy-find your request file, pick an environment, get your response.
+Just type `hulak` — find your request file, pick an environment, get your response.
 
 ### Quick Install
 
@@ -314,13 +313,13 @@ Learn more about these actions [here](./docs/actions.md)
 
 ## Flags
 
-| Flag      | Description                                                                                                                                                                                                                                                                                                                                                            | Usage                            |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `-env`    | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                                                                                                                                                                                        | `-env prod`                      |
-| `-fp`     | Represents file-path for the file/directory you want to run.                                                                                                                                                                                                                                                                                                           | -fp "./collection/getUsers.yaml" |
-| `-f`      | File name (yaml/yml) to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                | `-f graphql`                     |
-| `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                | `-debug`                         |
-| `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                     | `-dir path/to/directory/`        |
+| Flag      | Description                                                                                                                                                                                                                                                                                                                                                              | Usage                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| `-env`    | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`.                                                                                                                                                                                                                                                          | `-env prod`                      |
+| `-fp`     | Represents file-path for the file/directory you want to run.                                                                                                                                                                                                                                                                                                             | -fp "./collection/getUsers.yaml" |
+| `-f`      | File name (yaml/yml) to run. Hulak searches your directories and subdirectories from the root and finds the matching yaml file(s). If multiple matches are found, they run concurrently                                                                                                                                                                                  | `-f graphql`                     |
+| `-debug`  | Add debug boolean flag to get the entire request, response, headers, and TLS info about the api request                                                                                                                                                                                                                                                                  | `-debug`                         |
+| `-dir`    | Run entire directory concurrently. Only supports (.yaml or .yam) file. All files use the same provided environment                                                                                                                                                                                                                                                       | `-dir path/to/directory/`        |
 | `-dirseq` | Run entire directory one file at a time. Only supports (.yaml or .yam) file. All files use the same provided environment. In nested directory, it is not guaranteed that files will run as they appear in the file system. If the order matters, it's recommended to have a directory without nested directories inside it, in which case, files will run alphabetically | `-dirseq path/to/directory/`     |
 
 Interactive mode (`hulak` with no file/directory flags) picks the request file first. If the selected file requires `{{.key}}`, Hulak then asks for environment selection. During slow file discovery, a spinner appears after a short delay.
