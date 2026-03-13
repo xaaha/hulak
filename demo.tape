@@ -1,23 +1,37 @@
 Output demo.gif
 Set Shell "bash"
-Set FontSize 14
-Set Width 900
-Set Height 500
-Set Padding 20
+Set FontSize 18
+Set Width 1920
+Set Height 1080
+Set Padding 30
+Set TypingSpeed 80ms
+Set Theme "Dracula"
 
-Type "hulak init"
+Type "hulak gql ."
 Enter
-Sleep 1.5s
-
-Type "hulak"
+Type "glo"
 Enter
-Sleep 2s
 
-Type "form"
+Sleep 1s
+Type "hel"
+Sleep 500ms
+Enter
 Sleep 1s
 
-Down
+Enter
+Sleep 1s
+
+Type "xaaha here"
 Sleep 500ms
 
-Enter
-Sleep 3s
+Ctrl+o
+Sleep 1s
+
+Tab
+Sleep 1s
+
+Tab
+Sleep 1s
+
+Tab
+Sleep 1s
