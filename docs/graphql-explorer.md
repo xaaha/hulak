@@ -1,6 +1,8 @@
 # GraphQL Explorer
 
-<img alt="GraphQL Explorere TUI" src="./assets/gql-client.png" height="80" align="center" />
+<p align="center">
+  <img alt="GraphQL Explorer TUI" src="./assets/gql-client.png" height="80" />
+</p>
 
 ## Why?
 
