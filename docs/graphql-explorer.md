@@ -1,9 +1,11 @@
 # GraphQL Explorer
 
-Hulak now has a dedicated GraphQL explorer TUI.
+> [!Important]
+> Hulak now has a dedicated GraphQL explorer TUI. Designed for developers who explore GraphQL at scale
 
-This feature exists for a simple reason. Many teams end up with many GraphQL endpoints and many request files. After a while, the hard part is not sending a request. The hard part is finding the right operation, understanding its input types, checking its return fields, and validating what still works.
+## Why new GraphQL explorer?
 
+I built this TUI because I work with a lot of GraphQL endpoints and often know a query exists but not where, and when you are dealing with hundreds of operations the hard part is not sending the request but finding the right one, understanding its inputs and outputs, and seeing what still works, especially when tools like Postman only let you explore one endpoint at a time and do not feel natural in the terminal.
 The explorer is built to solve that workflow inside the terminal.
 
 ## What It Does
