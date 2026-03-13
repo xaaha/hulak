@@ -1,8 +1,8 @@
 # GraphQL Explorer
 
-<p align="center">
+<di align="center">
   <img alt="GraphQL Explorer TUI" src="./assets/gql-client.png" />
-</p>
+</div>
 
 ## Why?
 

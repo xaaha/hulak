@@ -1,14 +1,12 @@
-<img alt="Hulak Logo" src="./assets/logo.svg" height="80" />
-
 From quick single file runs to a rich GraphQL TUI, Hulak scales and lets you manage API workflow like code.
 
-### GraphQL Explorer
+### Dedicated GraphQL Explorer
 
 <img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
 Designed for developers who explore GraphQL at scale. Browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results, responses, all from the terminal.
 
-### Interactive Runner
+### Fast Interactive Runner
 
 <img alt="Interactive Runner" src="./assets/fp.gif" width="720" />
 
