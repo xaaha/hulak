@@ -14,7 +14,7 @@ Designed for developers who explore GraphQL at scale. Browse schemas from multip
 
 <img alt="Interactive Runner" src="./assets/fp.gif" width="720" />
 
-Just type `hulak` — find your request file, pick an environment, get your response.
+Just type `hulak` → find your request file → pick an environment → get your response.
 
 ### Quick Install
 
