@@ -8,7 +8,7 @@
 
 <img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
-Designed for developers who explore GraphQL at scale. Browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results, responses, all from the terminal.
+Designed for developers who explore GraphQL at scale. Hulak has dedicated GraphQL client that lets you browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results, responses, all from the terminal.
 
 ### Fast Interactive Runner
 
