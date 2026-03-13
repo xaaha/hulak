@@ -1,6 +1,6 @@
 <p align="center">
   <strong>
-    From quick single file runs to a rich GraphQL TUI, Hulak scales and lets you manage API workflows like code.
+    Manage Your API workflows like code.
   </strong>
 </p>
 
