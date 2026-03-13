@@ -1,9 +1,10 @@
 # GraphQL Explorer
 
-## Why new GraphQL explorer?
+<img alt="GraphQL Explorere TUI" src="./assets/gql-client.png" height="80" align="center" />
 
-I built this TUI because I work with a lot of GraphQL endpoints and often know a query exists but not where, and when you are dealing with hundreds of operations the hard part is not sending the request but finding the right one, understanding its inputs and outputs, and seeing what still works, especially when tools like Postman only let you explore one endpoint at a time and do not feel natural in the terminal.
-The explorer is built to solve that workflow inside the terminal.
+## Why?
+
+I built this TUI because I work with a lot of GraphQL endpoints and often know a query exists but not where, and when you are dealing with hundreds of operations the hard part is not sending the request but finding the right one, understanding its inputs and outputs, and seeing what still works, especially when tools like Postman only let you explore one endpoint at a time. The explorer is built to solve that workflow inside the terminal.
 
 ## What It Does
 
