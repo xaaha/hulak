@@ -1,8 +1,4 @@
-<table>
-  <tr>
-    <td><img alt="Hulak Logo" src="./assets/logo.svg" height="80" /></td>
-  </tr>
-</table>
+<img alt="Hulak Logo" src="./assets/logo.svg" height="80" />
 
 From quick single file runs to a rich GraphQL TUI, Hulak scales with your API workflow and lets you manage APIs like code.
 
