@@ -1,13 +1,10 @@
 <table>
   <tr>
     <td><img alt="Hulak Logo" src="./assets/logo.svg" height="80" /></td>
-    <td>
-      <p>File-based API client for terminal nerds.</p>
-    </td>
   </tr>
 </table>
 
-Manage API workflows like code — search, edit, version, and run requests from YAML files.
+From quick single file runs to a rich GraphQL TUI, Hulak scales with your API workflow and lets you manage APIs like code.
 
 ### GraphQL Explorer
 
