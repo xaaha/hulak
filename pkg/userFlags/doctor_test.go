@@ -75,70 +75,25 @@ func gitAddCommit(t *testing.T, message string) {
 	}
 }
 
-func TestCheckEnvDir(t *testing.T) {
-	tests := []struct {
-		name           string
-		setup          func(t *testing.T, dir string)
-		expectedPassed bool
-		wantContains   string
-	}{
-		{
-			name: "passes when env directory exists",
-			setup: func(t *testing.T, dir string) {
-				createEnvDir(t, dir)
-			},
-			expectedPassed: true,
-			wantContains:   "directory found",
-		},
-		{
-			name:           "fails when env directory does not exist",
-			setup:          func(_ *testing.T, _ string) {},
-			expectedPassed: false,
-			wantContains:   "directory not found",
-		},
-		{
-			name: "fails when env is a file not a directory",
-			setup: func(t *testing.T, dir string) {
-				f, err := os.Create(filepath.Join(dir, utils.EnvironmentFolder))
-				if err != nil {
-					t.Fatal(err)
-				}
-				f.Close()
-			},
-			expectedPassed: false,
-			wantContains:   "directory not found",
-		},
+// warningsContain returns true if any warning message contains the substring.
+func warningsContain(warnings []warning, substr string) bool {
+	for _, w := range warnings {
+		if strings.Contains(w.message, substr) || strings.Contains(w.fix, substr) {
+			return true
+		}
 	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			tc.setup(t, tmpDir)
-			restore := chdirTemp(t, tmpDir)
-			defer restore()
-
-			result := checkEnvDir()
-			if result.passed != tc.expectedPassed {
-				t.Errorf("checkEnvDir().passed = %v, want %v (message: %s)",
-					result.passed, tc.expectedPassed, result.message)
-			}
-			if tc.wantContains != "" && !strings.Contains(result.message, tc.wantContains) {
-				t.Errorf("checkEnvDir().message = %q, want substring %q",
-					result.message, tc.wantContains)
-			}
-		})
-	}
+	return false
 }
 
 func TestCheckGitignore(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(t *testing.T, dir string)
-		expectedPassed bool
-		wantContains   string
+		name         string
+		setup        func(t *testing.T, dir string)
+		wantWarnings bool
+		wantContains string
 	}{
 		{
-			name: "passes when gitignore contains env/",
+			name: "no warning when gitignore contains env/",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 				content := "node_modules/\n" + utils.EnvironmentFolder + "/\n*.log\n"
@@ -148,11 +103,10 @@ func TestCheckGitignore(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: true,
-			wantContains:   "is in .gitignore",
+			wantWarnings: false,
 		},
 		{
-			name: "passes when gitignore contains env without trailing slash",
+			name: "no warning when gitignore contains env without trailing slash",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 				content := utils.EnvironmentFolder + "\n"
@@ -162,11 +116,10 @@ func TestCheckGitignore(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: true,
-			wantContains:   "is in .gitignore",
+			wantWarnings: false,
 		},
 		{
-			name: "passes when entry has surrounding whitespace",
+			name: "no warning when entry has surrounding whitespace",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 				content := "  " + utils.EnvironmentFolder + "/  \n"
@@ -176,11 +129,10 @@ func TestCheckGitignore(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: true,
-			wantContains:   "is in .gitignore",
+			wantWarnings: false,
 		},
 		{
-			name: "fails when gitignore exists but does not contain env entry",
+			name: "warns when gitignore does not contain env entry",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 				content := "node_modules/\n*.log\n"
@@ -190,19 +142,19 @@ func TestCheckGitignore(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: false,
-			wantContains:   "is not in .gitignore",
+			wantWarnings: true,
+			wantContains: "not gitignored",
 		},
 		{
-			name: "fails when no gitignore file exists",
+			name: "warns when no gitignore file exists",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 			},
-			expectedPassed: false,
-			wantContains:   "no .gitignore found",
+			wantWarnings: true,
+			wantContains: "not gitignored",
 		},
 		{
-			name: "fails with empty gitignore",
+			name: "warns with empty gitignore",
 			setup: func(t *testing.T, dir string) {
 				createEnvDir(t, dir)
 				if err := os.WriteFile(
@@ -211,8 +163,16 @@ func TestCheckGitignore(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: false,
-			wantContains:   "is not in .gitignore",
+			wantWarnings: true,
+			wantContains: "not gitignored",
+		},
+		{
+			name: "includes fix command in warning",
+			setup: func(t *testing.T, dir string) {
+				createEnvDir(t, dir)
+			},
+			wantWarnings: true,
+			wantContains: "echo",
 		},
 	}
 
@@ -223,14 +183,14 @@ func TestCheckGitignore(t *testing.T) {
 			restore := chdirTemp(t, tmpDir)
 			defer restore()
 
-			result := checkGitignore()
-			if result.passed != tc.expectedPassed {
-				t.Errorf("checkGitignore().passed = %v, want %v (message: %s)",
-					result.passed, tc.expectedPassed, result.message)
+			warnings := checkGitignore()
+			hasWarnings := len(warnings) > 0
+			if hasWarnings != tc.wantWarnings {
+				t.Errorf("checkGitignore() returned %d warnings, wantWarnings=%v",
+					len(warnings), tc.wantWarnings)
 			}
-			if tc.wantContains != "" && !strings.Contains(result.message, tc.wantContains) {
-				t.Errorf("checkGitignore().message = %q, want substring %q",
-					result.message, tc.wantContains)
+			if tc.wantContains != "" && hasWarnings && !warningsContain(warnings, tc.wantContains) {
+				t.Errorf("warnings %+v do not contain %q", warnings, tc.wantContains)
 			}
 		})
 	}
@@ -242,41 +202,39 @@ func TestCheckEnvPermissions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		setup          func(t *testing.T, envDir string)
-		expectedPassed bool
-		wantContains   string
+		name         string
+		setup        func(t *testing.T, envDir string)
+		wantWarnings int
+		wantContains string
 	}{
 		{
-			name: "passes when all env files have restrictive permissions",
+			name: "no warnings when all env files have restrictive permissions",
 			setup: func(t *testing.T, envDir string) {
 				createEnvFile(t, envDir, "global", utils.SecretPer, "SECRET=value")
 				createEnvFile(t, envDir, "prod", utils.SecretPer, "PROD_KEY=123")
 			},
-			expectedPassed: true,
-			wantContains:   "restrictive",
+			wantWarnings: 0,
 		},
 		{
-			name: "fails when env file has world-readable permissions",
+			name: "warns per file with world-readable permissions",
 			setup: func(t *testing.T, envDir string) {
 				createEnvFile(t, envDir, "global", 0o644, "SECRET=leaked")
 			},
-			expectedPassed: false,
-			wantContains:   "loose permissions",
+			wantWarnings: 1,
+			wantContains: "global",
 		},
 		{
-			name: "fails when env file has group-readable permissions",
+			name: "warns per file with group-readable permissions",
 			setup: func(t *testing.T, envDir string) {
 				createEnvFile(t, envDir, "staging", 0o640, "KEY=value")
 			},
-			expectedPassed: false,
-			wantContains:   "loose permissions",
+			wantWarnings: 1,
+			wantContains: "staging",
 		},
 		{
-			name:           "passes when env dir is empty",
-			setup:          func(_ *testing.T, _ string) {},
-			expectedPassed: true,
-			wantContains:   "restrictive",
+			name:         "no warnings when env dir is empty",
+			setup:        func(_ *testing.T, _ string) {},
+			wantWarnings: 0,
 		},
 		{
 			name: "skips non-env files",
@@ -289,8 +247,7 @@ func TestCheckEnvPermissions(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: true,
-			wantContains:   "restrictive",
+			wantWarnings: 0,
 		},
 		{
 			name: "skips subdirectories",
@@ -299,17 +256,32 @@ func TestCheckEnvPermissions(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedPassed: true,
-			wantContains:   "restrictive",
+			wantWarnings: 0,
 		},
 		{
-			name: "reports only loose files when mixed permissions exist",
+			name: "warns only for loose files in mixed set",
 			setup: func(t *testing.T, envDir string) {
 				createEnvFile(t, envDir, "global", utils.SecretPer, "OK=value")
 				createEnvFile(t, envDir, "leaky", 0o644, "LEAKED=yes")
 			},
-			expectedPassed: false,
-			wantContains:   "leaky",
+			wantWarnings: 1,
+			wantContains: "leaky",
+		},
+		{
+			name: "warns for each loose file individually",
+			setup: func(t *testing.T, envDir string) {
+				createEnvFile(t, envDir, "first", 0o644, "A=1")
+				createEnvFile(t, envDir, "second", 0o640, "B=2")
+			},
+			wantWarnings: 2,
+		},
+		{
+			name: "includes chmod fix command",
+			setup: func(t *testing.T, envDir string) {
+				createEnvFile(t, envDir, "global", 0o644, "KEY=val")
+			},
+			wantWarnings: 1,
+			wantContains: "chmod 600",
 		},
 	}
 
@@ -321,14 +293,13 @@ func TestCheckEnvPermissions(t *testing.T) {
 			restore := chdirTemp(t, tmpDir)
 			defer restore()
 
-			result := checkEnvPermissions()
-			if result.passed != tc.expectedPassed {
-				t.Errorf("checkEnvPermissions().passed = %v, want %v (message: %s)",
-					result.passed, tc.expectedPassed, result.message)
+			warnings := checkEnvPermissions(envDir)
+			if len(warnings) != tc.wantWarnings {
+				t.Errorf("checkEnvPermissions() returned %d warnings, want %d: %+v",
+					len(warnings), tc.wantWarnings, warnings)
 			}
-			if tc.wantContains != "" && !strings.Contains(result.message, tc.wantContains) {
-				t.Errorf("checkEnvPermissions().message = %q, want substring %q",
-					result.message, tc.wantContains)
+			if tc.wantContains != "" && len(warnings) > 0 && !warningsContain(warnings, tc.wantContains) {
+				t.Errorf("warnings %+v do not contain %q", warnings, tc.wantContains)
 			}
 		})
 	}
@@ -339,22 +310,19 @@ func TestCheckGitHistory(t *testing.T) {
 		t.Skip("git not available")
 	}
 
-	t.Run("passes in non-git directory", func(t *testing.T) {
+	t.Run("no warnings in non-git directory", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		createEnvDir(t, tmpDir)
 		restore := chdirTemp(t, tmpDir)
 		defer restore()
 
-		result := checkGitHistory()
-		if !result.passed {
-			t.Errorf("expected pass in non-git dir, got: %s", result.message)
-		}
-		if !strings.Contains(result.message, "not a git repo") {
-			t.Errorf("expected 'not a git repo' message, got: %s", result.message)
+		warnings := checkGitHistory()
+		if len(warnings) != 0 {
+			t.Errorf("expected no warnings in non-git dir, got: %+v", warnings)
 		}
 	})
 
-	t.Run("passes when no env files in history", func(t *testing.T) {
+	t.Run("no warnings when no env files in history", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		envDir := createEnvDir(t, tmpDir)
 		restore := chdirTemp(t, tmpDir)
@@ -369,13 +337,13 @@ func TestCheckGitHistory(t *testing.T) {
 		}
 		gitAddCommit(t, "initial commit")
 
-		result := checkGitHistory()
-		if !result.passed {
-			t.Errorf("expected pass with no env files in history, got: %s", result.message)
+		warnings := checkGitHistory()
+		if len(warnings) != 0 {
+			t.Errorf("expected no warnings, got: %+v", warnings)
 		}
 	})
 
-	t.Run("fails when env files exist in history", func(t *testing.T) {
+	t.Run("warns when env files exist in history", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		envDir := createEnvDir(t, tmpDir)
 		restore := chdirTemp(t, tmpDir)
@@ -386,91 +354,92 @@ func TestCheckGitHistory(t *testing.T) {
 		createEnvFile(t, envDir, "global", utils.SecretPer, "SECRET=oops")
 		gitAddCommit(t, "add secrets")
 
-		result := checkGitHistory()
-		if result.passed {
-			t.Errorf("expected fail when env files in history, got: %s", result.message)
+		warnings := checkGitHistory()
+		if len(warnings) == 0 {
+			t.Fatal("expected warnings when env files in history, got none")
 		}
-		if !strings.Contains(result.message, "git history") {
-			t.Errorf("expected message about git history, got: %s", result.message)
+		if !warningsContain(warnings, "git history") {
+			t.Errorf("expected message about git history, got: %+v", warnings)
+		}
+		if !warningsContain(warnings, "filter-repo") {
+			t.Errorf("expected fix mentioning filter-repo, got: %+v", warnings)
 		}
 	})
 }
 
-func TestCheckEnvFileList(t *testing.T) {
-	tests := []struct {
-		name           string
-		setup          func(t *testing.T, envDir string)
-		expectedPassed bool
-		wantContains   string
-	}{
-		{
-			name: "lists multiple env files",
-			setup: func(t *testing.T, envDir string) {
-				createEnvFile(t, envDir, "global", utils.SecretPer, "")
-				createEnvFile(t, envDir, "prod", utils.SecretPer, "")
-			},
-			expectedPassed: true,
-			wantContains:   "2 environment(s)",
-		},
-		{
-			name: "lists single env file",
-			setup: func(t *testing.T, envDir string) {
-				createEnvFile(t, envDir, "global", utils.SecretPer, "")
-			},
-			expectedPassed: true,
-			wantContains:   "1 environment(s)",
-		},
-		{
-			name:           "passes with no env files",
-			setup:          func(_ *testing.T, _ string) {},
-			expectedPassed: true,
-			wantContains:   "no environment files found",
-		},
-		{
-			name: "shows env name without suffix",
-			setup: func(t *testing.T, envDir string) {
-				createEnvFile(t, envDir, "staging", utils.SecretPer, "")
-			},
-			expectedPassed: true,
-			wantContains:   "staging",
-		},
-	}
+func TestCollectWarnings(t *testing.T) {
+	t.Run("returns no warnings for healthy project", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			envDir := createEnvDir(t, tmpDir)
-			tc.setup(t, envDir)
-			restore := chdirTemp(t, tmpDir)
-			defer restore()
+		content := utils.EnvironmentFolder + "/\n"
+		if err := os.WriteFile(
+			filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
+		); err != nil {
+			t.Fatal(err)
+		}
 
-			result := checkEnvFileList()
-			if result.passed != tc.expectedPassed {
-				t.Errorf("checkEnvFileList().passed = %v, want %v (message: %s)",
-					result.passed, tc.expectedPassed, result.message)
-			}
-			if tc.wantContains != "" && !strings.Contains(result.message, tc.wantContains) {
-				t.Errorf("checkEnvFileList().message = %q, want substring %q",
-					result.message, tc.wantContains)
-			}
-		})
-	}
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		warnings := collectWarnings(envDir)
+		if len(warnings) != 0 {
+			t.Errorf("expected no warnings for healthy project, got: %+v", warnings)
+		}
+	})
+
+	t.Run("aggregates warnings from all checks", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", 0o644, "KEY=value")
+
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		warnings := collectWarnings(envDir)
+		if len(warnings) < 2 {
+			t.Errorf("expected at least 2 warnings (gitignore + permissions), got %d: %+v",
+				len(warnings), warnings)
+		}
+	})
 }
 
 func TestRunDoctor(t *testing.T) {
-	tmpDir := t.TempDir()
-	envDir := createEnvDir(t, tmpDir)
-	createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
+	t.Run("healthy project shows no issues", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
 
-	content := utils.EnvironmentFolder + "/\n"
-	if err := os.WriteFile(
-		filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
-	); err != nil {
-		t.Fatal(err)
-	}
+		content := utils.EnvironmentFolder + "/\n"
+		if err := os.WriteFile(
+			filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
+		); err != nil {
+			t.Fatal(err)
+		}
 
-	restore := chdirTemp(t, tmpDir)
-	defer restore()
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
 
-	runDoctor()
+		runDoctor()
+	})
+
+	t.Run("missing env dir does not panic", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		runDoctor()
+	})
+
+	t.Run("project with warnings does not panic", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", 0o644, "KEY=value")
+
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		runDoctor()
+	})
 }

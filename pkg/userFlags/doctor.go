@@ -5,66 +5,106 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-type checkResult struct {
-	passed  bool
+type warning struct {
 	message string
+	fix     string
 }
 
 func runDoctor() {
-	results := []checkResult{
-		checkEnvDir(),
-		checkGitignore(),
-		checkEnvPermissions(),
-		checkGitHistory(),
-		checkEnvFileList(),
-	}
-
-	for _, r := range results {
-		if r.passed {
-			utils.PrintGreen(fmt.Sprintf("  %s %s", utils.CheckMark, r.message))
-		} else {
-			utils.PrintWarning(fmt.Sprintf("  %s", r.message))
-		}
-	}
-}
-
-func checkEnvDir() checkResult {
 	envPath, err := utils.CreatePath(utils.EnvironmentFolder)
 	if err != nil {
-		return checkResult{false, fmt.Sprintf("could not resolve %s/ path", utils.EnvironmentFolder)}
+		utils.PrintWarning(fmt.Sprintf(
+			"%s/ could not be resolved", utils.EnvironmentFolder,
+		))
+		return
 	}
-	info, err := os.Stat(envPath)
-	if err != nil || !info.IsDir() {
-		return checkResult{
-			false,
-			fmt.Sprintf("%s/ directory not found — run 'hulak init'", utils.EnvironmentFolder),
+
+	info, statErr := os.Stat(envPath)
+	if statErr != nil || !info.IsDir() {
+		utils.PrintWarning(fmt.Sprintf(
+			"%s/ directory not found. Create it:\n    hulak init", utils.EnvironmentFolder,
+		))
+		return
+	}
+
+	printInventory(envPath)
+
+	warnings := collectWarnings(envPath)
+	if len(warnings) == 0 {
+		utils.PrintGreen(fmt.Sprintf("  %s No issues found", utils.CheckMark))
+		return
+	}
+	for _, w := range warnings {
+		msg := fmt.Sprintf("  %s %s", utils.CrossMark, w.message)
+		if w.fix != "" {
+			msg += "\n    " + w.fix
 		}
+		utils.PrintWarning(msg)
 	}
-	return checkResult{true, fmt.Sprintf("%s/ directory found", utils.EnvironmentFolder)}
 }
 
-func checkGitignore() checkResult {
+func printInventory(envPath string) {
+	entries, err := os.ReadDir(envPath)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(utils.EnvironmentFolder + "/")
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		fmt.Println("  " + e.Name())
+	}
+	fmt.Println()
+}
+
+func collectWarnings(envPath string) []warning {
+	var warnings []warning
+	warnings = append(warnings, checkGitignore()...)
+	warnings = append(warnings, checkEnvPermissions(envPath)...)
+	warnings = append(warnings, checkGitHistory()...)
+	return warnings
+}
+
+func checkGitignore() []warning {
 	gitignorePath, err := utils.CreatePath(".gitignore")
 	if err != nil {
-		return checkResult{false, "could not resolve .gitignore path"}
+		return []warning{{
+			message: fmt.Sprintf(
+				"%s/ is not gitignored — secrets may be committed",
+				utils.EnvironmentFolder,
+			),
+			fix: fmt.Sprintf(
+				"echo \"%s/\" >> .gitignore",
+				utils.EnvironmentFolder,
+			),
+		}}
 	}
 
 	if !utils.FileExists(gitignorePath) {
-		return checkResult{
-			false,
-			fmt.Sprintf("no .gitignore found — %s/ secrets may be committed", utils.EnvironmentFolder),
-		}
+		return []warning{{
+			message: fmt.Sprintf(
+				"%s/ is not gitignored — secrets may be committed",
+				utils.EnvironmentFolder,
+			),
+			fix: fmt.Sprintf(
+				"echo \"%s/\" >> .gitignore",
+				utils.EnvironmentFolder,
+			),
+		}}
 	}
 
 	file, err := os.Open(gitignorePath)
 	if err != nil {
-		return checkResult{false, "could not read .gitignore"}
+		return []warning{{
+			message: "could not read .gitignore",
+		}}
 	}
 	defer file.Close()
 
@@ -73,28 +113,29 @@ func checkGitignore() checkResult {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == entry || line == utils.EnvironmentFolder {
-			return checkResult{true, fmt.Sprintf("%s/ is in .gitignore", utils.EnvironmentFolder)}
+			return nil
 		}
 	}
 
-	return checkResult{
-		false,
-		fmt.Sprintf("%s/ is not in .gitignore — secrets may be committed", utils.EnvironmentFolder),
-	}
+	return []warning{{
+		message: fmt.Sprintf(
+			"%s/ is not gitignored — secrets may be committed",
+			utils.EnvironmentFolder,
+		),
+		fix: fmt.Sprintf(
+			"echo \"%s/\" >> .gitignore",
+			utils.EnvironmentFolder,
+		),
+	}}
 }
 
-func checkEnvPermissions() checkResult {
-	envPath, err := utils.CreatePath(utils.EnvironmentFolder)
-	if err != nil {
-		return checkResult{false, fmt.Sprintf("could not resolve %s/ path", utils.EnvironmentFolder)}
-	}
-
+func checkEnvPermissions(envPath string) []warning {
 	entries, err := os.ReadDir(envPath)
 	if err != nil {
-		return checkResult{true, "no env files to check permissions"}
+		return nil
 	}
 
-	var loose []string
+	var warnings []warning
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), utils.DefaultEnvFileSuffix) {
 			continue
@@ -103,77 +144,57 @@ func checkEnvPermissions() checkResult {
 		if err != nil {
 			continue
 		}
-		perm := info.Mode().Perm()
-		if perm&0o077 != 0 {
-			loose = append(loose, fmt.Sprintf("%s (%o)", e.Name(), perm))
+		if info.Mode().Perm()&0o077 != 0 {
+			warnings = append(warnings, warning{
+				message: fmt.Sprintf(
+					"%s has loose permissions (%o)",
+					e.Name(), info.Mode().Perm(),
+				),
+				fix: fmt.Sprintf(
+					"chmod 600 %s/%s",
+					utils.EnvironmentFolder, e.Name(),
+				),
+			})
 		}
 	}
-
-	if len(loose) > 0 {
-		return checkResult{
-			false,
-			fmt.Sprintf(
-				"env files with loose permissions (should be 600): %s",
-				strings.Join(loose, ", "),
-			),
-		}
-	}
-	return checkResult{true, "env file permissions are restrictive"}
+	return warnings
 }
 
-func checkGitHistory() checkResult {
-	_, err := exec.LookPath("git")
-	if err != nil {
-		return checkResult{true, "git not found, skipping history check"}
+func checkGitHistory() []warning {
+	if _, err := exec.LookPath("git"); err != nil {
+		return nil
 	}
 
 	gitGlob := utils.EnvironmentFolder + "/*" + utils.DefaultEnvFileSuffix
-	cmd := exec.Command("git", "log", "--all", "--diff-filter=A", "--name-only", "--pretty=format:", "--", gitGlob)
+	cmd := exec.Command(
+		"git", "log", "--all", "--diff-filter=A",
+		"--name-only", "--pretty=format:", "--", gitGlob,
+	)
 	output, err := cmd.Output()
 	if err != nil {
-		return checkResult{true, "not a git repo, skipping history check"}
+		return nil
 	}
 
 	leaked := strings.TrimSpace(string(output))
-	if leaked != "" {
-		files := strings.Split(leaked, "\n")
-		var nonEmpty []string
-		for _, f := range files {
-			if strings.TrimSpace(f) != "" {
-				nonEmpty = append(nonEmpty, strings.TrimSpace(f))
-			}
-		}
-		if len(nonEmpty) > 0 {
-			return checkResult{
-				false,
-				fmt.Sprintf(".env files found in git history: %s", strings.Join(nonEmpty, ", ")),
-			}
+	if leaked == "" {
+		return nil
+	}
+
+	var files []string
+	for _, f := range strings.Split(leaked, "\n") {
+		if trimmed := strings.TrimSpace(f); trimmed != "" {
+			files = append(files, trimmed)
 		}
 	}
-
-	return checkResult{true, "no .env files found in git history"}
-}
-
-func checkEnvFileList() checkResult {
-	envFiles, err := utils.GetEnvFiles()
-	if err != nil || len(envFiles) == 0 {
-		return checkResult{true, "no environment files found"}
+	if len(files) == 0 {
+		return nil
 	}
 
-	var names []string
-	for _, f := range envFiles {
-		name := strings.TrimSuffix(f, utils.DefaultEnvFileSuffix)
-		names = append(names, name)
-	}
-
-	envPath, _ := utils.CreatePath(utils.EnvironmentFolder)
-	return checkResult{
-		true,
-		fmt.Sprintf(
-			"%d environment(s) in %s: %s",
-			len(names),
-			filepath.Base(envPath),
-			strings.Join(names, ", "),
+	return []warning{{
+		message: fmt.Sprintf(
+			"%s files found in git history: %s",
+			utils.DefaultEnvFileSuffix, strings.Join(files, ", "),
 		),
-	}
+		fix: "consider removing with git filter-repo or BFG Repo-Cleaner",
+	}}
 }
