@@ -1,6 +1,7 @@
 package envselect
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/tui"
@@ -9,11 +10,18 @@ import (
 
 // NoEnvFilesError returns a formatted error for missing env files.
 func NoEnvFilesError() error {
-	errMsg := `no '.env' files found in "env/" directory
+	errMsg := fmt.Sprintf(
+		`no '%s' files found in "%s/" directory
 
 Possible solutions:
-  - Create an env file: echo "KEY=value" > env/dev.env
-  - Run "hulak init" to create the env directory structure`
+  - Create an env file: echo "KEY=value" > %s/dev%s
+  - Run "hulak init" to create the %s directory structure`,
+		utils.DefaultEnvFileSuffix,
+		utils.EnvironmentFolder,
+		utils.EnvironmentFolder,
+		utils.DefaultEnvFileSuffix,
+		utils.EnvironmentFolder,
+	)
 
 	return utils.ColorError(errMsg)
 }
