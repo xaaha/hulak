@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - v*
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -29,7 +30,7 @@ jobs:
         with:
           distribution: goreleaser
           version: ~> v2
-          args: release --clean
+          args: ${{ github.event_name == 'workflow_dispatch' && 'release --snapshot --clean' || 'release --clean' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PAT: ${{ steps.app-token.outputs.token }}
