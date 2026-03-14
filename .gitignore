@@ -12,3 +12,4 @@ test*
 !mise.toml
 *plan.md
 coverage.out
+dist/
