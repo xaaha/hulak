@@ -59,8 +59,9 @@ const ResponseType = "code"
 
 // Permissions for creating directory and files
 const (
-	DirPer  fs.FileMode = 0o755
-	FilePer fs.FileMode = 0o644
+	DirPer    fs.FileMode = 0o755
+	FilePer   fs.FileMode = 0o644
+	SecretPer fs.FileMode = 0o600
 )
 
 // tick mark and x for success and failure
