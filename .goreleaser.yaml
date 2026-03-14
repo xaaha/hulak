@@ -21,23 +21,31 @@ archives:
       - goos: windows
         formats:
           - zip
+    files:
+      - man/hulak.1
     name_template: '{{ .ProjectName }}_ {{- .Version }}_ {{- title .Os }}_ {{- if eq .Arch "amd64" }}x86_64 {{- else }}{{ .Arch }}{{ end }}'
 checksum:
   name_template: checksums.txt
-brews:
+homebrew_casks:
   - repository:
       owner: xaaha
       name: homebrew-tap
       token: "{{ .Env.GH_PAT }}"
-    directory: Formula
     homepage: https://github.com/xaaha/hulak
     description: File based API client for terminal nerds
     license: MIT
-    install: |
-      bin.install "hulak"
-      man1.install "man/hulak.1"
-    test: |
-      assert_match "Api Usage:", shell_output("#{bin}/hulak help")
+    binaries:
+      - hulak
+    manpages:
+      - man/hulak.1
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hulak"]
+          end
+    caveats: |
+      The binary is not signed or notarized. macOS quarantine has been automatically removed.
 changelog:
   sort: asc
   filters:
