@@ -181,7 +181,7 @@ func checkGitHistory() []warning {
 	}
 
 	var files []string
-	for _, f := range strings.Split(leaked, "\n") {
+	for f := range strings.SplitSeq(leaked, "\n") {
 		if trimmed := strings.TrimSpace(f); trimmed != "" {
 			files = append(files, trimmed)
 		}
