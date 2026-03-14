@@ -101,7 +101,6 @@ run = "goreleaser release --snapshot --clean && rm -rf dist"
 
 [tasks.release]
 description = "Tag and push a release (e.g. mise run release v0.2.0)"
-usage = "release <version>"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
