@@ -37,6 +37,10 @@ func PrintHelpSubCommands() {
 			Command:     "hulak gql <path>",
 			Description: "Open the GraphQL explorer for a file or directory",
 		},
+		{
+			Command:     "hulak doctor",
+			Description: "Check project health: gitignore, permissions, git history",
+		},
 	})
 }
 

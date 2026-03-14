@@ -22,6 +22,7 @@ const (
 	Init    = "init"
 	Help    = "help"
 	GraphQL = "gql"
+	Doctor  = "doctor"
 )
 
 var (
@@ -80,6 +81,10 @@ func HandleSubcommands() error {
 
 	case Help:
 		utils.PrintHelp()
+		os.Exit(0)
+
+	case Doctor:
+		runDoctor()
 		os.Exit(0)
 
 	case GraphQL:
