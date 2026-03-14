@@ -24,8 +24,9 @@ run = "watchexec -r -e go -- go run . gql ."
 [tasks.record]
 description = "Record terminal demo GIF with VHS"
 run = """
-vhs demo.tape
+vhs full-gql-flow.tape
 vhs assets/fp.tape
+vhs assets/gql.tape
 """
 
 [tasks."test:api"]
