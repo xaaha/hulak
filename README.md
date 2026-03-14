@@ -379,7 +379,7 @@ For deeper docs, start here:
 
 # Planned Features
 
-[See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone/3) to see all the upcoming, exciting features
+[See Features and Fixes Milestone](https://github.com/xaaha/hulak/milestone) to see all the upcoming, exciting features
 
 # Contributing
 
