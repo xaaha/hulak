@@ -27,9 +27,11 @@ func CreateEnvDirAndFiles(fileName string) (string, error) {
 	}
 	_, err = os.Stat(envFilePath)
 	if os.IsNotExist(err) {
-		if err := utils.CreateFile(envFilePath); err != nil {
-			return "", err
+		f, createErr := os.OpenFile(envFilePath, os.O_CREATE|os.O_WRONLY, utils.SecretPer)
+		if createErr != nil {
+			return "", createErr
 		}
+		f.Close()
 	}
 	return envFilePath, nil
 }
