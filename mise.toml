@@ -97,7 +97,7 @@ run = "go tool cover -html=coverage.out"
 
 [tasks."release:dry"]
 description = "Dry-run release build (no tag, no publish)"
-run = "goreleaser release --snapshot --clean"
+run = "goreleaser release --snapshot --clean && rm -rf dist"
 
 [tasks.release]
 description = "Tag and push a release (e.g. mise run release v0.2.0)"
