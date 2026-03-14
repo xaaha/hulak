@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
@@ -158,7 +159,7 @@ func ensureHulakProject() {
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if answer == "y" || answer == "yes" {
 			fmt.Println()
-			if err := userflags.InitDefaultProject(); err != nil {
+			if err := envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PanicRedAndExit("%v", err)
 			}
 			fmt.Println()
