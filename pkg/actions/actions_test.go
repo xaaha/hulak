@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -157,6 +159,64 @@ func Test_processValueOf(t *testing.T) {
 			// Compare results
 			if got != tt.want {
 				t.Errorf("processValueOf() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBasicAuth(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		password string
+		want     string
+	}{
+		{
+			name:     "standard credentials",
+			username: "admin",
+			password: "secret123",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:secret123")),
+		},
+		{
+			name:     "empty username",
+			username: "",
+			password: "secret",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte(":secret")),
+		},
+		{
+			name:     "empty password",
+			username: "admin",
+			password: "",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:")),
+		},
+		{
+			name:     "both empty",
+			username: "",
+			password: "",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte(":")),
+		},
+		{
+			name:     "special characters in password",
+			username: "user@domain.com",
+			password: "p@ss:w0rd/with=special+chars",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte("user@domain.com:p@ss:w0rd/with=special+chars")),
+		},
+		{
+			name:     "unicode characters",
+			username: "usuario",
+			password: "contraseña",
+			want:     "Basic " + base64.StdEncoding.EncodeToString([]byte("usuario:contraseña")),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BasicAuth(tt.username, tt.password)
+			if got != tt.want {
+				t.Errorf("BasicAuth() = %q, want %q", got, tt.want)
+			}
+			if !strings.HasPrefix(got, "Basic ") {
+				t.Errorf("BasicAuth() should start with 'Basic ', got %q", got)
 			}
 		})
 	}
