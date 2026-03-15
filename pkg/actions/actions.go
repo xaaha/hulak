@@ -2,6 +2,7 @@
 package actions
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -60,6 +61,15 @@ func GetValueOf(key, fileName string) any {
 	}
 
 	return result
+}
+
+// BasicAuth takes a username and password, joins them with a colon,
+// base64-encodes the result, and returns the full header value "Basic <encoded>".
+// Both arguments are treated as plain strings — use .env template vars for secrets.
+func BasicAuth(username, password string) string {
+	credentials := username + ":" + password
+	encoded := base64.StdEncoding.EncodeToString([]byte(credentials))
+	return "Basic " + encoded
 }
 
 // GetFile reads the content of a file given its relative or absolute path

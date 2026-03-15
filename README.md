@@ -1,14 +1,39 @@
 <p align="center">
-  <strong>
-    Manage Your API workflows like code.
-  </strong>
+  <img alt="Hulak" src="./assets/logo.svg" width="280" />
 </p>
+
+<h3 align="center">
+  API calls with simple YAML. No Electron. No login. No lag.
+</h3>
+
+<p align="center">
+  A file-based API client for your terminal. Define requests in YAML, run them instantly, version-control everything.
+  <br/>
+  REST, GraphQL, OAuth 2.0 — zero GUI overhead.
+</p>
+
+<p align="center">
+  <a href="#getting-started">Getting Started</a> &bull;
+  <a href="#why-hulak">Why Hulak</a> &bull;
+  <a href="#graphql-explorer-1">GraphQL Explorer</a> &bull;
+  <a href="#documentation">Docs</a>
+</p>
+
+---
+
+### 20 API requests. Under 2 seconds. Concurrently.
+
+<img alt="Concurrent Execution" src="./assets/concurrent.gif" width="720" />
+
+```bash
+hulak -dir ./requests/    # fire every YAML file in the directory, concurrently
+```
 
 ### Dedicated GraphQL Explorer
 
 <img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
-Designed for developers who explore GraphQL at scale. Hulak has dedicated GraphQL client that lets you browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results, responses, all from the terminal.
+Browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save results — all from the terminal.
 
 ### Fast Interactive Runner
 
@@ -21,6 +46,20 @@ Just type `hulak` → find your request file → pick an environment → get you
 ```bash
 brew install xaaha/tap/hulak
 ```
+
+---
+
+## Why Hulak
+
+|                            | Hulak                      | GUI Clients (Postman, Insomnia, Bruno) |
+| -------------------------- | -------------------------- | -------------------------------------- |
+| **Startup time**           | Instant (native Go binary) | 3-10s (Electron)                       |
+| **20 concurrent requests** | < 2 seconds                | Manual, one-by-one                     |
+| **Account required**       | No                         | Often yes                              |
+| **Telemetry**              | None                       | Varies                                 |
+| **Version control**        | YAML files in git          | Export/import dance                    |
+| **CI/CD friendly**         | `hulak -dir ./tests/`      | Needs extra tooling                    |
+| **Env management**         | `.env` files, git-friendly | UI-only, fragile                       |
 
 ---
 
@@ -39,6 +78,7 @@ brew install xaaha/tap/hulak
   - [.Key](#key)
   - [getValueOf](#getvalueof)
   - [getFile](#getfile)
+  - [basicAuth](#basicauth)
 - [Flags and Subcommands](#flags-and-subcommands)
   - [Flags](#flags)
   - [Subcommands](#subcommands)
@@ -301,6 +341,20 @@ body:
   graphql:
     query: '{{getFile "e2etests/test_collection/test.graphql"}}'
 ```
+
+### `basicAuth`
+
+Generates a `Basic` authentication header value from a username and password. Hulak joins them with a colon, base64-encodes the result, and returns the full header value.
+
+```yaml
+headers:
+  # with env vars from .env files
+  Authorization: '{{basicAuth .apiUser .apiPassword}}'
+  # with literal strings
+  Authorization: '{{basicAuth "admin" "secret123"}}'
+```
+
+No manual base64 encoding needed — works like `curl -u username:password`.
 
 Learn more about these actions [here](./docs/actions.md)
 

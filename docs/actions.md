@@ -129,3 +129,38 @@ body:
 ```
 
 `getFile` gets the entire file content and dumps it in context. For example, in the above example, it dumps the content in the query section of grapqhl
+
+## 3. Using `basicAuth`
+
+Generates a `Basic` authentication header value. It takes a username and password, joins them with a colon, base64-encodes the result, and returns the full header value `Basic <encoded>`.
+
+```yaml
+headers:
+  Authorization: '{{basicAuth "admin" "secret123"}}'
+```
+
+This produces `Basic YWRtaW46c2VjcmV0MTIz` — no manual base64 encoding needed.
+
+### Using with environment variables
+
+Store credentials in your `.env` file and reference them with template vars:
+
+```env
+# env/prod.env
+apiUser = admin
+apiPassword = secret123
+```
+
+```yaml
+# request.hk.yaml
+method: GET
+url: https://api.example.com/protected
+headers:
+  Authorization: '{{basicAuth .apiUser .apiPassword}}'
+```
+
+```bash
+hulak -env prod -f request
+```
+
+This works the same as `curl -u admin:secret123 https://api.example.com/protected`.

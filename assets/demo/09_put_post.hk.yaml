@@ -1,0 +1,13 @@
+---
+method: PUT
+url: https://jsonplaceholder.typicode.com/posts/1
+headers:
+  Content-Type: application/json
+body:
+  raw: |-
+    {
+      "id": 1,
+      "title": "replaced via hulak",
+      "body": "full replacement",
+      "userId": 1
+    }
