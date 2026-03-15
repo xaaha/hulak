@@ -78,6 +78,7 @@ brew install xaaha/tap/hulak
   - [.Key](#key)
   - [getValueOf](#getvalueof)
   - [getFile](#getfile)
+  - [basicAuth](#basicauth)
 - [Flags and Subcommands](#flags-and-subcommands)
   - [Flags](#flags)
   - [Subcommands](#subcommands)
@@ -340,6 +341,20 @@ body:
   graphql:
     query: '{{getFile "e2etests/test_collection/test.graphql"}}'
 ```
+
+### `basicAuth`
+
+Generates a `Basic` authentication header value from a username and password. Hulak joins them with a colon, base64-encodes the result, and returns the full header value.
+
+```yaml
+headers:
+  # with env vars from .env files
+  Authorization: '{{basicAuth .apiUser .apiPassword}}'
+  # with literal strings
+  Authorization: '{{basicAuth "admin" "secret123"}}'
+```
+
+No manual base64 encoding needed — works like `curl -u username:password`.
 
 Learn more about these actions [here](./docs/actions.md)
 
