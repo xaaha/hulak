@@ -1,0 +1,10 @@
+---
+method: PATCH
+url: https://jsonplaceholder.typicode.com/posts/1
+headers:
+  Content-Type: application/json
+body:
+  raw: |-
+    {
+      "title": "updated via hulak"
+    }

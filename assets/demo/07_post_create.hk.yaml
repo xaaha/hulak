@@ -1,0 +1,12 @@
+---
+method: POST
+url: https://jsonplaceholder.typicode.com/posts
+headers:
+  Content-Type: application/json
+body:
+  raw: |-
+    {
+      "title": "hulak demo",
+      "body": "20 requests under 2 seconds",
+      "userId": 1
+    }
