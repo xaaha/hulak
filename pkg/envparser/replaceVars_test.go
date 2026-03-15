@@ -181,6 +181,27 @@ func TestSubstituteVariables(t *testing.T) {
 			),
 			varMap: map[string]any{},
 		},
+		{
+			name:           "basicAuth with literal strings",
+			stringToChange: `{{basicAuth "admin" "secret"}}`,
+			expectedOutput: "Basic YWRtaW46c2VjcmV0",
+			expectedErr:    nil,
+			varMap:         map[string]any{},
+		},
+		{
+			name:           "basicAuth with env vars",
+			stringToChange: `{{basicAuth .apiUser .apiPass}}`,
+			expectedOutput: "Basic dXNlcjpwYXNz",
+			expectedErr:    nil,
+			varMap:         map[string]any{"apiUser": "user", "apiPass": "pass"},
+		},
+		{
+			name:           "basicAuth in Authorization header context",
+			stringToChange: `Authorization: {{basicAuth .user .pass}}`,
+			expectedOutput: "Authorization: Basic dXNlcjpwYXNz",
+			expectedErr:    nil,
+			varMap:         map[string]any{"user": "user", "pass": "pass"},
+		},
 	}
 
 	for _, tc := range testCases {
