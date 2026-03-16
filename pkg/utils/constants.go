@@ -2,12 +2,12 @@ package utils
 
 import "io/fs"
 
-// Colors
+// Colors — bright ANSI (90-97) for direct terminal output.
+// These are basic ANSI codes that terminal themes remap automatically.
 const (
 	Red        = "\033[91m"
 	Green      = "\033[92m"
 	Yellow     = "\033[93m"
-	Grey       = "\033[90m"
 	ColorReset = "\033[0m"
 	Blue       = "\033[94m"
 )
