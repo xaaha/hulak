@@ -2,14 +2,21 @@ package utils
 
 import "io/fs"
 
-// Colors — bright ANSI (90-97) for direct terminal output.
-// These are basic ANSI codes that terminal themes remap automatically.
+// CLI colors — bright ANSI (90-97) for direct fmt.Printf output.
+// These match the semantic ANSI colors in tui/styles.go:
+//
+//	Red    = bright 1 (ColorError)
+//	Green  = bright 2 (ColorSuccess)
+//	Yellow = bright 3 (ColorWarn)
+//	Blue   = bright 4 (ColorPrimary)
+//
+// Terminal themes remap these automatically for light/dark backgrounds.
 const (
 	Red        = "\033[91m"
 	Green      = "\033[92m"
 	Yellow     = "\033[93m"
-	ColorReset = "\033[0m"
 	Blue       = "\033[94m"
+	ColorReset = "\033[0m"
 )
 
 // Environment

@@ -35,6 +35,7 @@ func RenderChip(text string, variant ChipVariant, color lipgloss.TerminalColor) 
 	default:
 		return lipgloss.NewStyle().
 			Foreground(color).
+			Underline(true).
 			Padding(0, 1).
 			Render(text)
 	}
