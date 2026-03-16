@@ -88,7 +88,7 @@ func TestFormatJSONColored(t *testing.T) {
 
 func benchmarkMarshall(b *testing.B) {
 	var buf bytes.Buffer
-	provider := LipglossColorProvider{}
+	provider := JSONColors
 	simpleMap := make(map[string]any)
 	simpleMap["a"] = 1
 	simpleMap["b"] = "bee"

@@ -11,6 +11,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ANSI colors (0-15) are defined by the terminal's own color scheme.
+// When the user switches between dark/light themes, the terminal
+// remaps these automatically — no background detection needed.
+var (
+	jsonStringColor = lipgloss.Color("2") // green
+	jsonNumberColor = lipgloss.Color("4") // blue
+	jsonBoolColor   = lipgloss.Color("3") // yellow
+	jsonNullColor   = lipgloss.Color("5") // magenta
+	jsonKeyColor    = lipgloss.Color("6") // cyan
+)
+
 // ColorProvider defines how to apply colors to JSON tokens.
 type ColorProvider interface {
 	ColorString(s string) string
@@ -20,20 +31,12 @@ type ColorProvider interface {
 	ColorKey(s string) string
 }
 
-// LipglossColorProvider implements ColorProvider for both CLI and TUI output.
-// NOTE: We intentionally use one fixed JSON palette here.
-// Terminal/system light-dark inference was too unreliable across terminals,
-// and several token colors washed out badly in light mode. Keep this simple
-// for now with balanced fixed colors; a proper user-configurable theme can
-// revisit light/dark palettes later.
+// LipglossColorProvider implements ColorProvider using lipgloss ANSI colors.
 type LipglossColorProvider struct{}
 
-var (
-	jsonStringColor  = lipgloss.AdaptiveColor{Light: "#3E8F53", Dark: "#4bac64"}
-	jsonNumberColor  = lipgloss.AdaptiveColor{Light: "#2F6FA3", Dark: "#2F6FA3"}
-	jsonBooleanColor = lipgloss.AdaptiveColor{Light: "#8C5A00", Dark: "#8C5A00"}
-	jsonNullColor    = lipgloss.AdaptiveColor{Light: "50", Dark: "141"}
-)
+// JSONColors is the shared color provider for JSON token coloring.
+// Use this instead of constructing LipglossColorProvider{} inline.
+var JSONColors ColorProvider = LipglossColorProvider{}
 
 func (l LipglossColorProvider) ColorString(s string) string {
 	return lipgloss.NewStyle().Foreground(jsonStringColor).Render(s)
@@ -44,13 +47,16 @@ func (l LipglossColorProvider) ColorNumber(s string) string {
 }
 
 func (l LipglossColorProvider) ColorBool(s string) string {
-	return lipgloss.NewStyle().Foreground(jsonBooleanColor).Render(s)
+	return lipgloss.NewStyle().Foreground(jsonBoolColor).Bold(true).Render(s)
 }
 
 func (l LipglossColorProvider) ColorNull(s string) string {
-	return lipgloss.NewStyle().Foreground(jsonNullColor).Render(s)
+	return lipgloss.NewStyle().Foreground(jsonNullColor).Italic(true).Render(s)
 }
-func (l LipglossColorProvider) ColorKey(s string) string { return s }
+
+func (l LipglossColorProvider) ColorKey(s string) string {
+	return lipgloss.NewStyle().Foreground(jsonKeyColor).Bold(true).Render(s)
+}
 
 // FormatJSONColored formats JSON data as an indented, colored string using the given ColorProvider.
 func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
@@ -66,7 +72,7 @@ func FormatJSONColored(data []byte, provider ColorProvider) (string, error) {
 
 // PrintJSONColored pretty-prints JSON to stdout with colored tokens.
 func PrintJSONColored(data []byte) error {
-	formatted, err := FormatJSONColored(data, LipglossColorProvider{})
+	formatted, err := FormatJSONColored(data, JSONColors)
 	if err != nil {
 		return err
 	}
@@ -111,14 +117,23 @@ func marshalMap(jsonMap map[string]any, buf *bytes.Buffer, depth int, provider C
 
 	for i, k := range keys {
 		buf.WriteString(indent)
-		fmt.Fprintf(buf, "\"%s\": ", provider.ColorKey(k))
+
+		keyJSON, _ := json.Marshal(k)
+		keyStr := strings.TrimSuffix(strings.TrimPrefix(string(keyJSON), `"`), `"`)
+
+		buf.WriteString(`"`)
+		buf.WriteString(provider.ColorKey(keyStr))
+		buf.WriteString(`": `)
+
 		marshalValue(jsonMap[k], buf, depth+1, provider)
 		if i < len(keys)-1 {
 			buf.WriteString(",")
 		}
 		buf.WriteString("\n")
 	}
-	buf.WriteString(strings.Repeat("  ", depth) + "}")
+
+	buf.WriteString(strings.Repeat("  ", depth))
+	buf.WriteString("}")
 }
 
 func marshalArray(jsonArray []any, buf *bytes.Buffer, depth int, provider ColorProvider) {
@@ -130,13 +145,15 @@ func marshalArray(jsonArray []any, buf *bytes.Buffer, depth int, provider ColorP
 	buf.WriteString("[\n")
 	indent := strings.Repeat("  ", depth+1)
 
-	for idx, val := range jsonArray {
+	for i, val := range jsonArray {
 		buf.WriteString(indent)
 		marshalValue(val, buf, depth+1, provider)
-		if idx < len(jsonArray)-1 {
+		if i < len(jsonArray)-1 {
 			buf.WriteString(",")
 		}
 		buf.WriteString("\n")
 	}
-	buf.WriteString(strings.Repeat("  ", depth) + "]")
+
+	buf.WriteString(strings.Repeat("  ", depth))
+	buf.WriteString("]")
 }
