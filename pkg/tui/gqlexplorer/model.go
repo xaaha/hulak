@@ -37,10 +37,10 @@ const (
 	minHeaderContentWidth = 111
 )
 
-var badgeColor = map[OperationType]lipgloss.AdaptiveColor{
-	TypeQuery:        {Light: "21", Dark: "39"},
-	TypeMutation:     {Light: "130", Dark: "214"},
-	TypeSubscription: {Light: "30", Dark: "87"},
+var badgeColor = map[OperationType]lipgloss.TerminalColor{
+	TypeQuery:        tui.ColorPrimary,
+	TypeMutation:     tui.ColorWarn,
+	TypeSubscription: tui.ColorSuccess,
 }
 
 var typeRank = map[OperationType]int{
@@ -1098,7 +1098,7 @@ func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
 	}
 	m.responseBody = string(bodyJSON)
 
-	colored, err := utils.FormatJSONColored(bodyJSON, utils.LipglossColorProvider{})
+	colored, err := utils.FormatJSONColored(bodyJSON, utils.JSONColors)
 	if err != nil {
 		m.responseColoredBody = m.responseBody
 	} else {
@@ -1227,10 +1227,10 @@ func (m *Model) responseHeader() string {
 	return strings.Join(parts, "  ")
 }
 
-func statusChipColor(code int) lipgloss.AdaptiveColor {
+func statusChipColor(code int) lipgloss.TerminalColor {
 	switch {
 	case code >= 200 && code < 300:
-		return lipgloss.AdaptiveColor{Light: "22", Dark: "34"}
+		return tui.ColorSuccess
 	case code >= 400 && code < 500:
 		return tui.ColorWarn
 	default:
@@ -1261,8 +1261,8 @@ func (m *Model) syncResponseFooter() {
 }
 
 var searchHighlightStyle = lipgloss.NewStyle().
-	Background(lipgloss.AdaptiveColor{Light: "228", Dark: "24"}).
-	Foreground(lipgloss.AdaptiveColor{Light: "16", Dark: "231"})
+	Background(lipgloss.Color("3")). // yellow
+	Foreground(lipgloss.Color("0"))  // black
 
 func (m *Model) scrollResponseToMatch() {
 	matchLine := m.responseSearch.CurrentMatch()

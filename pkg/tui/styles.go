@@ -2,15 +2,16 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Adaptive colors that work in both light and dark terminal modes.
-// AdaptiveColor{Light: "...", Dark: "..."} automatically picks
-// the right color based on terminal background.
+// Semantic colors using basic ANSI (0-15). These are defined by the
+// terminal's own color scheme, so they automatically adapt when the
+// user switches between dark and light themes.
 var (
-	ColorPrimary   = lipgloss.AdaptiveColor{Light: "21", Dark: "75"}   // Blue
-	ColorSecondary = lipgloss.AdaptiveColor{Light: "50", Dark: "141"}  // Purple
-	ColorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "245"} // Gray
-	ColorWarn      = lipgloss.AdaptiveColor{Light: "130", Dark: "214"} // Yellow/amber
-	ColorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "203"} // Red
+	ColorPrimary   = lipgloss.Color("4") // blue
+	ColorSecondary = lipgloss.Color("5") // magenta
+	ColorMuted     = lipgloss.Color("8") // gray (bright black)
+	ColorWarn      = lipgloss.Color("3") // yellow
+	ColorError     = lipgloss.Color("1") // red
+	ColorSuccess   = lipgloss.Color("2") // green
 )
 
 var (
@@ -35,7 +36,7 @@ var (
 	// HelpBarStyle for the bottom help bar — more noticeable than
 	// HelpStyle but not as prominent as body text.
 	HelpBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "243", Dark: "250"}).
+			Foreground(ColorMuted).
 			Italic(true)
 
 	// BorderStyle for boxes with borders
@@ -94,6 +95,6 @@ const (
 )
 
 // RenderBadge creates a colored badge with the given foreground color.
-func RenderBadge(text string, color lipgloss.AdaptiveColor) string {
+func RenderBadge(text string, color lipgloss.TerminalColor) string {
 	return RenderChip(text, ChipVariantBadge, color)
 }

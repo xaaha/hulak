@@ -123,21 +123,21 @@ func colorizeJSONPreservingLayout(raw string) string {
 			if isJSONKey(raw, next) {
 				out.WriteString(token)
 			} else {
-				out.WriteString(utils.LipglossColorProvider{}.ColorString(token))
+				out.WriteString(utils.JSONColors.ColorString(token))
 			}
 			i = next
 		case isJSONNumberStart(raw, i):
 			token, next := scanJSONNumber(raw, i)
-			out.WriteString(utils.LipglossColorProvider{}.ColorNumber(token))
+			out.WriteString(utils.JSONColors.ColorNumber(token))
 			i = next
 		case strings.HasPrefix(raw[i:], "true"):
-			out.WriteString(utils.LipglossColorProvider{}.ColorBool("true"))
+			out.WriteString(utils.JSONColors.ColorBool("true"))
 			i += len("true")
 		case strings.HasPrefix(raw[i:], "false"):
-			out.WriteString(utils.LipglossColorProvider{}.ColorBool("false"))
+			out.WriteString(utils.JSONColors.ColorBool("false"))
 			i += len("false")
 		case strings.HasPrefix(raw[i:], "null"):
-			out.WriteString(utils.LipglossColorProvider{}.ColorNull("null"))
+			out.WriteString(utils.JSONColors.ColorNull("null"))
 			i += len("null")
 		default:
 			out.WriteByte(raw[i])

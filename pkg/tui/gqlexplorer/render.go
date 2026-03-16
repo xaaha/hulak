@@ -85,14 +85,14 @@ func (m *Model) renderList() (string, int) {
 	return strings.Join(lines, "\n"), cursorLine
 }
 
-func focusColor(focused bool, active lipgloss.AdaptiveColor) lipgloss.AdaptiveColor {
+func focusColor(focused bool, active lipgloss.TerminalColor) lipgloss.TerminalColor {
 	if focused {
 		return active
 	}
 	return tui.ColorMuted
 }
 
-func (m *Model) operationBadgeColor(opType OperationType, focused bool) lipgloss.AdaptiveColor {
+func (m *Model) operationBadgeColor(opType OperationType, focused bool) lipgloss.TerminalColor {
 	return focusColor(focused, badgeColor[opType])
 }
 

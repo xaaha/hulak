@@ -234,20 +234,14 @@ func (n *NotificationCenter) expiryCmd(id int, ttl time.Duration) tea.Cmd {
 	})
 }
 
-func notificationStyles(severity NotificationSeverity) (lipgloss.Style, lipgloss.AdaptiveColor, lipgloss.AdaptiveColor) {
+func notificationStyles(severity NotificationSeverity) (lipgloss.Style, lipgloss.TerminalColor, lipgloss.TerminalColor) {
 	switch severity {
 	case NotificationError:
-		border := ColorError
-		fg := lipgloss.AdaptiveColor{Light: "160", Dark: "203"}
-		return lipgloss.NewStyle().Bold(true).Foreground(fg), border, fg
+		return lipgloss.NewStyle().Bold(true).Foreground(ColorError), ColorError, ColorError
 	case NotificationWarn:
-		border := ColorWarn
-		fg := lipgloss.AdaptiveColor{Light: "130", Dark: "214"}
-		return lipgloss.NewStyle().Bold(true).Foreground(fg), border, fg
+		return lipgloss.NewStyle().Bold(true).Foreground(ColorWarn), ColorWarn, ColorWarn
 	default:
-		border := ColorPrimary
-		fg := ColorPrimary
-		return lipgloss.NewStyle().Bold(true).Foreground(fg), border, fg
+		return lipgloss.NewStyle().Bold(true).Foreground(ColorPrimary), ColorPrimary, ColorPrimary
 	}
 }
 

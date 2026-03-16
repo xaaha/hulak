@@ -12,51 +12,49 @@ const (
 
 // RenderChip renders compact UI labels used for passive badges,
 // clickable buttons, and solid markers like the @ notification badge.
-func RenderChip(text string, variant ChipVariant, color lipgloss.AdaptiveColor) string {
+func RenderChip(text string, variant ChipVariant, color lipgloss.TerminalColor) string {
 	switch variant {
 	case ChipVariantButton:
-		fg := lipgloss.AdaptiveColor{Light: "255", Dark: "255"}
+		fg := lipgloss.TerminalColor(lipgloss.Color("15")) // bright white
 		if color == ColorWarn {
-			fg = lipgloss.AdaptiveColor{Light: "16", Dark: "16"}
+			fg = lipgloss.Color("0") // black
 		}
 		return ActionChipStyle.
 			Foreground(fg).
 			Background(color).
 			Render(text)
 	case ChipVariantSolid:
-		fg := lipgloss.AdaptiveColor{Light: "255", Dark: "255"}
+		fg := lipgloss.TerminalColor(lipgloss.Color("15")) // bright white
 		if color == ColorWarn {
-			fg = lipgloss.AdaptiveColor{Light: "16", Dark: "16"}
+			fg = lipgloss.Color("0") // black
 		}
 		return NotificationBadgeBaseStyle.
 			Foreground(fg).
 			Background(color).
 			Render(text)
 	default:
-		bgColor := lipgloss.AdaptiveColor{Light: "254", Dark: "236"}
 		return lipgloss.NewStyle().
 			Foreground(color).
-			Background(bgColor).
 			Padding(0, 1).
 			Render(text)
 	}
 }
 
-func RenderChipBlock(text string, variant ChipVariant, color lipgloss.AdaptiveColor, width, height int) string {
+func RenderChipBlock(text string, variant ChipVariant, color lipgloss.TerminalColor, width, height int) string {
 	if width <= 0 || height <= 0 {
 		return ""
 	}
 
 	switch variant {
 	case ChipVariantButton:
-		fg := lipgloss.AdaptiveColor{Light: "255", Dark: "255"}
+		fg := lipgloss.TerminalColor(lipgloss.Color("15")) // bright white
 		bg := color
 		if color == ColorWarn {
-			fg = lipgloss.AdaptiveColor{Light: "16", Dark: "16"}
+			fg = lipgloss.Color("0") // black
 		}
 		if color == ColorMuted {
 			fg = ColorMuted
-			bg = lipgloss.AdaptiveColor{Light: "252", Dark: "238"}
+			bg = lipgloss.Color("7") // white / light gray
 		}
 		return lipgloss.NewStyle().
 			Width(width).
