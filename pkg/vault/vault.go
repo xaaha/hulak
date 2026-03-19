@@ -4,7 +4,7 @@ import (
 	"filippo.io/age"
 )
 
-func GenerateKeyPai() (string, string, error) {
+func GenerateKeyPair() (string, string, error) {
 	id, err := age.GenerateX25519Identity()
 	if err != nil {
 		return "", "", err
