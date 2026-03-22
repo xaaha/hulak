@@ -1321,8 +1321,19 @@ func (m *Model) enqueueNotification(severity tui.NotificationSeverity, message s
 }
 
 func (m *Model) applyRefreshPayload(payload *RefreshPayload) {
-	m.operations = payload.Data.Operations
-	m.filtered = payload.Data.Operations
+	m.operations = payload.Data.Operations // assign new data first
+	// normalize the new data
+	for i := range m.operations {
+		if m.operations[i].NameLower == "" {
+			m.operations[i].NameLower = strings.ToLower(m.operations[i].Name)
+		}
+		if m.operations[i].EndpointShort == "" {
+			m.operations[i].EndpointShort = shortenEndpoint(m.operations[i].Endpoint)
+		}
+	}
+	sort.Slice(m.operations, func(i, j int) bool { // sort the new data
+		return typeRank[m.operations[i].Type] < typeRank[m.operations[j].Type]
+	})
 	m.inputTypes = payload.Data.InputTypes
 	m.enumTypes = payload.Data.EnumTypes
 	m.objectTypes = payload.Data.ObjectTypes
@@ -1526,7 +1537,10 @@ func (m *Model) syncViewport() {
 		query := BuildQueryString(op, m.detailForm)
 		variables := BuildVariablesString(op, m.detailForm)
 		m.queryPanel.SetContent(formatQueryForPanel(query, m.focus.IsFocused(m.queryPanel)), "")
-		m.variablePanel.SetContent(formatVariablesForPanel(variables, m.focus.IsFocused(m.variablePanel)), "")
+		m.variablePanel.SetContent(
+			formatVariablesForPanel(variables, m.focus.IsFocused(m.variablePanel)),
+			"",
+		)
 		if m.responseBody != "" {
 			m.setResponseContent()
 		}
