@@ -4,19 +4,19 @@ import (
 	"filippo.io/age"
 )
 
-type Key struct {
+type AgeKey struct {
 	EncKey string
 	DecKey string
 }
 
-func GenerateKeyPair() (Key, error) {
+func GenerateKeyPair() (AgeKey, error) {
 	id, err := age.GenerateX25519Identity()
 	if err != nil {
-		return Key{EncKey: "", DecKey: ""}, err
+		return AgeKey{EncKey: "", DecKey: ""}, err
 	}
 
 	publicKey := id.Recipient().String()
 	privateKey := id.String()
 
-	return Key{EncKey: publicKey, DecKey: privateKey}, nil
+	return AgeKey{EncKey: publicKey, DecKey: privateKey}, nil
 }
