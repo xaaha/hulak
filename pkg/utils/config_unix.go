@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-// UserConfigDir returns .config locaiton for unix
+// UserConfigDir returns global .config path for respective os
 func UserConfigDir() (string, error) {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
 		if !filepath.IsAbs(dir) {

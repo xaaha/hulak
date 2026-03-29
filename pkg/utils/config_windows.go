@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-// UserConfigDir returns .config locaiton for windows
+// UserConfigDir returns global .config path for respective os
 func UserConfigDir() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
