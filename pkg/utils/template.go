@@ -142,11 +142,8 @@ func resolveFilePath(filePath string) (string, error) {
 		return "", statErr
 	}
 
-	workingDir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	relPath := filepath.Join(workingDir, cleanPath)
+	projectRoot, _ := FindProjectRoot()
+	relPath := filepath.Join(projectRoot, cleanPath)
 	if _, err := os.Stat(relPath); err != nil {
 		return "", err
 	}
