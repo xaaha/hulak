@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"bytes"
 	"io"
 
 	"filippo.io/age"
@@ -28,25 +27,18 @@ func GenerateKeyPair() (AgeKey, error) {
 	return AgeKey{EncKey: publicKey, DecKey: privateKey}, nil
 }
 
-func Encrypt(plaintext []byte, recepients []age.Recipient) ([]byte, error) {
-	var buf bytes.Buffer
-
-	wc, err := age.Encrypt(&buf, recepients...)
+func Encrypt(r io.Reader, w io.Writer, recipients ...age.Recipient) error {
+	ew, err := age.Encrypt(w, recipients...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// feed plaintext to encryptor
-	if _, err = wc.Write(plaintext); err != nil {
-		return nil, err
+	if _, err := io.Copy(ew, r); err != nil {
+		_ = ew.Close()
+		return err
 	}
 
-	err = wc.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return ew.Close()
 }
 
 func Decrypt(r io.Reader, identities []age.Identity) ([]byte, error) {
