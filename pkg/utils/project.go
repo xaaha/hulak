@@ -21,7 +21,7 @@ func FindProjectRoot() (string, bool) {
 	}
 
 	dir := cwd
-	for {
+	for home == "" || dir != home {
 		candidate := filepath.Join(dir, EnvironmentFolder)
 		info, err := os.Stat(candidate)
 		if err == nil && info.IsDir() {
@@ -30,9 +30,6 @@ func FindProjectRoot() (string, bool) {
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			break
-		}
-		if home != "" && dir == home {
 			break
 		}
 		dir = parent
