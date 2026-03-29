@@ -2,6 +2,8 @@ package utils
 
 import "io/fs"
 
+const ProjectName = "hulak"
+
 // CLI colors — bright ANSI (90-97) for direct fmt.Printf output.
 // These match the semantic ANSI colors in tui/styles.go:
 //

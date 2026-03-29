@@ -22,5 +22,5 @@ func UserConfigDir() (string, error) {
 		return "", errors.New("neither $XDG_CONFIG_HOME nor $HOME are defined")
 	}
 
-	return filepath.Join(home, ".config"), nil
+	return filepath.Join(home, ".config", ProjectName), nil
 }
