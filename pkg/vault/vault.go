@@ -49,13 +49,13 @@ func Encrypt(plaintext []byte, recepients []age.Recipient) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func Decrypt(cipherText []byte, identities []age.Identity) ([]byte, error) {
-	reader, err := age.Decrypt(bytes.NewReader(cipherText), identities...)
+func Decrypt(r io.Reader, identities []age.Identity) ([]byte, error) {
+	plaintextReader, err := age.Decrypt(r, identities...)
 	if err != nil {
 		return nil, err
 	}
 
-	plainText, err := io.ReadAll(reader)
+	plainText, err := io.ReadAll(plaintextReader)
 	if err != nil {
 		return nil, err
 	}
