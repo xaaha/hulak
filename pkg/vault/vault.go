@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"io"
 
 	"filippo.io/age"
 )
@@ -46,4 +47,17 @@ func Encrypt(plaintext []byte, recepients []age.Recipient) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func Decrypt(cipherText []byte, identities []age.Identity) ([]byte, error) {
+	reader, err := age.Decrypt(bytes.NewReader(cipherText), identities...)
+	if err != nil {
+		return nil, err
+	}
+
+	plainText, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	return plainText, nil
 }
