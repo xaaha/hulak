@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"bytes"
 	"io"
 
 	"filippo.io/age"
@@ -41,15 +42,30 @@ func Encrypt(r io.Reader, w io.Writer, recipients ...age.Recipient) error {
 	return ew.Close()
 }
 
-func Decrypt(r io.Reader, identities []age.Identity) ([]byte, error) {
-	plaintextReader, err := age.Decrypt(r, identities...)
+func Decrypt(r io.Reader, identities ...age.Identity) (io.Reader, error) {
+	rdr, err := age.Decrypt(r, identities...)
 	if err != nil {
 		return nil, err
 	}
+	return rdr, nil
+}
 
-	plainText, err := io.ReadAll(plaintextReader)
+func EncryptText(plainText []byte, receipients ...age.Recipient) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := Encrypt(bytes.NewReader(plainText), &buf, receipients...); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func DecryptText(cypherText []byte, identities ...age.Identity) ([]byte, error) {
+	rdr, err := Decrypt(bytes.NewReader(cypherText), identities...)
 	if err != nil {
 		return nil, err
 	}
-	return plainText, nil
+	plaintext, err := io.ReadAll(rdr)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
 }
