@@ -3,15 +3,15 @@
 package utils
 
 import (
-	"errors"
 	"os"
+	"path/filepath"
 )
 
 // UserConfigDir returns .config locaiton for windows
 func UserConfigDir() (string, error) {
-	dir := os.Getenv("AppData")
-	if dir == "" {
-		return "", errors.New("%AppData% is not defined")
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
 	}
-	return dir, nil
+	return filepath.Join(dir, ProjectName), nil
 }
