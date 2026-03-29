@@ -38,7 +38,7 @@ func (m *Model) saveQueryAndVariables() tea.Cmd {
 	vars := BuildVariablesString(op, m.detailForm)
 	if vars != "" {
 		sb.WriteString("\n\n# Variables:\n")
-		for _, line := range strings.Split(vars, "\n") {
+		for line := range strings.SplitSeq(vars, "\n") {
 			sb.WriteString("# ")
 			sb.WriteString(line)
 			sb.WriteString("\n")
