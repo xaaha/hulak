@@ -1,8 +1,13 @@
 package utils
 
-import "io/fs"
+import (
+	"io/fs"
+)
 
-const ProjectName = "hulak"
+const (
+	ProjectName       = "hulak"
+	HiddenProjectName = "." + ProjectName
+)
 
 // CLI colors — bright ANSI (90-97) for direct fmt.Printf output.
 // These match the semantic ANSI colors in tui/styles.go:
@@ -27,14 +32,6 @@ const (
 	EnvKey               = "hulakEnv"
 	DefaultEnvVal        = "global"
 	DefaultEnvFileSuffix = ".env"
-)
-
-// Errors message
-const (
-	UnResolvedVariable = "unresolved variable "
-	EmptyVariables     = "variable string can't be empty"
-	IndexOutOfBounds   = "array index out of bounds: "
-	KeyNotFound        = "key not found: "
 )
 
 // acceptable file patterns
