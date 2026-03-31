@@ -45,7 +45,7 @@ func IsHulakProject() bool {
 	return found
 }
 
-// GetProjectMarker returns root marker '.hulak/'
+// GetProjectMarker returns root marker '.hulak/' of a hulak project
 func GetProjectMarker() (string, error) {
 	projectRoot, found := FindProjectRoot()
 	if !found {
