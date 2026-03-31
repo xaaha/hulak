@@ -4,27 +4,29 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"path/filepath"
 
 	"filippo.io/age"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// AgeKey holds a matched age X25519 keypair.
 type AgeKey struct {
-	EncKey string
-	DecKey string
+	Recipient *age.X25519Recipient
+	Identity  *age.X25519Identity
 }
 
+// GenerateKeyPair generates a new X25519 age keypair.
 func GenerateKeyPair() (AgeKey, error) {
 	id, err := age.GenerateX25519Identity()
 	if err != nil {
-		return AgeKey{EncKey: "", DecKey: ""}, err
+		return AgeKey{}, err
 	}
 
-	publicKey := id.Recipient().String()
-	privateKey := id.String()
-
-	return AgeKey{EncKey: publicKey, DecKey: privateKey}, nil
+	return AgeKey{
+		Recipient: id.Recipient(),
+		Identity:  id,
+	}, nil
 }
 
 func EncryptText(plainText []byte, receipients ...age.Recipient) ([]byte, error) {
@@ -49,11 +51,9 @@ func DecryptText(cypherText []byte, identities ...age.Identity) ([]byte, error) 
 
 // SetPublicKey writes the public encryption key to .hulak/key.pub in the project root.
 func SetPublicKey(publicEncKey string) error {
-	markerPath, err := utils.GetProjectMarker()
+	pubKeyPath, err := getPublicKeyFilePath()
 	if err != nil {
 		return err
 	}
-
-	pubKeyPath := filepath.Join(markerPath, publicKeyFile)
-	return os.WriteFile(pubKeyPath, []byte(publicEncKey), utils.FilePer)
+	return os.WriteFile(pubKeyPath, []byte(publicEncKey+"\n"), utils.FilePer)
 }
