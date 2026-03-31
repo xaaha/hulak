@@ -392,9 +392,14 @@ func buildDetailForm(
 				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"),
 			)...)
 		} else if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
+			// if parent is not required, it's child should be optional as well
+			argRequired := strings.HasSuffix(arg.Type, "!")
 			for _, field := range it.Fields {
 				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
 				fi.argName = arg.Name
+				if !argRequired {
+					fi.enabled = false
+				}
 				items = append(items, fi)
 			}
 		} else {
@@ -725,10 +730,18 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
 		if item.kind == formItemToggle {
 			cmd := item.HandleKey(msg)
-			df.setArgEnabled(item.argName, item.toggle.Value)
+			if item.listItem || item.name == item.argName {
+				df.setArgEnabled(item.argName, item.toggle.Value)
+			} else {
+				item.enabled = item.toggle.Value
+			}
 			return cmd
 		}
-		df.setArgEnabled(item.argName, !item.enabled)
+		if item.listItem || item.name == item.argName {
+			df.setArgEnabled(item.argName, !item.enabled)
+		} else {
+			item.enabled = !item.enabled
+		}
 		return nil
 	}
 
@@ -846,7 +859,11 @@ func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
 		case formItemToggle:
 			_ = item.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
 			if !item.isField {
-				df.setArgEnabled(item.argName, item.toggle.Value)
+				if item.listItem || item.name == item.argName {
+					df.setArgEnabled(item.argName, item.toggle.Value)
+				} else {
+					item.enabled = item.toggle.Value
+				}
 			}
 			if item.expandable {
 				df.toggleExpand(i)
