@@ -34,6 +34,8 @@ const (
 	DefaultEnvFileSuffix = ".env"
 )
 
+const StoreFile = "store.age"
+
 // acceptable file patterns
 const (
 	YAML = ".yaml"
