@@ -101,3 +101,35 @@ func ReadStore(identity age.Identity) (*Store, error) {
 
 	return &Store{Envs: envs}, nil
 }
+
+// WriteStore marshals the store to JSON, encrypts it, and writes to store.age.
+// Uses atomic write: writes to .tmp first, then renames to prevent corruption.
+func WriteStore(store *Store, recipients ...age.Recipient) error {
+	path, err := storePath()
+	if err != nil {
+		return err
+	}
+
+	plainText, err := json.MarshalIndent(store.Envs, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal store: %w", err)
+	}
+
+	cipherText, err := EncryptText(plainText, recipients...)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt store: %w", err)
+	}
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, cipherText, utils.SecretPer); err != nil {
+		os.Remove(tmpPath) // remove tmp, might be corrupted
+		return fmt.Errorf("failed to write store: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to finalize store: %w", err)
+	}
+
+	return nil
+}
