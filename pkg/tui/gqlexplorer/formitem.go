@@ -392,9 +392,14 @@ func buildDetailForm(
 				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"),
 			)...)
 		} else if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
+			// if parent is not required, it's child should be optional as well
+			argRequired := strings.HasSuffix(arg.Type, "!")
 			for _, field := range it.Fields {
 				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
 				fi.argName = arg.Name
+				if !argRequired {
+					fi.enabled = false
+				}
 				items = append(items, fi)
 			}
 		} else {

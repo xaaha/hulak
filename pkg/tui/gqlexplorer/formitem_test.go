@@ -1139,6 +1139,61 @@ func TestArgFormItemEnabledDefaults(t *testing.T) {
 	}
 }
 
+func TestOptionalInputTypeFieldsStartDisabled(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{
+			{Name: "requiredArg", Type: "ReqInput!"},
+			{Name: "optionalArg", Type: "OptInput"},
+		},
+	}
+	inputTypes := map[string]graphql.InputType{
+		ScopedTypeKey(ep, "ReqInput"): {
+			Name: "ReqInput",
+			Fields: []graphql.InputField{
+				{Name: "field1", Type: "String!"},
+				{Name: "field2", Type: "String"},
+			},
+		},
+		ScopedTypeKey(ep, "OptInput"): {
+			Name: "OptInput",
+			Fields: []graphql.InputField{
+				{Name: "field3", Type: "String!"},
+				{Name: "field4", Type: "String"},
+			},
+		},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+	if df.argCount != 4 {
+		t.Fatalf("expected 4 arg items, got %d", df.argCount)
+	}
+
+	// Required parent arg: sub-field enabled follows its own required status.
+	if !df.items[0].enabled {
+		t.Error("required field inside required arg should start enabled")
+	}
+	if df.items[1].enabled {
+		t.Error("optional field inside required arg should start disabled")
+	}
+
+	// Optional parent arg: all sub-fields start disabled regardless.
+	if df.items[2].enabled {
+		t.Error("required field inside optional arg should start disabled")
+	}
+	if df.items[3].enabled {
+		t.Error("optional field inside optional arg should start disabled")
+	}
+
+	// The required flag itself should still be set (for UI hints like asterisks).
+	if !df.items[2].required {
+		t.Error("required field inside optional arg should still have required=true")
+	}
+}
+
 func TestBuildDetailFormSetsArgName(t *testing.T) {
 	ep := "https://api.test/graphql"
 	op := &UnifiedOperation{
