@@ -6,6 +6,7 @@ import (
 	"filippo.io/age"
 )
 
+// Encrypt reads plaintext from r, encrypts it for the given recipients, and writes ciphertext to w.
 func Encrypt(r io.Reader, w io.Writer, recipients ...age.Recipient) error {
 	ew, err := age.Encrypt(w, recipients...)
 	if err != nil {
@@ -20,6 +21,7 @@ func Encrypt(r io.Reader, w io.Writer, recipients ...age.Recipient) error {
 	return ew.Close()
 }
 
+// Decrypt reads ciphertext from r and returns a reader that yields plaintext when read.
 func Decrypt(r io.Reader, identities ...age.Identity) (io.Reader, error) {
 	rdr, err := age.Decrypt(r, identities...)
 	if err != nil {

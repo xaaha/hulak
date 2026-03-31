@@ -36,6 +36,7 @@ func getPublicKeyFilePath() (string, error) {
 	return filepath.Join(markerPath, publicKeyFile), nil
 }
 
+// GetIdentity reads and returns the raw private key string from the identity file.
 func GetIdentity() (string, error) {
 	path, err := getIdentityFilePath()
 	if err != nil {
@@ -82,6 +83,7 @@ func VerifyKeypair(rawPrivateKey, rawPublicKey string) (AgeKey, error) {
 	}, nil
 }
 
+// DeleteIdentity removes the identity file from the global config directory.
 func DeleteIdentity() error {
 	identityFilePath, err := getIdentityFilePath()
 	if err != nil {
