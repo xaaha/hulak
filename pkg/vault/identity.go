@@ -50,17 +50,6 @@ func StoreIdentity(privateKey string) error {
 	return os.WriteFile(identityFilePath, []byte(privateKey+"\n"), utils.SecretPer)
 }
 
-// StorePublicKey writes the public key to .hulak/key.pub in the project root.
-func StorePublicKey(publicKey string) error {
-	markerPath, err := utils.GetProjectMarker()
-	if err != nil {
-		return err
-	}
-
-	pubKeyPath := filepath.Join(markerPath, publicKeyFile)
-	return os.WriteFile(pubKeyPath, []byte(publicKey+"\n"), utils.FilePer)
-}
-
 func DeleteIdentity() error {
 	identityFilePath, err := getIdentityFile()
 	if err != nil {
@@ -71,4 +60,15 @@ func DeleteIdentity() error {
 		return err
 	}
 	return nil
+}
+
+// StorePublicKey writes the public key to .hulak/key.pub in the project root.
+func StorePublicKey(publicKey string) error {
+	markerPath, err := utils.GetProjectMarker()
+	if err != nil {
+		return err
+	}
+
+	pubKeyPath := filepath.Join(markerPath, publicKeyFile)
+	return os.WriteFile(pubKeyPath, []byte(publicKey+"\n"), utils.FilePer)
 }
