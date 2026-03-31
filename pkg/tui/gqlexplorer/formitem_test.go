@@ -1223,6 +1223,75 @@ func TestSpaceTogglesBooleanArgEnabled(t *testing.T) {
 	}
 }
 
+func TestSpaceOnExpandedInputTypeTogglesOnlyTargetField(t *testing.T) {
+	ep := "ep"
+	op := &UnifiedOperation{
+		Name: "Search", Type: TypeQuery, Endpoint: ep,
+		Arguments: []graphql.Argument{
+			{Name: "filter", Type: "FilterInput"},
+		},
+	}
+	inputTypes := map[string]graphql.InputType{
+		ScopedTypeKey(ep, "FilterInput"): {
+			Name: "FilterInput",
+			Fields: []graphql.InputField{
+				{Name: "keyword", Type: "String"},
+				{Name: "category", Type: "String"},
+				{Name: "active", Type: "Boolean"},
+			},
+		},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected non-nil form")
+	}
+	if df.argCount != 3 {
+		t.Fatalf("expected 3 arg items, got %d", df.argCount)
+	}
+
+	// All optional fields should start disabled.
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].enabled {
+			t.Fatalf("item %d (%s) should start disabled", i, df.items[i].name)
+		}
+	}
+
+	// Toggle "keyword" (item 0) with Space — only it should become enabled.
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !df.items[0].enabled {
+		t.Fatal("keyword should be enabled after Space")
+	}
+	if df.items[1].enabled {
+		t.Fatal("category should remain disabled when keyword is toggled")
+	}
+	if df.items[2].enabled {
+		t.Fatal("active should remain disabled when keyword is toggled")
+	}
+
+	// Move to "active" (boolean toggle, item 2) and toggle it.
+	df.CursorDown()
+	df.CursorDown()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !df.items[2].enabled {
+		t.Fatal("active should be enabled after Space")
+	}
+	if df.items[1].enabled {
+		t.Fatal("category should still be disabled")
+	}
+
+	// Toggle "keyword" off again.
+	df.CursorUp()
+	df.CursorUp()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if df.items[0].enabled {
+		t.Fatal("keyword should be disabled after second Space")
+	}
+	if !df.items[2].enabled {
+		t.Fatal("active should remain enabled after keyword is toggled off")
+	}
+}
+
 func TestEnterTogglesTextInputEditing(t *testing.T) {
 	ep := "ep"
 	op := &UnifiedOperation{
