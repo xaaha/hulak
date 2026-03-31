@@ -12,6 +12,7 @@ const (
 	publicKeyFile = "key.pub"
 )
 
+// getIdentityFile returns the 'identity.txt' from the global conifg location
 func getIdentityFile() (string, error) {
 	configDir, err := utils.UserConfigDir()
 	if err != nil {
