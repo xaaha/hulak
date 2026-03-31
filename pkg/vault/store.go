@@ -1,7 +1,16 @@
 package vault
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+
+	"filippo.io/age"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Env is the user's environment like 'staging', 'prod',
@@ -50,4 +59,45 @@ func (s *Store) DeleteKey(envName, key string) {
 		return
 	}
 	delete(env, key)
+}
+
+// storePath returns the absolute path to .hulak/store.age in the project root.
+func storePath() (string, error) {
+	markerPath, err := utils.GetProjectMarker()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(markerPath, utils.StoreFile), nil
+}
+
+// ReadStore decrypts store.age and returns the Store.
+// Uses json.Decoder.UseNumber() to preserve int/float distinction.
+func ReadStore(identity age.Identity) (*Store, error) {
+	path, err := storePath()
+	if err != nil {
+		return nil, err
+	}
+
+	cipherText, err := os.ReadFile(path)
+	if err != nil {
+		// empty store.age if it does not exist
+		if os.IsNotExist(err) {
+			return &Store{Envs: make(map[string]Env)}, nil
+		}
+		return nil, fmt.Errorf("failed to read store: %w", err)
+	}
+
+	plainText, err := DecryptText(cipherText, identity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt store: %w", err)
+	}
+
+	var envs map[string]Env
+	dec := json.NewDecoder(bytes.NewReader(plainText))
+	dec.UseNumber() // avoids float64, get exact original text
+	if err := dec.Decode(&envs); err != nil {
+		return nil, fmt.Errorf("failed to parse store: %w", err)
+	}
+
+	return &Store{Envs: envs}, nil
 }
