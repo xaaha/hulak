@@ -15,5 +15,5 @@ func SetPublicKey(publicKey string) error {
 	}
 
 	pubKeyPath := filepath.Join(markerPath, publicKeyFile)
-	return os.WriteFile(pubKeyPath, []byte(publicKey+"\n"), utils.FilePer)
+	return os.WriteFile(pubKeyPath, []byte(publicKey), utils.FilePer)
 }
