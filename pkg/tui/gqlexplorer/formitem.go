@@ -725,10 +725,18 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
 		if item.kind == formItemToggle {
 			cmd := item.HandleKey(msg)
-			df.setArgEnabled(item.argName, item.toggle.Value)
+			if item.listItem || item.name == item.argName {
+				df.setArgEnabled(item.argName, item.toggle.Value)
+			} else {
+				item.enabled = item.toggle.Value
+			}
 			return cmd
 		}
-		df.setArgEnabled(item.argName, !item.enabled)
+		if item.listItem || item.name == item.argName {
+			df.setArgEnabled(item.argName, !item.enabled)
+		} else {
+			item.enabled = !item.enabled
+		}
 		return nil
 	}
 
@@ -846,7 +854,11 @@ func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
 		case formItemToggle:
 			_ = item.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
 			if !item.isField {
-				df.setArgEnabled(item.argName, item.toggle.Value)
+				if item.listItem || item.name == item.argName {
+					df.setArgEnabled(item.argName, item.toggle.Value)
+				} else {
+					item.enabled = item.toggle.Value
+				}
 			}
 			if item.expandable {
 				df.toggleExpand(i)
