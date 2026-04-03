@@ -1,14 +1,14 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
 // FindProjectRoot walks up from the current working directory looking for
-// the env/ directory that marks a hulak project root, similar to how git
-// searches for .git/. It stops at the user's home directory.
-// Returns the project root path and true if found, or CWD and false otherwise.
+// the root marker, .hulak/, similar to how git searches for .git/.
+// It stops at the user's home directory. Returns the project root path and true if found, or user home dir and false otherwise.
 func FindProjectRoot() (string, bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -21,7 +21,7 @@ func FindProjectRoot() (string, bool) {
 	}
 
 	dir := cwd
-	for {
+	for home == "" || dir != home {
 		candidate := filepath.Join(dir, EnvironmentFolder)
 		info, err := os.Stat(candidate)
 		if err == nil && info.IsDir() {
@@ -30,9 +30,6 @@ func FindProjectRoot() (string, bool) {
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			break
-		}
-		if home != "" && dir == home {
 			break
 		}
 		dir = parent
@@ -46,4 +43,16 @@ func FindProjectRoot() (string, bool) {
 func IsHulakProject() bool {
 	_, found := FindProjectRoot()
 	return found
+}
+
+// GetProjectMarker returns root marker '.hulak/' of a hulak project
+func GetProjectMarker() (string, error) {
+	projectRoot, found := FindProjectRoot()
+	if !found {
+		return "", fmt.Errorf(
+			"not a hulak project. run 'hulak init' to start a new one",
+		)
+	}
+
+	return filepath.Join(projectRoot, ".hulak"), nil
 }

@@ -81,10 +81,10 @@ func GetFile(filePath string) (string, error) {
 
 	cleanPath := filepath.Clean(filePath)
 
-	// Get current working directory as the base allowed directory
-	workingDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
+	// Use project root as the base allowed directory
+	projectRoot, found := utils.FindProjectRoot()
+	if !found {
+		return "", fmt.Errorf("not a hulak project: could not find project root")
 	}
 
 	// Try to resolve as absolute path first
@@ -98,7 +98,7 @@ func GetFile(filePath string) (string, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Try relative to working directory if absolute path doesn't exist
-			relPath := filepath.Join(workingDir, cleanPath)
+			relPath := filepath.Join(projectRoot, cleanPath)
 			fileInfo, err = os.Stat(relPath)
 			if err != nil {
 				if os.IsNotExist(err) {
@@ -113,7 +113,7 @@ func GetFile(filePath string) (string, error) {
 	}
 
 	// ensure the file is within the working directory or explicitly allowed directories
-	if !strings.HasPrefix(absPath, workingDir) {
+	if !strings.HasPrefix(absPath, projectRoot) {
 		// If you want to allow specific directories outside the working dir, add checks here
 		// For example, checking if it's in an allowed config directory
 		return "", fmt.Errorf(

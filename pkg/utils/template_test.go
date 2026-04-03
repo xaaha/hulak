@@ -121,6 +121,152 @@ func buildGetValueOfContent(key, fileName string) string {
 	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"" + key + "\" \"" + fileName + "\"}}'\n"
 }
 
+func TestResolveFilePath(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tmpDir := t.TempDir()
+	// Resolve symlinks (macOS /var -> /private/var) so paths are consistent
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	// Create env/ to make it a valid hulak project root
+	if err := os.Mkdir(filepath.Join(tmpDir, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	// Create test files
+	topFile := filepath.Join(tmpDir, "top.txt")
+	if err := os.WriteFile(topFile, []byte("top"), FilePer); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	subDir := filepath.Join(tmpDir, "sub")
+	if err := os.Mkdir(subDir, DirPer); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	nestedFile := filepath.Join(subDir, "nested.txt")
+	if err := os.WriteFile(nestedFile, []byte("nested"), FilePer); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "empty path returns error",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:  "resolves absolute path that exists",
+			input: topFile,
+			want:  topFile,
+		},
+		{
+			name:  "resolves relative path via project root",
+			input: "top.txt",
+			want:  filepath.Join(tmpDir, "top.txt"),
+		},
+		{
+			name:  "resolves nested relative path via project root",
+			input: "sub/nested.txt",
+			want:  filepath.Join(tmpDir, "sub", "nested.txt"),
+		},
+		{
+			name:  "resolves absolute nested path",
+			input: nestedFile,
+			want:  nestedFile,
+		},
+		{
+			name:    "nonexistent file returns error",
+			input:   "does_not_exist.txt",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveFilePath(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("resolveFilePath(%q) expected error, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("resolveFilePath(%q) unexpected error: %v", tt.input, err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("resolveFilePath(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveFilePath_FromChildDir(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tmpDir := t.TempDir()
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	if err := os.Mkdir(filepath.Join(tmpDir, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+
+	// Create a file at project root
+	rootFile := filepath.Join(tmpDir, "root.txt")
+	if err := os.WriteFile(rootFile, []byte("root"), FilePer); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	// Create a child directory and cd into it
+	childDir := filepath.Join(tmpDir, "child")
+	if err := os.Mkdir(childDir, DirPer); err != nil {
+		t.Fatalf("failed to create child dir: %v", err)
+	}
+	if err := os.Chdir(childDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	// Relative path "root.txt" should resolve via project root, not cwd
+	got, err := resolveFilePath("root.txt")
+	if err != nil {
+		t.Fatalf("resolveFilePath(\"root.txt\") from child dir: unexpected error: %v", err)
+	}
+	if got != rootFile {
+		t.Errorf("resolveFilePath(\"root.txt\") from child dir = %q, want %q", got, rootFile)
+	}
+}
+
 func TestMapHasEnvVars(t *testing.T) {
 	testCases := []struct {
 		name     string
