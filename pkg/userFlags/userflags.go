@@ -6,6 +6,22 @@ import (
 	"os"
 )
 
+type Command struct {
+	Name        string                    // "env", "set", "gql"
+	Short       string                    // one-line description for parent's help
+	Long        string                    // detailed help (shown with --help)
+	Flags       *flag.FlagSet             // scoped flags for this command
+	Args        []ArgDef                  // positional arg descriptions (for help only)
+	SubCommands []*Command                // children
+	Run         func(args []string) error // nil if has subcommands only
+}
+
+type ArgDef struct {
+	Name     string // "KEY"
+	Required bool
+	Desc     string
+}
+
 // AllFlags  All user flags and subcommands
 type AllFlags struct {
 	Env      string
