@@ -11,7 +11,6 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
-	userflags "github.com/xaaha/hulak/pkg/userFlags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -152,7 +151,7 @@ func DiscoverFilePaths(
 ) (fileList, concurrentDir, sequentialDir []string) {
 	if fp != "" || fileName != "" {
 		var err error
-		fileList, err = userflags.GenerateFilePathList(fileName, fp)
+		fileList, err = generateFilePathList(fileName, fp)
 		if err != nil {
 			if !hasDirFlags {
 				utils.PanicRedAndExit("%v", err)
@@ -217,4 +216,35 @@ func processFilesSequentially(filePaths []string, secretsMap map[string]any, deb
 			utils.PrintRed(fmt.Sprintf("Error processing %s: %v", path, err))
 		}
 	}
+}
+
+// generateFilePathList returns a slice of file paths based on the flags -f and -fp.
+func generateFilePathList(fileName string, fp string) ([]string, error) {
+	standardErrMsg := "to send api request(s), please provide a valid file name with \n'-f fileName' flag or  \n'-fp file/path/' "
+
+	// Both inputs are empty, return an error
+	if fileName == "" && fp == "" {
+		return nil, utils.ColorError(standardErrMsg)
+	}
+
+	var filePathList []string
+
+	// Add file path from -fp flag if provided
+	if fp != "" {
+		filePathList = append(filePathList, fp)
+	}
+
+	// Add matching paths for -f flag if provided
+	if fileName != "" {
+		if matchingPaths, err := utils.ListMatchingFiles(fileName); err != nil {
+			utils.PrintRed(utils.ErrFilePathCollection + ": " + err.Error())
+		} else {
+			filePathList = append(filePathList, matchingPaths...)
+		}
+	}
+
+	if len(filePathList) == 0 {
+		return nil, utils.ColorError(standardErrMsg)
+	}
+	return filePathList, nil
 }
