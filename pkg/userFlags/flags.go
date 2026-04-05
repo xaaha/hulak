@@ -31,6 +31,10 @@ var (
 	// version flags
 	vFlag       *bool
 	versionFlag *bool
+
+	// help
+	help *bool
+	h    *bool
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -67,6 +71,9 @@ func init() {
 
 	vFlag = flag.Bool("v", false, "Print the version")
 	versionFlag = flag.Bool("version", false, "Print the version")
+
+	help = flag.Bool("help", false, "Print Help")
+	h = flag.Bool("h", false, "Print help")
 }
 
 // FilePath returns the parsed value of the file path "fp" flag -fp
@@ -97,4 +104,12 @@ func Dir() string {
 // Dirseq represents directory run in sequence
 func Dirseq() string {
 	return *dirseq
+}
+
+func GetHelp() bool {
+	return *help
+}
+
+func GetH() bool {
+	return *h
 }

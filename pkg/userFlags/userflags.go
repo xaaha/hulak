@@ -4,6 +4,8 @@ package userflags
 import (
 	"flag"
 	"os"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 type Command struct {
@@ -40,6 +42,9 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 			flag.Parse()
 			if *vFlag || *versionFlag {
 				getVersion()
+				os.Exit(0)
+			} else if *help || *h {
+				utils.PrintHelp()
 				os.Exit(0)
 			}
 		} else {
