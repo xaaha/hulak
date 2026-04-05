@@ -105,11 +105,3 @@ func Dir() string {
 func Dirseq() string {
 	return *dirseq
 }
-
-func GetHelp() bool {
-	return *help
-}
-
-func GetH() bool {
-	return *h
-}
