@@ -21,7 +21,7 @@ const (
 	Migrate = "migrate"
 	Init    = "init"
 	Help    = "help"
-	GraphQL = "gql"
+	GraphQL = "gql" // also, "graphql", "GraphQL"
 	Doctor  = "doctor"
 )
 
@@ -87,7 +87,7 @@ func HandleSubcommands() error {
 		runDoctor()
 		os.Exit(0)
 
-	case GraphQL:
+	case GraphQL, "graphql", "GraphQL":
 		err := gql.Parse(os.Args[2:])
 		if err != nil {
 			return fmt.Errorf("\n invalid subcommand after gql %v", err)
