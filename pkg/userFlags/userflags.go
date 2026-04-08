@@ -38,19 +38,19 @@ type AllFlags struct {
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*AllFlags, error) {
 	if len(os.Args) >= 2 {
-		if HasFlag() {
-			flag.Parse()
-			if *vFlag || *versionFlag {
-				getVersion()
-				os.Exit(0)
-			} else if *help || *h {
-				utils.PrintHelp()
-				os.Exit(0)
+		if !HasFlag() {
+			if err := HandleSubcommands(); err != nil {
+				return nil, err
 			}
 		} else {
-			err := HandleSubcommands()
-			if err != nil {
-				return nil, err
+			flag.Parse()
+			switch {
+			case *vFlag || *versionFlag:
+				getVersion()
+				os.Exit(0)
+			case *help || *h:
+				utils.PrintHelp()
+				os.Exit(0)
 			}
 		}
 	}
