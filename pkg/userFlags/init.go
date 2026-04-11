@@ -3,6 +3,7 @@ package userflags
 
 import (
 	"bufio"
+	"embed"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,9 @@ import (
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+//go:embed apiOptions.hk.yaml
+var embeddedFiles embed.FS
 
 // InitDefaultProject performs the default hulak project initialization:
 // creates env/ directory, global.env, and the apiOptions.hk.yaml example file.
