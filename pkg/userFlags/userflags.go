@@ -4,8 +4,6 @@ package userflags
 import (
 	"flag"
 	"os"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // AllFlags  All user flags and subcommands
@@ -21,21 +19,24 @@ type AllFlags struct {
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*AllFlags, error) {
+	subCmds := SubCommands()
+
 	if len(os.Args) >= 2 {
-		if !HasFlag() {
-			if err := HandleSubcommands(); err != nil {
+		if !hasFlag() {
+			if err := subCmds.Execute(os.Args[1:]); err != nil {
 				return nil, err
 			}
-		} else {
-			flag.Parse()
-			switch {
-			case *vFlag || *versionFlag:
-				getVersion()
-				os.Exit(0)
-			case *help || *h:
-				utils.PrintHelp()
-				os.Exit(0)
-			}
+			os.Exit(0)
+		}
+
+		flag.Parse()
+		switch {
+		case *vFlag || *versionFlag:
+			getVersion()
+			os.Exit(0)
+		case *help || *h:
+			subCmds.printHelp()
+			os.Exit(0)
 		}
 	}
 
@@ -57,7 +58,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	}, nil
 }
 
-// HasFlag checks if user passed in a flag with -
-func HasFlag() bool {
+// hasFlag checks if user passed in a flag with -
+func hasFlag() bool {
 	return os.Args[1][0] == '-'
 }
