@@ -99,26 +99,3 @@ func ensureGitignoreEntry() error {
 
 	return nil
 }
-
-func handleInit() error {
-	err := initialize.Parse(os.Args[2:])
-	if err != nil {
-		return fmt.Errorf("\n invalid subcommand %v", err)
-	}
-	// Check if -env flag is present
-	if *createEnvs {
-		envs := initialize.Args()
-		if len(envs) > 0 {
-			for _, env := range envs {
-				if err := envparser.CreateDefaultEnvs(&env); err != nil {
-					utils.PrintRed(err.Error())
-				}
-			}
-		} else {
-			utils.PrintWarning("No environment names provided after -env flag")
-		}
-	} else {
-		return InitDefaultProject()
-	}
-	return nil
-}
