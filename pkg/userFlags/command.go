@@ -3,10 +3,10 @@ package userflags
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"slices"
-	"text/tabwriter"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Command represents a CLI command with optional subcommands and flags
@@ -15,6 +15,7 @@ type Command struct {
 	Aliases     []string                  // alternative names (e.g. "graphql", "GraphQL")
 	Short       string                    // one-line description for parent's help listing
 	Long        string                    // detailed help shown with --help
+	Examples    []*utils.CommandHelp      // usage examples (printed via WriteCommandHelp)
 	Flags       *flag.FlagSet             // scoped flags for this command
 	Args        []ArgDef                  // positional arg descriptions (for help only)
 	SubCommands []*Command                // nested subcommands
@@ -33,7 +34,7 @@ func (cmd *Command) Execute(args []string) error {
 	// No args: show help if subcommand-only, or run with empty args
 	if len(args) == 0 {
 		if cmd.Run == nil {
-			cmd.printHelp(os.Stdout)
+			cmd.printHelp()
 			return nil
 		}
 		return cmd.Run(args)
@@ -41,7 +42,7 @@ func (cmd *Command) Execute(args []string) error {
 
 	// Check for help request as first arg
 	if isHelpArg(args[0]) {
-		cmd.printHelp(os.Stdout)
+		cmd.printHelp()
 		return nil
 	}
 
@@ -66,7 +67,7 @@ func (cmd *Command) Execute(args []string) error {
 		}
 
 		if helpFlag {
-			cmd.printHelp(os.Stdout)
+			cmd.printHelp()
 			return nil
 		}
 
@@ -74,7 +75,7 @@ func (cmd *Command) Execute(args []string) error {
 	}
 
 	if cmd.Run == nil {
-		cmd.printHelp(os.Stdout)
+		cmd.printHelp()
 		return nil
 	}
 
@@ -91,42 +92,80 @@ func (cmd *Command) findSub(name string) *Command {
 	return nil
 }
 
-// printHelp writes the command's help text to w
-func (cmd *Command) printHelp(w io.Writer) {
+// printHelp prints the command's help to stdout in a style similar to gh CLI
+func (cmd *Command) printHelp() {
 	if cmd.Long != "" {
-		fmt.Fprintln(w, cmd.Long) //nolint:gosec // CLI help text, not web output
-		fmt.Fprintln(w)           //nolint:gosec // CLI help text, not web output
+		fmt.Println(cmd.Long)
+		fmt.Println()
 	}
 
 	if len(cmd.SubCommands) > 0 {
-		fmt.Fprintln(w, "Subcommands:")
-		tw := tabwriter.NewWriter(w, 0, 0, 4, ' ', 0)
+		utils.PrintWarning("COMMANDS")
+		var entries []*utils.CommandHelp
 		for _, sub := range cmd.SubCommands {
-			fmt.Fprintf(tw, "  %s\t%s\n", sub.Name, sub.Short) //nolint:gosec // CLI help text, not web output
+			entries = append(entries, &utils.CommandHelp{
+				Command:     sub.Name,
+				Description: sub.Short,
+			})
 		}
-		tw.Flush()
-		fmt.Fprintln(w)
+		_ = utils.WriteCommandHelp(entries)
+		fmt.Println()
 	}
 
 	if cmd.Flags != nil {
-		fmt.Fprintln(w, "Flags:")
-		cmd.Flags.SetOutput(w)
-		cmd.Flags.PrintDefaults()
-		fmt.Fprintln(w)
+		hasVisible := false
+		cmd.Flags.VisitAll(func(f *flag.Flag) {
+			if f.Name != "h" && f.Name != "help" &&
+				f.Name != "v" && f.Name != "version" {
+				hasVisible = true
+			}
+		})
+		if hasVisible {
+			utils.PrintWarning("FLAGS")
+			cmd.Flags.VisitAll(func(f *flag.Flag) {
+				if f.Name == "h" || f.Name == "help" ||
+					f.Name == "v" || f.Name == "version" {
+					return
+				}
+				fmt.Fprintf(os.Stdout, "  -%s", f.Name) //nolint:gosec // CLI help text
+				if f.DefValue != "" && f.DefValue != "false" {
+					fmt.Fprintf(os.Stdout, " %s", f.DefValue)
+				}
+				fmt.Fprintf(os.Stdout, "\n    \t%s\n", f.Usage)
+			})
+			fmt.Println()
+		}
 	}
 
 	if len(cmd.Args) > 0 {
-		fmt.Fprintln(w, "Arguments:")
-		tw := tabwriter.NewWriter(w, 0, 0, 4, ' ', 0)
+		utils.PrintWarning("ARGUMENTS")
+		var entries []*utils.CommandHelp
 		for _, a := range cmd.Args {
-			req := ""
+			name := "<" + a.Name + ">"
+			desc := a.Desc
 			if a.Required {
-				req = " (required)"
+				desc += " (required)"
 			}
-			fmt.Fprintf(tw, "  <%s>\t%s%s\n", a.Name, a.Desc, req) //nolint:gosec // CLI help text, not web output
+			entries = append(entries, &utils.CommandHelp{
+				Command:     name,
+				Description: desc,
+			})
 		}
-		tw.Flush()
+		_ = utils.WriteCommandHelp(entries)
+		fmt.Println()
 	}
+
+	if len(cmd.Examples) > 0 {
+		utils.PrintWarning("EXAMPLES")
+		for _, ex := range cmd.Examples {
+			fmt.Printf("  $ %s\n", ex.Command)
+			fmt.Printf("    %s\n", ex.Description)
+		}
+		fmt.Println()
+	}
+
+	utils.PrintWarning("LEARN MORE")
+	fmt.Println("  Use `hulak <command> --help` for more information about a command.")
 }
 
 // isHelpArg returns true if the argument is a help request

@@ -3,8 +3,11 @@ package userflags
 import (
 	"bytes"
 	"flag"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestExecuteDispatchesToSubcommand(t *testing.T) {
@@ -225,22 +228,103 @@ func TestPrintHelp(t *testing.T) {
 		},
 	}
 
-	var buf bytes.Buffer
-	cmd.printHelp(&buf)
-	output := buf.String()
+	output := captureStdout(t, func() {
+		cmd.printHelp()
+	})
 
-	// Check all sections are present
 	checks := []string{
 		"Open the GraphQL explorer",
-		"Subcommands:",
+		"COMMANDS",
 		"create",
 		"Create a new GraphQL file",
-		"Flags:",
+		"FLAGS",
 		"-env",
-		"Arguments:",
+		"ARGUMENTS",
 		"<path>",
 		"(required)",
 	}
+	for _, check := range checks {
+		if !strings.Contains(output, check) {
+			t.Errorf("help output missing %q\nGot:\n%s", check, output)
+		}
+	}
+}
+
+// captureStdout redirects os.Stdout to a pipe, runs fn, and returns
+// everything that was written to stdout as a string
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("could not create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	fn()
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("could not read from pipe: %v", err)
+	}
+	return buf.String()
+}
+
+func TestExecuteNestedSubcommands(t *testing.T) {
+	var gotArgs []string
+	root := &Command{
+		Name: "root",
+		SubCommands: []*Command{
+			{
+				Name: "env",
+				SubCommands: []*Command{
+					{
+						Name: "set",
+						Run: func(args []string) error {
+							gotArgs = args
+							return nil
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// root → env → set with remaining args
+	if err := root.Execute([]string{"env", "set", "API_KEY", "--env", "prod"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(gotArgs) != 3 || gotArgs[0] != "API_KEY" {
+		t.Errorf("expected [API_KEY --env prod], got %v", gotArgs)
+	}
+
+	// help at the middle level should not reach the leaf
+	gotArgs = nil
+	if err := root.Execute([]string{"env", "--help"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotArgs != nil {
+		t.Error("set.Run should not be called when help is requested on parent")
+	}
+}
+
+func TestPrintHelpIncludesExamples(t *testing.T) {
+	cmd := &Command{
+		Name: "gql",
+		Long: "GraphQL explorer",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak gql .", Description: "All files in current dir"},
+		},
+	}
+
+	output := captureStdout(t, func() {
+		cmd.printHelp()
+	})
+
+	checks := []string{"EXAMPLES", "hulak gql .", "All files in current dir"}
 	for _, check := range checks {
 		if !strings.Contains(output, check) {
 			t.Errorf("help output missing %q\nGot:\n%s", check, output)
