@@ -233,38 +233,40 @@ func newEnvCmd() *command {
 	// use utils.DefaultEnvVal if user does not provide env
 
 	// registerEnvFlag adds both -env and --environment aliases to a FlagSet,
-	// pointing to the same underlying variable.
-	registerEnvFlag := func(fs *flag.FlagSet) {
+	// pointing to the same underlying variable, and returns a pointer so
+	// Run handlers can read the parsed value.
+	registerEnvFlag := func(fs *flag.FlagSet) *string {
 		var envVal string
 		fs.StringVar(&envVal, "env", utils.DefaultEnvVal, "Environment to operate on")
 		fs.StringVar(&envVal, "environment", utils.DefaultEnvVal, "Environment to operate on")
+		return &envVal
 	}
 
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	registerEnvFlag(setFs)
+	_ = registerEnvFlag(setFs)
 	setFs.Bool("stdin", false, "Read value from stdin")
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	registerEnvFlag(getFs)
+	_ = registerEnvFlag(getFs)
 
 	// list — show all key-value pairs
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
-	registerEnvFlag(listFs)
+	_ = registerEnvFlag(listFs)
 
 	// keys — list keys only
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	registerEnvFlag(keysFs)
+	_ = registerEnvFlag(keysFs)
 	keysFs.Bool("show", false, "Show actual values instead of masked output")
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	registerEnvFlag(deleteFs)
+	_ = registerEnvFlag(deleteFs)
 
 	// edit — interactive editor
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	registerEnvFlag(editFs)
+	_ = registerEnvFlag(editFs)
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
