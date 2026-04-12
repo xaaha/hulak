@@ -27,13 +27,8 @@ var (
 	flagDirseq string
 	flagDebug  bool
 
-	// version flags
-	vFlag       bool
-	versionFlag bool
-
-	// help
-	help bool
-	h    bool
+	flagVersion bool
+	flagHelp    bool
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
@@ -52,9 +47,9 @@ func init() {
 
 	flag.StringVar(&flagDirseq, "dirseq", "", "Directory path to run in alphabetical order")
 
-	flag.BoolVar(&vFlag, "v", false, "Print the version")
-	flag.BoolVar(&versionFlag, "version", false, "Print the version")
+	flag.BoolVar(&flagVersion, "v", false, "Print the version")
+	flag.BoolVar(&flagVersion, "version", false, "Print the version")
 
-	flag.BoolVar(&help, "help", false, "Print help")
-	flag.BoolVar(&h, "h", false, "Print help")
+	flag.BoolVar(&flagHelp, "help", false, "Print help")
+	flag.BoolVar(&flagHelp, "h", false, "Print help")
 }

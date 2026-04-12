@@ -10,9 +10,9 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// SubCommands builds the full sub-command tree for hulak
-func SubCommands() *Command {
-	root := &Command{
+// subCommands builds the full sub-command tree for hulak
+func subCommands() *command {
+	root := &command{
 		Name:  "hulak",
 		Long:  "hulak — a file-based API client for the terminal",
 		Flags: flag.CommandLine,
@@ -41,7 +41,7 @@ func SubCommands() *Command {
 		},
 	}
 
-	root.SubCommands = []*Command{
+	root.SubCommands = []*command{
 		newVersionCmd(),
 		newInitCmd(),
 		newMigrateCmd(),
@@ -53,8 +53,8 @@ func SubCommands() *Command {
 	return root
 }
 
-func newVersionCmd() *Command {
-	return &Command{
+func newVersionCmd() *command {
+	return &command{
 		Name:  "version",
 		Short: "Print hulak version",
 		Long:  "Print the current hulak version.",
@@ -65,7 +65,7 @@ func newVersionCmd() *Command {
 	}
 }
 
-func newInitCmd() *Command {
+func newInitCmd() *command {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	createEnvFlag := fs.Bool(
 		"env",
@@ -73,7 +73,7 @@ func newInitCmd() *Command {
 		"Create specific environment files instead of the default setup",
 	)
 
-	return &Command{
+	return &command{
 		Name:  "init",
 		Short: "Initialize a hulak project",
 		Long: fmt.Sprintf(
@@ -90,7 +90,7 @@ func newInitCmd() *Command {
 			},
 		},
 		Flags: fs,
-		Args: []ArgDef{
+		Args: []argDef{
 			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
 		},
 		Run: func(args []string) error {
@@ -111,8 +111,8 @@ func newInitCmd() *Command {
 	}
 }
 
-func newMigrateCmd() *Command {
-	return &Command{
+func newMigrateCmd() *command {
+	return &command{
 		Name:  "migrate",
 		Short: "Migrate Postman collections to hulak format",
 		Long:  "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.",
@@ -123,15 +123,15 @@ func newMigrateCmd() *Command {
 				Description: "Migrate environment and collection together",
 			},
 		},
-		Args: []ArgDef{
+		Args: []argDef{
 			{Name: "files", Required: true, Desc: "Postman JSON export files"},
 		},
 		Run: migration.CompleteMigration,
 	}
 }
 
-func newDoctorCmd() *Command {
-	return &Command{
+func newDoctorCmd() *command {
+	return &command{
 		Name:  "doctor",
 		Short: "Check project health",
 		Long:  "Inspect your hulak project for common issues: missing .gitignore entries,\nloose file permissions on env files, and secrets leaked into git history.",
@@ -145,11 +145,11 @@ func newDoctorCmd() *Command {
 	}
 }
 
-func newGQLCmd() *Command {
+func newGQLCmd() *command {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
 	envFlag := fs.String("env", "", "Environment to use (skips interactive selector)")
 
-	gqlCmd := &Command{
+	gqlCmd := &command{
 		Name:    "gql",
 		Aliases: []string{"graphql", "GraphQL"},
 		Short:   "Open the GraphQL explorer",
@@ -169,7 +169,7 @@ func newGQLCmd() *Command {
 			},
 		},
 		Flags: fs,
-		Args: []ArgDef{
+		Args: []argDef{
 			{
 				Name:     "path",
 				Required: true,
@@ -196,8 +196,8 @@ func newGQLCmd() *Command {
 	return gqlCmd
 }
 
-func newHelpCmd(root *Command) *Command {
-	return &Command{
+func newHelpCmd(root *command) *command {
+	return &command{
 		Name:  "help",
 		Short: "Show help for hulak",
 		Run: func(_ []string) error {
