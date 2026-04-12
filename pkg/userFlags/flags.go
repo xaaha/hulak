@@ -34,6 +34,7 @@ var (
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
 	flag.StringVar(&flagEnv, "env", utils.DefaultEnvVal, "Environment file to use during the call")
+	flag.StringVar(&flagEnv, "environment", utils.DefaultEnvVal, "Environment file to use during the call")
 
 	flag.StringVar(&flagFP, "fp", "", "Relative (or absolute) file path of the request file")
 	flag.StringVar(&flagFP, "file-path", "", "Relative (or absolute) file path of the request file")

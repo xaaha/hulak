@@ -14,10 +14,11 @@ import (
 // The long form is hidden from help output; only the short form is shown
 // with both names on one line (e.g. "-fp, --file-path").
 var flagAliases = map[string]string{
-	"file-path": "fp",
-	"file":      "f",
-	"version":   "v",
-	"help":      "h",
+	"file-path":   "fp",
+	"file":        "f",
+	"environment": "env",
+	"version":     "v",
+	"help":        "h",
 }
 
 // hiddenFlags are omitted from help output entirely (utility flags
@@ -128,8 +129,12 @@ func (cmd *command) printHelp() {
 		utils.PrintWarning("COMMANDS")
 		var entries []*utils.CommandHelp
 		for _, sub := range cmd.SubCommands {
+			name := sub.Name
+			if len(sub.Aliases) > 0 {
+				name += " (" + strings.Join(sub.Aliases, ", ") + ")"
+			}
 			entries = append(entries, &utils.CommandHelp{
-				Command:     sub.Name,
+				Command:     name,
 				Description: sub.Short,
 			})
 		}
