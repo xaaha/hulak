@@ -148,7 +148,9 @@ func newDoctorCmd() *command {
 
 func newGQLCmd() *command {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
-	envFlag := fs.String("env", "", "Environment to use (skips interactive selector)")
+	var envFlagVal string
+	fs.StringVar(&envFlagVal, "env", "", "Environment to use (skips interactive selector)")
+	fs.StringVar(&envFlagVal, "environment", "", "Environment to use (skips interactive selector)")
 
 	gqlCmd := &command{
 		Name:    "gql",
@@ -184,7 +186,7 @@ func newGQLCmd() *command {
 			gqlCmd.printHelp()
 			return nil
 		}
-		data, refreshFn, warnings := loadGraphQLOperations(args[0], *envFlag)
+		data, refreshFn, warnings := loadGraphQLOperations(args[0], envFlagVal)
 		if data.Operations == nil {
 			return nil
 		}
@@ -230,31 +232,39 @@ func newEnvCmd() *command {
 
 	// use utils.DefaultEnvVal if user does not provide env
 
+	// registerEnvFlag adds both -env and --environment aliases to a FlagSet,
+	// pointing to the same underlying variable.
+	registerEnvFlag := func(fs *flag.FlagSet) {
+		var envVal string
+		fs.StringVar(&envVal, "env", utils.DefaultEnvVal, "Environment to operate on")
+		fs.StringVar(&envVal, "environment", utils.DefaultEnvVal, "Environment to operate on")
+	}
+
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	setFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(setFs)
 	setFs.Bool("stdin", false, "Read value from stdin")
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	getFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(getFs)
 
 	// list — show all key-value pairs
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
-	listFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(listFs)
 
 	// keys — list keys only
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	keysFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(keysFs)
 	keysFs.Bool("show", false, "Show actual values instead of masked output")
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	deleteFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(deleteFs)
 
 	// edit — interactive editor
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	editFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	registerEnvFlag(editFs)
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
