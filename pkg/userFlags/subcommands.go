@@ -47,6 +47,7 @@ func subCommands() *command {
 		newMigrateCmd(),
 		newDoctorCmd(),
 		newGQLCmd(),
+		newEnvCmd(),
 		newHelpCmd(root),
 	}
 
@@ -194,6 +195,120 @@ func newGQLCmd() *command {
 	}
 
 	return gqlCmd
+}
+
+func newEnvCmd() *command {
+	envCmd := &command{
+		Name:  "env",
+		Short: "Manage encrypted environment secrets",
+		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
+			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
+			"The default environment is \"global\" unless --env is specified.",
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak env list",
+				Description: "List all key-value pairs in the default environment",
+			},
+			{
+				Command:     "hulak env set API_KEY sk-123 --env prod",
+				Description: "Set a secret in the prod environment",
+			},
+			{
+				Command:     "hulak env get API_KEY --env staging",
+				Description: "Get a secret from the staging environment",
+			},
+			{
+				Command:     "hulak env keys --env prod",
+				Description: "List all keys in the prod environment",
+			},
+			{
+				Command:     "hulak env delete OLD_KEY",
+				Description: "Delete a key from the default environment",
+			},
+		},
+	}
+
+	// use utils.DefaultEnvVal if user does not provide env
+	// set — store a key-value pair
+	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
+	setFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	setFs.Bool("stdin", false, "Read value from stdin")
+
+	// get — retrieve a value by key
+	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
+	getFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+
+	// list — show all key-value pairs
+	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
+	listFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+
+	// keys — list keys only
+	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
+	keysFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+	keysFs.Bool("show", false, "Show actual values instead of masked output")
+
+	// delete — remove a key
+	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
+	deleteFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+
+	notImplemented := func(name string) func([]string) error {
+		return func(_ []string) error {
+			fmt.Printf("hulak env %s is not yet implemented\n", name)
+			return nil
+		}
+	}
+
+	envCmd.SubCommands = []*command{
+		{
+			Name:  "set",
+			Short: "Set a key-value pair",
+			Long:  "Store a secret in the encrypted vault.\n\nUse --stdin to pipe the value from standard input.",
+			Flags: setFs,
+			Args: []argDef{
+				{Name: "key", Required: true, Desc: "Secret key name"},
+				{Name: "value", Desc: "Secret value (omit to use --stdin)"},
+			},
+			Run: notImplemented("set"),
+		},
+		{
+			Name:  "get",
+			Short: "Get a value by key",
+			Long:  "Retrieve a secret from the encrypted vault and print it to stdout.",
+			Flags: getFs,
+			Args: []argDef{
+				{Name: "key", Required: true, Desc: "Secret key to retrieve"},
+			},
+			Run: notImplemented("get"),
+		},
+		{
+			Name:    "list",
+			Aliases: []string{"ls"},
+			Short:   "List all key-value pairs",
+			Long:    "Show all secrets in an environment. Values are masked by default.",
+			Flags:   listFs,
+			Run:     notImplemented("list"),
+		},
+		{
+			Name:  "keys",
+			Short: "List keys only",
+			Long:  "Show all secret key names in an environment without values.\n\nUse --show to display actual values.",
+			Flags: keysFs,
+			Run:   notImplemented("keys"),
+		},
+		{
+			Name:    "delete",
+			Aliases: []string{"rm"},
+			Short:   "Delete a key",
+			Long:    "Remove a secret from the encrypted vault.",
+			Flags:   deleteFs,
+			Args: []argDef{
+				{Name: "key", Required: true, Desc: "Secret key to delete"},
+			},
+			Run: notImplemented("delete"),
+		},
+	}
+
+	return envCmd
 }
 
 func newHelpCmd(root *command) *command {
