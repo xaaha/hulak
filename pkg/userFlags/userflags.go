@@ -3,7 +3,11 @@ package userflags
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"strings"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // AllFlags  All user flags and subcommands
@@ -22,21 +26,26 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	subCmds := subCommands()
 
 	if len(os.Args) >= 2 {
-		if !hasFlag() {
+		first := os.Args[1]
+		switch {
+		case subCmds.findSub(first) != nil:
 			if err := subCmds.Execute(os.Args[1:]); err != nil {
 				return nil, err
 			}
 			os.Exit(0)
-		}
-
-		flag.Parse()
-		switch {
-		case flagVersion:
-			getVersion()
-			os.Exit(0)
-		case flagHelp:
-			subCmds.printHelp()
-			os.Exit(0)
+		case strings.HasPrefix(first, "-"):
+			flag.Parse()
+			switch {
+			case flagVersion:
+				getVersion()
+				os.Exit(0)
+			case flagHelp:
+				subCmds.printHelp()
+				os.Exit(0)
+			}
+		default:
+			utils.PrintRed(fmt.Sprintf("unknown command %q. See 'hulak help'", first))
+			os.Exit(1)
 		}
 	}
 
@@ -56,9 +65,4 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		Dir:      flagDir,
 		Dirseq:   flagDirseq,
 	}, nil
-}
-
-// hasFlag checks if user passed in a flag with -
-func hasFlag() bool {
-	return len(os.Args[1]) > 0 && os.Args[1][0] == '-'
 }
