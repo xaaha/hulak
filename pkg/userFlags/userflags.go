@@ -4,6 +4,7 @@ package userflags
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -25,6 +26,12 @@ type AllFlags struct {
 func ParseFlagsSubcmds() (*AllFlags, error) {
 	subCmds := subCommands()
 
+	// Override Go's default flag error handling so we show hulak-style
+	// errors instead of the raw flag.Usage dump.
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
+	flag.CommandLine.Usage = func() {}     // suppress default usage on error
+	flag.CommandLine.SetOutput(io.Discard) // suppress "flag provided but not defined" to stderr
+
 	if len(os.Args) >= 2 {
 		first := os.Args[1]
 		switch {
@@ -34,7 +41,10 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 			}
 			os.Exit(0)
 		case strings.HasPrefix(first, "-"):
-			flag.Parse()
+			if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+				utils.PrintRed(fmt.Sprintf("%s\nSee 'hulak help' for available flags", err))
+				os.Exit(1)
+			}
 			switch {
 			case flagVersion:
 				getVersion()
@@ -51,7 +61,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 
 	envSet := false
 	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "env" {
+		if f.Name == "env" || f.Name == "environment" {
 			envSet = true
 		}
 	})
