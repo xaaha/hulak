@@ -19,7 +19,7 @@ type AllFlags struct {
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*AllFlags, error) {
-	subCmds := SubCommands()
+	subCmds := subCommands()
 
 	if len(os.Args) >= 2 {
 		if !hasFlag() {
@@ -31,10 +31,10 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 
 		flag.Parse()
 		switch {
-		case vFlag || versionFlag:
+		case flagVersion:
 			getVersion()
 			os.Exit(0)
-		case help || h:
+		case flagHelp:
 			subCmds.printHelp()
 			os.Exit(0)
 		}
@@ -60,5 +60,5 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 
 // hasFlag checks if user passed in a flag with -
 func hasFlag() bool {
-	return os.Args[1][0] == '-'
+	return len(os.Args[1]) > 0 && os.Args[1][0] == '-'
 }
