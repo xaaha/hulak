@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func Test_processValueOf(t *testing.T) {
@@ -219,5 +221,183 @@ func TestBasicAuth(t *testing.T) {
 				t.Errorf("BasicAuth() should start with 'Basic ', got %q", got)
 			}
 		})
+	}
+}
+
+// setupHulakProject creates a temp directory with env/ to simulate a hulak project,
+// changes into it, and returns a cleanup function that restores the original cwd.
+func setupHulakProject(t *testing.T) string {
+	t.Helper()
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	// Resolve symlinks (macOS /var -> /private/var) so paths are consistent
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	if err := os.Mkdir(filepath.Join(tmpDir, utils.EnvironmentFolder), utils.DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	return tmpDir
+}
+
+func TestGetFile(t *testing.T) {
+	projectDir := setupHulakProject(t)
+
+	// Create test files within the project
+	testContent := "hello world\nline two\n"
+	testFile := filepath.Join(projectDir, "testfile.txt")
+	if err := os.WriteFile(testFile, []byte(testContent), utils.FilePer); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	subDir := filepath.Join(projectDir, "subdir")
+	if err := os.Mkdir(subDir, utils.DirPer); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	nestedFile := filepath.Join(subDir, "nested.txt")
+	nestedContent := "nested content"
+	if err := os.WriteFile(nestedFile, []byte(nestedContent), utils.FilePer); err != nil {
+		t.Fatalf("failed to write nested file: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "empty path returns error",
+			input:   "",
+			wantErr: true,
+			errMsg:  "file path cannot be empty",
+		},
+		{
+			name:  "reads file with absolute path",
+			input: testFile,
+			want:  testContent,
+		},
+		{
+			name:  "reads file with relative path",
+			input: "testfile.txt",
+			want:  testContent,
+		},
+		{
+			name:  "reads nested file with relative path",
+			input: "subdir/nested.txt",
+			want:  nestedContent,
+		},
+		{
+			name:    "rejects path outside project root",
+			input:   "/etc/hosts",
+			wantErr: true,
+			errMsg:  "access denied",
+		},
+		{
+			name:    "rejects directory path",
+			input:   "subdir",
+			wantErr: true,
+			errMsg:  "is a directory",
+		},
+		{
+			name:    "nonexistent file returns error",
+			input:   "does_not_exist.txt",
+			wantErr: true,
+			errMsg:  "file does not exist",
+		},
+		{
+			name:  "reads file with absolute path in nested dir",
+			input: nestedFile,
+			want:  nestedContent,
+		},
+		{
+			name:    "path traversal outside project is rejected",
+			input:   "../../../etc/passwd",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetFile(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("GetFile(%q) expected error, got nil", tt.input)
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("GetFile(%q) error = %q, want it to contain %q", tt.input, err.Error(), tt.errMsg)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("GetFile(%q) unexpected error: %v", tt.input, err)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GetFile(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetFile_NotHulakProject(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	// No env/ directory — not a hulak project
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	_, err = GetFile("somefile.txt")
+	if err == nil {
+		t.Error("GetFile() expected error outside hulak project, got nil")
+	}
+	if !strings.Contains(err.Error(), "not a hulak project") {
+		t.Errorf("GetFile() error = %q, want it to contain 'not a hulak project'", err.Error())
+	}
+}
+
+func TestGetFile_PreservesFormatting(t *testing.T) {
+	projectDir := setupHulakProject(t)
+
+	content := "{\n  \"key\": \"value\",\n  \"nested\": {\n    \"arr\": [1, 2, 3]\n  }\n}\n"
+	filePath := filepath.Join(projectDir, "formatted.json")
+	if err := os.WriteFile(filePath, []byte(content), utils.FilePer); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	got, err := GetFile("formatted.json")
+	if err != nil {
+		t.Fatalf("GetFile() unexpected error: %v", err)
+	}
+	if got != content {
+		t.Errorf("GetFile() did not preserve formatting.\ngot:\n%s\nwant:\n%s", got, content)
 	}
 }
