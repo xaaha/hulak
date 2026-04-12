@@ -3,6 +3,7 @@ package userflags
 import (
 	"flag"
 	"fmt"
+	"os"
 	"slices"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -14,36 +15,38 @@ import (
 var flagAliases = map[string]string{
 	"file-path": "fp",
 	"file":      "f",
+	"version":   "v",
+	"help":      "h",
 }
 
-// hiddenFlags are omitted from help output entirely
+// hiddenFlags are omitted from help output entirely (utility flags
+// that don't need to clutter command-specific help)
 var hiddenFlags = map[string]bool{
-	"h": true, "help": true,
-	"v": true, "version": true,
+	"h": true, "v": true,
 }
 
 // Command represents a CLI command with optional subcommands and flags
-type Command struct {
+type command struct {
 	Name        string                    // primary name (e.g. "gql")
 	Aliases     []string                  // alternative names (e.g. "graphql", "GraphQL")
 	Short       string                    // one-line description for parent's help listing
 	Long        string                    // detailed help shown with --help
 	Examples    []*utils.CommandHelp      // usage examples (printed via WriteCommandHelp)
 	Flags       *flag.FlagSet             // scoped flags for this command
-	Args        []ArgDef                  // positional arg descriptions (for help only)
-	SubCommands []*Command                // nested subcommands
+	Args        []argDef                  // positional arg descriptions (for help only)
+	SubCommands []*command                // nested subcommands
 	Run         func(args []string) error // handler; nil means subcommand-only
 }
 
 // ArgDef describes a positional argument for help output
-type ArgDef struct {
+type argDef struct {
 	Name     string
 	Required bool
 	Desc     string
 }
 
 // Execute dispatches args to the correct subcommand or runs this command
-func (cmd *Command) Execute(args []string) error {
+func (cmd *command) Execute(args []string) error {
 	// No args: show help if subcommand-only, or run with empty args
 	if len(args) == 0 {
 		if cmd.Run == nil {
@@ -62,6 +65,14 @@ func (cmd *Command) Execute(args []string) error {
 	// Try to match a subcommand
 	if sub := cmd.findSub(args[0]); sub != nil {
 		return sub.Execute(args[1:])
+	}
+
+	// Unknown subcommand — show error + help if this command only has subcommands
+	if len(cmd.SubCommands) > 0 && len(args[0]) > 0 && args[0][0] != '-' {
+		utils.PrintRed(fmt.Sprintf("unknown command %q for %s", args[0], cmd.Name))
+		fmt.Println()
+		cmd.printHelp()
+		os.Exit(1)
 	}
 
 	// No subcommand matched — parse flags and run
@@ -96,7 +107,7 @@ func (cmd *Command) Execute(args []string) error {
 }
 
 // findSub returns the subcommand matching name by Name or Aliases, or nil
-func (cmd *Command) findSub(name string) *Command {
+func (cmd *command) findSub(name string) *command {
 	for _, sub := range cmd.SubCommands {
 		if sub.Name == name || slices.Contains(sub.Aliases, name) {
 			return sub
@@ -106,7 +117,7 @@ func (cmd *Command) findSub(name string) *Command {
 }
 
 // printHelp prints the command's help to stdout in a style similar to gh CLI
-func (cmd *Command) printHelp() {
+func (cmd *command) printHelp() {
 	if cmd.Long != "" {
 		fmt.Println(cmd.Long)
 		fmt.Println()

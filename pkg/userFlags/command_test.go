@@ -12,9 +12,9 @@ import (
 
 func TestExecuteDispatchesToSubcommand(t *testing.T) {
 	called := ""
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name:  "sub1",
 				Short: "first sub",
@@ -44,9 +44,9 @@ func TestExecuteDispatchesToSubcommand(t *testing.T) {
 
 func TestExecuteAliasMatching(t *testing.T) {
 	called := false
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name:    "gql",
 				Aliases: []string{"graphql", "GraphQL"},
@@ -73,9 +73,9 @@ func TestExecuteAliasMatching(t *testing.T) {
 
 func TestExecutePassesArgsToRun(t *testing.T) {
 	var gotArgs []string
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name: "migrate",
 				Run: func(args []string) error {
@@ -99,9 +99,9 @@ func TestExecuteWithFlags(t *testing.T) {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.StringVar(&envVal, "env", "", "environment")
 
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name:  "init",
 				Flags: fs,
@@ -133,7 +133,7 @@ func TestExecuteHelpFlag(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			runCalled := false
-			cmd := &Command{
+			cmd := &command{
 				Name: "test",
 				Long: "Test command help text",
 				Run: func(_ []string) error {
@@ -154,9 +154,9 @@ func TestExecuteHelpFlag(t *testing.T) {
 
 func TestExecuteSubcommandHelp(t *testing.T) {
 	runCalled := false
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name:  "init",
 				Short: "Initialize project",
@@ -179,11 +179,11 @@ func TestExecuteSubcommandHelp(t *testing.T) {
 }
 
 func TestExecuteNoArgsSubcommandOnly(t *testing.T) {
-	// Command with no Run and no args should print help without error
-	cmd := &Command{
+	// command with no Run and no args should print help without error
+	cmd := &command{
 		Name: "root",
 		Long: "Root command",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{Name: "sub1", Short: "first"},
 		},
 	}
@@ -195,7 +195,7 @@ func TestExecuteNoArgsSubcommandOnly(t *testing.T) {
 
 func TestExecuteNoArgsWithRun(t *testing.T) {
 	called := false
-	cmd := &Command{
+	cmd := &command{
 		Name: "root",
 		Run: func(_ []string) error {
 			called = true
@@ -215,15 +215,15 @@ func TestPrintHelp(t *testing.T) {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
 	fs.String("env", "", "Environment to use")
 
-	cmd := &Command{
+	cmd := &command{
 		Name:  "gql",
 		Short: "GraphQL explorer",
 		Long:  "Open the GraphQL explorer for files and directories",
 		Flags: fs,
-		Args: []ArgDef{
+		Args: []argDef{
 			{Name: "path", Required: true, Desc: "File or directory path"},
 		},
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{Name: "create", Short: "Create a new GraphQL file"},
 		},
 	}
@@ -275,12 +275,12 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func TestExecuteNestedSubcommands(t *testing.T) {
 	var gotArgs []string
-	root := &Command{
+	root := &command{
 		Name: "root",
-		SubCommands: []*Command{
+		SubCommands: []*command{
 			{
 				Name: "env",
-				SubCommands: []*Command{
+				SubCommands: []*command{
 					{
 						Name: "set",
 						Run: func(args []string) error {
@@ -312,7 +312,7 @@ func TestExecuteNestedSubcommands(t *testing.T) {
 }
 
 func TestPrintHelpIncludesExamples(t *testing.T) {
-	cmd := &Command{
+	cmd := &command{
 		Name: "gql",
 		Long: "GraphQL explorer",
 		Examples: []*utils.CommandHelp{
@@ -333,13 +333,13 @@ func TestPrintHelpIncludesExamples(t *testing.T) {
 }
 
 func TestFindSub(t *testing.T) {
-	sub := &Command{
+	sub := &command{
 		Name:    "gql",
 		Aliases: []string{"graphql"},
 	}
-	root := &Command{
+	root := &command{
 		Name:        "root",
-		SubCommands: []*Command{sub},
+		SubCommands: []*command{sub},
 	}
 
 	tests := []struct {
