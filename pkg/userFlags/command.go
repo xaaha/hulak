@@ -3,11 +3,24 @@ package userflags
 import (
 	"flag"
 	"fmt"
-	"os"
 	"slices"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// flagAliases maps long-form flag names to their short form.
+// The long form is hidden from help output; only the short form is shown
+// with both names on one line (e.g. "-fp, --file-path").
+var flagAliases = map[string]string{
+	"file-path": "fp",
+	"file":      "f",
+}
+
+// hiddenFlags are omitted from help output entirely
+var hiddenFlags = map[string]bool{
+	"h": true, "help": true,
+	"v": true, "version": true,
+}
 
 // Command represents a CLI command with optional subcommands and flags
 type Command struct {
@@ -113,28 +126,7 @@ func (cmd *Command) printHelp() {
 	}
 
 	if cmd.Flags != nil {
-		hasVisible := false
-		cmd.Flags.VisitAll(func(f *flag.Flag) {
-			if f.Name != "h" && f.Name != "help" &&
-				f.Name != "v" && f.Name != "version" {
-				hasVisible = true
-			}
-		})
-		if hasVisible {
-			utils.PrintWarning("FLAGS")
-			cmd.Flags.VisitAll(func(f *flag.Flag) {
-				if f.Name == "h" || f.Name == "help" ||
-					f.Name == "v" || f.Name == "version" {
-					return
-				}
-				fmt.Fprintf(os.Stdout, "  -%s", f.Name) //nolint:gosec // CLI help text
-				if f.DefValue != "" && f.DefValue != "false" {
-					fmt.Fprintf(os.Stdout, " %s", f.DefValue)
-				}
-				fmt.Fprintf(os.Stdout, "\n    \t%s\n", f.Usage)
-			})
-			fmt.Println()
-		}
+		printFlags(cmd.Flags)
 	}
 
 	if len(cmd.Args) > 0 {
@@ -166,6 +158,55 @@ func (cmd *Command) printHelp() {
 
 	utils.PrintWarning("LEARN MORE")
 	fmt.Println("  Use `hulak <command> --help` for more information about a command.")
+}
+
+// printFlags renders the FLAGS section, merging short/long aliases onto one
+// line (e.g. "-fp, --file-path  string") and skipping hidden flags
+func printFlags(fs *flag.FlagSet) {
+	// Collect which short names have a long alias
+	longFor := make(map[string]string) // short → long
+	for long, short := range flagAliases {
+		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
+			longFor[short] = long
+		}
+	}
+
+	hasVisible := false
+	fs.VisitAll(func(f *flag.Flag) {
+		if !hiddenFlags[f.Name] && flagAliases[f.Name] == "" {
+			hasVisible = true
+		}
+	})
+	if !hasVisible {
+		return
+	}
+
+	utils.PrintWarning("FLAGS")
+	fs.VisitAll(func(f *flag.Flag) {
+		// Skip hidden and long-form aliases (shown with their short form)
+		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+			return
+		}
+
+		// Build flag name: "-fp, --file-path" or just "-debug"
+		label := "  -" + f.Name
+		if long, ok := longFor[f.Name]; ok {
+			label += ", --" + long
+		}
+
+		// Show type hint for non-bool flags
+		if f.DefValue != "false" && f.DefValue != "true" {
+			label += " string"
+		}
+
+		fmt.Println(label)
+		usage := f.Usage
+		if f.DefValue != "" && f.DefValue != "false" {
+			usage += fmt.Sprintf(" (default %q)", f.DefValue)
+		}
+		fmt.Printf("    \t%s\n", usage)
+	})
+	fmt.Println()
 }
 
 // isHelpArg returns true if the argument is a help request

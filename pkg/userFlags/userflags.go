@@ -31,10 +31,10 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 
 		flag.Parse()
 		switch {
-		case *vFlag || *versionFlag:
+		case vFlag || versionFlag:
 			getVersion()
 			os.Exit(0)
-		case *help || *h:
+		case help || h:
 			subCmds.printHelp()
 			os.Exit(0)
 		}
@@ -48,13 +48,13 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	})
 
 	return &AllFlags{
-		Env:      Env(),
+		Env:      flagEnv,
 		EnvSet:   envSet,
-		FilePath: FilePath(),
-		File:     File(),
-		Debug:    Debug(),
-		Dir:      Dir(),
-		Dirseq:   Dirseq(),
+		FilePath: flagFP,
+		File:     flagF,
+		Debug:    flagDebug,
+		Dir:      flagDir,
+		Dirseq:   flagDirseq,
 	}, nil
 }
 

@@ -8,12 +8,10 @@ import (
 )
 
 var (
-	fp    *string
-	env   *string
-	f     *string
-	debug *bool
-	// dir is default for concurrent runs
-	dir *string
+	flagEnv string
+	flagFP  string
+	flagF   string
+	flagDir string
 	// dirseq runs directories in alphabetical order.
 	// Note that in nested directories, the execution order
 	// may not follow the file system appearance.
@@ -26,82 +24,37 @@ var (
 	//   dir_0/dir_0/dir_1/is.md
 	//
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
-	dirseq *string
+	flagDirseq string
+	flagDebug  bool
 
 	// version flags
-	vFlag       *bool
-	versionFlag *bool
+	vFlag       bool
+	versionFlag bool
 
 	// help
-	help *bool
-	h    *bool
+	help bool
+	h    bool
 )
 
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
-	env = flag.String("env", utils.DefaultEnvVal, "environment file to use during the call")
-	fp = flag.String(
-		"fp",
-		"",
-		"Relative (or absolute) file path (fp) of the request file from the environment directory",
-	)
-	f = flag.String(
-		"f",
-		"",
-		"File name for making an api request. File name is case-insensitive",
-	)
+	flag.StringVar(&flagEnv, "env", utils.DefaultEnvVal, "Environment file to use during the call")
 
-	debug = flag.Bool(
-		"debug",
-		false,
-		"enable debug mode to get the entire request, response, headers, and other info for the API call",
-	)
+	flag.StringVar(&flagFP, "fp", "", "Relative (or absolute) file path of the request file")
+	flag.StringVar(&flagFP, "file-path", "", "Relative (or absolute) file path of the request file")
 
-	dir = flag.String(
-		"dir",
-		"",
-		"Directory path to run concurrent",
-	)
+	flag.StringVar(&flagF, "f", "", "File name for making an API request (case-insensitive)")
+	flag.StringVar(&flagF, "file", "", "File name for making an API request (case-insensitive)")
 
-	dirseq = flag.String(
-		"dirseq",
-		"",
-		"Directory path to run in alphabetical order",
-	)
+	flag.BoolVar(&flagDebug, "debug", false, "Enable debug mode for full request/response details")
 
-	vFlag = flag.Bool("v", false, "Print the version")
-	versionFlag = flag.Bool("version", false, "Print the version")
+	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 
-	help = flag.Bool("help", false, "Print Help")
-	h = flag.Bool("h", false, "Print help")
-}
+	flag.StringVar(&flagDirseq, "dirseq", "", "Directory path to run in alphabetical order")
 
-// FilePath returns the parsed value of the file path "fp" flag -fp
-func FilePath() string {
-	return *fp
-}
+	flag.BoolVar(&vFlag, "v", false, "Print the version")
+	flag.BoolVar(&versionFlag, "version", false, "Print the version")
 
-// File name, case insensitive, for the request -f
-func File() string {
-	return *f
-}
-
-// Env defines the env for the call, global by default
-func Env() string {
-	return *env
-}
-
-// Debug represents if the user wants the entire statement
-func Debug() bool {
-	return *debug
-}
-
-// Dir represents concurrent directory run flag
-func Dir() string {
-	return *dir
-}
-
-// Dirseq represents directory run in sequence
-func Dirseq() string {
-	return *dirseq
+	flag.BoolVar(&help, "help", false, "Print help")
+	flag.BoolVar(&h, "h", false, "Print help")
 }
