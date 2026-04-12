@@ -16,22 +16,13 @@ import (
 )
 
 func main() {
-	// Parse command line flags and subcmds
 	flags, err := userflags.ParseFlagsSubcmds()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
 
-	// Extract flags
-	env := flags.Env
-	fp := flags.FilePath
-	fileName := flags.File
-	debug := flags.Debug
-	dir := flags.Dir
-	dirseq := flags.Dirseq
-
-	hasDirFlags := dir != "" || dirseq != ""
-	hasFileFlags := fp != "" || fileName != ""
+	hasDirFlags := flags.Dir != "" || flags.Dirseq != ""
+	hasFileFlags := flags.FilePath != "" || flags.File != ""
 
 	// TUI mode, currently only supports -fp (single file run)
 	if !hasFileFlags && !hasDirFlags {
@@ -40,21 +31,21 @@ func main() {
 				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
 			)
 		}
-		fp = runInteractiveFlow(&env, flags.EnvSet)
+		flags.FilePath = runInteractiveFlow(&flags.Env, flags.EnvSet)
 		var envMap map[string]any
-		if utils.FileHasTemplateVars(fp) {
-			envMap = InitializeProject(env, false)
+		if utils.FileHasTemplateVars(flags.FilePath) {
+			envMap = InitializeProject(flags.Env, false)
 		}
-		HandleAPIRequests(envMap, debug, []string{fp}, nil, fp)
+		HandleAPIRequests(envMap, flags.Debug, []string{flags.FilePath}, nil, flags.FilePath)
 		return
 	}
 
 	// CLI mode
 	fileList, concurrentDir, sequentialDir := DiscoverFilePaths(
-		fileName,
-		fp,
-		dir,
-		dirseq,
+		flags.File,
+		flags.FilePath,
+		flags.Dir,
+		flags.Dirseq,
 		hasDirFlags,
 	)
 
@@ -68,10 +59,16 @@ func main() {
 		if !utils.IsHulakProject() {
 			ensureHulakProject()
 		}
-		envMap = InitializeProject(env, true)
+		envMap = InitializeProject(flags.Env, true)
 	}
 
-	HandleAPIRequests(envMap, debug, slices.Concat(fileList, concurrentDir), sequentialDir, fp)
+	HandleAPIRequests(
+		envMap,
+		flags.Debug,
+		slices.Concat(fileList, concurrentDir),
+		sequentialDir,
+		flags.FilePath,
+	)
 }
 
 func runInteractiveFlow(env *string, envSet bool) string {

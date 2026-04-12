@@ -3,6 +3,7 @@ package userflags
 
 import (
 	"bufio"
+	"embed"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,9 @@ import (
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+//go:embed apiOptions.hk.yaml
+var embeddedFiles embed.FS
 
 // InitDefaultProject performs the default hulak project initialization:
 // creates env/ directory, global.env, and the apiOptions.hk.yaml example file.
@@ -97,28 +101,5 @@ func ensureGitignoreEntry() error {
 		return fmt.Errorf("could not write to .gitignore: %w", err)
 	}
 
-	return nil
-}
-
-func handleInit() error {
-	err := initialize.Parse(os.Args[2:])
-	if err != nil {
-		return fmt.Errorf("\n invalid subcommand %v", err)
-	}
-	// Check if -env flag is present
-	if *createEnvs {
-		envs := initialize.Args()
-		if len(envs) > 0 {
-			for _, env := range envs {
-				if err := envparser.CreateDefaultEnvs(&env); err != nil {
-					utils.PrintRed(err.Error())
-				}
-			}
-		} else {
-			utils.PrintWarning("No environment names provided after -env flag")
-		}
-	} else {
-		return InitDefaultProject()
-	}
 	return nil
 }

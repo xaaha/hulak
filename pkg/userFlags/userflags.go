@@ -19,18 +19,24 @@ type AllFlags struct {
 
 // ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
 func ParseFlagsSubcmds() (*AllFlags, error) {
+	subCmds := subCommands()
+
 	if len(os.Args) >= 2 {
-		if HasFlag() {
-			flag.Parse()
-			if *vFlag || *versionFlag {
-				getVersion()
-				os.Exit(0)
-			}
-		} else {
-			err := HandleSubcommands()
-			if err != nil {
+		if !hasFlag() {
+			if err := subCmds.Execute(os.Args[1:]); err != nil {
 				return nil, err
 			}
+			os.Exit(0)
+		}
+
+		flag.Parse()
+		switch {
+		case flagVersion:
+			getVersion()
+			os.Exit(0)
+		case flagHelp:
+			subCmds.printHelp()
+			os.Exit(0)
 		}
 	}
 
@@ -42,17 +48,17 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	})
 
 	return &AllFlags{
-		Env:      Env(),
+		Env:      flagEnv,
 		EnvSet:   envSet,
-		FilePath: FilePath(),
-		File:     File(),
-		Debug:    Debug(),
-		Dir:      Dir(),
-		Dirseq:   Dirseq(),
+		FilePath: flagFP,
+		File:     flagF,
+		Debug:    flagDebug,
+		Dir:      flagDir,
+		Dirseq:   flagDirseq,
 	}, nil
 }
 
-// HasFlag checks if user passed in a flag with -
-func HasFlag() bool {
-	return os.Args[1][0] == '-'
+// hasFlag checks if user passed in a flag with -
+func hasFlag() bool {
+	return len(os.Args[1]) > 0 && os.Args[1][0] == '-'
 }

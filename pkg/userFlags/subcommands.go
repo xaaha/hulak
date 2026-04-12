@@ -1,115 +1,208 @@
-// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
-	"embed"
 	"flag"
 	"fmt"
-	"os"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-//go:embed apiOptions.hk.yaml
-var embeddedFiles embed.FS
+// subCommands builds the full sub-command tree for hulak
+func subCommands() *command {
+	root := &command{
+		Name:  "hulak",
+		Long:  "hulak — a file-based API client for the terminal",
+		Flags: flag.CommandLine,
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak", Description: "Interactive mode: pick a file, then an environment"},
+			{
+				Command:     "hulak -env staging -fp getUser.yaml",
+				Description: "Run a specific file with a specific environment",
+			},
+			{
+				Command:     "hulak -env global -f getUser",
+				Description: "Find and run all files named 'getUser'",
+			},
+			{
+				Command:     "hulak -fp getUser.yaml -debug",
+				Description: "Run in debug mode (full request/response details)",
+			},
+			{
+				Command:     "hulak -env prod -dir path/to/dir",
+				Description: "Run all files in a directory concurrently",
+			},
+			{
+				Command:     "hulak -env prod -dirseq path/to/dir",
+				Description: "Run all files in a directory sequentially",
+			},
+		},
+	}
 
-// User subcommands
-const (
-	Version = "version"
-	Migrate = "migrate"
-	Init    = "init"
-	Help    = "help"
-	GraphQL = "gql"
-	Doctor  = "doctor"
-)
+	root.SubCommands = []*command{
+		newVersionCmd(),
+		newInitCmd(),
+		newMigrateCmd(),
+		newDoctorCmd(),
+		newGQLCmd(),
+		newHelpCmd(root),
+	}
 
-var (
-	migrate    *flag.FlagSet
-	initialize *flag.FlagSet
-	gql        *flag.FlagSet
-
-	// Flag to indicate if environments should be created
-	createEnvs *bool
-	// gqlEnv is the environment flag for the gql subcommand
-	gqlEnv *string
-)
-
-// go's init func executes automatically, and registers the flags during package initialization
-func init() {
-	migrate = flag.NewFlagSet(Migrate, flag.ExitOnError)
-	gql = flag.NewFlagSet(GraphQL, flag.ExitOnError)
-	gqlEnv = gql.String("env", "", "Environment file to use (skips interactive selector)")
-
-	initialize = flag.NewFlagSet(Init, flag.ExitOnError)
-	createEnvs = initialize.Bool(
-		"env",
-		false,
-		"Create environment files based on following arguments",
-	)
+	return root
 }
 
-// HandleSubcommands loops through all the subcommands
-func HandleSubcommands() error {
-	if len(os.Args) < 2 {
-		utils.PrintHelp()
-		os.Exit(0)
+func newVersionCmd() *command {
+	return &command{
+		Name:  "version",
+		Short: "Print hulak version",
+		Long:  "Print the current hulak version.",
+		Run: func(_ []string) error {
+			getVersion()
+			return nil
+		},
+	}
+}
+
+func newInitCmd() *command {
+	fs := flag.NewFlagSet("init", flag.ContinueOnError)
+	createEnvFlag := fs.Bool(
+		"env",
+		false,
+		"Create specific environment files instead of the default setup",
+	)
+
+	return &command{
+		Name:  "init",
+		Short: "Initialize a hulak project",
+		Long: fmt.Sprintf(
+			"Set up a new hulak project in the current directory.\n\n"+
+				"Creates an env/ directory with global.env, a .gitignore entry,\n"+
+				"and an example '%s' file. Use -env to create specific environments.",
+			utils.APIOptions,
+		),
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak init", Description: "Default setup (global.env + example file)"},
+			{
+				Command:     "hulak init -env staging prod",
+				Description: "Create staging.env and prod.env",
+			},
+		},
+		Flags: fs,
+		Args: []argDef{
+			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
+		},
+		Run: func(args []string) error {
+			if *createEnvFlag {
+				if len(args) == 0 {
+					utils.PrintWarning("No environment names provided after -env flag")
+					return nil
+				}
+				for _, env := range args {
+					if err := envparser.CreateDefaultEnvs(&env); err != nil {
+						utils.PrintRed(err.Error())
+					}
+				}
+				return nil
+			}
+			return InitDefaultProject()
+		},
+	}
+}
+
+func newMigrateCmd() *command {
+	return &command{
+		Name:  "migrate",
+		Short: "Migrate Postman collections to hulak format",
+		Long:  "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak migrate collection.json", Description: "Migrate a Postman collection"},
+			{
+				Command:     "hulak migrate env.json collection.json",
+				Description: "Migrate environment and collection together",
+			},
+		},
+		Args: []argDef{
+			{Name: "files", Required: true, Desc: "Postman JSON export files"},
+		},
+		Run: migration.CompleteMigration,
+	}
+}
+
+func newDoctorCmd() *command {
+	return &command{
+		Name:  "doctor",
+		Short: "Check project health",
+		Long:  "Inspect your hulak project for common issues: missing .gitignore entries,\nloose file permissions on env files, and secrets leaked into git history.",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak doctor", Description: "Run all health checks"},
+		},
+		Run: func(_ []string) error {
+			runDoctor()
+			return nil
+		},
+	}
+}
+
+func newGQLCmd() *command {
+	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
+	envFlag := fs.String("env", "", "Environment to use (skips interactive selector)")
+
+	gqlCmd := &command{
+		Name:    "gql",
+		Aliases: []string{"graphql", "GraphQL"},
+		Short:   "Open the GraphQL explorer",
+		Long:    "Launch an interactive TUI to browse and run GraphQL operations\ndefined in your .yml/.yaml files.",
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak gql .",
+				Description: "Explore all GraphQL files in the current directory",
+			},
+			{
+				Command:     "hulak gql path/to/schema.yml",
+				Description: "Explore a single GraphQL source file",
+			},
+			{
+				Command:     "hulak gql -env staging .",
+				Description: "Use the staging environment (skip env picker)",
+			},
+		},
+		Flags: fs,
+		Args: []argDef{
+			{
+				Name:     "path",
+				Required: true,
+				Desc:     "File or directory containing GraphQL definitions",
+			},
+		},
 	}
 
-	switch os.Args[1] {
-	case Version:
-		getVersion()
-		os.Exit(0)
-	case Migrate:
-		err := migrate.Parse(os.Args[2:])
-		if err != nil {
-			return fmt.Errorf("\n invalid subcommand %v", err)
-		}
-		filePaths := migrate.Args()
-		err = migration.CompleteMigration(filePaths)
-		if err != nil {
-			return fmt.Errorf("file path error %v", err)
-		}
-		os.Exit(0)
-
-	case Init:
-		if err := handleInit(); err != nil {
-			return err
-		}
-		os.Exit(0)
-
-	case Help:
-		utils.PrintHelp()
-		os.Exit(0)
-
-	case Doctor:
-		runDoctor()
-		os.Exit(0)
-
-	case GraphQL:
-		err := gql.Parse(os.Args[2:])
-		if err != nil {
-			return fmt.Errorf("\n invalid subcommand after gql %v", err)
-		}
-		args := gql.Args()
+	gqlCmd.Run = func(args []string) error {
 		if len(args) == 0 {
-			utils.PrintGQLUsage()
-			os.Exit(0)
+			gqlCmd.printHelp()
+			return nil
 		}
-		data, refreshFn, warnings := loadGraphQLOperations(args[0], *gqlEnv)
+		data, refreshFn, warnings := loadGraphQLOperations(args[0], *envFlag)
 		if data.Operations == nil {
-			os.Exit(0)
+			return nil
 		}
 		if err := gqlexplorer.RunExplorerWithRefresh(&data, refreshFn, warnings); err != nil {
-			utils.PanicRedAndExit("TUI error: %v", err)
+			return fmt.Errorf("TUI error: %w", err)
 		}
-		os.Exit(0)
-
-	default:
-		utils.PrintRed("Enter a valid subcommand")
-		utils.PrintHelpSubCommands()
-		os.Exit(1)
+		return nil
 	}
-	return nil
+
+	return gqlCmd
+}
+
+func newHelpCmd(root *command) *command {
+	return &command{
+		Name:  "help",
+		Short: "Show help for hulak",
+		Run: func(_ []string) error {
+			root.printHelp()
+			return nil
+		},
+	}
 }
