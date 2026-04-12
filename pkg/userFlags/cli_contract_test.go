@@ -114,62 +114,31 @@ func TestEnvSubCommandsExist(t *testing.T) {
 	}
 }
 
-// TestEnvListAlias verifies "ls" resolves to the "list" subcommand.
-func TestEnvListAlias(t *testing.T) {
+// TestEnvAliases verifies that all env subcommand aliases resolve correctly.
+func TestEnvAliases(t *testing.T) {
 	root := subCommands()
 	envCmd := root.findSub("env")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	for _, name := range []string{"list", "ls"} {
-		if envCmd.findSub(name) == nil {
-			t.Errorf("expected env subcommand %q to resolve", name)
-		}
-	}
-}
-
-// TestEnvSetAlias verifies "add" resolves to the "set" subcommand.
-func TestEnvSetAlias(t *testing.T) {
-	root := subCommands()
-	envCmd := root.findSub("env")
-	if envCmd == nil {
-		t.Fatal("expected env subcommand to exist")
+	tests := []struct {
+		name    string
+		aliases []string
+	}{
+		{"list", []string{"ls"}},
+		{"set", []string{"add"}},
+		{"keys", []string{"key"}},
+		{"delete", []string{"rm", "remove"}},
 	}
 
-	for _, name := range []string{"set", "add"} {
-		if envCmd.findSub(name) == nil {
-			t.Errorf("expected env subcommand %q to resolve", name)
-		}
-	}
-}
-
-// TestEnvKeysAlias verifies "key" resolves to the "keys" subcommand.
-func TestEnvKeysAlias(t *testing.T) {
-	root := subCommands()
-	envCmd := root.findSub("env")
-	if envCmd == nil {
-		t.Fatal("expected env subcommand to exist")
-	}
-
-	for _, name := range []string{"keys", "key"} {
-		if envCmd.findSub(name) == nil {
-			t.Errorf("expected env subcommand %q to resolve", name)
-		}
-	}
-}
-
-// TestEnvDeleteAlias verifies "rm" and "remove" resolve to the "delete" subcommand.
-func TestEnvDeleteAlias(t *testing.T) {
-	root := subCommands()
-	envCmd := root.findSub("env")
-	if envCmd == nil {
-		t.Fatal("expected env subcommand to exist")
-	}
-
-	for _, name := range []string{"delete", "rm", "remove"} {
-		if envCmd.findSub(name) == nil {
-			t.Errorf("expected env subcommand %q to resolve", name)
+	for _, tc := range tests {
+		for _, alias := range append([]string{tc.name}, tc.aliases...) {
+			t.Run(alias, func(t *testing.T) {
+				if envCmd.findSub(alias) == nil {
+					t.Errorf("expected env subcommand %q to resolve (alias of %q)", alias, tc.name)
+				}
+			})
 		}
 	}
 }
