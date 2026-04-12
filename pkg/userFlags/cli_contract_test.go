@@ -10,7 +10,7 @@ import (
 func TestSubCommandsExist(t *testing.T) {
 	root := subCommands()
 
-	expected := []string{"version", "init", "migrate", "doctor", "gql", "help"}
+	expected := []string{"version", "init", "migrate", "doctor", "gql", "env", "help"}
 	for _, name := range expected {
 		if root.findSub(name) == nil {
 			t.Errorf("expected subcommand %q to exist", name)
@@ -90,6 +90,118 @@ func TestFlagAliasesShareVariable(t *testing.T) {
 		// Restore original values to avoid leaking state to other tests
 		_ = short.Value.Set(origShort)
 		_ = long.Value.Set(origLong)
+	}
+}
+
+// TestEnvSubCommandsExist verifies every expected env subcommand is registered.
+func TestEnvSubCommandsExist(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	expected := []string{"set", "get", "list", "keys", "delete"}
+	for _, name := range expected {
+		if envCmd.findSub(name) == nil {
+			t.Errorf("expected env subcommand %q to exist", name)
+		}
+	}
+}
+
+// TestEnvListAlias verifies "ls" resolves to the "list" subcommand.
+func TestEnvListAlias(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	for _, name := range []string{"list", "ls"} {
+		if envCmd.findSub(name) == nil {
+			t.Errorf("expected env subcommand %q to resolve", name)
+		}
+	}
+}
+
+// TestEnvSetAlias verifies "add" resolves to the "set" subcommand.
+func TestEnvSetAlias(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	for _, name := range []string{"set", "add"} {
+		if envCmd.findSub(name) == nil {
+			t.Errorf("expected env subcommand %q to resolve", name)
+		}
+	}
+}
+
+// TestEnvKeysAlias verifies "key" resolves to the "keys" subcommand.
+func TestEnvKeysAlias(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	for _, name := range []string{"keys", "key"} {
+		if envCmd.findSub(name) == nil {
+			t.Errorf("expected env subcommand %q to resolve", name)
+		}
+	}
+}
+
+// TestEnvDeleteAlias verifies "rm" and "remove" resolve to the "delete" subcommand.
+func TestEnvDeleteAlias(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	for _, name := range []string{"delete", "rm", "remove"} {
+		if envCmd.findSub(name) == nil {
+			t.Errorf("expected env subcommand %q to resolve", name)
+		}
+	}
+}
+
+// TestEnvSubCommandsHaveFlags verifies env subcommands that need flags have them.
+func TestEnvSubCommandsHaveFlags(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	for _, sub := range envCmd.SubCommands {
+		if sub.Flags == nil {
+			t.Errorf("env subcommand %q should have its own FlagSet", sub.Name)
+			continue
+		}
+		if sub.Flags.Lookup("env") == nil {
+			t.Errorf("env subcommand %q should have an --env flag", sub.Name)
+		}
+	}
+}
+
+// TestEnvFlagDoesNotConflictWithEnvSubcommand verifies that the -env global
+// flag and the env subcommand coexist. The flag is prefixed with "-" so the
+// router dispatches them to different paths.
+func TestEnvFlagDoesNotConflictWithEnvSubcommand(t *testing.T) {
+	root := subCommands()
+
+	// "env" (no dash) should resolve as a subcommand
+	if root.findSub("env") == nil {
+		t.Error("expected 'env' to resolve as a subcommand")
+	}
+
+	// "-env" should NOT resolve as a subcommand (it's a flag)
+	if root.findSub("-env") != nil {
+		t.Error("'-env' should not resolve as a subcommand")
 	}
 }
 

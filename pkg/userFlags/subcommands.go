@@ -260,10 +260,11 @@ func newEnvCmd() *command {
 
 	envCmd.SubCommands = []*command{
 		{
-			Name:  "set",
-			Short: "Set a key-value pair",
-			Long:  "Store a secret in the encrypted vault.\n\nUse --stdin to pipe the value from standard input.",
-			Flags: setFs,
+			Name:    "set",
+			Aliases: []string{"add"},
+			Short:   "Set a key-value pair",
+			Long:    "Store a secret in the encrypted vault.\n\nUse --stdin to pipe the value from standard input.",
+			Flags:   setFs,
 			Args: []argDef{
 				{Name: "key", Required: true, Desc: "Secret key name"},
 				{Name: "value", Desc: "Secret value (omit to use --stdin)"},
@@ -289,15 +290,16 @@ func newEnvCmd() *command {
 			Run:     notImplemented("list"),
 		},
 		{
-			Name:  "keys",
-			Short: "List keys only",
-			Long:  "Show all secret key names in an environment without values.\n\nUse --show to display actual values.",
-			Flags: keysFs,
-			Run:   notImplemented("keys"),
+			Name:    "keys",
+			Aliases: []string{"key"},
+			Short:   "List keys only",
+			Long:    "Show all secret key names in an environment without values.\n\nUse --show to display actual values.",
+			Flags:   keysFs,
+			Run:     notImplemented("keys"),
 		},
 		{
 			Name:    "delete",
-			Aliases: []string{"rm"},
+			Aliases: []string{"rm", "remove"},
 			Short:   "Delete a key",
 			Long:    "Remove a secret from the encrypted vault.",
 			Flags:   deleteFs,
