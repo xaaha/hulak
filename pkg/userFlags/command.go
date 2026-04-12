@@ -14,10 +14,11 @@ import (
 // The long form is hidden from help output; only the short form is shown
 // with both names on one line (e.g. "-fp, --file-path").
 var flagAliases = map[string]string{
-	"file-path": "fp",
-	"file":      "f",
-	"version":   "v",
-	"help":      "h",
+	"file-path":   "fp",
+	"file":        "f",
+	"environment": "env",
+	"version":     "v",
+	"help":        "h",
 }
 
 // hiddenFlags are omitted from help output entirely (utility flags
