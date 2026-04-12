@@ -250,6 +250,38 @@ func TestPrintHelp(t *testing.T) {
 	}
 }
 
+func TestPrintHelpShowsAliases(t *testing.T) {
+	cmd := &command{
+		Name: "root",
+		Long: "Root command",
+		SubCommands: []*command{
+			{Name: "list", Aliases: []string{"ls"}, Short: "List items"},
+			{Name: "delete", Aliases: []string{"rm", "remove"}, Short: "Delete an item"},
+			{Name: "get", Short: "Get an item"},
+		},
+	}
+
+	output := captureStdout(t, func() {
+		cmd.printHelp()
+	})
+
+	checks := []string{
+		"list (ls)",
+		"delete (rm, remove)",
+		"get",
+	}
+	for _, check := range checks {
+		if !strings.Contains(output, check) {
+			t.Errorf("help output missing %q\nGot:\n%s", check, output)
+		}
+	}
+
+	// "get" should NOT have parentheses since it has no aliases
+	if strings.Contains(output, "get (") {
+		t.Errorf("get should not show alias parentheses\nGot:\n%s", output)
+	}
+}
+
 // captureStdout redirects os.Stdout to a pipe, runs fn, and returns
 // everything that was written to stdout as a string
 func captureStdout(t *testing.T, fn func()) string {

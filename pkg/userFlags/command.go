@@ -129,8 +129,12 @@ func (cmd *command) printHelp() {
 		utils.PrintWarning("COMMANDS")
 		var entries []*utils.CommandHelp
 		for _, sub := range cmd.SubCommands {
+			name := sub.Name
+			if len(sub.Aliases) > 0 {
+				name += " (" + strings.Join(sub.Aliases, ", ") + ")"
+			}
 			entries = append(entries, &utils.CommandHelp{
-				Command:     sub.Name,
+				Command:     name,
 				Description: sub.Short,
 			})
 		}
