@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -25,7 +26,7 @@ var hiddenFlags = map[string]bool{
 	"h": true, "v": true,
 }
 
-// Command represents a CLI command with optional subcommands and flags
+// command represents a CLI command with optional subcommands and flags
 type command struct {
 	Name        string                    // primary name (e.g. "gql")
 	Aliases     []string                  // alternative names (e.g. "graphql", "GraphQL")
@@ -205,9 +206,21 @@ func printFlags(fs *flag.FlagSet) {
 			label += ", --" + long
 		}
 
-		// Show type hint for non-bool flags
+		// Show type hint for non-bool flags using the flag's actual type
 		if f.DefValue != "false" && f.DefValue != "true" {
-			label += " string"
+			typeName := fmt.Sprintf("%T", f.Value)
+			// flag.Value wraps types as *flag.stringValue, *flag.intValue, etc.
+			// Extract the underlying type name from the wrapper
+			switch {
+			case strings.Contains(typeName, "int"):
+				label += " int"
+			case strings.Contains(typeName, "float"):
+				label += " float"
+			case strings.Contains(typeName, "duration"):
+				label += " duration"
+			default:
+				label += " string"
+			}
 		}
 
 		fmt.Println(label)

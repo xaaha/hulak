@@ -67,6 +67,10 @@ func TestFlagAliasesShareVariable(t *testing.T) {
 			continue
 		}
 
+		// Save original values to restore after test
+		origShort := short.Value.String()
+		origLong := long.Value.String()
+
 		// Set via the short form and verify the long form sees it
 		if err := short.Value.Set("test-value"); err != nil {
 			// bool flags reject "test-value", so use "true" for bools
@@ -82,6 +86,10 @@ func TestFlagAliasesShareVariable(t *testing.T) {
 				a.short, a.long, short.Value.String(), long.Value.String(),
 			)
 		}
+
+		// Restore original values to avoid leaking state to other tests
+		_ = short.Value.Set(origShort)
+		_ = long.Value.Set(origLong)
 	}
 }
 
