@@ -229,6 +229,7 @@ func newEnvCmd() *command {
 	}
 
 	// use utils.DefaultEnvVal if user does not provide env
+
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
 	setFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
@@ -250,6 +251,18 @@ func newEnvCmd() *command {
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
 	deleteFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+
+	// edit — interactive editor
+	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
+	editFs.String("env", utils.DefaultEnvVal, "Environment to operate on")
+
+	// import-key — import an age identity
+	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
+	importKeyFs.Bool("stdin", false, "Read key from stdin")
+
+	// export-key — export the age identity
+	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
+	exportKeyFs.Bool("armor", false, "Output in ASCII-armored format")
 
 	notImplemented := func(name string) func([]string) error {
 		return func(_ []string) error {
@@ -307,6 +320,48 @@ func newEnvCmd() *command {
 				{Name: "key", Required: true, Desc: "Secret key to delete"},
 			},
 			Run: notImplemented("delete"),
+		},
+		{
+			Name:  "edit",
+			Short: "Edit secrets interactively",
+			Long:  "Open an interactive editor for secrets in an environment.",
+			Flags: editFs,
+			Run:   notImplemented("edit"),
+		},
+		{
+			Name:  "import-key",
+			Short: "Import an age identity file",
+			Long:  "Import an age private key from a file or stdin into the hulak config directory.",
+			Flags: importKeyFs,
+			Args:  []argDef{{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"}},
+			Run:   notImplemented("import-key"),
+		},
+		{
+			Name:  "export-key",
+			Short: "Export the age identity file",
+			Long:  "Print the age private key to stdout for backup or transfer to another machine.",
+			Flags: exportKeyFs,
+			Run:   notImplemented("export-key"),
+		},
+		{
+			Name:  "add-recipient",
+			Short: "Add a recipient for shared vault access",
+			Long:  "Add an age public key as a recipient so another user can decrypt the vault.",
+			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
+			Run:   notImplemented("add-recipient"),
+		},
+		{
+			Name:  "remove-recipient",
+			Short: "Remove a recipient",
+			Long:  "Remove an age public key from the recipient list.",
+			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to remove"}},
+			Run:   notImplemented("remove-recipient"),
+		},
+		{
+			Name:  "list-recipients",
+			Short: "List all recipients",
+			Long:  "Show all age public keys that can decrypt the vault.",
+			Run:   notImplemented("list-recipients"),
 		},
 	}
 

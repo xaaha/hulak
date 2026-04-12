@@ -101,7 +101,11 @@ func TestEnvSubCommandsExist(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	expected := []string{"set", "get", "list", "keys", "delete"}
+	expected := []string{
+		"set", "get", "list", "keys", "delete", "edit",
+		"import-key", "export-key",
+		"add-recipient", "remove-recipient", "list-recipients",
+	}
 	for _, name := range expected {
 		if envCmd.findSub(name) == nil {
 			t.Errorf("expected env subcommand %q to exist", name)
@@ -169,7 +173,8 @@ func TestEnvDeleteAlias(t *testing.T) {
 	}
 }
 
-// TestEnvSubCommandsHaveFlags verifies env subcommands that need flags have them.
+// TestEnvSubCommandsHaveFlags verifies env subcommands that operate on a
+// specific environment have an --env flag in their FlagSet.
 func TestEnvSubCommandsHaveFlags(t *testing.T) {
 	root := subCommands()
 	envCmd := root.findSub("env")
@@ -177,13 +182,20 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	for _, sub := range envCmd.SubCommands {
+	// Subcommands that target a specific environment
+	needsEnvFlag := []string{"set", "get", "list", "keys", "delete", "edit"}
+	for _, name := range needsEnvFlag {
+		sub := envCmd.findSub(name)
+		if sub == nil {
+			t.Errorf("expected env subcommand %q to exist", name)
+			continue
+		}
 		if sub.Flags == nil {
-			t.Errorf("env subcommand %q should have its own FlagSet", sub.Name)
+			t.Errorf("env subcommand %q should have its own FlagSet", name)
 			continue
 		}
 		if sub.Flags.Lookup("env") == nil {
-			t.Errorf("env subcommand %q should have an --env flag", sub.Name)
+			t.Errorf("env subcommand %q should have an --env flag", name)
 		}
 	}
 }
