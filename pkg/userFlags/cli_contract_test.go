@@ -1,8 +1,13 @@
 package userflags
 
 import (
+	"errors"
 	"flag"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // TestSubCommandsExist verifies every expected subcommand is registered.
@@ -10,7 +15,7 @@ import (
 func TestSubCommandsExist(t *testing.T) {
 	root := subCommands()
 
-	expected := []string{"version", "init", "migrate", "doctor", "gql", "env", "help"}
+	expected := []string{"run", "version", "init", "migrate", "doctor", "gql", "env", "help"}
 	for _, name := range expected {
 		if root.findSub(name) == nil {
 			t.Errorf("expected subcommand %q to exist", name)
@@ -91,6 +96,264 @@ func TestFlagAliasesShareVariable(t *testing.T) {
 		// Restore original values to avoid leaking state to other tests
 		_ = short.Value.Set(origShort)
 		_ = long.Value.Set(origLong)
+	}
+}
+
+// TestRunSubcommandFlags verifies the run subcommand has all expected flags.
+func TestRunSubcommandFlags(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	for _, name := range []string{"env", "environment", "sequential", "seq", "debug"} {
+		if runCmd.Flags.Lookup(name) == nil {
+			t.Errorf("run subcommand should have --%s flag", name)
+		}
+	}
+}
+
+// TestRunFlagAliasesShareVariable verifies that run's flag aliases
+// point to the same underlying variable.
+func TestRunFlagAliasesShareVariable(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tests := []struct {
+		short string
+		long  string
+		val   string // test value to set (must be valid for the flag type)
+	}{
+		{"env", "environment", "alias-test"},
+		{"seq", "sequential", "true"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.short+"/"+tc.long, func(t *testing.T) {
+			short := runCmd.Flags.Lookup(tc.short)
+			long := runCmd.Flags.Lookup(tc.long)
+			if short == nil || long == nil {
+				t.Fatalf("missing flag: short=%v long=%v", short, long)
+			}
+
+			if err := runCmd.Flags.Set(tc.long, tc.val); err != nil {
+				t.Fatalf("failed to set --%s: %v", tc.long, err)
+			}
+			if short.Value.String() != tc.val {
+				t.Errorf("--%s = %q, want %q (should share variable with --%s)",
+					tc.short, short.Value.String(), tc.val, tc.long)
+			}
+		})
+	}
+}
+
+// TestRunSubcommandHasRunHandler verifies the run subcommand has a Run handler.
+func TestRunSubcommandHasRunHandler(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+	if runCmd.Run == nil {
+		t.Error("run subcommand is missing a Run handler")
+	}
+}
+
+// TestRunHandlerSetsFilePath verifies that passing a file path sets FilePath
+// in the AllFlags result.
+func TestRunHandlerSetsFilePath(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runCmd.Run([]string{tmpFile})
+	if !errors.Is(err, errRunSubcommand) {
+		t.Fatalf("expected errRunSubcommand, got %v", err)
+	}
+	if runResult == nil {
+		t.Fatal("runResult should be set")
+	}
+	defer func() { runResult = nil }()
+
+	if runResult.FilePath != tmpFile {
+		t.Errorf("FilePath = %q, want %q", runResult.FilePath, tmpFile)
+	}
+	if runResult.Dir != "" || runResult.Dirseq != "" {
+		t.Error("Dir/Dirseq should be empty for a file path")
+	}
+}
+
+// TestRunHandlerSetsDir verifies that passing a directory sets Dir (concurrent).
+func TestRunHandlerSetsDir(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpDir := t.TempDir()
+
+	err := runCmd.Run([]string{tmpDir})
+	if !errors.Is(err, errRunSubcommand) {
+		t.Fatalf("expected errRunSubcommand, got %v", err)
+	}
+	if runResult == nil {
+		t.Fatal("runResult should be set")
+	}
+	defer func() { runResult = nil }()
+
+	if runResult.Dir != tmpDir {
+		t.Errorf("Dir = %q, want %q", runResult.Dir, tmpDir)
+	}
+	if runResult.Dirseq != "" {
+		t.Error("Dirseq should be empty without --sequential")
+	}
+	if runResult.FilePath != "" {
+		t.Error("FilePath should be empty for a directory")
+	}
+}
+
+// TestRunHandlerTrailingFlags verifies that flags after the positional
+// argument are still parsed correctly.
+func TestRunHandlerTrailingFlags(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runCmd.Run([]string{tmpFile, "--debug", "--env", "staging"})
+	if !errors.Is(err, errRunSubcommand) {
+		t.Fatalf("expected errRunSubcommand, got %v", err)
+	}
+	if runResult == nil {
+		t.Fatal("runResult should be set")
+	}
+	defer func() { runResult = nil }()
+
+	if !runResult.Debug {
+		t.Error("Debug should be true when --debug is passed after the path")
+	}
+	if runResult.Env != "staging" {
+		t.Errorf("Env = %q, want %q", runResult.Env, "staging")
+	}
+	if !runResult.EnvSet {
+		t.Error("EnvSet should be true when --env is provided")
+	}
+}
+
+// TestRunHandlerSequentialDir verifies --sequential after a directory
+// sets Dirseq instead of Dir.
+func TestRunHandlerSequentialDir(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpDir := t.TempDir()
+
+	err := runCmd.Run([]string{tmpDir, "--sequential"})
+	if !errors.Is(err, errRunSubcommand) {
+		t.Fatalf("expected errRunSubcommand, got %v", err)
+	}
+	if runResult == nil {
+		t.Fatal("runResult should be set")
+	}
+	defer func() { runResult = nil }()
+
+	if runResult.Dirseq != tmpDir {
+		t.Errorf("Dirseq = %q, want %q", runResult.Dirseq, tmpDir)
+	}
+	if runResult.Dir != "" {
+		t.Error("Dir should be empty when --sequential is set")
+	}
+}
+
+// TestRunHandlerBadPath verifies that a nonexistent path returns an error.
+func TestRunHandlerBadPath(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	err := runCmd.Run([]string{"/nonexistent/path.yaml"})
+	if err == nil {
+		t.Fatal("expected an error for nonexistent path")
+	}
+	if errors.Is(err, errRunSubcommand) {
+		t.Error("should not return errRunSubcommand for a bad path")
+	}
+}
+
+// TestRunHandlerUnknownTrailingFlag verifies that an unknown flag after
+// the path produces a parse error, not a silent pass.
+func TestRunHandlerUnknownTrailingFlag(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runCmd.Run([]string{tmpFile, "--bogus"})
+	if err == nil {
+		t.Fatal("expected an error for unknown trailing flag")
+	}
+	if errors.Is(err, errRunSubcommand) {
+		t.Error("should not return errRunSubcommand for an unknown flag")
+	}
+}
+
+// TestRunHandlerDefaultEnv verifies that when no --env is passed,
+// the default environment is used.
+func TestRunHandlerDefaultEnv(t *testing.T) {
+	root := subCommands()
+	runCmd := root.findSub("run")
+	if runCmd == nil {
+		t.Fatal("expected run subcommand to exist")
+	}
+
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runCmd.Run([]string{tmpFile})
+	if !errors.Is(err, errRunSubcommand) {
+		t.Fatalf("expected errRunSubcommand, got %v", err)
+	}
+	if runResult == nil {
+		t.Fatal("runResult should be set")
+	}
+	defer func() { runResult = nil }()
+
+	if runResult.Env != utils.DefaultEnvVal {
+		t.Errorf("Env = %q, want default %q", runResult.Env, utils.DefaultEnvVal)
+	}
+	if runResult.EnvSet {
+		t.Error("EnvSet should be false when no --env is provided")
 	}
 }
 

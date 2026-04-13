@@ -2,6 +2,7 @@
 package userflags
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -10,6 +11,13 @@ import (
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// errRunSubcommand is a sentinel returned by the run handler to signal
+// that ParseFlagsSubcmds should return AllFlags instead of exiting.
+var errRunSubcommand = errors.New("run subcommand")
+
+// runResult holds the AllFlags populated by the run handler.
+var runResult *AllFlags
 
 // AllFlags  All user flags and subcommands
 type AllFlags struct {
@@ -37,6 +45,11 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 		switch {
 		case subCmds.findSub(first) != nil:
 			if err := subCmds.Execute(os.Args[1:]); err != nil {
+				if errors.Is(err, errRunSubcommand) {
+					result := runResult
+					runResult = nil
+					return result, nil
+				}
 				return nil, err
 			}
 			os.Exit(0)
