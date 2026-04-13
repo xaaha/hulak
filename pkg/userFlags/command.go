@@ -94,8 +94,7 @@ func (cmd *command) Execute(args []string) error {
 		cmd.Flags.SetOutput(io.Discard)
 
 		if err := cmd.Flags.Parse(args); err != nil {
-			utils.PrintRed(fmt.Sprintf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name))
-			os.Exit(1)
+			return fmt.Errorf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name)
 		}
 
 		if helpFlag {

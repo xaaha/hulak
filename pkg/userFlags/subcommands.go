@@ -3,7 +3,6 @@ package userflags
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -213,8 +212,6 @@ func newGQLCmd() *command {
 
 func newRunCmd() *command {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	fs.Usage = func() {}
-	fs.SetOutput(io.Discard)
 	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
 	var sequential bool
 	var debug bool
