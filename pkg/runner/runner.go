@@ -38,7 +38,7 @@ func Execute(f *Flags) {
 		f.Dir != "" || f.Dirseq != "",
 	)
 
-	allPaths := append(append(fileList, concurrentDir...), sequentialDir...)
+	allPaths := slices.Concat(fileList, concurrentDir, sequentialDir)
 
 	var envMap map[string]any
 	if containsTemplateVars(allPaths) {

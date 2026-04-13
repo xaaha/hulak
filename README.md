@@ -41,7 +41,7 @@ Browse schemas from multiple endpoints, search operations, build queries interac
 ### Install
 
 ```bash
-brew install --cask xaaha/tap/hulak
+brew install xaaha/tap/hulak
 ```
 
 Other install options:
