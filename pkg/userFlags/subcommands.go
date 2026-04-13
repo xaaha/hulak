@@ -229,9 +229,18 @@ func newRunCmd() *command {
 			"Directories run concurrently by default; use --sequential for ordered execution.",
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak run path/to/file.yaml", Description: "Run a single request file"},
-			{Command: "hulak run path/to/file.yaml --env staging", Description: "Run with a specific environment"},
-			{Command: "hulak run path/to/dir/", Description: "Run all files in a directory concurrently"},
-			{Command: "hulak run path/to/dir/ --sequential", Description: "Run directory files sequentially"},
+			{
+				Command:     "hulak run path/to/file.yaml --env staging",
+				Description: "Run with a specific environment",
+			},
+			{
+				Command:     "hulak run path/to/dir/",
+				Description: "Run all files in a directory concurrently",
+			},
+			{
+				Command:     "hulak run path/to/dir/ --sequential",
+				Description: "Run directory files sequentially",
+			},
 		},
 		Flags: fs,
 		Args: []argDef{
@@ -422,8 +431,10 @@ func newEnvCmd() *command {
 			Short: "Import an age identity file",
 			Long:  "Import an age private key from a file or stdin into the hulak config directory.",
 			Flags: importKeyFs,
-			Args:  []argDef{{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"}},
-			Run:   notImplemented("import-key"),
+			Args: []argDef{
+				{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"},
+			},
+			Run: notImplemented("import-key"),
 		},
 		{
 			Name:  "export-key",
