@@ -3,12 +3,24 @@ package userflags
 import (
 	"flag"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// registerEnvFlag adds both --env and --environment aliases to a FlagSet,
+// pointing to the same underlying variable, and returns a pointer so
+// Run handlers can read the parsed value.
+func registerEnvFlag(fs *flag.FlagSet, defaultVal string, usage string) *string {
+	var envVal string
+	fs.StringVar(&envVal, "env", defaultVal, usage)
+	fs.StringVar(&envVal, "environment", defaultVal, usage)
+	return &envVal
+}
 
 // subCommands builds the full sub-command tree for hulak
 func subCommands() *command {
@@ -42,6 +54,7 @@ func subCommands() *command {
 	}
 
 	root.SubCommands = []*command{
+		newRunCmd(),
 		newVersionCmd(),
 		newInitCmd(),
 		newMigrateCmd(),
@@ -148,9 +161,7 @@ func newDoctorCmd() *command {
 
 func newGQLCmd() *command {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
-	var envFlagVal string
-	fs.StringVar(&envFlagVal, "env", "", "Environment to use (skips interactive selector)")
-	fs.StringVar(&envFlagVal, "environment", "", "Environment to use (skips interactive selector)")
+	envFlagVal := registerEnvFlag(fs, "", "Environment to use (skips interactive selector)")
 
 	gqlCmd := &command{
 		Name:    "gql",
@@ -186,7 +197,7 @@ func newGQLCmd() *command {
 			gqlCmd.printHelp()
 			return nil
 		}
-		data, refreshFn, warnings := loadGraphQLOperations(args[0], envFlagVal)
+		data, refreshFn, warnings := loadGraphQLOperations(args[0], *envFlagVal)
 		if data.Operations == nil {
 			return nil
 		}
@@ -197,6 +208,84 @@ func newGQLCmd() *command {
 	}
 
 	return gqlCmd
+}
+
+func newRunCmd() *command {
+	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	fs.Usage = func() {}
+	fs.SetOutput(io.Discard)
+	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
+	var sequential bool
+	var debug bool
+	fs.BoolVar(&sequential, "sequential", false, "Run directory files sequentially")
+	fs.BoolVar(&sequential, "seq", false, "Run directory files sequentially")
+	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
+
+	runCmd := &command{
+		Name:  "run",
+		Short: "Run API request file(s) or directory",
+		Long: "Execute one or more API request files.\n\n" +
+			"Pass a file path to run a single request, or a directory to run all files in it.\n" +
+			"Directories run concurrently by default; use --sequential for ordered execution.",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak run path/to/file.yaml", Description: "Run a single request file"},
+			{Command: "hulak run path/to/file.yaml --env staging", Description: "Run with a specific environment"},
+			{Command: "hulak run path/to/dir/", Description: "Run all files in a directory concurrently"},
+			{Command: "hulak run path/to/dir/ --sequential", Description: "Run directory files sequentially"},
+		},
+		Flags: fs,
+		Args: []argDef{
+			{Name: "path", Required: true, Desc: "File or directory to run"},
+		},
+	}
+
+	runCmd.Run = func(args []string) error {
+		if len(args) == 0 {
+			runCmd.printHelp()
+			return nil
+		}
+		path := args[0]
+
+		// Go's flag package stops at the first non-flag argument, so
+		// "run file.yaml --debug" leaves --debug unparsed. Re-parse
+		// the remaining args to pick up trailing flags.
+		if len(args) > 1 {
+			if err := fs.Parse(args[1:]); err != nil {
+				return fmt.Errorf("%w\nSee 'hulak run --help' for usage", err)
+			}
+		}
+
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("cannot access %q: %w", path, err)
+		}
+
+		result := &AllFlags{
+			Debug: debug,
+		}
+
+		if *envFlagVal != "" {
+			result.Env = *envFlagVal
+			result.EnvSet = true
+		} else {
+			result.Env = utils.DefaultEnvVal
+		}
+
+		if info.IsDir() {
+			if sequential {
+				result.Dirseq = path
+			} else {
+				result.Dir = path
+			}
+		} else {
+			result.FilePath = path
+		}
+
+		runResult = result
+		return errRunSubcommand
+	}
+
+	return runCmd
 }
 
 func newEnvCmd() *command {
@@ -230,43 +319,31 @@ func newEnvCmd() *command {
 		},
 	}
 
-	// use utils.DefaultEnvVal if user does not provide env
-
-	// registerEnvFlag adds both -env and --environment aliases to a FlagSet,
-	// pointing to the same underlying variable, and returns a pointer so
-	// Run handlers can read the parsed value.
-	registerEnvFlag := func(fs *flag.FlagSet) *string {
-		var envVal string
-		fs.StringVar(&envVal, "env", utils.DefaultEnvVal, "Environment to operate on")
-		fs.StringVar(&envVal, "environment", utils.DefaultEnvVal, "Environment to operate on")
-		return &envVal
-	}
-
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	_ = registerEnvFlag(setFs)
+	_ = registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
 	setFs.Bool("stdin", false, "Read value from stdin")
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	_ = registerEnvFlag(getFs)
+	_ = registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// list — show all key-value pairs
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
-	_ = registerEnvFlag(listFs)
+	_ = registerEnvFlag(listFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// keys — list keys only
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	_ = registerEnvFlag(keysFs)
+	_ = registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
 	keysFs.Bool("show", false, "Show actual values instead of masked output")
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	_ = registerEnvFlag(deleteFs)
+	_ = registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// edit — interactive editor
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	_ = registerEnvFlag(editFs)
+	_ = registerEnvFlag(editFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
