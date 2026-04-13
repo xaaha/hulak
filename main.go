@@ -5,10 +5,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	userflags "github.com/xaaha/hulak/pkg/userFlags"
@@ -16,59 +16,26 @@ import (
 )
 
 func main() {
+	// Subcommands and root file/dir flags handle execution directly
+	// inside ParseFlagsSubcmds. It only returns here for interactive mode.
 	flags, err := userflags.ParseFlagsSubcmds()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
 
-	hasDirFlags := flags.Dir != "" || flags.Dirseq != ""
-	hasFileFlags := flags.FilePath != "" || flags.File != ""
-
-	// TUI mode, currently only supports -fp (single file run)
-	if !hasFileFlags && !hasDirFlags {
-		if !isInteractiveTerminal() {
-			utils.PanicRedAndExit(
-				"interactive mode requires a TTY. Use -f, -fp, -dir, or -dirseq flags. See 'hulak help'",
-			)
-		}
-		flags.FilePath = runInteractiveFlow(&flags.Env, flags.EnvSet)
-		var envMap map[string]any
-		if utils.FileHasTemplateVars(flags.FilePath) {
-			envMap = InitializeProject(flags.Env, false)
-		}
-		HandleAPIRequests(envMap, flags.Debug, []string{flags.FilePath}, nil, flags.FilePath)
-		return
+	if !isInteractiveTerminal() {
+		utils.PanicRedAndExit(
+			"interactive mode requires a TTY. Use 'hulak run <path>'. See 'hulak help'",
+		)
 	}
 
-	// CLI mode
-	fileList, concurrentDir, sequentialDir := DiscoverFilePaths(
-		flags.File,
-		flags.FilePath,
-		flags.Dir,
-		flags.Dirseq,
-		hasDirFlags,
-	)
-
-	allPaths := slices.Concat(fileList, concurrentDir, sequentialDir)
+	filePath := runInteractiveFlow(&flags.Env, flags.EnvSet)
 
 	var envMap map[string]any
-	// check if any file in the list contains template variable
-	// Returns true at the first match (short-circuits), so best-case is O(1)
-	// and worst-case (no templates anywhere) is O(n) file reads.
-	if slices.ContainsFunc(allPaths, utils.FileHasTemplateVars) {
-		if !utils.IsHulakProject() {
-			ensureHulakProject()
-		}
-		envMap = InitializeProject(flags.Env, true)
+	if utils.FileHasTemplateVars(filePath) {
+		envMap = runner.InitializeProject(flags.Env, false)
 	}
-
-	HandleAPIRequests(
-		envMap,
-		flags.Debug,
-		slices.Concat(fileList, concurrentDir),
-		sequentialDir,
-		flags.FilePath,
-	)
+	runner.ExecuteSingleFile(envMap, flags.Debug, filePath)
 }
 
 func runInteractiveFlow(env *string, envSet bool) string {

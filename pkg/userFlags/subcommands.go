@@ -8,6 +8,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
+	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -253,48 +254,66 @@ func newRunCmd() *command {
 			runCmd.printHelp()
 			return nil
 		}
-		path := args[0]
 
-		// Go's flag package stops at the first non-flag argument, so
-		// "run file.yaml --debug" leaves --debug unparsed. Re-parse
-		// the remaining args to pick up trailing flags.
-		if len(args) > 1 {
-			if err := fs.Parse(args[1:]); err != nil {
-				return fmt.Errorf("%w\nSee 'hulak run --help' for usage", err)
-			}
-		}
-
-		info, err := os.Stat(path)
+		f, err := parseRunArgs(fs, envFlagVal, &sequential, &debug, args)
 		if err != nil {
-			return fmt.Errorf("cannot access %q: %w", path, err)
+			return err
 		}
 
-		result := &AllFlags{
-			Debug: debug,
-		}
-
-		if *envFlagVal != "" {
-			result.Env = *envFlagVal
-			result.EnvSet = true
-		} else {
-			result.Env = utils.DefaultEnvVal
-		}
-
-		if info.IsDir() {
-			if sequential {
-				result.Dirseq = path
-			} else {
-				result.Dir = path
-			}
-		} else {
-			result.FilePath = path
-		}
-
-		runResult = result
-		return errRunSubcommand
+		runner.Execute(f)
+		return nil
 	}
 
 	return runCmd
+}
+
+// parseRunArgs resolves the positional path and trailing flags into runner.Flags.
+// Extracted so tests can verify flag parsing without triggering runner.Execute.
+func parseRunArgs(
+	fs *flag.FlagSet,
+	envFlagVal *string,
+	sequential *bool,
+	debug *bool,
+	args []string,
+) (*runner.Flags, error) {
+	path := args[0]
+
+	// Go's flag package stops at the first non-flag argument, so
+	// "run file.yaml --debug" leaves --debug unparsed. Re-parse
+	// the remaining args to pick up trailing flags.
+	if len(args) > 1 {
+		if err := fs.Parse(args[1:]); err != nil {
+			return nil, fmt.Errorf("%w\nSee 'hulak run --help' for usage", err)
+		}
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot access %q: %w", path, err)
+	}
+
+	f := &runner.Flags{
+		Debug: *debug,
+	}
+
+	if *envFlagVal != "" {
+		f.Env = *envFlagVal
+		f.EnvSet = true
+	} else {
+		f.Env = utils.DefaultEnvVal
+	}
+
+	if info.IsDir() {
+		if *sequential {
+			f.Dirseq = path
+		} else {
+			f.Dir = path
+		}
+	} else {
+		f.FilePath = path
+	}
+
+	return f, nil
 }
 
 func newEnvCmd() *command {
