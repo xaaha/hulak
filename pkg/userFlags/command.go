@@ -3,6 +3,7 @@ package userflags
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -88,8 +89,12 @@ func (cmd *command) Execute(args []string) error {
 			cmd.Flags.BoolVar(&helpFlag, "h", false, "Show help for this command")
 		}
 
+		// Suppress Go's default usage dump so we can show hulak-styled errors
+		cmd.Flags.Usage = func() {}
+		cmd.Flags.SetOutput(io.Discard)
+
 		if err := cmd.Flags.Parse(args); err != nil {
-			return err
+			return fmt.Errorf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name)
 		}
 
 		if helpFlag {

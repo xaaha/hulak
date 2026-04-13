@@ -1,178 +1,187 @@
 HULAK(1)                                          General Commands Manual                                          HULAK(1)
 
 NAME
-       hulak - File Based API client for terminal nerds 
+       hulak - file-based API client for the terminal
 
 SYNOPSIS
        hulak
-       hulak [OPTIONS] -f <file>
-       hulak [OPTIONS] -fp <file_path>
-       hulak [OPTIONS] -dir <directory_path>
-       hulak [OPTIONS] -dirseq <directory_path>
+       hulak run <path> [--env <environment>] [--debug] [--sequential]
+       hulak version
+       hulak init [-env <name> ...]
+       hulak migrate <json_file> [<json_file> ...]
+       hulak doctor
        hulak gql [-env <environment>] <path>
-       hulak migrate <json_file>
+       hulak env <subcommand> [options]
+       hulak help
+
+       Supported shorthand forms:
+       hulak [-env <environment>] -fp <file_path> [-debug]
+       hulak [-env <environment>] -f <file_name> [-debug]
+       hulak [-env <environment>] -dir <directory_path> [-debug]
+       hulak [-env <environment>] -dirseq <directory_path> [-debug]
 
 DESCRIPTION
-       Hulak is a user-friendly API client designed for developers and terminal users. It supports multiple HTTP methods and facilitates easy API testing and integration by leveraging YAML configuration files.
+       Hulak runs API requests defined in YAML files. The recommended style is command-first usage with
+       hulak run <path>, where <path> is either a single request file or a directory of request files.
 
-       When run without file or directory flags, hulak launches an interactive single-file helper and asks you to pick a file first.
-       If that file contains environment template vars (for example {{.token}}), hulak then asks you to pick an environment.
-       Use -f for multi-match concurrent runs, -dir for directory concurrent runs, and -dirseq for directory sequential runs.
-       If only -env is provided without a file, hulak opens the helper with the environment pre-selected.
+       Running hulak with no file or directory target opens the interactive picker. Hulak asks you to pick
+       a request file first, and only asks for an environment when the selected request uses template values
+       like {{.token}}.
 
-       Hulak also includes a dedicated GraphQL explorer TUI through the gql subcommand.
-       The explorer loads one GraphQL file or a directory of GraphQL files, fetches schemas, lets you search operations, build queries and variables, execute them, and save generated files.
+       Hulak also includes a GraphQL explorer through the gql subcommand for schema discovery, operation
+       search, query building, execution, and saving generated files.
 
-OPTIONS
-       -env <environment>
-               Specifies an environment file inside the env directory for API calls that require environment template vars.
-               If not provided, the default "global" environment is used.
+COMMANDS
+       run
+              Run a single request file or a directory. Directories run concurrently by default.
 
-       -f <file>
-              Specifies a YAML/YML file to run. Hulak searches recursively through directories to locate matching yaml/yml files and executes all matches concurrently if more than one is found.
+       version
+              Print the installed Hulak version.
 
-       -fp <file_path>
-              Specifies the exact file path of the file to run.
+       init
+              Create the default Hulak project setup in the current directory.
+
+       migrate
+              Convert Postman v2.1 environment and collection exports into Hulak files.
+
+       doctor
+              Run project health checks.
+
+       gql
+              Open the GraphQL explorer for one file or a directory.
+
+       env
+              Show the environment-secrets command tree.
+
+       help
+              Print top-level help.
+
+RUN FLAGS
+       --env, --environment <environment>
+              Use a specific environment and skip the environment picker.
+
+       --debug
+              Print request and response debug details.
+
+       --sequential, --seq
+              Run directory files one at a time instead of concurrently.
+
+GLOBAL SHORTHAND FLAGS
+       These root flags remain supported, but hulak run <path> is the preferred form for examples and
+       onboarding.
+
+       -env, --environment <environment>
+              Select the environment for root-flag execution.
+
+       -fp, --file-path <file_path>
+              Run one exact file path.
+
+       -f, --file <file_name>
+              Search recursively for matching YAML file names and run the matches.
 
        -dir <directory_path>
-              Run entire directory concurrently. Only supports (.yaml or .yml) files. All files use the same provided environment.
+              Run a directory concurrently.
 
        -dirseq <directory_path>
-              Run entire directory one file at a time. Only supports (.yaml or .yml) files. All files use the same provided environment. 
-              In nested directories, the execution order is not guaranteed to follow the file system appearance. If order matters, 
-              it's recommended to use a directory without nested directories, in which case files will run alphabetically.
+              Run a directory sequentially.
 
-       gql [-env <environment>] <path>
-              Opens the GraphQL explorer for one file or a directory.
-              In single-file mode, the file only needs a non-empty url field.
-              In directory mode, files are discovered recursively only when they contain kind: GraphQL and a non-empty url field.
-              If GraphQL files need environment values and -env is not provided, Hulak shows the environment selector.
+       -debug
+              Enable debug output.
 
-       migrate <json_file>
-              Migrates the specified JSON file(s) to the new Hulak format.
-       
-       init   Initializes the default environment configuration.
-              When used with -env flag, creates specific environment files.
-          
-       help   Displays command usage information.
+       -v, --version
+              Print the current version.
 
-FLAGS
-       -env    Specifies the environment file for API calls.
-       -f      Designates the YAML/YML file to be executed.
-       -fp     Specifies the direct file path for the file to execute.
-       -dir    Run an entire directory of YAML/YML files concurrently.
-       -dirseq Run an entire directory of YAML/YML files sequentially.
-       -debug  Get the entire request, response, headers, and TLS info about the request 
+       -h, --help
+              Print help.
 
-INSTALLATION
-       Hulak can be installed using either `go install` or built from source or using homebrew
+INTERACTIVE MODE
+       hulak
+              Open the interactive request picker.
 
-       Using go install:
-              go install github.com/xaaha/hulak@latest
+       hulak -env staging
+              Open the interactive picker with a preselected environment.
 
-              Ensure that your GOPATH is added to your shell's PATH:
-              export GOPATH=$HOME/go
-              export PATH=$PATH:$(go env GOPATH)/bin
+       In non-interactive shells, you should pass a file or directory target instead of relying on the picker.
 
-              Reload your shell configuration:
-              source ~/.zshrc   or   source ~/.bashrc
+ENVIRONMENT SETUP
+       Create a project directory and initialize it with:
 
-       Build from source:
-              git clone https://github.com/xaaha/hulak.git
-              cd hulak
-              go mod tidy
-              go build -o hulak
-              sudo mv hulak /usr/local/bin/
+              hulak init
 
-       Using Homebrew:
-              `brew install xaaha/tap/hulak`
+       To create named environment files immediately:
 
-       ENVIRONMENT SETUP
-       Create a project dir for hulak and run:
-             `hulak init`
+              hulak init -env staging prod
 
-       Note: env/ setup is required only when request files use environment template vars like {{.key}}.
-
-SCHEMA
-       You can find the schema at:
-            https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json 
+       Hulak uses env/ files only when request files need template resolution such as {{.key}}.
 
 EXAMPLES
-       Interactive mode:
+       Run a single request file:
 
-              # Select file interactively, then environment only when needed
-              hulak
+              hulak run requests/get-user.hk.yaml
 
-              # Select file interactively with a pre-selected environment
-              hulak -env staging
+       Run a single request file with a specific environment:
 
-       Basic API call:
+              hulak run requests/get-user.hk.yaml --env staging
 
-              # test.yaml
-              method: GET
-              url: https://jsonplaceholder.typicode.com/todos/1
+       Run a directory concurrently:
 
-              Run with:
-              hulak -f test
+              hulak run ./requests/
 
-       Using environment variables:
+       Run a directory sequentially:
 
-              # test.yaml
-              method: POST
-              url: "{{.Url}}"
+              hulak run ./requests/ --sequential
 
-              Run with:
-              hulak -env prod -f test
-              
-       Processing a directory of API requests:
-       
-              # Run all .yaml files in the directory concurrently
-              hulak -dir path/to/directory/
-              
-              # Run all .yaml files in the directory sequentially
-              hulak -dirseq path/to/directory/
+       Use the GraphQL explorer:
 
-       GraphQL explorer:
-
-              # Explore one GraphQL source file
-              hulak gql e2etests/gql_schemas/countries.yml
-
-              # Explore GraphQL files in the current directory
               hulak gql .
-
-              # Explore a directory with a pre-selected environment
+              hulak gql path/to/schema.yml
               hulak gql -env staging ./collections/graphql
 
-              # Minimal GraphQL source file for directory discovery
-              ---
-              kind: GraphQL
-              url: https://countries.trevorblades.com/
-              headers:
-                Content-Type: application/json
+       Use shorthand root flags:
 
-              # Generated or hand-written GraphQL request file
-              ---
-              method: POST
-              kind: GraphQL
-              url: "{{.graphqlUrl}}"
-              headers:
-                Content-Type: application/json
-              body:
-                graphql:
-                  query: '{{getFile "queries/GetCountry.gql"}}'
-                  variables:
-                    code: "NP"
+              hulak -fp requests/get-user.hk.yaml
+              hulak -dir ./requests/
 
-AUTH 2.0
-       Supports OAuth 2.0 web-application flow. Refer to the documentation for detailed setup instructions:
-       https://github.com/xaaha/hulak/blob/main/docs/auth20.md
+INSTALLATION
+       Homebrew tap (cask):
+
+              brew install --cask xaaha/tap/hulak
+
+       The Homebrew tap publishes Hulak as a cask generated by GoReleaser. That cask links the hulak binary
+       and the bundled manpage from the release archive.
+
+       go install:
+
+              go install github.com/xaaha/hulak@latest
+
+       Build from source:
+
+              git clone https://github.com/xaaha/hulak.git
+              cd hulak
+              go build -o hulak
+
+SCHEMA
+       Schema URL:
+
+              https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
 
 DOCUMENTATION
-       Full GraphQL explorer documentation:
-       https://github.com/xaaha/hulak/blob/main/docs/graphql-explorer.md
+       CLI reference:
+              https://github.com/xaaha/hulak/blob/main/docs/cli.md
+
+       GraphQL explorer guide:
+              https://github.com/xaaha/hulak/blob/main/docs/graphql-explorer.md
+
+       Auth 2.0 guide:
+              https://github.com/xaaha/hulak/blob/main/docs/auth20.md
+
+       For the current CLI surface from the binary itself, use:
+
+              hulak help
+              hulak <command> --help
 
 COPYRIGHT
-       Copyright (c) 2025 Pratik Thapa 
+       Copyright (c) 2025 Pratik Thapa
 
        This software is released under the MIT License. For details, see the LICENSE file in the project repository.
 

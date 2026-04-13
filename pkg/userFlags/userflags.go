@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -22,7 +23,9 @@ type AllFlags struct {
 	Dirseq   string
 }
 
-// ParseFlagsSubcmds Exports necessary flags and subcommands for main runner
+// ParseFlagsSubcmds dispatches subcommands and root flags.
+// Subcommands and root file/dir flags handle execution directly.
+// Returns only for interactive mode (no file/dir targets were given).
 func ParseFlagsSubcmds() (*AllFlags, error) {
 	subCmds := subCommands()
 
@@ -53,12 +56,34 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 				subCmds.printHelp()
 				os.Exit(0)
 			}
+
+			// Root flags with file/dir targets: execute directly
+			if flagFP != "" || flagF != "" || flagDir != "" || flagDirseq != "" {
+				envSet := false
+				flag.Visit(func(f *flag.Flag) {
+					if f.Name == "env" || f.Name == "environment" {
+						envSet = true
+					}
+				})
+				runner.Execute(&runner.Flags{
+					Env:      flagEnv,
+					EnvSet:   envSet,
+					FilePath: flagFP,
+					File:     flagF,
+					Debug:    flagDebug,
+					Dir:      flagDir,
+					Dirseq:   flagDirseq,
+				})
+				os.Exit(0)
+			}
 		default:
 			utils.PrintRed(fmt.Sprintf("unknown command %q. See 'hulak help'", first))
 			os.Exit(1)
 		}
 	}
 
+	// Interactive mode: no subcommand, no file/dir flags.
+	// Return just enough state for the TUI flow.
 	envSet := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "env" || f.Name == "environment" {
@@ -67,12 +92,8 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	})
 
 	return &AllFlags{
-		Env:      flagEnv,
-		EnvSet:   envSet,
-		FilePath: flagFP,
-		File:     flagF,
-		Debug:    flagDebug,
-		Dir:      flagDir,
-		Dirseq:   flagDirseq,
+		Env:    flagEnv,
+		EnvSet: envSet,
+		Debug:  flagDebug,
 	}, nil
 }

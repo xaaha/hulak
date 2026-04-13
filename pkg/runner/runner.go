@@ -1,10 +1,12 @@
-// Package main initializes the project and runs the query
-package main
+// Package runner contains the API request execution pipeline.
+// It is imported by both the run subcommand and main's interactive mode.
+package runner
 
 import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -15,9 +17,58 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-/*
-InitializeProject starts the project by creating envfolder and global.env file in it.
-*/
+// Flags holds parsed CLI flags needed by the execution pipeline.
+type Flags struct {
+	Env      string
+	EnvSet   bool
+	FilePath string
+	File     string
+	Debug    bool
+	Dir      string
+	Dirseq   string
+}
+
+// Execute runs the full pipeline: discover files, resolve env, execute requests.
+func Execute(f *Flags) {
+	fileList, concurrentDir, sequentialDir := discoverFilePaths(
+		f.File,
+		f.FilePath,
+		f.Dir,
+		f.Dirseq,
+		f.Dir != "" || f.Dirseq != "",
+	)
+
+	allPaths := slices.Concat(fileList, concurrentDir, sequentialDir)
+
+	var envMap map[string]any
+	if containsTemplateVars(allPaths) {
+		if !utils.IsHulakProject() {
+			utils.PanicRedAndExit("fatal: not a hulak project \n\nRun 'hulak init' to set up")
+		}
+		envMap = InitializeProject(f.Env, true)
+	}
+
+	handleAPIRequests(
+		envMap,
+		f.Debug,
+		append(fileList, concurrentDir...),
+		sequentialDir,
+		f.FilePath,
+	)
+}
+
+// ExecuteSingleFile runs a single file through the pipeline.
+// Used by interactive mode where the file is already known.
+func ExecuteSingleFile(envMap map[string]any, debug bool, filePath string) {
+	handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath)
+}
+
+// containsTemplateVars returns true if any file in the list uses template vars.
+func containsTemplateVars(paths []string) bool {
+	return slices.ContainsFunc(paths, utils.FileHasTemplateVars)
+}
+
+// InitializeProject creates the env setup and returns the secrets map.
 func InitializeProject(env string, isCli bool) map[string]any {
 	if err := envparser.CreateDefaultEnvs(nil); err != nil {
 		utils.PanicRedAndExit("%v", err)
@@ -29,123 +80,8 @@ func InitializeProject(env string, isCli bool) map[string]any {
 	return envMap
 }
 
-// runTasks manages the go tasks with a limited worker pool
-func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string) {
-	// Configuration parameters
-	maxWorkers := utils.GetWorkers(nil) // Dynamically determine worker count
-	maxRetries := 3                     // Number of retries for failed tasks
-	timeout := 60 * time.Second         // Timeout for each API call
-
-	if fp != "" {
-		// If fp flag has a path, then let's not retry it again
-		maxRetries = 1
-	}
-
-	var wg sync.WaitGroup
-	taskChan := make(chan string, len(filePathList)) // Buffered channel for tasks
-
-	// Fill the task channel with file paths
-	for _, path := range filePathList {
-		taskChan <- path
-	}
-	close(taskChan)
-
-	// Create a pool of worker goroutines
-	for i := range maxWorkers {
-		wg.Add(1)
-		go func(_ int) {
-			defer wg.Done()
-
-			for path := range taskChan {
-				// Process each task with retry logic
-				success := false
-				var lastErr error
-
-				for attempt := 0; attempt < maxRetries && !success; attempt++ {
-					if attempt > 0 {
-						// Exponential backoff for retries
-						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
-						utils.PrintWarning(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
-							path, attempt+1, maxRetries, backoffDuration))
-						time.Sleep(backoffDuration)
-					}
-
-					// Create a context with timeout
-					ctx, cancel := context.WithTimeout(context.Background(), timeout)
-
-					// Use a channel to handle the task completion
-					doneChan := make(chan struct{})
-					errChan := make(chan error, 1)
-
-					// Execute the task in a separate goroutine
-					go func() {
-						err := processTask(path, utils.CopyEnvMap(secretsMap), debug)
-						if err != nil {
-							errChan <- err
-						} else {
-							close(doneChan)
-						}
-					}()
-
-					// Wait for either completion, error, or timeout
-					select {
-					case <-doneChan:
-						success = true
-						utils.PrintInfo(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
-					case err := <-errChan:
-						lastErr = err
-						utils.PrintInfo(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
-					case <-ctx.Done():
-						lastErr = fmt.Errorf("timeout after %v", timeout)
-						utils.PrintRed(fmt.Sprintf("Timeout processing %s after %v (attempt %d/%d)",
-							path, timeout, attempt+1, maxRetries))
-					}
-					// Always cancel the context created with timeout
-					cancel()
-				}
-
-				if !success {
-					utils.PrintRed(fmt.Sprintf("Failed to process %s after %d attempts: %v",
-						path, maxRetries, lastErr))
-				}
-			}
-		}(i)
-	}
-	// Wait for all workers to finish
-	wg.Wait()
-}
-
-// processTask handles a single task, separated to simplify the worker logic
-func processTask(path string, secretsMap map[string]any, debug bool) error {
-	// Parse the configuration for the file
-	config, err := yamlparser.ParseConfig(path, secretsMap)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to parse config %v", err)
-		return utils.ColorError(errMsg)
-	}
-
-	// Handle different kinds based on the yaml 'kind' we get
-	switch {
-	case config.IsAuth():
-		return features.SendAPIRequestForAuth2(secretsMap, path, debug)
-	case (config.IsAPI() || config.IsGraphql()):
-		return apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
-	default:
-		return fmt.Errorf("unsupported kind in file: %s", path)
-	}
-}
-
-/*
- things we could optiize for but is probably too much here
- Rate limiting an API.
- Priority Queues: For mixed task types with different priorities
- Result Collection: Add a results channel to collect success/failure statistics.
- Graceful Shutdown: Add signal handling to cancel in-progress tasks if the program is terminated.
-*/
-
-// DiscoverFilePaths collects all file paths from -f, -fp, -dir, and -dirseq flags.
-// Returns three slices: files from -f/-fp, concurrent dir files, and sequential dir files.
-func DiscoverFilePaths(
+// discoverFilePaths collects all file paths from -f, -fp, -dir, and -dirseq flags.
+func discoverFilePaths(
 	fileName, fp, dir, dirseq string,
 	hasDirFlags bool,
 ) (fileList, concurrentDir, sequentialDir []string) {
@@ -173,9 +109,8 @@ func DiscoverFilePaths(
 	return fileList, concurrentDir, sequentialDir
 }
 
-// HandleAPIRequests processes API requests from pre-discovered file lists.
-// concurrentFiles are processed via worker pool, sequentialFiles one-by-one.
-func HandleAPIRequests(
+// handleAPIRequests processes API requests from pre-discovered file lists.
+func handleAPIRequests(
 	secrets map[string]any,
 	debug bool,
 	concurrentFiles []string,
@@ -203,11 +138,101 @@ func HandleAPIRequests(
 	}
 }
 
-// processFilesSequentially handles files one by one in a sequential manner
+// runTasks manages the go tasks with a limited worker pool
+func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string) {
+	maxWorkers := utils.GetWorkers(nil)
+	maxRetries := 3
+	timeout := 60 * time.Second
+
+	if fp != "" {
+		maxRetries = 1
+	}
+
+	var wg sync.WaitGroup
+	taskChan := make(chan string, len(filePathList))
+
+	for _, path := range filePathList {
+		taskChan <- path
+	}
+	close(taskChan)
+
+	for i := range maxWorkers {
+		wg.Add(1)
+		go func(_ int) {
+			defer wg.Done()
+
+			for path := range taskChan {
+				success := false
+				var lastErr error
+
+				for attempt := 0; attempt < maxRetries && !success; attempt++ {
+					if attempt > 0 {
+						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
+						utils.PrintWarning(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
+							path, attempt+1, maxRetries, backoffDuration))
+						time.Sleep(backoffDuration)
+					}
+
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+					doneChan := make(chan struct{})
+					errChan := make(chan error, 1)
+
+					go func() {
+						err := processTask(path, utils.CopyEnvMap(secretsMap), debug)
+						if err != nil {
+							errChan <- err
+						} else {
+							close(doneChan)
+						}
+					}()
+
+					select {
+					case <-doneChan:
+						success = true
+						utils.PrintInfo(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
+					case err := <-errChan:
+						lastErr = err
+						utils.PrintInfo(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
+					case <-ctx.Done():
+						lastErr = fmt.Errorf("timeout after %v", timeout)
+						utils.PrintRed(fmt.Sprintf("Timeout processing %s after %v (attempt %d/%d)",
+							path, timeout, attempt+1, maxRetries))
+					}
+					cancel()
+				}
+
+				if !success {
+					utils.PrintRed(fmt.Sprintf("Failed to process %s after %d attempts: %v",
+						path, maxRetries, lastErr))
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+// processTask handles a single task
+func processTask(path string, secretsMap map[string]any, debug bool) error {
+	config, err := yamlparser.ParseConfig(path, secretsMap)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to parse config %v", err)
+		return utils.ColorError(errMsg)
+	}
+
+	switch {
+	case config.IsAuth():
+		return features.SendAPIRequestForAuth2(secretsMap, path, debug)
+	case (config.IsAPI() || config.IsGraphql()):
+		return apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
+	default:
+		return fmt.Errorf("unsupported kind in file: %s", path)
+	}
+}
+
+// processFilesSequentially handles files one by one
 func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool) {
 	for _, path := range filePaths {
-
-		// Create a fresh copy of the environment for each file
 		fileEnv := utils.CopyEnvMap(secretsMap)
 
 		err := processTask(path, fileEnv, debug)
@@ -222,19 +247,16 @@ func processFilesSequentially(filePaths []string, secretsMap map[string]any, deb
 func generateFilePathList(fileName string, fp string) ([]string, error) {
 	standardErrMsg := "to send api request(s), please provide a valid file name with \n'-f fileName' flag or  \n'-fp file/path/' "
 
-	// Both inputs are empty, return an error
 	if fileName == "" && fp == "" {
 		return nil, utils.ColorError(standardErrMsg)
 	}
 
 	var filePathList []string
 
-	// Add file path from -fp flag if provided
 	if fp != "" {
 		filePathList = append(filePathList, fp)
 	}
 
-	// Add matching paths for -f flag if provided
 	if fileName != "" {
 		if matchingPaths, err := utils.ListMatchingFiles(fileName); err != nil {
 			utils.PrintRed(utils.ErrFilePathCollection + ": " + err.Error())
