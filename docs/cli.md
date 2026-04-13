@@ -41,16 +41,16 @@ For command-specific help, prefer `hulak <command> --help`.
 
 ## Command Index
 
-| Command | Purpose | Example |
-| --- | --- | --- |
-| `run` | Run one request file or a directory | `hulak run requests/get-user.hk.yaml` |
-| `version` | Print the current Hulak version | `hulak version` |
-| `init` | Create project setup and env files | `hulak init` |
-| `migrate` | Convert Postman exports to Hulak files | `hulak migrate collection.json` |
-| `doctor` | Check project health | `hulak doctor` |
-| `gql` | Open the GraphQL explorer | `hulak gql .` |
-| `env` | Inspect the environment-secrets command tree | `hulak env --help` |
-| `help` | Show top-level help | `hulak help` |
+| Command   | Purpose                                      | Example                               |
+| --------- | -------------------------------------------- | ------------------------------------- |
+| `run`     | Run one request file or a directory          | `hulak run requests/get-user.hk.yaml` |
+| `version` | Print the current Hulak version              | `hulak version`                       |
+| `init`    | Create project setup and env files           | `hulak init`                          |
+| `migrate` | Convert Postman exports to Hulak files       | `hulak migrate collection.json`       |
+| `doctor`  | Check project health                         | `hulak doctor`                        |
+| `gql`     | Open the GraphQL explorer                    | `hulak gql .`                         |
+| `env`     | Inspect the environment-secrets command tree | `hulak env --help`                    |
+| `help`    | Show top-level help                          | `hulak help`                          |
 
 ## Core Behaviors
 
@@ -84,11 +84,11 @@ hulak run path/to/dir/ --sequential
 
 Supported flags:
 
-| Flag | Meaning |
-| --- | --- |
-| `--env`, `--environment` | Use a specific environment |
-| `--debug` | Print request and response debug details |
-| `--sequential`, `--seq` | Run directory files one at a time |
+| Flag                     | Meaning                                  |
+| ------------------------ | ---------------------------------------- |
+| `--env`, `--environment` | Use a specific environment               |
+| `--debug`                | Print request and response debug details |
+| `--sequential`, `--seq`  | Run directory files one at a time        |
 
 Notes:
 
@@ -154,8 +154,8 @@ Aliases:
 
 Supported flags:
 
-| Flag | Meaning |
-| --- | --- |
+| Flag                     | Meaning                                          |
+| ------------------------ | ------------------------------------------------ |
 | `--env`, `--environment` | Use a specific environment and skip the selector |
 
 Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
@@ -185,8 +185,6 @@ Subcommands currently shown by the CLI:
 - `remove-recipient`
 - `list-recipients`
 
-Important: the command surface is present, but the current handlers still print `not yet implemented` for the scaffolded `env` subcommands.
-
 ### `help`
 
 Print the top-level command list.
@@ -205,15 +203,15 @@ hulak <command> --help
 
 These are still supported. They are useful when you want the older root-flag style or need file-name search behavior.
 
-| Flag | Meaning | Example |
-| --- | --- | --- |
-| `-env`, `--environment` | Select an environment for root-flag execution | `hulak -env prod -fp requests/get-user.hk.yaml` |
-| `-fp`, `--file-path` | Run one exact file path | `hulak -fp requests/get-user.hk.yaml` |
-| `-f`, `--file` | Search for matching file names recursively and run matches | `hulak -f getUser` |
-| `-dir` | Run a directory concurrently | `hulak -dir ./requests/` |
-| `-dirseq` | Run a directory sequentially | `hulak -dirseq ./requests/` |
-| `-debug` | Enable debug output | `hulak -fp requests/get-user.hk.yaml -debug` |
-| `-v`, `--version` | Print version | `hulak --version` |
-| `-h`, `--help` | Print help | `hulak --help` |
+| Flag                    | Meaning                                                    | Example                                         |
+| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `-env`, `--environment` | Select an environment for root-flag execution              | `hulak -env prod -fp requests/get-user.hk.yaml` |
+| `-fp`, `--file-path`    | Run one exact file path                                    | `hulak -fp requests/get-user.hk.yaml`           |
+| `-f`, `--file`          | Search for matching file names recursively and run matches | `hulak -f getUser`                              |
+| `-dir`                  | Run a directory concurrently                               | `hulak -dir ./requests/`                        |
+| `-dirseq`               | Run a directory sequentially                               | `hulak -dirseq ./requests/`                     |
+| `-debug`                | Enable debug output                                        | `hulak -fp requests/get-user.hk.yaml -debug`    |
+| `-v`, `--version`       | Print version                                              | `hulak --version`                               |
+| `-h`, `--help`          | Print help                                                 | `hulak --help`                                  |
 
 Use the shorthand form when it fits your workflow, but prefer `hulak run ...` in examples and onboarding material.
