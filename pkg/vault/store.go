@@ -149,17 +149,24 @@ const (
 // we need to update this function as well. FindProjectRoot should also look for
 // .hulak/store.age file
 
-// func DetectStore(projectRoot string) StoreType {
-//
-//
-// 	fileExists := utils.FileExists(path)
-// 	if fileExists {
-// 		return StoreAge
-// 	}
-//
-// 	dirExists := utils.DirExists(path)
-// 	if dirExists {
-// 		return StoreClassic
-// 	}
-// 	return StoreNone
-// }
+// DetectStore checks which storage backend is available.
+// .hulak/store.age takes priority over env/ if both exist.
+func DetectStore() StoreType {
+	projectRoot, ok := utils.FindProjectRoot()
+	if !ok {
+		return StoreNone
+	}
+
+	ageFile := filepath.Join(projectRoot, utils.HiddenProjectName)
+	fileExists := utils.FileExists(ageFile)
+	if fileExists {
+		return StoreAge
+	}
+
+	envDir := filepath.Join(projectRoot, utils.EnvironmentFolder)
+	envDirExists := utils.DirExists(envDir)
+	if envDirExists {
+		return StoreClassic
+	}
+	return StoreNone
+}
