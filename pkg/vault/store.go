@@ -13,6 +13,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// Contains encrypted store persistence and environment secret key management.
+
 // Env is the user's environment like 'staging', 'prod',
 type Env map[string]any
 
