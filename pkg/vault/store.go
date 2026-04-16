@@ -135,3 +135,31 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 
 	return nil
 }
+
+type StoreType int
+
+const (
+	StoreNone StoreType = iota
+	StoreAge
+	StoreClassic
+)
+
+// TODO:  pkg/utils/project.go has FindProjectRoot but it's misleading
+// It's looking for env folder but the description says, it's .hulak/
+// we need to update this function as well. FindProjectRoot should also look for
+// .hulak/store.age file
+
+// func DetectStore(projectRoot string) StoreType {
+//
+//
+// 	fileExists := utils.FileExists(path)
+// 	if fileExists {
+// 		return StoreAge
+// 	}
+//
+// 	dirExists := utils.DirExists(path)
+// 	if dirExists {
+// 		return StoreClassic
+// 	}
+// 	return StoreNone
+// }
