@@ -357,7 +357,6 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tui.CopiedMsg:
-		// TODO: surface clipboard errors via a status flash once one exists.
 		return m, nil
 	case refreshLoadedMsg:
 		m.refreshing = false
