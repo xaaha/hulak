@@ -264,19 +264,18 @@ func MergeMaps(main, sec map[string]string) map[string]string {
 	return main
 }
 
-// FileExists checks if a file exists and is accessible at the given path
+// stat checks if a file exists and is accessible at the given path
+func stat(path string) (os.FileInfo, error) {
+	return os.Stat(filepath.Clean(path))
+}
+
 // Returns true if the file exists and is readable, false otherwise
 func FileExists(path string) bool {
-	// Clean the path to remove redundancies
-	cleanPath := filepath.Clean(path)
+	info, err := stat(path)
+	return err == nil && !info.IsDir()
+}
 
-	// Check if file exists and is accessible
-	info, err := os.Stat(cleanPath)
-	if err != nil {
-		// File doesn't exist or cannot be accessed
-		return false
-	}
-
-	// Make sure it's a file and not a directory
-	return !info.IsDir()
+func DirExists(path string) bool {
+	info, err := stat(path)
+	return info.IsDir() && err == nil
 }
