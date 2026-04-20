@@ -7,7 +7,7 @@ import (
 )
 
 // FindProjectRoot walks up from the current working directory looking for
-// the root marker, .hulak/, similar to how git searches for .git/.
+// the root marker, env/ similar to how git searches for .git/.
 // It stops at the user's home directory. Returns the project root path and true if found, or user home dir and false otherwise.
 func FindProjectRoot() (string, bool) {
 	cwd, err := os.Getwd()
