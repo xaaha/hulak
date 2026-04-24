@@ -153,6 +153,113 @@ func TestDiscoverFilePaths_EmptyInputs(t *testing.T) {
 	}
 }
 
+// --- envSelector tests ---
+
+func TestExecute_EnvNotSet_CallsSelector(t *testing.T) {
+	orig := envSelector
+	defer func() { envSelector = orig }()
+
+	called := false
+	envSelector = func() (string, error) {
+		called = true
+		return "picked-env", nil
+	}
+
+	// File with template vars
+	tmpFile := filepath.Join(t.TempDir(), "tmpl.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("url: '{{.apiUrl}}'"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f := &Flags{
+		Env:      "global",
+		EnvSet:   false,
+		FilePath: tmpFile,
+	}
+
+	// Execute will call IsHulakProject which will be false in test context,
+	// so it would PanicRedAndExit. We only need to verify the selector is
+	// called BEFORE that point. Use recover to catch the exit.
+	func() {
+		defer func() { _ = recover() }()
+		Execute(f)
+	}()
+
+	if !called {
+		t.Error("envSelector should be called when EnvSet is false and files have template vars")
+	}
+	if f.Env != "picked-env" {
+		t.Errorf("Env = %q, want %q", f.Env, "picked-env")
+	}
+}
+
+func TestExecute_EnvSet_SkipsSelector(t *testing.T) {
+	orig := envSelector
+	defer func() { envSelector = orig }()
+
+	called := false
+	envSelector = func() (string, error) {
+		called = true
+		return "should-not-be-used", nil
+	}
+
+	// File with template vars
+	tmpFile := filepath.Join(t.TempDir(), "tmpl.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("url: '{{.apiUrl}}'"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f := &Flags{
+		Env:      "staging",
+		EnvSet:   true,
+		FilePath: tmpFile,
+	}
+
+	func() {
+		defer func() { _ = recover() }()
+		Execute(f)
+	}()
+
+	if called {
+		t.Error("envSelector should NOT be called when EnvSet is true")
+	}
+	if f.Env != "staging" {
+		t.Errorf("Env = %q, want %q (should remain unchanged)", f.Env, "staging")
+	}
+}
+
+func TestExecute_NoTemplateVars_SkipsSelector(t *testing.T) {
+	orig := envSelector
+	defer func() { envSelector = orig }()
+
+	called := false
+	envSelector = func() (string, error) {
+		called = true
+		return "should-not-be-used", nil
+	}
+
+	// File WITHOUT template vars
+	tmpFile := filepath.Join(t.TempDir(), "plain.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("method: GET\nurl: http://example.com"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f := &Flags{
+		Env:      "global",
+		EnvSet:   false,
+		FilePath: tmpFile,
+	}
+
+	func() {
+		defer func() { _ = recover() }()
+		Execute(f)
+	}()
+
+	if called {
+		t.Error("envSelector should NOT be called when files have no template vars")
+	}
+}
+
 func TestDiscoverFilePaths_FpAndDirTogether(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "single.yaml")
