@@ -5,6 +5,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -13,9 +14,14 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
+	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
+
+// envSelector is the function used to show the interactive environment picker.
+// Package-level var so tests can replace it without TUI dependencies.
+var envSelector = envselect.RunEnvSelector
 
 // Flags holds parsed CLI flags needed by the execution pipeline.
 type Flags struct {
@@ -44,6 +50,16 @@ func Execute(f *Flags) {
 	if containsTemplateVars(allPaths) {
 		if !utils.IsHulakProject() {
 			utils.PanicRedAndExit("fatal: not a hulak project \n\nRun 'hulak init' to set up")
+		}
+		if !f.EnvSet {
+			selectedEnv, err := envSelector()
+			if err != nil {
+				utils.PanicRedAndExit("Environment selector error: %v", err)
+			}
+			if selectedEnv == "" {
+				os.Exit(0)
+			}
+			f.Env = selectedEnv
 		}
 		envMap = InitializeProject(f.Env, true)
 	}
