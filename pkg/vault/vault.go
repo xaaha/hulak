@@ -10,6 +10,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// Contains keypair generation, persistence, and age text encryption helpers.
+
 // AgeKey holds a matched age X25519 keypair.
 type AgeKey struct {
 	Recipient *age.X25519Recipient

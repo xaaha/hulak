@@ -6,6 +6,8 @@ import (
 	"filippo.io/age"
 )
 
+// Contains low-level age encryption and decryption stream helpers.
+
 // Encrypt reads plaintext from r, encrypts it for the given recipients, and writes ciphertext to w.
 func Encrypt(r io.Reader, w io.Writer, recipients ...age.Recipient) error {
 	ew, err := age.Encrypt(w, recipients...)

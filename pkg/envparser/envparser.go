@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 )
 
 /*
@@ -168,6 +169,37 @@ func inferType(val string, wasTrimmed bool) any {
 	return val
 }
 
+// loadSecretsFromVault decrypts the store and returns merged env vars.
+// Uses the same merge pattern as classic: global base + custom overlay.
+func loadSecretsFromVault(envName string) (map[string]any, error) {
+	identity, err := vault.LoadIdentity()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return nil, err
+	}
+
+	globalMap := store.GetEnv(utils.DefaultEnvVal)
+	if globalMap == nil {
+		globalMap = make(map[string]any)
+	}
+	resultMap := utils.CopyEnvMap(globalMap)
+
+	if envName == "" || strings.EqualFold(envName, utils.DefaultEnvVal) {
+		return resultMap, nil
+	}
+
+	custom := store.GetEnv(envName)
+	if custom == nil {
+		return nil, fmt.Errorf("environment %q not found in vault store", envName)
+	}
+	maps.Copy(resultMap, custom)
+	return resultMap, nil
+}
+
 /*
 GenerateSecretsMap creates final map of environment variables and it's values
 User's Choice > Global.
@@ -175,6 +207,13 @@ When user has custom env they want to use, it merges custom with global env.
 Replaces global key with custom when keys repeat
 */
 func GenerateSecretsMap(envFromFlag string, isCli bool) (map[string]any, error) {
+	if vault.DetectStore() == vault.StoreAge {
+		if isCli {
+			utils.PrintGreen("Environment: " + envFromFlag)
+		}
+		return loadSecretsFromVault(envFromFlag)
+	}
+
 	skipped, err := setEnvironment(envFromFlag, isCli)
 	if err != nil {
 		return nil, utils.ColorError("error while setting environment: %w", err)
@@ -248,6 +287,10 @@ func mergeCustomEnvVars(
 // Use this for TUI flows where environment selection has already been handled separately.
 // Creates global.env if it doesn't exist.
 func LoadSecretsMap(envName string) (map[string]any, error) {
+	if vault.DetectStore() == vault.StoreAge {
+		return loadSecretsFromVault(envName)
+	}
+
 	// Ensure global.env exists (create if missing)
 	if err := CreateDefaultEnvs(nil); err != nil {
 		return nil, utils.ColorError("failed to create global.env", err)

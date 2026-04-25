@@ -338,6 +338,104 @@ func TestReadStoreWrongIdentity(t *testing.T) {
 	}
 }
 
+func TestDetectStore(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	t.Run("returns StoreAge when store.age exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+		hulakDir := filepath.Join(tmpDir, utils.HiddenProjectName)
+		if err := os.Mkdir(hulakDir, utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(hulakDir, utils.StoreFile), []byte("encrypted"), utils.SecretPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := DetectStore(); got != StoreAge {
+			t.Errorf("DetectStore() = %v, want StoreAge", got)
+		}
+	})
+
+	t.Run("returns StoreClassic when only env/ exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+		if err := os.Mkdir(filepath.Join(tmpDir, utils.EnvironmentFolder), utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := DetectStore(); got != StoreClassic {
+			t.Errorf("DetectStore() = %v, want StoreClassic", got)
+		}
+	})
+
+	t.Run("returns StoreNone when neither exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := DetectStore(); got != StoreNone {
+			t.Errorf("DetectStore() = %v, want StoreNone", got)
+		}
+	})
+
+	t.Run("StoreAge takes priority over env/", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+		hulakDir := filepath.Join(tmpDir, utils.HiddenProjectName)
+		if err := os.Mkdir(hulakDir, utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(hulakDir, utils.StoreFile), []byte("encrypted"), utils.SecretPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(filepath.Join(tmpDir, utils.EnvironmentFolder), utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := DetectStore(); got != StoreAge {
+			t.Errorf("DetectStore() = %v, want StoreAge when both exist", got)
+		}
+	})
+
+	t.Run("returns StoreNone when .hulak is dir but no store.age", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+		if err := os.Mkdir(filepath.Join(tmpDir, utils.HiddenProjectName), utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := DetectStore(); got != StoreNone {
+			t.Errorf("DetectStore() = %v, want StoreNone when .hulak has no store.age", got)
+		}
+	})
+}
+
 func TestWriteStoreAtomicCleanup(t *testing.T) {
 	projectDir := setupHulakProject(t)
 	id, _ := age.GenerateX25519Identity()

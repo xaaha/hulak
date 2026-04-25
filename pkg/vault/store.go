@@ -13,6 +13,8 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// Contains encrypted store persistence and environment secret key management.
+
 // Env is the user's environment like 'staging', 'prod',
 type Env map[string]any
 
@@ -132,4 +134,31 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 	}
 
 	return nil
+}
+
+type StoreType int
+
+const (
+	StoreNone StoreType = iota
+	StoreAge
+	StoreClassic
+)
+
+// DetectStore checks which storage backend is available.
+// .hulak/store.age takes priority over env/ if both exist.
+func DetectStore() StoreType {
+	if path, err := storePath(); err == nil && utils.FileExists(path) {
+		return StoreAge
+	}
+
+	projectRoot, ok := utils.FindProjectRoot()
+	if !ok {
+		return StoreNone
+	}
+
+	envDir := filepath.Join(projectRoot, utils.EnvironmentFolder)
+	if utils.DirExists(envDir) {
+		return StoreClassic
+	}
+	return StoreNone
 }

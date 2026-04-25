@@ -13,13 +13,14 @@ import (
 // TUI flows but are not standalone Bubble Tea models.
 
 func NoFilesError() error {
-	errMsg := `no '.yaml' or '.yml' files found in current directory
-
-Possible solutions:
-  - Create an API file: echo "method: GET" > api.yaml
-  - Check that files are not inside the 'env/' directory`
-
-	return utils.ColorError(errMsg)
+	return utils.HelpfulError(
+		"no '.yaml' or '.yml' files found in current directory",
+		"Possible solutions",
+		[]string{
+			`Create an API file: echo "method: GET" > api.yaml`,
+			"Check that files are not inside the 'env/' directory",
+		},
+	)
 }
 
 func FileItems() ([]string, error) {

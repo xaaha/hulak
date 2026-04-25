@@ -7,8 +7,9 @@ import (
 )
 
 // FindProjectRoot walks up from the current working directory looking for
-// the root marker, .hulak/, similar to how git searches for .git/.
-// It stops at the user's home directory. Returns the project root path and true if found, or user home dir and false otherwise.
+// root markers: .hulak/ (primary) or env/ (legacy), similar to how git searches for .git/.
+// It stops at the user's home directory. Returns the project root path and true if found,
+// or the original current working directory and false otherwise.
 func FindProjectRoot() (string, bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -22,9 +23,12 @@ func FindProjectRoot() (string, bool) {
 
 	dir := cwd
 	for home == "" || dir != home {
-		candidate := filepath.Join(dir, EnvironmentFolder)
-		info, err := os.Stat(candidate)
-		if err == nil && info.IsDir() {
+		// .hulak/ is the primary marker (encrypted store)
+		if DirExists(filepath.Join(dir, HiddenProjectName)) {
+			return dir, true
+		}
+		// env/ is the legacy marker (plaintext .env files)
+		if DirExists(filepath.Join(dir, EnvironmentFolder)) {
 			return dir, true
 		}
 
