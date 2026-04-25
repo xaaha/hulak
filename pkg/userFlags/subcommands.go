@@ -436,7 +436,7 @@ func newEnvCmd() *command {
 				{Command: "hulak env list", Description: "List all environment names"},
 				{Command: "hulak env ls", Description: "Same as list (alias)"},
 			},
-			Run: notImplemented("list"),
+			Run: runEnvList,
 		},
 		{
 			Name:    "keys",

@@ -241,3 +241,28 @@ func runEnvDelete(args []string, envName string) error {
 		return nil
 	})
 }
+
+// --- LIST ---
+
+// runEnvList handles `hulak env list`. Prints environment names — one per line,
+// sorted, no decoration — so output is friendly to `for env in $(hulak env list)`.
+func runEnvList(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	identity, err := vault.LoadIdentity()
+	if err != nil {
+		return fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return err
+	}
+
+	for _, name := range store.ListEnvs() {
+		fmt.Println(name)
+	}
+	return nil
+}

@@ -324,6 +324,65 @@ func TestRunEnvDelete_Errors(t *testing.T) {
 	}
 }
 
+func TestRunEnvList_PrintsSortedNames(t *testing.T) {
+	setupVaultProject(t)
+
+	// Seed: prod, global, staging — listing should sort alphabetically.
+	for _, env := range []string{"prod", "global", "staging"} {
+		if err := runEnvSet([]string{"K", "v"}, env, false); err != nil {
+			t.Fatalf("seed %s: %v", env, err)
+		}
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvList(nil)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvList: %v", runErr)
+	}
+
+	want := "global\nprod\nstaging\n"
+	if out != want {
+		t.Errorf("stdout = %q, want %q", out, want)
+	}
+}
+
+func TestRunEnvList_EmptyStore(t *testing.T) {
+	setupVaultProject(t)
+
+	// Generate a keypair + empty store so LoadIdentity / ReadStore succeed.
+	if err := vault.WithStoreLock(func() error {
+		ageKey, _ := vault.EnsureKeypair()
+		store, _ := vault.ReadStore(ageKey.Identity)
+		return vault.WriteStore(store, ageKey.Recipient)
+	}); err != nil {
+		t.Fatalf("seed empty: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvList(nil)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvList: %v", runErr)
+	}
+	if out != "" {
+		t.Errorf("stdout = %q, want empty", out)
+	}
+}
+
+func TestRunEnvList_TooManyArgs(t *testing.T) {
+	setupVaultProject(t)
+	err := runEnvList([]string{"unexpected"})
+	if err == nil {
+		t.Fatal("expected error for extra arg")
+	}
+	if !strings.Contains(err.Error(), "too many arguments") {
+		t.Errorf("error %q should mention too many arguments", err.Error())
+	}
+}
+
 func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 	setupVaultProject(t)
 
