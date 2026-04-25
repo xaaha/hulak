@@ -1,6 +1,7 @@
 package userflags
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -138,6 +139,113 @@ func TestRunEnvSet_Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
 			err := runEnvSet(tc.args, tc.envName, tc.stdin)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.errContains) {
+				t.Errorf("error %q should contain %q", err.Error(), tc.errContains)
+			}
+		})
+	}
+}
+
+func TestRunEnvGet_PrintsString(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvGet([]string{"FOO"}, "global")
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvGet: %v", runErr)
+	}
+	if out != "bar\n" {
+		t.Errorf("stdout = %q, want %q (raw value + newline)", out, "bar\n")
+	}
+}
+
+func TestRunEnvGet_PrintsNonString(t *testing.T) {
+	setupVaultProject(t)
+
+	// Seed non-string types via the store directly (CLI `set` always stores strings).
+	if err := vault.WithStoreLock(func() error {
+		ageKey, _ := vault.EnsureKeypair()
+		store, _ := vault.ReadStore(ageKey.Identity)
+		store.SetKey("global", "PORT", json.Number("8000"))
+		store.SetKey("global", "ENABLED", true)
+		return vault.WriteStore(store, ageKey.Recipient)
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"PORT", "8000\n"},    // json.Number prints unquoted
+		{"ENABLED", "true\n"}, // bool prints unquoted
+	}
+	for _, tc := range tests {
+		t.Run(tc.key, func(t *testing.T) {
+			var runErr error
+			out := captureStdout(t, func() {
+				runErr = runEnvGet([]string{tc.key}, "global")
+			})
+			if runErr != nil {
+				t.Fatalf("runEnvGet: %v", runErr)
+			}
+			if out != tc.want {
+				t.Errorf("stdout = %q, want %q", out, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunEnvGet_FromCustomEnv(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"DB_URL", "postgres"}, "prod", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvGet([]string{"DB_URL"}, "prod")
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvGet: %v", runErr)
+	}
+	if out != "postgres\n" {
+		t.Errorf("stdout = %q, want %q", out, "postgres\n")
+	}
+}
+
+func TestRunEnvGet_Errors(t *testing.T) {
+	tests := []struct {
+		name        string
+		seedKey     string
+		seedEnv     string
+		args        []string
+		envName     string
+		errContains string
+	}{
+		{"missing key arg", "K", "global", []string{}, "global", "missing required argument"},
+		{"too many args", "K", "global", []string{"A", "B"}, "global", "too many arguments"},
+		{"invalid env name", "K", "global", []string{"K"}, "bad name", "invalid"},
+		{"missing key in env", "K", "global", []string{"NOPE"}, "global", `key "NOPE" not found in environment "global"`},
+		{"missing env", "K", "global", []string{"K"}, "doesnotexist", `environment "doesnotexist" not found`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupVaultProject(t)
+			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+
+			err := runEnvGet(tc.args, tc.envName)
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

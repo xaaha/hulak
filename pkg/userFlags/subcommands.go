@@ -337,7 +337,7 @@ func newEnvCmd() *command {
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	_ = registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
+	getEnv := registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// list — show environment names
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
@@ -424,7 +424,7 @@ func newEnvCmd() *command {
 					Description: "Capture a value into a shell variable",
 				},
 			},
-			Run: notImplemented("get"),
+			Run: func(args []string) error { return runEnvGet(args, *getEnv) },
 		},
 		{
 			Name:    "list",

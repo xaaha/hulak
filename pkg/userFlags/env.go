@@ -1,6 +1,7 @@
 package userflags
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -127,4 +128,61 @@ func promptSecretValue(key string) (string, error) {
 		return "", fmt.Errorf("failed to read input: %w", err)
 	}
 	return string(bytes), nil
+}
+
+// --- GET ---
+
+// runEnvGet handles `hulak env get KEY`. Prints the raw value to stdout
+// (suitable for $(...) capture) and returns a non-zero error if the key
+// or environment is missing.
+func runEnvGet(args []string, envName string) error {
+	if len(args) == 0 {
+		return errors.New("missing required argument: KEY")
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("too many arguments: got %d, expected KEY", len(args))
+	}
+	key := args[0]
+
+	if err := utils.ValidateEnvName(envName); err != nil {
+		return err
+	}
+
+	identity, err := vault.LoadIdentity()
+	if err != nil {
+		return fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return err
+	}
+
+	env := store.GetEnv(envName)
+	if env == nil {
+		return fmt.Errorf("environment %q not found in vault store", envName)
+	}
+
+	value, ok := env[key]
+	if !ok {
+		return fmt.Errorf("key %q not found in environment %q", key, envName)
+	}
+
+	return printValue(value)
+}
+
+// printValue writes a stored value to stdout in a script-friendly form.
+// Strings print raw; other types are JSON-encoded so numbers/bools/objects
+// round-trip predictably (e.g. json.Number("8000") prints as 8000, not "8000").
+func printValue(value any) error {
+	if s, ok := value.(string); ok {
+		fmt.Println(s)
+		return nil
+	}
+	b, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to format value: %w", err)
+	}
+	fmt.Println(string(b))
+	return nil
 }
