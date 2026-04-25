@@ -344,9 +344,9 @@ func newEnvCmd() *command {
 
 	// keys — list keys within an environment
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	_ = registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
-	keysFs.Bool("show", false, "Reveal values instead of masking them")
-	keysFs.String("search", "", "Filter keys by case-insensitive substring or glob pattern")
+	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
+	keysShow := keysFs.Bool("show", false, "Reveal values instead of masking them")
+	keysSearch := keysFs.String("search", "", "Filter keys by case-insensitive substring or glob pattern")
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
@@ -459,7 +459,9 @@ func newEnvCmd() *command {
 					Description: "Filter by case-insensitive substring",
 				},
 			},
-			Run: notImplemented("keys"),
+			Run: func(args []string) error {
+				return runEnvKeys(args, *keysEnv, *keysSearch, *keysShow)
+			},
 		},
 		{
 			Name:    "delete",

@@ -383,6 +383,182 @@ func TestRunEnvList_TooManyArgs(t *testing.T) {
 	}
 }
 
+func TestRunEnvKeys_MasksByDefault(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvKeys(nil, "global", "", false)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	if !strings.Contains(out, "API_KEY") {
+		t.Errorf("output should contain key name; got %q", out)
+	}
+	if !strings.Contains(out, maskedValue) {
+		t.Errorf("output should contain mask %q; got %q", maskedValue, out)
+	}
+	if strings.Contains(out, "sk-123") {
+		t.Errorf("output should NOT contain real value; got %q", out)
+	}
+}
+
+func TestRunEnvKeys_ShowReveals(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvKeys(nil, "global", "", true)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	if !strings.Contains(out, "sk-123") {
+		t.Errorf("--show output should reveal value; got %q", out)
+	}
+	if strings.Contains(out, maskedValue) {
+		t.Errorf("--show output should NOT contain mask; got %q", out)
+	}
+}
+
+func TestRunEnvKeys_SortsKeys(t *testing.T) {
+	setupVaultProject(t)
+	for _, k := range []string{"ZETA", "alpha", "MIDDLE"} {
+		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvKeys(nil, "global", "", false)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+
+	// sort.Strings is byte-order: uppercase before lowercase, ZETA's Z(0x5A) < a(0x61).
+	want := []string{"MIDDLE", "ZETA", "alpha"}
+	prevIdx := -1
+	prevKey := ""
+	for _, k := range want {
+		idx := strings.Index(out, k)
+		if idx == -1 {
+			t.Fatalf("output missing %q", k)
+		}
+		if prevIdx > idx {
+			t.Errorf("expected %q to appear after %q in sorted output; got %q", k, prevKey, out)
+		}
+		prevIdx = idx
+		prevKey = k
+	}
+}
+
+func TestRunEnvKeys_SearchSubstring(t *testing.T) {
+	setupVaultProject(t)
+	for _, k := range []string{"API_KEY", "DB_URL", "api_token", "TIMEOUT"} {
+		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		// "api" — substring, case-insensitive: should match API_KEY and api_token.
+		runErr = runEnvKeys(nil, "global", "api", false)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	if !strings.Contains(out, "API_KEY") || !strings.Contains(out, "api_token") {
+		t.Errorf("substring match should include both API_KEY and api_token; got %q", out)
+	}
+	if strings.Contains(out, "DB_URL") || strings.Contains(out, "TIMEOUT") {
+		t.Errorf("substring match should exclude DB_URL/TIMEOUT; got %q", out)
+	}
+}
+
+func TestRunEnvKeys_SearchGlob(t *testing.T) {
+	setupVaultProject(t)
+	for _, k := range []string{"API_KEY", "API_TOKEN", "DB_URL"} {
+		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		// Glob, case-sensitive: matches "API_*".
+		runErr = runEnvKeys(nil, "global", "API_*", false)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	if !strings.Contains(out, "API_KEY") || !strings.Contains(out, "API_TOKEN") {
+		t.Errorf("glob match should include both API_KEY and API_TOKEN; got %q", out)
+	}
+	if strings.Contains(out, "DB_URL") {
+		t.Errorf("glob match should exclude DB_URL; got %q", out)
+	}
+}
+
+func TestRunEnvKeys_SearchNoMatches(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"API_KEY", "v"}, "global", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvKeys(nil, "global", "ZZZ", false)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	if out != "" {
+		t.Errorf("expected empty output for no matches; got %q", out)
+	}
+}
+
+func TestRunEnvKeys_Errors(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		envName     string
+		search      string
+		errContains string
+	}{
+		{"too many args", []string{"unexpected"}, "global", "", "too many arguments"},
+		{"invalid env", []string{}, "bad name", "", "invalid"},
+		{"missing env", []string{}, "doesnotexist", "", `environment "doesnotexist" not found`},
+		{"bad glob", []string{}, "global", "[unclosed", "invalid glob pattern"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupVaultProject(t)
+			if err := runEnvSet([]string{"K", "v"}, "global", false); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+
+			err := runEnvKeys(tc.args, tc.envName, tc.search, false)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.errContains) {
+				t.Errorf("error %q should contain %q", err.Error(), tc.errContains)
+			}
+		})
+	}
+}
+
 func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 	setupVaultProject(t)
 

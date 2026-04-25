@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"golang.org/x/term"
@@ -13,6 +15,19 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
+
+// maskedValue is what `keys` prints in place of secret values when --show is off.
+const maskedValue = "••••"
+
+// stdoutHeaders returns headers when stdout is a TTY, nil when piped.
+// Hiding headers under pipe redirection keeps scripts like
+// `for env in $(hulak env list)` clean — the same convention as kubectl / mise.
+func stdoutHeaders(headers []string) []string {
+	if term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		return headers
+	}
+	return nil
+}
 
 // ---- SET ----
 
@@ -121,7 +136,7 @@ func promptSecretValue(key string) (string, error) {
 			"no value provided and stdin is not a terminal — pass VALUE positionally or use --stdin",
 		)
 	}
-	fmt.Fprintf(os.Stderr, "Enter value for %s: ", key)
+	fmt.Fprintf(os.Stderr, "Enter value for %s: ", key) //nolint:gosec // G705 TTY prompt, no taint sink
 	// read input without echo
 	bytes, err := term.ReadPassword(stdinFd)
 	// newline to stderr
@@ -261,8 +276,108 @@ func runEnvList(args []string) error {
 		return err
 	}
 
-	for _, name := range store.ListEnvs() {
-		fmt.Println(name)
+	names := store.ListEnvs()
+	rows := make([][]string, len(names))
+	for i, name := range names {
+		rows[i] = []string{name}
 	}
-	return nil
+	return utils.PrintTable(os.Stdout, stdoutHeaders([]string{"ENVIRONMENT"}), rows, 0)
+}
+
+// --- KEYS ---
+
+// runEnvKeys handles `hulak env keys`. Lists keys within an environment.
+//
+// Values are masked (••••) unless --show is set. --search filters keys by
+// glob pattern (when the pattern contains '*', '?', or '[') or by
+// case-insensitive substring otherwise.
+func runEnvKeys(args []string, envName, search string, show bool) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+	if err := utils.ValidateEnvName(envName); err != nil {
+		return err
+	}
+
+	identity, err := vault.LoadIdentity()
+	if err != nil {
+		return fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return err
+	}
+
+	env := store.GetEnv(envName)
+	if env == nil {
+		return fmt.Errorf("environment %q not found in vault store", envName)
+	}
+
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if search != "" {
+		keys, err = filterKeys(keys, search)
+		if err != nil {
+			return err
+		}
+	}
+
+	rows := make([][]string, 0, len(keys))
+	for _, k := range keys {
+		val := maskedValue
+		if show {
+			val = formatTableValue(env[k])
+		}
+		rows = append(rows, []string{k, val})
+	}
+	return utils.PrintTable(
+		os.Stdout,
+		stdoutHeaders([]string{"KEY", "VALUE"}),
+		rows,
+		utils.DefaultTableMaxCellWidth,
+	)
+}
+
+// filterKeys returns the subset of keys matching pattern. Glob mode (filepath.Match)
+// is used when pattern contains '*', '?', or '['; otherwise case-insensitive
+// substring match.
+func filterKeys(keys []string, pattern string) ([]string, error) {
+	isGlob := strings.ContainsAny(pattern, "*?[")
+	lowered := strings.ToLower(pattern)
+
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		var match bool
+		if isGlob {
+			ok, err := filepath.Match(pattern, k)
+			if err != nil {
+				return nil, fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+			}
+			match = ok
+		} else {
+			match = strings.Contains(strings.ToLower(k), lowered)
+		}
+		if match {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
+
+// formatTableValue renders a stored value for inline (one-line) display.
+// Strings show raw with newlines escaped to "\n"; other types JSON-encode.
+func formatTableValue(v any) string {
+	if s, ok := v.(string); ok {
+		return strings.ReplaceAll(s, "\n", `\n`)
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
 }
