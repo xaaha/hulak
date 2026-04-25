@@ -373,7 +373,8 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 	}
 
 	// Subcommands that target a specific environment
-	needsEnvFlag := []string{"set", "get", "list", "keys", "delete", "edit"}
+	// list does not take --env (it lists environment names themselves)
+	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -399,7 +400,8 @@ func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	needsEnvFlag := []string{"set", "get", "list", "keys", "delete", "edit"}
+	// list does not take --env (it lists environment names themselves)
+	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -431,6 +433,7 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 	}{
 		{"set", "stdin"},
 		{"keys", "show"},
+		{"keys", "search"},
 		{"import-key", "stdin"},
 		{"export-key", "armor"},
 	}
