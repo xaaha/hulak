@@ -14,6 +14,8 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
+// ---- SET ----
+
 // MaxValueSizeWarnBytes is the soft per-value size threshold at `set` time.
 // Above this, the user is warned and pointed at {{getFile "path"}} for blobs.
 // Not a hard limit — the value is still written.
