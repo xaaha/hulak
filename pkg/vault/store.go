@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 
 	"filippo.io/age"
 
@@ -23,6 +24,15 @@ const StoreVersion = 1
 // underscore reserves it from collision with user-defined env names
 // (which utils.ValidateEnvName rejects when starting with '_').
 const versionFieldName = "_version"
+
+// MaxStoreSizeWarnBytes is the soft threshold for the decrypted store size.
+// Above this, ReadStore prints a one-time stderr warning that performance
+// may degrade. Not a hard limit — large stores still work.
+const MaxStoreSizeWarnBytes = 1 << 20 // 1 MiB
+
+// storeSizeWarnOnce gates the size warning to once per process, so users
+// don't get spammed when a single command issues multiple reads.
+var storeSizeWarnOnce sync.Once
 
 // Env is the user's environment like 'staging', 'prod',
 type Env map[string]any
@@ -168,11 +178,30 @@ func ReadStore(identity age.Identity) (*Store, error) {
 		return nil, fmt.Errorf("failed to decrypt store: %w", err)
 	}
 
+	maybeWarnStoreSize(len(plainText))
+
 	store := &Store{}
 	if err := json.Unmarshal(plainText, store); err != nil {
 		return nil, err
 	}
 	return store, nil
+}
+
+// maybeWarnStoreSize prints a one-time stderr warning if the decrypted store
+// exceeds MaxStoreSizeWarnBytes. Stderr (not stdout) so callers like
+// `hulak env get` captured via $(...) stay clean.
+func maybeWarnStoreSize(size int) {
+	if size <= MaxStoreSizeWarnBytes {
+		return
+	}
+	storeSizeWarnOnce.Do(func() {
+		fmt.Fprintf(os.Stderr,
+			"%swarning: decrypted store is %.1f MB — large stores can slow `hulak env` operations; consider {{getFile \"path\"}} for big blobs%s\n",
+			utils.Yellow,
+			float64(size)/(1<<20),
+			utils.ColorReset,
+		)
+	})
 }
 
 // WriteStore marshals the store to JSON, encrypts it, and writes to store.age.

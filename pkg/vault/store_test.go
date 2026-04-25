@@ -2,9 +2,11 @@ package vault
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"filippo.io/age"
@@ -532,6 +534,83 @@ func TestReadStoreFutureVersionRejected(t *testing.T) {
 	msg := err.Error()
 	if !strings.Contains(msg, "newer hulak") || !strings.Contains(msg, "upgrade") {
 		t.Errorf("error message %q should mention 'newer hulak' and 'upgrade'", msg)
+	}
+}
+
+// captureStderr swaps os.Stderr for a pipe, runs fn, restores os.Stderr,
+// and returns whatever fn wrote to stderr.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = orig })
+
+	done := make(chan string, 1)
+	go func() {
+		var buf strings.Builder
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
+
+	fn()
+	_ = w.Close()
+	return <-done
+}
+
+func TestReadStoreSizeWarning_LargeTriggersOnce(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	// Build a store whose decrypted JSON exceeds 1 MB.
+	big := strings.Repeat("a", MaxStoreSizeWarnBytes+1024)
+	original := &Store{Envs: map[string]Env{"global": {"BLOB": big}}}
+	if err := WriteStore(original, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	// Reset the once-gate so this test sees the warning regardless of order.
+	storeSizeWarnOnce = sync.Once{}
+
+	out := captureStderr(t, func() {
+		if _, err := ReadStore(id); err != nil {
+			t.Fatalf("ReadStore #1: %v", err)
+		}
+		if _, err := ReadStore(id); err != nil {
+			t.Fatalf("ReadStore #2: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "warning") || !strings.Contains(out, "MB") {
+		t.Errorf("expected size warning in stderr, got %q", out)
+	}
+	if got := strings.Count(out, "warning"); got != 1 {
+		t.Errorf("warning fired %d times, want 1 (once per process)", got)
+	}
+}
+
+func TestReadStoreSizeWarning_SmallNoWarning(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	original := &Store{Envs: map[string]Env{"global": {"KEY": "value"}}}
+	if err := WriteStore(original, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	storeSizeWarnOnce = sync.Once{}
+
+	out := captureStderr(t, func() {
+		if _, err := ReadStore(id); err != nil {
+			t.Fatalf("ReadStore: %v", err)
+		}
+	})
+
+	if out != "" {
+		t.Errorf("expected no stderr output for small store, got %q", out)
 	}
 }
 
