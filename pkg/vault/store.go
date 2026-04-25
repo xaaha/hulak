@@ -195,12 +195,10 @@ func maybeWarnStoreSize(size int) {
 		return
 	}
 	storeSizeWarnOnce.Do(func() {
-		fmt.Fprintf(os.Stderr,
-			"%swarning: decrypted store is %.1f MB — large stores can slow `hulak env` operations; consider {{getFile \"path\"}} for big blobs%s\n",
-			utils.Yellow,
+		utils.PrintWarningStderr(fmt.Sprintf(
+			"decrypted store is %.1f MB — large stores can slow `hulak env` operations; consider {{getFile \"path\"}} for big blobs",
 			float64(size)/(1<<20),
-			utils.ColorReset,
-		)
+		))
 	})
 }
 
