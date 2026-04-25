@@ -6,6 +6,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // NoEnvFilesError returns a formatted error for missing env files.
@@ -26,8 +27,21 @@ Possible solutions:
 	return utils.ColorError(errMsg)
 }
 
-// EnvItems returns available environment names without the .env suffix.
+// EnvItems returns available environment names.
+// Reads from encrypted store when available, otherwise from env/ directory.
 func EnvItems() []string {
+	if vault.DetectStore() == vault.StoreAge {
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return nil
+		}
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return nil
+		}
+		return store.ListEnvs()
+	}
+
 	var items []string
 	if files, err := utils.GetEnvFiles(); err == nil {
 		for _, file := range files {
