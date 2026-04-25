@@ -400,10 +400,22 @@ func newEnvCmd() *command {
 				{Name: "value", Desc: "Secret value (omit to be prompted, or use --stdin)"},
 			},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env set API_KEY sk-123", Description: "Set a value in the default (global) environment"},
-				{Command: "hulak env set DB_URL --env prod", Description: "Prompt for the value (no shell history)"},
-				{Command: "echo -n \"$TOKEN\" | hulak env set TOKEN --stdin", Description: "Read value from stdin (scripts/CI)"},
-				{Command: "hulak env set FEATURE_FLAG true --env staging", Description: "Set a value in a specific environment"},
+				{
+					Command:     "hulak env set API_KEY sk-123",
+					Description: "Set a value in the default (global) environment",
+				},
+				{
+					Command:     "hulak env set DB_URL --env prod",
+					Description: "Prompt for the value (no shell history)",
+				},
+				{
+					Command:     "echo -n \"$TOKEN\" | hulak env set TOKEN --stdin",
+					Description: "Read value from stdin (scripts/CI)",
+				},
+				{
+					Command:     "hulak env set FEATURE_FLAG true --env staging",
+					Description: "Set a value in a specific environment",
+				},
 			},
 			Run: notImplemented("set"),
 		},
@@ -416,9 +428,18 @@ func newEnvCmd() *command {
 				{Name: "key", Required: true, Desc: "Secret key to retrieve"},
 			},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env get API_KEY", Description: "Print API_KEY from the default environment"},
-				{Command: "hulak env get DB_URL --env prod", Description: "Print DB_URL from the prod environment"},
-				{Command: "API_KEY=$(hulak env get API_KEY --env staging)", Description: "Capture a value into a shell variable"},
+				{
+					Command:     "hulak env get API_KEY",
+					Description: "Print API_KEY from the default environment",
+				},
+				{
+					Command:     "hulak env get DB_URL --env prod",
+					Description: "Print DB_URL from the prod environment",
+				},
+				{
+					Command:     "API_KEY=$(hulak env get API_KEY --env staging)",
+					Description: "Capture a value into a shell variable",
+				},
 			},
 			Run: notImplemented("get"),
 		},
@@ -441,10 +462,19 @@ func newEnvCmd() *command {
 			Long:    "Show secret keys within an environment.\n\nValues are masked by default (••••) so the output is safe to share in screen recordings\nand meetings. Use --show to reveal them.\nUse --search to filter by case-insensitive substring or glob pattern (e.g. \"API*\", \"DB_?\").",
 			Flags:   keysFs,
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env keys --env prod", Description: "List keys in prod with values masked"},
+				{
+					Command:     "hulak env keys --env prod",
+					Description: "List keys in prod with values masked",
+				},
 				{Command: "hulak env keys --env prod --show", Description: "Reveal actual values"},
-				{Command: "hulak env keys --env prod --search \"API*\"", Description: "Filter keys by glob pattern"},
-				{Command: "hulak env keys --env staging --search api", Description: "Filter by case-insensitive substring"},
+				{
+					Command:     "hulak env keys --env prod --search \"API*\"",
+					Description: "Filter keys by glob pattern",
+				},
+				{
+					Command:     "hulak env keys --env staging --search api",
+					Description: "Filter by case-insensitive substring",
+				},
 			},
 			Run: notImplemented("keys"),
 		},
@@ -458,8 +488,14 @@ func newEnvCmd() *command {
 				{Name: "key", Required: true, Desc: "Secret key to delete"},
 			},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env delete OLD_KEY", Description: "Delete OLD_KEY from the default environment"},
-				{Command: "hulak env rm STALE_TOKEN --env staging", Description: "Delete from a specific environment (alias)"},
+				{
+					Command:     "hulak env delete OLD_KEY",
+					Description: "Delete OLD_KEY from the default environment",
+				},
+				{
+					Command:     "hulak env rm STALE_TOKEN --env staging",
+					Description: "Delete from a specific environment (alias)",
+				},
 			},
 			Run: notImplemented("delete"),
 		},
@@ -471,7 +507,10 @@ func newEnvCmd() *command {
 			Examples: []*utils.CommandHelp{
 				{Command: "hulak env edit", Description: "Edit the default environment"},
 				{Command: "hulak env edit --env prod", Description: "Edit the prod environment"},
-				{Command: "EDITOR=nvim hulak env edit --env staging", Description: "Use a specific editor"},
+				{
+					Command:     "EDITOR=nvim hulak env edit --env staging",
+					Description: "Use a specific editor",
+				},
 			},
 			Run: notImplemented("edit"),
 		},
@@ -484,8 +523,14 @@ func newEnvCmd() *command {
 				{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"},
 			},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env import-key /path/to/backup.txt", Description: "Import from a backup file"},
-				{Command: "echo \"AGE-SECRET-KEY-1QF...\" | hulak env import-key --stdin", Description: "Import from stdin (scripts)"},
+				{
+					Command:     "hulak env import-key /path/to/backup.txt",
+					Description: "Import from a backup file",
+				},
+				{
+					Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak env import-key --stdin",
+					Description: "Import from stdin (scripts)",
+				},
 			},
 			Run: notImplemented("import-key"),
 		},
@@ -495,9 +540,18 @@ func newEnvCmd() *command {
 			Long:  "Print the age private key to stdout for backup or transfer to another machine.\n\nUse --armor for ASCII-armored output suitable for copy-paste.",
 			Flags: exportKeyFs,
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env export-key", Description: "Print the private key (with security warning)"},
-				{Command: "hulak env export-key > ~/backup.txt", Description: "Save to a backup file"},
-				{Command: "hulak env export-key --armor", Description: "ASCII-armored output for copy-paste"},
+				{
+					Command:     "hulak env export-key",
+					Description: "Print the private key (with security warning)",
+				},
+				{
+					Command:     "hulak env export-key > ~/backup.txt",
+					Description: "Save to a backup file",
+				},
+				{
+					Command:     "hulak env export-key --armor",
+					Description: "ASCII-armored output for copy-paste",
+				},
 			},
 			Run: notImplemented("export-key"),
 		},
@@ -507,7 +561,10 @@ func newEnvCmd() *command {
 			Long:  "Add an age public key as a recipient so another user can decrypt the vault.\n\nThe vault is re-encrypted to all current recipients plus the new one.",
 			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env add-recipient age1ql3z...", Description: "Add a teammate's public key"},
+				{
+					Command:     "hulak env add-recipient age1ql3z...",
+					Description: "Add a teammate's public key",
+				},
 			},
 			Run: notImplemented("add-recipient"),
 		},
@@ -517,7 +574,10 @@ func newEnvCmd() *command {
 			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nNote: removed users can still decrypt copies of the vault from before this point.\nIf revocation matters, also rotate the underlying secrets.",
 			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to remove"}},
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env remove-recipient age1ql3z...", Description: "Remove a teammate's public key"},
+				{
+					Command:     "hulak env remove-recipient age1ql3z...",
+					Description: "Remove a teammate's public key",
+				},
 			},
 			Run: notImplemented("remove-recipient"),
 		},
@@ -526,7 +586,10 @@ func newEnvCmd() *command {
 			Short: "List all recipients",
 			Long:  "Show all age public keys that can decrypt the vault.",
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env list-recipients", Description: "Show all recipients with names and key prefixes"},
+				{
+					Command:     "hulak env list-recipients",
+					Description: "Show all recipients with names and key prefixes",
+				},
 			},
 			Run: notImplemented("list-recipients"),
 		},
