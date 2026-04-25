@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"filippo.io/age"
@@ -434,6 +435,104 @@ func TestDetectStore(t *testing.T) {
 			t.Errorf("DetectStore() = %v, want StoreNone when .hulak has no store.age", got)
 		}
 	})
+}
+
+func TestWriteStoreEmbedsVersion(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	s := &Store{Envs: map[string]Env{"global": {"KEY": "value"}}}
+	if err := WriteStore(s, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore() error: %v", err)
+	}
+
+	// Decrypt and inspect the raw JSON to confirm _version is present.
+	cipher, err := os.ReadFile(filepath.Join(utils.HiddenProjectName, utils.StoreFile))
+	if err != nil {
+		t.Fatalf("read store: %v", err)
+	}
+	plain, err := DecryptText(cipher, id)
+	if err != nil {
+		t.Fatalf("decrypt: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(plain, &raw); err != nil {
+		t.Fatalf("parse plain: %v", err)
+	}
+
+	vRaw, ok := raw["_version"]
+	if !ok {
+		t.Fatal("_version field missing from written store")
+	}
+	var got int
+	if err := json.Unmarshal(vRaw, &got); err != nil {
+		t.Fatalf("parse _version: %v", err)
+	}
+	if got != StoreVersion {
+		t.Errorf("_version = %d, want %d", got, StoreVersion)
+	}
+}
+
+func TestReadStoreLegacyWithoutVersion(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	// Legacy store: pure env map, no _version key.
+	legacy, err := json.Marshal(map[string]Env{
+		"global": {"BASE_URL": "https://api.example.com"},
+	})
+	if err != nil {
+		t.Fatalf("marshal legacy: %v", err)
+	}
+	cipher, err := EncryptText(legacy, id.Recipient())
+	if err != nil {
+		t.Fatalf("encrypt legacy: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(utils.HiddenProjectName, utils.StoreFile), cipher, utils.SecretPer,
+	); err != nil {
+		t.Fatalf("write legacy: %v", err)
+	}
+
+	got, err := ReadStore(id)
+	if err != nil {
+		t.Fatalf("ReadStore() legacy error: %v", err)
+	}
+	if got.GetEnv("global")["BASE_URL"] != "https://api.example.com" {
+		t.Errorf("legacy global.BASE_URL = %v, want %q", got.GetEnv("global")["BASE_URL"], "https://api.example.com")
+	}
+}
+
+func TestReadStoreFutureVersionRejected(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	future, err := json.Marshal(map[string]any{
+		"_version": StoreVersion + 1,
+		"global":   map[string]any{"KEY": "value"},
+	})
+	if err != nil {
+		t.Fatalf("marshal future: %v", err)
+	}
+	cipher, err := EncryptText(future, id.Recipient())
+	if err != nil {
+		t.Fatalf("encrypt future: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(utils.HiddenProjectName, utils.StoreFile), cipher, utils.SecretPer,
+	); err != nil {
+		t.Fatalf("write future: %v", err)
+	}
+
+	_, err = ReadStore(id)
+	if err == nil {
+		t.Fatal("ReadStore() with future version should error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "newer hulak") || !strings.Contains(msg, "upgrade") {
+		t.Errorf("error message %q should mention 'newer hulak' and 'upgrade'", msg)
+	}
 }
 
 func TestWriteStoreAtomicCleanup(t *testing.T) {

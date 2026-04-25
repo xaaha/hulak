@@ -15,6 +15,15 @@ import (
 
 // Contains encrypted store persistence and environment secret key management.
 
+// StoreVersion is the current schema version of the encrypted JSON store.
+// Bumped only on backwards-incompatible changes to the on-disk layout.
+const StoreVersion = 1
+
+// versionFieldName is the JSON key for the schema version. The leading
+// underscore reserves it from collision with user-defined env names
+// (which utils.ValidateEnvName rejects when starting with '_').
+const versionFieldName = "_version"
+
 // Env is the user's environment like 'staging', 'prod',
 type Env map[string]any
 
@@ -23,6 +32,71 @@ type Env map[string]any
 // and its value is a map of secret key-value pairs.
 type Store struct {
 	Envs map[string]Env
+}
+
+// MarshalJSON serializes the store as a flat object with `_version` alongside
+// the named environments: {"_version": 1, "global": {...}, "prod": {...}}.
+func (s *Store) MarshalJSON() ([]byte, error) {
+	out := make(map[string]any, len(s.Envs)+1)
+	out[versionFieldName] = StoreVersion
+	for name, env := range s.Envs {
+		out[name] = env
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON parses the flat object form, validates the version, and
+// populates Envs. A missing `_version` field is treated as version 1 (legacy
+// stores written before versioning was introduced).
+func (s *Store) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("failed to parse store: %w", err)
+	}
+
+	// Default to 1 (not StoreVersion) — a missing _version field means the
+	// store was written by pre-versioning hulak, which is by definition v1.
+	// This must stay 1 forever, even when StoreVersion increments.
+	version := 1
+	if vRaw, ok := raw[versionFieldName]; ok {
+		if err := json.Unmarshal(vRaw, &version); err != nil {
+			return fmt.Errorf("invalid %s field: %w", versionFieldName, err)
+		}
+	}
+	if version > StoreVersion {
+		return fmt.Errorf(
+			"store was written by a newer hulak (version %d, this version supports %d) — upgrade with `brew upgrade hulak`",
+			version,
+			StoreVersion,
+		)
+	}
+
+	// skip version, parse env
+	s.Envs = make(map[string]Env, len(raw))
+	for name, envRaw := range raw {
+		if name == versionFieldName {
+			continue
+		}
+		env, err := decodeEnv(envRaw)
+		if err != nil {
+			return fmt.Errorf("failed to parse env %q: %w", name, err)
+		}
+		s.Envs[name] = env
+	}
+	return nil
+}
+
+// decodeEnv parses a single environment's raw JSON bytes into an Env map.
+// Numbers are kept as json.Number to preserve int/float distinction and avoid
+// precision loss for large integers.
+func decodeEnv(raw json.RawMessage) (Env, error) {
+	var env Env
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&env); err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 // GetEnv returns the key-value map for a given environment name.
@@ -94,14 +168,11 @@ func ReadStore(identity age.Identity) (*Store, error) {
 		return nil, fmt.Errorf("failed to decrypt store: %w", err)
 	}
 
-	var envs map[string]Env
-	dec := json.NewDecoder(bytes.NewReader(plainText))
-	dec.UseNumber() // avoids float64, get exact original text
-	if err := dec.Decode(&envs); err != nil {
-		return nil, fmt.Errorf("failed to parse store: %w", err)
+	store := &Store{}
+	if err := json.Unmarshal(plainText, store); err != nil {
+		return nil, err
 	}
-
-	return &Store{Envs: envs}, nil
+	return store, nil
 }
 
 // WriteStore marshals the store to JSON, encrypts it, and writes to store.age.
@@ -112,7 +183,8 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 		return err
 	}
 
-	plainText, err := json.MarshalIndent(store.Envs, "", "  ")
+	// for edit command, we need to display readable json
+	plainText, err := json.MarshalIndent(store, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal store: %w", err)
 	}
