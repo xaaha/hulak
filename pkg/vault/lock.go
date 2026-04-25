@@ -30,6 +30,12 @@ func WithStoreLock(fn func() error) error {
 		return err
 	}
 
+	// Ensure .hulak/ exists so the lock file (and downstream store ops)
+	// can be created on first use, before init has formalized the project.
+	if err := os.MkdirAll(filepath.Dir(path), utils.DirPer); err != nil {
+		return fmt.Errorf("failed to create %s/: %w", utils.HiddenProjectName, err)
+	}
+
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, utils.SecretPer)
 	if err != nil {
 		return fmt.Errorf("failed to open lock file: %w", err)
