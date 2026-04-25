@@ -166,3 +166,41 @@ func TestNoEnvFilesError(t *testing.T) {
 		t.Error("error should include possible solutions")
 	}
 }
+
+func TestNoEnvFilesErrorVaultMode(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+	hulakDir := filepath.Join(tmpDir, utils.HiddenProjectName)
+	if err := os.Mkdir(hulakDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hulakDir, utils.StoreFile), []byte("encrypted"), utils.SecretPer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	gotErr := NoEnvFilesError()
+	if gotErr == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errStr := gotErr.Error()
+	if !strings.Contains(errStr, "encrypted store") {
+		t.Errorf("vault error should mention encrypted store, got: %s", errStr)
+	}
+	if strings.Contains(errStr, "hulak init") {
+		t.Errorf("vault error should not mention 'hulak init', got: %s", errStr)
+	}
+}

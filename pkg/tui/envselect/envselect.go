@@ -9,8 +9,20 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// NoEnvFilesError returns a formatted error for missing env files.
+// NoEnvFilesError returns a formatted error for missing environments.
+// The message adapts to the active backend (vault or classic env/).
 func NoEnvFilesError() error {
+	if vault.DetectStore() == vault.StoreAge {
+		return utils.ColorError(
+			`no environments found in encrypted store
+
+Possible causes:
+  - The store has no environments yet — add one with "hulak secret set"
+  - Identity file is missing or unreadable (check ~/.config/hulak/identity.txt)
+  - Store decryption failed (wrong identity for this store)`,
+		)
+	}
+
 	errMsg := fmt.Sprintf(
 		`no '%s' files found in "%s/" directory
 
