@@ -56,7 +56,11 @@ func LoadIdentity() (*age.X25519Identity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("no identity found: %w", err)
 	}
-	return age.ParseX25519Identity(strings.TrimSpace(raw))
+	identity, err := age.ParseX25519Identity(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse identity: %w", err)
+	}
+	return identity, nil
 }
 
 // SetIdentity writes the private key to the global config identity file.

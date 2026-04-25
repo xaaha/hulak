@@ -188,9 +188,15 @@ func loadSecretsFromVault(envName string) (map[string]any, error) {
 	}
 	resultMap := utils.CopyEnvMap(globalMap)
 
-	if custom := store.GetEnv(envName); custom != nil {
-		maps.Copy(resultMap, custom)
+	if envName == "" || strings.EqualFold(envName, utils.DefaultEnvVal) {
+		return resultMap, nil
 	}
+
+	custom := store.GetEnv(envName)
+	if custom == nil {
+		return nil, fmt.Errorf("environment %q not found in vault store", envName)
+	}
+	maps.Copy(resultMap, custom)
 	return resultMap, nil
 }
 

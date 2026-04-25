@@ -16,6 +16,7 @@ import (
 	"github.com/xaaha/hulak/pkg/features"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -85,9 +86,12 @@ func containsTemplateVars(paths []string) bool {
 }
 
 // InitializeProject creates the env setup and returns the secrets map.
+// In vault mode (.hulak/store.age), skips creating the legacy env/ folder.
 func InitializeProject(env string, isCli bool) map[string]any {
-	if err := envparser.CreateDefaultEnvs(nil); err != nil {
-		utils.PanicRedAndExit("%v", err)
+	if vault.DetectStore() != vault.StoreAge {
+		if err := envparser.CreateDefaultEnvs(nil); err != nil {
+			utils.PanicRedAndExit("%v", err)
+		}
 	}
 	envMap, err := envparser.GenerateSecretsMap(env, isCli)
 	if err != nil {
