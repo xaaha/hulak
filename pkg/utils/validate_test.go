@@ -23,6 +23,8 @@ func TestValidateEnvName(t *testing.T) {
 
 		// invalid
 		{"empty string", "", true},
+		{"reserved underscore prefix", "_version", true},
+		{"underscore prefix", "_internal", true},
 		{"contains space", "my env", true},
 		{"contains dot", "my.env", true},
 		{"contains slash", "team/prod", true},
