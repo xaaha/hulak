@@ -255,7 +255,7 @@ func newRunCmd() *command {
 			return nil
 		}
 
-		f, err := parseRunArgs(fs, envFlagVal, &sequential, &debug, args)
+		f, err := parseRunArgs(*envFlagVal, sequential, debug, args)
 		if err != nil {
 			return err
 		}
@@ -267,44 +267,27 @@ func newRunCmd() *command {
 	return runCmd
 }
 
-// parseRunArgs resolves the positional path and trailing flags into runner.Flags.
-// Extracted so tests can verify flag parsing without triggering runner.Execute.
-func parseRunArgs(
-	fs *flag.FlagSet,
-	envFlagVal *string,
-	sequential *bool,
-	debug *bool,
-	args []string,
-) (*runner.Flags, error) {
+// parseRunArgs builds a runner.Flags from the path and parsed flag values.
+// The path routes to FilePath (file), Dir (concurrent), or Dirseq (sequential).
+func parseRunArgs(envFlagVal string, sequential, debug bool, args []string) (*runner.Flags, error) {
 	path := args[0]
-
-	// Go's flag package stops at the first non-flag argument, so
-	// "run file.yaml --debug" leaves --debug unparsed. Re-parse
-	// the remaining args to pick up trailing flags.
-	if len(args) > 1 {
-		if err := fs.Parse(args[1:]); err != nil {
-			return nil, fmt.Errorf("%w\nSee 'hulak run --help' for usage", err)
-		}
-	}
 
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
-	f := &runner.Flags{
-		Debug: *debug,
-	}
+	f := &runner.Flags{Debug: debug}
 
-	if *envFlagVal != "" {
-		f.Env = *envFlagVal
+	if envFlagVal != "" {
+		f.Env = envFlagVal
 		f.EnvSet = true
 	} else {
 		f.Env = utils.DefaultEnvVal
 	}
 
 	if info.IsDir() {
-		if *sequential {
+		if sequential {
 			f.Dirseq = path
 		} else {
 			f.Dir = path
