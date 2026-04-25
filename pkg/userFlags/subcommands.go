@@ -349,8 +349,8 @@ func newEnvCmd() *command {
 
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	_ = registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
-	setFs.Bool("stdin", false, "Read value from stdin")
+	setEnv := registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
+	setStdin := setFs.Bool("stdin", false, "Read value from stdin")
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
@@ -417,7 +417,7 @@ func newEnvCmd() *command {
 					Description: "Set a value in a specific environment",
 				},
 			},
-			Run: notImplemented("set"),
+			Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin) },
 		},
 		{
 			Name:  "get",
