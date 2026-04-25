@@ -91,3 +91,17 @@ func WriteCommandHelp(commands []*CommandHelp) error {
 	}
 	return w.Flush()
 }
+
+// HelpfulError formats a multi-line error with a title, a section heading, and a
+// bullet list, then wraps it via ColorError. Use for user-facing errors that
+// should suggest remediation steps (e.g. "no env files found" → list of fixes).
+func HelpfulError(title, heading string, bullets []string) error {
+	var b strings.Builder
+	fmt.Fprintln(&b, title)
+	fmt.Fprintln(&b)
+	fmt.Fprintf(&b, "%s:\n", heading)
+	for _, item := range bullets {
+		fmt.Fprintf(&b, "  - %s\n", item)
+	}
+	return ColorError(strings.TrimRight(b.String(), "\n"))
+}
