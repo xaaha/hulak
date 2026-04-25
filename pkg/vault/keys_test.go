@@ -274,3 +274,31 @@ func TestEnsureKeypairDetectsMismatch(t *testing.T) {
 		t.Errorf("error = %q, want it to contain 'mismatch'", err.Error())
 	}
 }
+
+func TestLoadIdentity(t *testing.T) {
+	t.Run("loads existing identity", func(t *testing.T) {
+		setupConfigDir(t)
+
+		id, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id.String()); err != nil {
+			t.Fatalf("SetIdentity() error: %v", err)
+		}
+
+		got, err := LoadIdentity()
+		if err != nil {
+			t.Fatalf("LoadIdentity() error: %v", err)
+		}
+		if got.String() != id.String() {
+			t.Errorf("LoadIdentity() = %q, want %q", got.String(), id.String())
+		}
+	})
+
+	t.Run("errors when no identity exists", func(t *testing.T) {
+		setupConfigDir(t)
+
+		_, err := LoadIdentity()
+		if err == nil {
+			t.Error("LoadIdentity() should error when identity is missing")
+		}
+	})
+}
