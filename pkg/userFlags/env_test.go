@@ -256,6 +256,74 @@ func TestRunEnvGet_Errors(t *testing.T) {
 	}
 }
 
+func TestRunEnvDelete_RemovesKey(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	if err := runEnvDelete([]string{"FOO"}, "global"); err != nil {
+		t.Fatalf("runEnvDelete: %v", err)
+	}
+
+	// Verify gone via get-style lookup.
+	if err := runEnvGet([]string{"FOO"}, "global"); err == nil {
+		t.Fatal("expected key to be gone after delete")
+	}
+}
+
+func TestRunEnvDelete_LeavesOtherKeysAlone(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"FOO", "1"}, "global", false); err != nil {
+		t.Fatalf("seed FOO: %v", err)
+	}
+	if err := runEnvSet([]string{"BAR", "2"}, "global", false); err != nil {
+		t.Fatalf("seed BAR: %v", err)
+	}
+
+	if err := runEnvDelete([]string{"FOO"}, "global"); err != nil {
+		t.Fatalf("runEnvDelete: %v", err)
+	}
+
+	if got := readStoredValue(t, "global", "BAR"); got != "2" {
+		t.Errorf("BAR = %v, want %q (deleting FOO must not affect BAR)", got, "2")
+	}
+}
+
+func TestRunEnvDelete_Errors(t *testing.T) {
+	tests := []struct {
+		name        string
+		seedKey     string
+		seedEnv     string
+		args        []string
+		envName     string
+		errContains string
+	}{
+		{"missing key arg", "K", "global", []string{}, "global", "missing required argument"},
+		{"too many args", "K", "global", []string{"A", "B"}, "global", "too many arguments"},
+		{"invalid env name", "K", "global", []string{"K"}, "bad name", "invalid"},
+		{"missing key in env", "K", "global", []string{"NOPE"}, "global", `key "NOPE" not found in environment "global"`},
+		{"missing env", "K", "global", []string{"K"}, "doesnotexist", `environment "doesnotexist" not found`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupVaultProject(t)
+			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+
+			err := runEnvDelete(tc.args, tc.envName)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.errContains) {
+				t.Errorf("error %q should contain %q", err.Error(), tc.errContains)
+			}
+		})
+	}
+}
+
 func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 	setupVaultProject(t)
 

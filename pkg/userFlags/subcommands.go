@@ -350,7 +350,7 @@ func newEnvCmd() *command {
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	_ = registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
+	deleteEnv := registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
 
 	// edit — interactive editor
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
@@ -480,7 +480,7 @@ func newEnvCmd() *command {
 					Description: "Delete from a specific environment (alias)",
 				},
 			},
-			Run: notImplemented("delete"),
+			Run: func(args []string) error { return runEnvDelete(args, *deleteEnv) },
 		},
 		{
 			Name:  "edit",

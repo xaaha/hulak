@@ -188,3 +188,56 @@ func printValue(value any) error {
 	fmt.Println(string(b))
 	return nil
 }
+
+// --- DELETE ---
+
+// runEnvDelete handles 'hulak env delete KEY'.
+// Removes the key from the given environment under the file lock.
+// Exits non-zero if the key (or env) is missing
+// — a missing key is reported, not silently treated as success.
+//
+// Unlike set, this uses LoadIdentity (not EnsureKeypair) so running delete in a
+// fresh project errors with "no identity found" instead of generating spurious
+// keys. There's nothing to delete if no store exists.
+func runEnvDelete(args []string, envName string) error {
+	if len(args) == 0 {
+		return errors.New("missing required argument: KEY")
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("too many arguments: got %d, expected KEY", len(args))
+	}
+	key := args[0]
+
+	if err := utils.ValidateEnvName(envName); err != nil {
+		return err
+	}
+
+	return vault.WithStoreLock(func() error {
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		env := store.GetEnv(envName)
+		if env == nil {
+			return fmt.Errorf("environment %q not found in vault store", envName)
+		}
+		if _, ok := env[key]; !ok {
+			return fmt.Errorf("key %q not found in environment %q", key, envName)
+		}
+
+		store.DeleteKey(envName, key)
+
+		if err := vault.WriteStore(store, identity.Recipient()); err != nil {
+			return err
+		}
+
+		utils.PrintGreen(fmt.Sprintf("%s Deleted %s from %s", utils.CheckMark, key, envName))
+		return nil
+	})
+}
