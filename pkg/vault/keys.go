@@ -49,6 +49,16 @@ func GetIdentity() (string, error) {
 	return string(byt), nil
 }
 
+// LoadIdentity reads and parses the existing identity file.
+// Unlike EnsureKeypair, this never creates keys — it errors if the identity is missing.
+func LoadIdentity() (*age.X25519Identity, error) {
+	raw, err := GetIdentity()
+	if err != nil {
+		return nil, fmt.Errorf("no identity found: %w", err)
+	}
+	return age.ParseX25519Identity(strings.TrimSpace(raw))
+}
+
 // SetIdentity writes the private key to the global config identity file.
 func SetIdentity(privateKey string) error {
 	identityFilePath, err := getIdentityFilePath()
