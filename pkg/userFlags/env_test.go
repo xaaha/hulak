@@ -1,0 +1,184 @@
+package userflags
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
+)
+
+// setupVaultProject prepares an isolated hulak project + config dir for tests.
+// It chdirs into a fresh temp dir and points XDG_CONFIG_HOME at another temp dir
+// so vault.EnsureKeypair stores the identity outside the user's real config.
+func setupVaultProject(t *testing.T) string {
+	t.Helper()
+
+	configDir := t.TempDir()
+	configDir, err := filepath.EvalSymlinks(configDir)
+	if err != nil {
+		t.Fatalf("resolve symlinks: %v", err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", configDir)
+
+	projectDir := t.TempDir()
+	projectDir, err = filepath.EvalSymlinks(projectDir)
+	if err != nil {
+		t.Fatalf("resolve symlinks: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projectDir, utils.HiddenProjectName), utils.DirPer); err != nil {
+		t.Fatalf("mkdir .hulak: %v", err)
+	}
+
+	t.Cleanup(chdirTemp(t, projectDir))
+	return projectDir
+}
+
+// readStoredValue decrypts the store and returns the value at envName/key.
+func readStoredValue(t *testing.T, envName, key string) any {
+	t.Helper()
+	id, err := vault.LoadIdentity()
+	if err != nil {
+		t.Fatalf("LoadIdentity: %v", err)
+	}
+	store, err := vault.ReadStore(id)
+	if err != nil {
+		t.Fatalf("ReadStore: %v", err)
+	}
+	env := store.GetEnv(envName)
+	if env == nil {
+		t.Fatalf("env %q not found in store", envName)
+	}
+	return env[key]
+}
+
+func TestRunEnvSet_PositionalValue(t *testing.T) {
+	setupVaultProject(t)
+
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+
+	if got := readStoredValue(t, "global", "API_KEY"); got != "sk-123" {
+		t.Errorf("stored value = %v, want %q", got, "sk-123")
+	}
+}
+
+func TestRunEnvSet_StdinValue(t *testing.T) {
+	setupVaultProject(t)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	if _, err := w.WriteString("stdin-secret\n"); err != nil {
+		t.Fatalf("write pipe: %v", err)
+	}
+	_ = w.Close()
+
+	orig := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = orig })
+
+	if err := runEnvSet([]string{"TOKEN"}, "global", true); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+
+	if got := readStoredValue(t, "global", "TOKEN"); got != "stdin-secret" {
+		t.Errorf("stored value = %v, want %q (trailing newline should be trimmed)", got, "stdin-secret")
+	}
+}
+
+func TestRunEnvSet_CustomEnv(t *testing.T) {
+	setupVaultProject(t)
+
+	if err := runEnvSet([]string{"DB_URL", "postgres://x"}, "prod", false); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+
+	if got := readStoredValue(t, "prod", "DB_URL"); got != "postgres://x" {
+		t.Errorf("stored value = %v, want %q", got, "postgres://x")
+	}
+}
+
+func TestRunEnvSet_Upsert(t *testing.T) {
+	setupVaultProject(t)
+
+	if err := runEnvSet([]string{"K", "v1"}, "global", false); err != nil {
+		t.Fatalf("set v1: %v", err)
+	}
+	if err := runEnvSet([]string{"K", "v2"}, "global", false); err != nil {
+		t.Fatalf("set v2: %v", err)
+	}
+
+	if got := readStoredValue(t, "global", "K"); got != "v2" {
+		t.Errorf("stored value = %v, want %q (upsert failed)", got, "v2")
+	}
+}
+
+func TestRunEnvSet_Errors(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		envName     string
+		stdin       bool
+		errContains string
+	}{
+		{"missing key", []string{}, "global", false, "missing required argument"},
+		{"invalid env name (space)", []string{"K", "v"}, "bad name", false, "invalid"},
+		{"invalid env name (empty)", []string{"K", "v"}, "", false, "empty"},
+		{"invalid env name (reserved prefix)", []string{"K", "v"}, "_internal", false, "reserved"},
+		{"too many positionals", []string{"K", "hello", "world"}, "global", false, "too many arguments"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupVaultProject(t)
+			err := runEnvSet(tc.args, tc.envName, tc.stdin)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.errContains) {
+				t.Errorf("error %q should contain %q", err.Error(), tc.errContains)
+			}
+		})
+	}
+}
+
+func TestRunEnvSet_LargeValueWarning(t *testing.T) {
+	setupVaultProject(t)
+
+	// Replace stderr with a pipe so we can capture the warning.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	big := strings.Repeat("a", MaxValueSizeWarnBytes+1024)
+	done := make(chan string, 1)
+	go func() {
+		var b strings.Builder
+		_, _ = io.Copy(&b, r)
+		done <- b.String()
+	}()
+
+	if err := runEnvSet([]string{"BIG", big}, "global", false); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	_ = w.Close()
+	stderr := <-done
+
+	if !strings.Contains(stderr, "warning") || !strings.Contains(stderr, "KB") {
+		t.Errorf("expected size warning on stderr, got %q", stderr)
+	}
+	// Value still written despite warning.
+	if got := readStoredValue(t, "global", "BIG"); got != big {
+		t.Error("large value should still be written")
+	}
+}
