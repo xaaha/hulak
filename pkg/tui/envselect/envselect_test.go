@@ -45,7 +45,7 @@ func TestEnvItemsWithEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
 	defer cleanup()
 
-	items := EnvItems()
+	items := envItems()
 
 	if len(items) != 3 {
 		t.Errorf("expected 3 items, got %d", len(items))
@@ -63,7 +63,7 @@ func TestEnvItemsWithNoEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{})
 	defer cleanup()
 
-	items := EnvItems()
+	items := envItems()
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items, got %d", len(items))
@@ -74,7 +74,7 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "readme.txt", "config.yaml"})
 	defer cleanup()
 
-	items := EnvItems()
+	items := envItems()
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -138,7 +138,7 @@ func TestEnvItemsFromVault(t *testing.T) {
 		t.Fatalf("WriteStore() error: %v", err)
 	}
 
-	items := EnvItems()
+	items := envItems()
 
 	if len(items) != 3 {
 		t.Fatalf("EnvItems() len = %d, want 3", len(items))
@@ -152,7 +152,7 @@ func TestEnvItemsFromVault(t *testing.T) {
 }
 
 func TestNoEnvFilesError(t *testing.T) {
-	err := NoEnvFilesError()
+	err := noEnvFilesError()
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -191,7 +191,7 @@ func TestNoEnvFilesErrorVaultMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gotErr := NoEnvFilesError()
+	gotErr := noEnvFilesError()
 	if gotErr == nil {
 		t.Fatal("expected error, got nil")
 	}
