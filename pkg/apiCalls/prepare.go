@@ -65,6 +65,7 @@ func processResponse(
 		return CustomResponse{
 			Response: &ResponseInfo{
 				StatusCode: resp.StatusCode,
+				Status:     resp.Status,
 				Body:       responseBody,
 			},
 			Duration: durationFormatted,

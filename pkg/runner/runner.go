@@ -129,6 +129,16 @@ func discoverFilePaths(
 	return fileList, concurrentDir, sequentialDir
 }
 
+// outcome captures the result of executing one request file. Used to render
+// the per-file outcome line and the end-of-run summary.
+type outcome struct {
+	path     string        // request file path
+	ok       bool          // true if request returned without error (any status code)
+	status   string        // HTTP status string, e.g. "200 OK"; empty for non-API kinds and pre-flight errors
+	duration time.Duration // wall-clock time for the request itself
+	err      error         // non-nil on failure
+}
+
 // handleAPIRequests processes API requests from pre-discovered file lists.
 func handleAPIRequests(
 	secrets map[string]any,
@@ -138,10 +148,13 @@ func handleAPIRequests(
 	fp string,
 ) {
 	totalFiles := len(concurrentFiles) + len(sequentialFiles)
-	// Per-file "Processed 'X'" lines only help when multiple files are running
-	// — they let the user track which file finished. With a single file there
-	// is exactly one outcome and the line is just noise; suppress it.
+	// Per-file outcome lines only help when multiple files are running — they
+	// let the user track which file finished. With a single file there's
+	// exactly one outcome and the line is just noise; suppress it.
 	multiFile := totalFiles > 1
+
+	overallStart := time.Now()
+	var outcomes []outcome
 
 	if len(concurrentFiles) > 0 {
 		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
@@ -149,24 +162,88 @@ func handleAPIRequests(
 				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
 			)
 		}
-		runTasks(concurrentFiles, secrets, debug, fp, multiFile)
+		outcomes = append(outcomes, runTasks(concurrentFiles, secrets, debug, fp, multiFile)...)
 	}
 	if len(sequentialFiles) > 0 {
 		utils.PrintInfoStderr(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
-		processFilesSequentially(sequentialFiles, secrets, debug, multiFile)
+		outcomes = append(outcomes, processFilesSequentially(sequentialFiles, secrets, debug, multiFile)...)
 	}
 
 	if totalFiles == 0 {
 		utils.PrintWarningStderr(
 			"No files were processed. Please check your path or directory arguments.",
 		)
+		return
+	}
+
+	if multiFile {
+		printRunSummary(outcomes, time.Since(overallStart))
 	}
 }
 
-// runTasks manages the go tasks with a limited worker pool.
-// multiFile gates the per-file "Processed 'X'" line — useful when several
-// files are interleaving, useless and noisy for a single file.
-func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string, multiFile bool) {
+// printRunSummary prints "✓ N succeeded, ✗ M failed in T" plus a list of
+// failed file paths. Only invoked for multi-file runs — single-file outcome
+// is already obvious from the per-file outcome line.
+func printRunSummary(outcomes []outcome, total time.Duration) {
+	succeeded := 0
+	var failed []outcome
+	for _, o := range outcomes {
+		if o.ok {
+			succeeded++
+		} else {
+			failed = append(failed, o)
+		}
+	}
+
+	utils.PrintInfoStderr(fmt.Sprintf(
+		"%d succeeded, %d failed in %s", succeeded, len(failed), formatDuration(total),
+	))
+	for _, f := range failed {
+		utils.PrintInfoStderr("  ✗ " + filepath.Base(f.path))
+	}
+}
+
+// formatDuration renders a duration tightly: 142ms, 1.2s, 1m23s.
+// time.Duration's String() can yield clutter like 1.234567s; this trims it.
+func formatDuration(d time.Duration) string {
+	switch {
+	case d < time.Second:
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	case d < time.Minute:
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	default:
+		m := int(d / time.Minute)
+		s := int((d % time.Minute) / time.Second)
+		return fmt.Sprintf("%dm%ds", m, s)
+	}
+}
+
+// printOutcome renders one ✓/✗ line per file. status is empty for non-API
+// kinds (Auth2, future kinds) — the line just shows the timing.
+func printOutcome(o outcome) {
+	name := filepath.Base(o.path)
+	dur := formatDuration(o.duration)
+	if o.ok {
+		bracket := dur
+		if o.status != "" {
+			bracket = o.status + ", " + dur
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("%s [%s]", name, bracket))
+		return
+	}
+	// Failure path: status may still be set if the HTTP call succeeded but
+	// downstream processing failed. Surface whatever we have.
+	bracket := dur
+	if o.status != "" {
+		bracket = o.status + ", " + dur
+	}
+	utils.PrintErrorStderr(fmt.Sprintf("%s [%s]: %v", name, bracket, o.err))
+}
+
+// runTasks manages the go tasks with a limited worker pool. Returns one
+// outcome per file in the order they finished. multiFile gates whether the
+// per-file outcome line is printed (skipped for single-file runs).
+func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string, multiFile bool) []outcome {
 	maxWorkers := utils.GetWorkers(nil)
 	maxRetries := 3
 	timeout := 60 * time.Second
@@ -177,6 +254,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 
 	var wg sync.WaitGroup
 	taskChan := make(chan string, len(filePathList))
+	resultChan := make(chan outcome, len(filePathList))
 
 	for _, path := range filePathList {
 		taskChan <- path
@@ -189,10 +267,9 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 			defer wg.Done()
 
 			for path := range taskChan {
-				success := false
-				var lastErr error
+				var final outcome
 
-				for attempt := 0; attempt < maxRetries && !success; attempt++ {
+				for attempt := 0; attempt < maxRetries; attempt++ {
 					if attempt > 0 {
 						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
 						utils.PrintWarningStderr(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
@@ -202,78 +279,85 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 
 					ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
-					doneChan := make(chan struct{})
-					errChan := make(chan error, 1)
-
+					resCh := make(chan outcome, 1)
 					go func() {
-						err := processTask(path, utils.CopyEnvMap(secretsMap), debug)
-						if err != nil {
-							errChan <- err
-						} else {
-							close(doneChan)
-						}
+						resCh <- processTask(path, utils.CopyEnvMap(secretsMap), debug)
 					}()
 
 					select {
-					case <-doneChan:
-						success = true
-						if multiFile {
-							utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
-						}
-					case err := <-errChan:
-						lastErr = err
-						utils.PrintInfoStderr(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
+					case res := <-resCh:
+						final = res
 					case <-ctx.Done():
-						lastErr = fmt.Errorf("timeout after %v", timeout)
-						utils.PrintErrorStderr(fmt.Sprintf("timeout processing %s after %v (attempt %d/%d)",
-							path, timeout, attempt+1, maxRetries))
+						final = outcome{
+							path: path,
+							ok:   false,
+							err:  fmt.Errorf("timeout after %v", timeout),
+						}
 					}
 					cancel()
+
+					if final.ok {
+						break
+					}
 				}
 
-				if !success {
-					utils.PrintErrorStderr(fmt.Sprintf("failed to process %s after %d attempts: %v",
-						path, maxRetries, lastErr))
+				// Single-file mode: response body prints to stdout already, so
+				// suppress the success outcome line on success. Failures still
+				// surface — a silent error must not look like success.
+				if multiFile || !final.ok {
+					printOutcome(final)
 				}
+				resultChan <- final
 			}
 		}(i)
 	}
 	wg.Wait()
+	close(resultChan)
+
+	outcomes := make([]outcome, 0, len(filePathList))
+	for o := range resultChan {
+		outcomes = append(outcomes, o)
+	}
+	return outcomes
 }
 
-// processTask handles a single task
-func processTask(path string, secretsMap map[string]any, debug bool) error {
+// processTask handles a single task and returns a structured outcome.
+// Wall-clock duration is measured around the dispatched call so it reflects
+// the actual API latency (plus YAML parse time, which is small).
+func processTask(path string, secretsMap map[string]any, debug bool) outcome {
+	start := time.Now()
 	config, err := yamlparser.ParseConfig(path, secretsMap)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to parse config %v", err)
-		return utils.ColorError(errMsg)
+		return outcome{path: path, ok: false, duration: time.Since(start), err: fmt.Errorf("failed to parse config: %w", err)}
 	}
 
 	switch {
 	case config.IsAuth():
-		return features.SendAPIRequestForAuth2(secretsMap, path, debug)
+		err := features.SendAPIRequestForAuth2(secretsMap, path, debug)
+		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case (config.IsAPI() || config.IsGraphql()):
-		return apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
+		status, err := apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
+		return outcome{path: path, ok: err == nil, status: status, duration: time.Since(start), err: err}
 	default:
-		return fmt.Errorf("unsupported kind in file: %s", path)
+		return outcome{path: path, ok: false, duration: time.Since(start), err: fmt.Errorf("unsupported kind in file: %s", path)}
 	}
 }
 
-// processFilesSequentially handles files one by one.
-// multiFile gates the per-file success line — useless noise for a single file.
-func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool, multiFile bool) {
+// processFilesSequentially handles files one by one. Returns outcomes in
+// execution order. multiFile gates the per-file outcome line — single-file
+// mode keeps stderr quiet on success since the response body already prints
+// to stdout; failures always surface so a silent error isn't mistaken for OK.
+func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool, multiFile bool) []outcome {
+	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
 		fileEnv := utils.CopyEnvMap(secretsMap)
-
-		err := processTask(path, fileEnv, debug)
-		if err != nil {
-			utils.PrintErrorStderr(fmt.Sprintf("processing %s: %v", path, err))
-			continue
+		o := processTask(path, fileEnv, debug)
+		if multiFile || !o.ok {
+			printOutcome(o)
 		}
-		if multiFile {
-			utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
-		}
+		outcomes = append(outcomes, o)
 	}
+	return outcomes
 }
 
 // generateFilePathList returns a slice of file paths based on the flags -f and -fp.
