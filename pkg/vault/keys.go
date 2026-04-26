@@ -71,7 +71,7 @@ func SetIdentity(privateKey string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(identityFilePath), utils.DirPer); err != nil {
+	if err := os.MkdirAll(filepath.Dir(identityFilePath), utils.SecretDirPer); err != nil {
 		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
