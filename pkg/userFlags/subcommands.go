@@ -82,26 +82,6 @@ func newVersionCmd() *command {
 	}
 }
 
-// runInitEnvScaffold creates one .env file per name in args under the legacy
-// env/ layout. Used by both `hulak init -env ...` (vault mode, until Slice C
-// swaps to store sections) and `hulak init classic -env ...`.
-func runInitEnvScaffold(args []string) error {
-	if len(args) == 0 {
-		utils.PrintWarningStderr("No environment names provided after -env flag")
-		return nil
-	}
-	var firstErr error
-	for _, env := range args {
-		if err := envparser.CreateDefaultEnvs(&env); err != nil {
-			utils.PrintErrorStderr(err.Error())
-			if firstErr == nil {
-				firstErr = err
-			}
-		}
-	}
-	return firstErr
-}
-
 func newInitCmd() *command {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	createEnvFlag := fs.Bool(
@@ -199,10 +179,25 @@ func newInitClassicCmd() *command {
 			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
 		},
 		Run: func(args []string) error {
-			if *createEnvFlag {
-				return runInitEnvScaffold(args)
+			if !*createEnvFlag {
+				return InitClassicProject()
 			}
-			return InitClassicProject()
+			if len(args) == 0 {
+				utils.PrintWarningStderr("No environment names provided after -env flag")
+				return nil
+			}
+			// Collect failures so the user sees every one, but return the
+			// first error so the exit code reflects that something went wrong.
+			var firstErr error
+			for _, env := range args {
+				if err := envparser.CreateDefaultEnvs(&env); err != nil {
+					utils.PrintErrorStderr(err.Error())
+					if firstErr == nil {
+						firstErr = err
+					}
+				}
+			}
+			return firstErr
 		},
 	}
 }

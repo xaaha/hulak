@@ -72,26 +72,53 @@ func TestInitClassicProject_PreservesUserCustomizedAPIOptions(t *testing.T) {
 }
 
 // TestInitClassicProject_RefusesWhenVaultExists verifies that running classic
-// init in a directory that already has .hulak/ refuses with an error,
-// preventing two parallel sources of truth for env values.
+// init in a directory with an initialized vault (store.age present) refuses
+// with an error, preventing two parallel sources of truth for env values.
 func TestInitClassicProject_RefusesWhenVaultExists(t *testing.T) {
 	dir := t.TempDir()
 	t.Cleanup(chdirTemp(t, dir))
 
-	// Pretend the vault is already initialized.
-	if err := os.Mkdir(filepath.Join(dir, utils.HiddenProjectName), utils.DirPer); err != nil {
+	hulakDir := filepath.Join(dir, utils.HiddenProjectName)
+	if err := os.Mkdir(hulakDir, utils.DirPer); err != nil {
 		t.Fatalf("create %s: %v", utils.HiddenProjectName, err)
+	}
+	// store.age presence — not just the .hulak/ dir — is what marks the
+	// vault as initialized. An empty .hulak/ (e.g. from a partially failed
+	// vault init) must not lock the user out of the classic path.
+	if err := os.WriteFile(
+		filepath.Join(hulakDir, utils.StoreFile), []byte("encrypted"), utils.SecretPer,
+	); err != nil {
+		t.Fatalf("create %s: %v", utils.StoreFile, err)
 	}
 
 	err := InitClassicProject()
 	if err == nil {
-		t.Fatal("expected error when .hulak/ already exists, got nil")
+		t.Fatal("expected error when store.age exists, got nil")
 	}
 
-	// env/ must not have been created.
 	envDir := filepath.Join(dir, utils.EnvironmentFolder)
 	if utils.DirExists(envDir) {
-		t.Errorf("env/ should not have been created when .hulak/ exists")
+		t.Errorf("env/ should not have been created when store.age exists")
+	}
+}
+
+// TestInitClassicProject_AllowsEmptyHulakDir verifies that an empty .hulak/
+// (e.g. left behind by a partially-failed vault init) does NOT block classic
+// init. Only an actual store.age signals "vault initialized."
+func TestInitClassicProject_AllowsEmptyHulakDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(chdirTemp(t, dir))
+
+	if err := os.Mkdir(filepath.Join(dir, utils.HiddenProjectName), utils.DirPer); err != nil {
+		t.Fatalf("create %s: %v", utils.HiddenProjectName, err)
+	}
+
+	if err := InitClassicProject(); err != nil {
+		t.Fatalf("InitClassicProject should succeed when .hulak/ is empty, got: %v", err)
+	}
+
+	if !utils.DirExists(filepath.Join(dir, utils.EnvironmentFolder)) {
+		t.Error("env/ should have been created")
 	}
 }
 

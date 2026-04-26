@@ -125,6 +125,20 @@ func (s *Store) ListEnvs() []string {
 	return envs
 }
 
+// EnsureSection creates an empty section for envName if absent. Returns true
+// when a new section was created, false when one already existed. Lets
+// callers seed environments without reaching into the Envs map directly.
+func (s *Store) EnsureSection(envName string) bool {
+	if s.Envs == nil {
+		s.Envs = make(map[string]Env)
+	}
+	if _, ok := s.Envs[envName]; ok {
+		return false
+	}
+	s.Envs[envName] = make(Env)
+	return true
+}
+
 // SetKey upserts a key-value pair in the given environment.
 // Creates the environment if it does not exist.
 func (s *Store) SetKey(envName, key string, value any) {

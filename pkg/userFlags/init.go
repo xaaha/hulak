@@ -20,22 +20,23 @@ var embeddedFiles embed.FS
 // InitClassicProject sets up the plaintext env/ layout: env/ directory,
 // global.env, the apiOptions.hk.yaml example, and an env/ entry in .gitignore.
 //
-// Refuses to run if .hulak/ already exists in the current directory — that
-// signals the user has already initialized the encrypted vault, and bolting
-// a parallel plaintext layout next to it would create two sources of truth
-// for environment values. The user has to remove .hulak/ explicitly to opt
-// out of the vault.
+// Refuses to run if .hulak/store.age is present — that's an initialized
+// encrypted vault and bolting a parallel plaintext layout next to it would
+// create two sources of truth. The store file (not just the .hulak/ dir) is
+// the right signal: a partially-failed vault init can leave an empty .hulak/
+// behind, and that shouldn't lock the user out of the classic path.
 func InitClassicProject() error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not determine current directory: %w", err)
 	}
-	if utils.DirExists(filepath.Join(cwd, utils.HiddenProjectName)) {
+	storePath := filepath.Join(cwd, utils.HiddenProjectName, utils.StoreFile)
+	if utils.FileExists(storePath) {
 		return fmt.Errorf(
-			"refusing to create plaintext env/ layout: %s/ already exists "+
+			"refusing to create plaintext env/ layout: %s exists "+
 				"(this project is using the encrypted vault) — "+
 				"remove %s/ first if you really want to switch",
-			utils.HiddenProjectName, utils.HiddenProjectName,
+			storePath, utils.HiddenProjectName,
 		)
 	}
 
@@ -129,10 +130,12 @@ func InitVaultProject(envNames []string) error {
 	}
 
 	if wasFresh {
+		// EnsureKeypair just succeeded, which proves UserConfigDir resolves;
+		// IdentityPath uses the same call, so failure here is unreachable in
+		// practice — surface it as an error rather than papering over it.
 		identityPath, err := vault.IdentityPath()
 		if err != nil {
-			// Non-fatal: vault is initialized; we just can't show the path.
-			identityPath = "(unable to resolve identity path)"
+			return fmt.Errorf("could not resolve identity path: %w", err)
 		}
 		utils.PrintSuccessStderr(
 			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
@@ -167,22 +170,16 @@ func InitVaultProject(envNames []string) error {
 // case-insensitively are folded into "global" rather than creating duplicates.
 func ensureStoreSections(store *vault.Store, names []string) []string {
 	var added []string
-	if store.Envs == nil {
-		store.Envs = make(map[string]vault.Env)
-	}
-	if _, ok := store.Envs[utils.DefaultEnvVal]; !ok {
-		store.Envs[utils.DefaultEnvVal] = make(vault.Env)
+	if store.EnsureSection(utils.DefaultEnvVal) {
 		added = append(added, utils.DefaultEnvVal)
 	}
 	for _, name := range names {
 		if strings.EqualFold(name, utils.DefaultEnvVal) {
 			continue
 		}
-		if _, ok := store.Envs[name]; ok {
-			continue
+		if store.EnsureSection(name) {
+			added = append(added, name)
 		}
-		store.Envs[name] = make(vault.Env)
-		added = append(added, name)
 	}
 	return added
 }
