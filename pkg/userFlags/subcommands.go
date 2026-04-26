@@ -376,7 +376,9 @@ func newEnvCmd() *command {
 
 	notImplemented := func(name string) func([]string) error {
 		return func(_ []string) error {
-			fmt.Printf("hulak env %s is not yet implemented\n", name)
+			// Stderr — this is a status notice, not the data the user asked for.
+			// If the user pipes the output, $() must not capture this line.
+			fmt.Fprintf(os.Stderr, "hulak env %s is not yet implemented\n", name)
 			return nil
 		}
 	}
