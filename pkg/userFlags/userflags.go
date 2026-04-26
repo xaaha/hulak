@@ -63,7 +63,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 						envSet = true
 					}
 				})
-				runner.Execute(&runner.Flags{
+				err := runner.Execute(&runner.Flags{
 					Env:      flagEnv,
 					EnvSet:   envSet,
 					FilePath: flagFP,
@@ -72,6 +72,9 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 					Dir:      flagDir,
 					Dirseq:   flagDirseq,
 				})
+				if err != nil {
+					return nil, err
+				}
 				os.Exit(0)
 			}
 		default:

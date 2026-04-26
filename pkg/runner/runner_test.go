@@ -177,13 +177,9 @@ func TestExecute_EnvNotSet_CallsSelector(t *testing.T) {
 		FilePath: tmpFile,
 	}
 
-	// Execute will call IsHulakProject which will be false in test context,
-	// so it would PanicRedAndExit. We only need to verify the selector is
-	// called BEFORE that point. Use recover to catch the exit.
-	func() {
-		defer func() { _ = recover() }()
-		Execute(f)
-	}()
+	// Execute will return an error in test context (no hulak project), but we
+	// only care that envSelector ran first. Discard the error.
+	_ = Execute(f)
 
 	if !called {
 		t.Error("envSelector should be called when EnvSet is false and files have template vars")
@@ -215,10 +211,7 @@ func TestExecute_EnvSet_SkipsSelector(t *testing.T) {
 		FilePath: tmpFile,
 	}
 
-	func() {
-		defer func() { _ = recover() }()
-		Execute(f)
-	}()
+	_ = Execute(f)
 
 	if called {
 		t.Error("envSelector should NOT be called when EnvSet is true")
@@ -250,10 +243,7 @@ func TestExecute_NoTemplateVars_SkipsSelector(t *testing.T) {
 		FilePath: tmpFile,
 	}
 
-	func() {
-		defer func() { _ = recover() }()
-		Execute(f)
-	}()
+	_ = Execute(f)
 
 	if called {
 		t.Error("envSelector should NOT be called when files have no template vars")

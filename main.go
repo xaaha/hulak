@@ -20,6 +20,12 @@ func main() {
 	// inside ParseFlagsSubcmds. It only returns here for interactive mode.
 	flags, err := userflags.ParseFlagsSubcmds()
 	if err != nil {
+		// Runner failures already printed per-file detail via printOutcome
+		// and a summary line — exit silently with non-zero so we don't
+		// print the failure twice.
+		if runner.IsRunFailure(err) {
+			os.Exit(1)
+		}
 		utils.PanicRedAndExit("%v", err)
 	}
 
@@ -33,9 +39,21 @@ func main() {
 
 	var envMap map[string]any
 	if utils.FileHasTemplateVars(filePath) {
-		envMap = runner.InitializeProject(flags.Env, false)
+		var initErr error
+		envMap, initErr = runner.InitializeProject(flags.Env, false)
+		if initErr != nil {
+			utils.PanicRedAndExit("%v", initErr)
+		}
 	}
-	runner.ExecuteSingleFile(envMap, flags.Debug, filePath)
+
+	if err := runner.ExecuteSingleFile(envMap, flags.Debug, filePath); err != nil {
+		// Same suppression as above: runner.IsRunFailure means printOutcome
+		// already explained the failure on stderr; just flip the exit code.
+		if !runner.IsRunFailure(err) {
+			utils.PrintErrorStderr(err.Error())
+		}
+		os.Exit(1)
+	}
 }
 
 func runInteractiveFlow(env *string, envSet bool) string {

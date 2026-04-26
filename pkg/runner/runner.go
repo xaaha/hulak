@@ -39,7 +39,10 @@ type Flags struct {
 }
 
 // Execute runs the full pipeline: discover files, resolve env, execute requests.
-func Execute(f *Flags) {
+// Returns an error if any request file failed — callers should propagate it
+// so the top-level exit code is non-zero on partial success. A nil error means
+// every dispatched request succeeded.
+func Execute(f *Flags) error {
 	fileList, concurrentDir, sequentialDir := discoverFilePaths(
 		f.File,
 		f.FilePath,
@@ -53,22 +56,26 @@ func Execute(f *Flags) {
 	var envMap map[string]any
 	if containsTemplateVars(allPaths) {
 		if !utils.IsHulakProject() {
-			utils.PanicRedAndExit("fatal: not a hulak project \n\nRun 'hulak init' to set up")
+			return fmt.Errorf("not a hulak project — run 'hulak init' to set up")
 		}
 		if !f.EnvSet {
 			selectedEnv, err := envSelector()
 			if err != nil {
-				utils.PanicRedAndExit("Environment selector error: %v", err)
+				return fmt.Errorf("environment selector: %w", err)
 			}
 			if selectedEnv == "" {
-				os.Exit(0)
+				return nil // user cancelled the picker; not an error
 			}
 			f.Env = selectedEnv
 		}
-		envMap = InitializeProject(f.Env, true)
+		var err error
+		envMap, err = InitializeProject(f.Env, true)
+		if err != nil {
+			return err
+		}
 	}
 
-	handleAPIRequests(
+	return handleAPIRequests(
 		envMap,
 		f.Debug,
 		append(fileList, concurrentDir...),
@@ -79,8 +86,8 @@ func Execute(f *Flags) {
 
 // ExecuteSingleFile runs a single file through the pipeline.
 // Used by interactive mode where the file is already known.
-func ExecuteSingleFile(envMap map[string]any, debug bool, filePath string) {
-	handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath)
+func ExecuteSingleFile(envMap map[string]any, debug bool, filePath string) error {
+	return handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath)
 }
 
 // containsTemplateVars returns true if any file in the list uses template vars.
@@ -90,17 +97,17 @@ func containsTemplateVars(paths []string) bool {
 
 // InitializeProject creates the env setup and returns the secrets map.
 // In vault mode (.hulak/store.age), skips creating the legacy env/ folder.
-func InitializeProject(env string, isCli bool) map[string]any {
+func InitializeProject(env string, isCli bool) (map[string]any, error) {
 	if vault.DetectStore() != vault.StoreAge {
 		if err := envparser.CreateDefaultEnvs(nil); err != nil {
-			utils.PanicRedAndExit("%v", err)
+			return nil, err
 		}
 	}
 	envMap, err := envparser.GenerateSecretsMap(env, isCli)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return envMap
+	return envMap, nil
 }
 
 // discoverFilePaths collects all file paths from -f, -fp, -dir, and -dirseq flags.
@@ -143,13 +150,15 @@ type outcome struct {
 }
 
 // handleAPIRequests processes API requests from pre-discovered file lists.
+// Returns nil if every dispatched request succeeded; otherwise an error
+// summarizing the failures so the call site can propagate a non-zero exit.
 func handleAPIRequests(
 	secrets map[string]any,
 	debug bool,
 	concurrentFiles []string,
 	sequentialFiles []string,
 	fp string,
-) {
+) error {
 	totalFiles := len(concurrentFiles) + len(sequentialFiles)
 	// Per-file outcome lines only help when multiple files are running — they
 	// let the user track which file finished. With a single file there's
@@ -180,12 +189,51 @@ func handleAPIRequests(
 		utils.PrintWarningStderr(
 			"No files were processed. Please check your path or directory arguments.",
 		)
-		return
+		return nil
 	}
 
 	if multiFile {
 		printRunSummary(outcomes, time.Since(overallStart))
 	}
+
+	// Aggregate failures into a single error so the exit code reflects them.
+	// Per-file detail has already been printed by printOutcome; the error
+	// returned here is just a short headline a top-level handler can surface
+	// without duplicating what's already on screen.
+	failed := 0
+	for _, o := range outcomes {
+		if !o.ok {
+			failed++
+		}
+	}
+	if failed > 0 {
+		return &runFailureError{failed: failed, total: totalFiles}
+	}
+	return nil
+}
+
+// runFailureError signals "n of m files failed" so the exit code flips
+// non-zero. The top-level error handler can recognize this type and skip
+// printing — the per-file outcome lines and the summary have already
+// communicated the failures to the user.
+type runFailureError struct {
+	failed int
+	total  int
+}
+
+func (e *runFailureError) Error() string {
+	if e.total == 1 {
+		return "request failed"
+	}
+	return fmt.Sprintf("%d of %d files failed", e.failed, e.total)
+}
+
+// IsRunFailure reports whether err originated from a runner pipeline failure
+// (one or more request files failed). Callers use this to suppress redundant
+// "error: ..." printing — printOutcome already showed the detail.
+func IsRunFailure(err error) bool {
+	var rf *runFailureError
+	return errors.As(err, &rf)
 }
 
 // printRunSummary prints "✓ N succeeded, ✗ M failed in T" plus a list of

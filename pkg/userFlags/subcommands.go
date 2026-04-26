@@ -266,8 +266,10 @@ func newRunCmd() *command {
 			return err
 		}
 
-		runner.Execute(f)
-		return nil
+		// Propagate runner errors so the top-level exit code reflects failures.
+		// Per-file detail has already been printed; an empty error message is
+		// the runner's signal of "exit non-zero, no extra output needed".
+		return runner.Execute(f)
 	}
 
 	return runCmd
