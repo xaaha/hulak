@@ -33,7 +33,7 @@ func writeFile(path, suffixType, contentBody string) {
 	dir := filepath.Dir(path)
 	fullFilePath := filepath.Join(dir, fileName+suffixType)
 	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0o600); err != nil {
-		utils.PrintRed("Error while saving file: %v\n" + err.Error())
+		utils.PrintErrorStderr("saving response file: " + err.Error())
 		return
 	}
 }

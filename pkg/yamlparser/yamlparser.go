@@ -82,24 +82,24 @@ func replaceVarsWithValues(
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
 func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
-		utils.PanicRedAndExit("File does not exist, %s", filepath)
+		return nil, fmt.Errorf("file does not exist: %s", filepath)
 	}
 
 	file, err := os.Open(filepath)
 	if err != nil {
-		utils.PanicRedAndExit("Error opening file: %v", err)
+		return nil, fmt.Errorf("opening file %s: %w", filepath, err)
 	}
 	defer file.Close()
 
 	fileInfo, _ := file.Stat()
 	if fileInfo.Size() == 0 {
-		utils.PanicRedAndExit("Empty yaml file")
+		return nil, fmt.Errorf("empty yaml file: %s", filepath)
 	}
 
 	var data map[string]any
 	dec := yaml.NewDecoder(file)
 	if err = dec.Decode(&data); err != nil {
-		utils.PanicRedAndExit("1. error decoding data: %v", err)
+		return nil, fmt.Errorf("decoding %s: %w", filepath, err)
 	}
 
 	// make yaml keys  case insensitive. method or Method or METHOD should all be the same
@@ -120,7 +120,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	if err := enc.Encode(parsedMap); err != nil {
-		utils.PanicRedAndExit("error encoding data: %v", err)
+		return nil, fmt.Errorf("encoding %s: %w", filepath, err)
 	}
 	enc.Close()
 

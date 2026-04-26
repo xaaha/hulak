@@ -2,6 +2,7 @@
 package envparser
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,8 +18,7 @@ func CreateEnvDirAndFiles(fileName string) (string, error) {
 
 	envDirpath, err := utils.CreatePath(defEnvDir)
 	if err != nil {
-		utils.PrintRed("Error creating filePath")
-		return "", err
+		return "", fmt.Errorf("creating env path: %w", err)
 	}
 
 	envFilePath := filepath.Join(envDirpath, fileName+defEnvSfx)

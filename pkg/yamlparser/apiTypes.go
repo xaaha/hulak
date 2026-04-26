@@ -94,8 +94,8 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 	}
 
 	if !user.Body.IsValid() {
-		utils.PanicRedAndExit(
-			"Invalid Body in '%s'. Make sure body contains only one valid argument.\n %v",
+		return false, fmt.Errorf(
+			"invalid Body in '%s': make sure body contains only one valid argument.\n %v",
 			filePath,
 			user.Body,
 		)

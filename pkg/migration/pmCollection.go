@@ -352,8 +352,7 @@ func forEachRequest(collection *PmCollection, parentDirPath string) error {
 	// first, move collection variables to global.env
 	collectionVars := prepareVarStr(collection)
 	if err := migrateEnv(collectionVars, collection.Info.Name); err != nil {
-		utils.PrintRed("Error occurred while migrating Collection Variables")
-		return err
+		return fmt.Errorf("migrating collection variables: %w", err)
 	}
 
 	return processItems(collection.Item, parentDirPath)
@@ -512,6 +511,6 @@ func migrateCollection(jsonStr map[string]any) error {
 		return err
 	}
 
-	utils.PrintGreen("Collection Migration Successful! " + utils.CheckMark)
+	utils.PrintSuccessStderr("Collection migration successful")
 	return nil
 }

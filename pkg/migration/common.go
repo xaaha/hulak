@@ -8,6 +8,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // readJSON reads a JSON file and checks whether file exists, is empty,
@@ -76,7 +78,7 @@ func createMap(str string) map[string]any {
 	result := make(map[string]any)
 	// Unmarshal the cleaned JSON string into the result map
 	if err := json.Unmarshal([]byte(str), &result); err != nil {
-		fmt.Println("Error unmarshaling JSON:", err)
+		utils.PrintErrorStderr("unmarshaling JSON: " + err.Error())
 		return nil
 	}
 

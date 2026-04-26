@@ -115,8 +115,8 @@ func ensureHulakProject() {
 		)
 	}
 
-	utils.PrintWarning("error: environment resolution requires a Hulak project")
-	fmt.Print("Initialize one here? [y/N] ")
+	utils.PrintErrorStderr("environment resolution requires a Hulak project")
+	fmt.Fprint(os.Stderr, "Initialize one here? [y/N] ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {

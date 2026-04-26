@@ -117,15 +117,15 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 		strBody = string(jsonData)
 		err = utils.PrintJSONColored(jsonData)
 		if err != nil {
-			utils.PrintRed(string(err.Error()))
+			utils.PrintErrorStderr(err.Error())
 		}
 	} else {
-		utils.PrintWarning("error serializing response: " + err.Error())
+		utils.PrintWarningStderr("serializing response: " + err.Error())
 		strBody = fmt.Sprintf("%+v", resp) // Fallback to raw struct
 		fmt.Println(strBody)
 	}
 
 	if err := evalAndWriteRes(strBody, path); err != nil {
-		utils.PrintRed("PrintAndSaveFinalResp " + err.Error())
+		utils.PrintErrorStderr("saving response: " + err.Error())
 	}
 }

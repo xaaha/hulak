@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/runner"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // AllFlags  All user flags and subcommands
@@ -45,8 +44,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 			os.Exit(0)
 		case strings.HasPrefix(first, "-"):
 			if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
-				utils.PrintRed(fmt.Sprintf("%s\nSee 'hulak help' for available flags", err))
-				os.Exit(1)
+				return nil, fmt.Errorf("%s\nSee 'hulak help' for available flags", err)
 			}
 			switch {
 			case flagVersion:
@@ -77,8 +75,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 				os.Exit(0)
 			}
 		default:
-			utils.PrintRed(fmt.Sprintf("unknown command %q. See 'hulak help'", first))
-			os.Exit(1)
+			return nil, fmt.Errorf("unknown command %q. See 'hulak help'", first)
 		}
 	}
 

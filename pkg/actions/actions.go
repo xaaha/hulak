@@ -142,19 +142,20 @@ func getFileMutex(filePath string) *sync.Mutex {
 	return mutex.(*sync.Mutex)
 }
 
-// processValueOf processes GetValueOf action
-// gets the value of key from a json file.
-// If a relative/absolute path is provided (e.g., "../../test.json"), it uses that exact path.
-// Otherwise, it searches for matching files and uses _response.json suffix for non-JSON files.
+// processValueOf processes GetValueOf action — returns the value at key from
+// the resolved JSON file, or "" if anything goes wrong. Errors are printed to
+// stderr; we can't return them because this is invoked as a template function
+// whose signature is fixed at func(...) any. Stdout stays clean so any
+// downstream `$(...)` capture still gets clean program output.
 func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintRed(fmt.Sprintf("Provide key for %s action", utils.TemplateFuncGetValueOf))
+			utils.PrintErrorStderr(fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf))
 		} else {
-			utils.PrintRed(
+			utils.PrintErrorStderr(
 				fmt.Sprintf(
-					"Provide fileName/path to key for %s action",
+					"provide fileName/path to key for %s action",
 					utils.TemplateFuncGetValueOf,
 				),
 			)
@@ -164,20 +165,20 @@ func processValueOf(key, fileName string) any {
 
 	jsonResFilePath, err := resolveJSONFilePath(fileName)
 	if err != nil {
-		utils.PrintRed(err.Error())
+		utils.PrintErrorStderr(err.Error())
 		return ""
 	}
 
 	content, err := readJSONFile(jsonResFilePath)
 	if err != nil {
-		utils.PrintRed(err.Error())
+		utils.PrintErrorStderr(err.Error())
 		return ""
 	}
 
 	result, err := extractValueByKey(key, content)
 	if err != nil {
-		utils.PrintRed(fmt.Sprintf(
-			"error while looking up the value: '%s'.\nMake sure '%s' exists and has key '%s'",
+		utils.PrintErrorStderr(fmt.Sprintf(
+			"looking up value '%s': make sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
 				"...",
@@ -236,7 +237,7 @@ func resolveJSONFilePath(fileName string) (string, error) {
 
 	// Handle multiple matches warning
 	if len(yamlPathList) > 1 {
-		utils.PrintWarning(fmt.Sprintf("Multiple '%s'. Using %s", cleanFileName, yamlPathList[0]))
+		utils.PrintWarningStderr(fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]))
 	}
 
 	singlePath := yamlPathList[0]

@@ -112,14 +112,14 @@ func discoverFilePaths(
 			if !hasDirFlags {
 				utils.PanicRedAndExit("%v", err)
 			}
-			utils.PrintWarning(fmt.Sprintf("Warning with file flags: %v", err))
+			utils.PrintWarningStderr(fmt.Sprintf("file flags: %v", err))
 		}
 	}
 
 	if hasDirFlags {
 		dirPaths, err := apicalls.ListDirPaths(dir, dirseq)
 		if err != nil {
-			utils.PrintRed(fmt.Sprintf("Error processing directories: %v", err))
+			utils.PrintErrorStderr(fmt.Sprintf("processing directories: %v", err))
 		} else {
 			concurrentDir = dirPaths.Concurrent
 			sequentialDir = dirPaths.Sequential
@@ -139,20 +139,20 @@ func handleAPIRequests(
 ) {
 	if len(concurrentFiles) > 0 {
 		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
-			utils.PrintInfo(
+			utils.PrintInfoStderr(
 				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
 			)
 		}
 		runTasks(concurrentFiles, secrets, debug, fp)
 	}
 	if len(sequentialFiles) > 0 {
-		utils.PrintInfo(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
+		utils.PrintInfoStderr(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
 		processFilesSequentially(sequentialFiles, secrets, debug)
 	}
 
 	totalFiles := len(concurrentFiles) + len(sequentialFiles)
 	if totalFiles == 0 {
-		utils.PrintWarning(
+		utils.PrintWarningStderr(
 			"No files were processed. Please check your path or directory arguments.",
 		)
 	}
@@ -188,7 +188,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 				for attempt := 0; attempt < maxRetries && !success; attempt++ {
 					if attempt > 0 {
 						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
-						utils.PrintWarning(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
+						utils.PrintWarningStderr(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
 							path, attempt+1, maxRetries, backoffDuration))
 						time.Sleep(backoffDuration)
 					}
@@ -210,20 +210,20 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 					select {
 					case <-doneChan:
 						success = true
-						utils.PrintInfo(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
+						utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
 					case err := <-errChan:
 						lastErr = err
-						utils.PrintInfo(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
+						utils.PrintInfoStderr(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
 					case <-ctx.Done():
 						lastErr = fmt.Errorf("timeout after %v", timeout)
-						utils.PrintRed(fmt.Sprintf("Timeout processing %s after %v (attempt %d/%d)",
+						utils.PrintErrorStderr(fmt.Sprintf("timeout processing %s after %v (attempt %d/%d)",
 							path, timeout, attempt+1, maxRetries))
 					}
 					cancel()
 				}
 
 				if !success {
-					utils.PrintRed(fmt.Sprintf("Failed to process %s after %d attempts: %v",
+					utils.PrintErrorStderr(fmt.Sprintf("failed to process %s after %d attempts: %v",
 						path, maxRetries, lastErr))
 				}
 			}
@@ -256,9 +256,9 @@ func processFilesSequentially(filePaths []string, secretsMap map[string]any, deb
 		fileEnv := utils.CopyEnvMap(secretsMap)
 
 		err := processTask(path, fileEnv, debug)
-		utils.PrintInfo(fmt.Sprintf("Processed: '%s'", filepath.Base(path)))
+		utils.PrintInfoStderr(fmt.Sprintf("Processed: '%s'", filepath.Base(path)))
 		if err != nil {
-			utils.PrintRed(fmt.Sprintf("Error processing %s: %v", path, err))
+			utils.PrintErrorStderr(fmt.Sprintf("processing %s: %v", path, err))
 		}
 	}
 }
@@ -279,7 +279,7 @@ func generateFilePathList(fileName string, fp string) ([]string, error) {
 
 	if fileName != "" {
 		if matchingPaths, err := utils.ListMatchingFiles(fileName); err != nil {
-			utils.PrintRed(utils.ErrFilePathCollection + ": " + err.Error())
+			utils.PrintErrorStderr(utils.ErrFilePathCollection + ": " + err.Error())
 		} else {
 			filePathList = append(filePathList, matchingPaths...)
 		}

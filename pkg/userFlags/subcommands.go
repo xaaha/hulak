@@ -113,15 +113,21 @@ func newInitCmd() *command {
 		Run: func(args []string) error {
 			if *createEnvFlag {
 				if len(args) == 0 {
-					utils.PrintWarning("No environment names provided after -env flag")
+					utils.PrintWarningStderr("No environment names provided after -env flag")
 					return nil
 				}
+				// Collect failures so the user sees every one, but bail at the
+				// end so the exit code reflects that something went wrong.
+				var firstErr error
 				for _, env := range args {
 					if err := envparser.CreateDefaultEnvs(&env); err != nil {
-						utils.PrintRed(err.Error())
+						utils.PrintErrorStderr(err.Error())
+						if firstErr == nil {
+							firstErr = err
+						}
 					}
 				}
-				return nil
+				return firstErr
 			}
 			return InitDefaultProject()
 		},
