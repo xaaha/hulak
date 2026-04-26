@@ -308,6 +308,53 @@ func TestEnsureKeypairRecoversMissingPubKey(t *testing.T) {
 	}
 }
 
+// TestEnsureKeypairRefusesToOverwriteExistingStore verifies that if the
+// identity is missing but a store.age exists, EnsureKeypair refuses to
+// generate a fresh keypair. Generating one would make the existing
+// ciphertext permanently undecryptable — the new pubkey wouldn't match
+// the recipient store.age was originally encrypted to.
+//
+// Real-world trigger: $XDG_CONFIG_HOME resolves to a different path than
+// when the store was created (changed dotfiles, different shell, direnv,
+// SSH session with no XDG, etc.). The error guides the user to fix the
+// path rather than silently destroying their data.
+func TestEnsureKeypairRefusesToOverwriteExistingStore(t *testing.T) {
+	projectDir := setupHulakProject(t)
+	configDir := setupConfigDir(t)
+
+	// Create a real keypair and write a store encrypted to it.
+	ageKey, err := EnsureKeypair()
+	if err != nil {
+		t.Fatalf("initial EnsureKeypair: %v", err)
+	}
+	store := &Store{Envs: map[string]Env{"global": {"FOO": "bar"}}}
+	if err := WriteStore(store, ageKey.Recipient); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	// Simulate the "XDG changed; identity not at the resolved path" scenario:
+	// remove identity.txt while leaving store.age intact.
+	if err := os.Remove(filepath.Join(configDir, identityFile)); err != nil {
+		t.Fatalf("remove identity: %v", err)
+	}
+	// Also remove key.pub so we can't take the "derive from identity" path.
+	if err := os.Remove(filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)); err != nil {
+		t.Fatalf("remove key.pub: %v", err)
+	}
+
+	_, err = EnsureKeypair()
+	if err == nil {
+		t.Fatal("expected EnsureKeypair to refuse generation when store.age exists, got nil")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "store") || !strings.Contains(msg, "Refusing") {
+		t.Errorf("error %q should mention the existing store and refusal", msg)
+	}
+	if !strings.Contains(msg, "XDG_CONFIG_HOME") {
+		t.Errorf("error %q should hint at XDG_CONFIG_HOME as a likely cause", msg)
+	}
+}
+
 func TestLoadIdentity(t *testing.T) {
 	t.Run("loads existing identity", func(t *testing.T) {
 		setupConfigDir(t)
