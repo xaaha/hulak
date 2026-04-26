@@ -1,23 +1,32 @@
 package userflags
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"golang.org/x/term"
 
+	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // maskedValue is what `keys` prints in place of secret values when --show is off.
 const maskedValue = "••••"
+
+// envPicker is the function called to interactively pick an environment when
+// the user omits --env on `hulak env edit`. Indirected as a package variable
+// so tests can stub it out — calling the real selector would open a TUI on
+// /dev/tty and wait for keypress, hanging non-interactive test runs.
+var envPicker = envselect.RunEnvSelector
 
 // stdoutHeaders returns headers when stdout is a TTY, nil when piped.
 // Hiding headers under pipe redirection keeps scripts like
@@ -136,7 +145,8 @@ func promptSecretValue(key string) (string, error) {
 			"no value provided and stdin is not a terminal — pass VALUE positionally or use --stdin",
 		)
 	}
-	fmt.Fprintf(os.Stderr, "Enter value for %s: ", key) //nolint:gosec // G705 TTY prompt, no taint sink
+	//nolint:gosec // G705 TTY prompt, no taint sink
+	fmt.Fprintf(os.Stderr, "Enter value for %s: ", key)
 	// read input without echo
 	bytes, err := term.ReadPassword(stdinFd)
 	// newline to stderr
@@ -380,4 +390,145 @@ func formatTableValue(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 	return string(b)
+}
+
+// --- EDIT ---
+
+// runEnvEdit handles `hulak env edit`. Decrypts the named environment to a
+// temporary 0600 JSON file, opens it in $EDITOR (or vi), then validates and
+// merges the result back. Editor non-zero exit or unchanged content → no write.
+//
+// When envName is empty, the user is prompted via the env picker TUI — the
+// same flow as `hulak run`. Edit deliberately does NOT default to "global":
+// editing is destructive enough that we want explicit selection. To create or
+// edit a brand-new env, pass it explicitly: `hulak env edit --env staging`.
+//
+// The whole read/edit/validate/write cycle is wrapped in WithStoreLock so an
+// edit cannot race with a parallel set/delete.
+func runEnvEdit(args []string, envName string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	if envName == "" {
+		picked, err := envPicker()
+		if err != nil {
+			return err
+		}
+		envName = picked
+	}
+
+	if err := utils.ValidateEnvName(envName); err != nil {
+		return err
+	}
+
+	return vault.WithStoreLock(func() error {
+		ageKey, err := vault.EnsureKeypair()
+		if err != nil {
+			return fmt.Errorf("failed to load keypair: %w", err)
+		}
+		store, err := vault.ReadStore(ageKey.Identity)
+		if err != nil {
+			return err
+		}
+
+		// Marshal the env (or {} if the env doesn't exist yet — edit creates it).
+		env := store.GetEnv(envName)
+		if env == nil {
+			env = make(vault.Env)
+		}
+		original, err := json.MarshalIndent(env, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal env: %w", err)
+		}
+
+		// Temp file inside .hulak/ keeps plaintext on the same filesystem
+		// (same security boundary as store.age). The name encodes the env so
+		// users see "edit-prod.json" in their editor's title bar — much nicer
+		// than a random suffix. Safe to use a deterministic name because:
+		//   - we're inside WithStoreLock (no concurrent edit)
+		//   - ValidateEnvName already restricts to [a-zA-Z0-9_-] (no path tricks)
+		//   - O_TRUNC overwrites any leftover from a previous crashed run
+		markerPath, err := utils.GetProjectMarker()
+		if err != nil {
+			return err
+		}
+		tmpPath := filepath.Join(markerPath, "edit-"+envName+".json")
+		tmpFile, err := os.OpenFile(
+			tmpPath,
+			os.O_RDWR|os.O_CREATE|os.O_TRUNC,
+			utils.SecretPer,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		// Always remove the plaintext temp — even on editor crash, invalid
+		// JSON, or panic up the stack.
+		defer os.Remove(tmpPath)
+
+		if _, err := tmpFile.Write(original); err != nil {
+			_ = tmpFile.Close()
+			return fmt.Errorf("failed to write temp file: %w", err)
+		}
+		if err := tmpFile.Close(); err != nil {
+			return fmt.Errorf("failed to close temp file: %w", err)
+		}
+
+		if err := launchEditor(tmpPath); err != nil {
+			return err
+		}
+
+		edited, err := os.ReadFile(tmpPath)
+		if err != nil {
+			return fmt.Errorf("failed to read edited file: %w", err)
+		}
+
+		if bytes.Equal(original, edited) {
+			utils.PrintGreen(fmt.Sprintf("%s No changes to %s", utils.CheckMark, envName))
+			return nil
+		}
+
+		var newEnv vault.Env
+		dec := json.NewDecoder(bytes.NewReader(edited))
+		dec.UseNumber()
+		if err := dec.Decode(&newEnv); err != nil {
+			return fmt.Errorf("invalid JSON in edited file (store unchanged): %w", err)
+		}
+
+		store.Envs[envName] = newEnv
+
+		if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+			return err
+		}
+
+		utils.PrintGreen(fmt.Sprintf("%s Updated %s", utils.CheckMark, envName))
+		return nil
+	})
+}
+
+// launchEditor runs $EDITOR (or vi if unset) with path appended as its last
+// argument. Stdin/Stdout/Stderr are wired to the parent terminal so the user
+// interacts directly with the editor.
+//
+// $EDITOR is whitespace-split into argv (handles "code -w", "nvim --clean")
+// but NOT shell-parsed — quotes and shell metachars in $EDITOR are not
+// interpreted. Users with exotic editor invocations should write a wrapper
+// script and point $EDITOR at it.
+func launchEditor(path string) error {
+	editor := strings.TrimSpace(os.Getenv("EDITOR"))
+	if editor == "" {
+		editor = utils.Editor
+	}
+	parts := strings.Fields(editor)
+	parts = append(parts, path)
+
+	//nolint:gosec // G204 $EDITOR is user-controlled by design — that's the contract.
+	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("editor failed: %w", err)
+	}
+	return nil
 }

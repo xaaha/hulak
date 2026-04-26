@@ -36,6 +36,12 @@ const (
 
 const StoreFile = "store.age"
 
+// Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees
+// `vi`, so this works in bare/minimal environments (Alpine, distroless, etc.)
+// where vim/nano may not be installed. Users who prefer something else should
+// set $EDITOR in their shell.
+const Editor = "vi"
+
 // acceptable file patterns
 const (
 	YAML = ".yaml"

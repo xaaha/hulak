@@ -346,15 +346,19 @@ func newEnvCmd() *command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
 	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
 	keysShow := keysFs.Bool("show", false, "Reveal values instead of masking them")
-	keysSearch := keysFs.String("search", "", "Filter keys by case-insensitive substring or glob pattern")
+	keysSearch := keysFs.String(
+		"search",
+		"",
+		"Filter keys by case-insensitive substring or glob pattern",
+	)
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
 	deleteEnv := registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
 
-	// edit — interactive editor
+	// edit — interactive editor; empty default → TUI picker, like `hulak run`
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	_ = registerEnvFlag(editFs, utils.DefaultEnvVal, "Environment to operate on")
+	editEnv := registerEnvFlag(editFs, "", "Environment to edit (omit to pick interactively)")
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
@@ -487,17 +491,31 @@ func newEnvCmd() *command {
 		{
 			Name:  "edit",
 			Short: "Edit secrets interactively",
-			Long:  "Open the decrypted environment in $EDITOR (falls back to vi).\n\nThe decrypted JSON is written to a temp file with 0600 permissions. On editor exit\nthe JSON is validated, merged back into the store, and re-encrypted atomically.\nIf the editor exits non-zero or the file is unchanged, no write occurs.",
+			Long:  "Open the decrypted environment in $EDITOR (falls back to vi).\n\nWhen --env is omitted you'll be prompted to pick an environment from a TUI list,\nthe same flow as `hulak run`. To create a brand-new environment, pass --env\nexplicitly with the new name.\n\nThe decrypted JSON is written to a temp file with 0600 permissions inside .hulak/.\nOn editor exit the JSON is validated, merged back into the store, and re-encrypted\natomically. If the editor exits non-zero or the file is unchanged, no write occurs.",
 			Flags: editFs,
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env edit", Description: "Edit the default environment"},
-				{Command: "hulak env edit --env prod", Description: "Edit the prod environment"},
+				{
+					Command:     "hulak env edit",
+					Description: "Pick an environment from the TUI, then edit",
+				},
+				{
+					Command:     "hulak env edit --env prod",
+					Description: "Edit prod directly (skip the picker)",
+				},
+				{
+					Command:     "hulak env edit --env new_one",
+					Description: "Create a brand-new environment by name",
+				},
 				{
 					Command:     "EDITOR=nvim hulak env edit --env staging",
 					Description: "Use a specific editor",
 				},
+				{
+					Command:     "EDITOR=\"zed --wait\" hulak env edit --env staging",
+					Description: "GUI editors need a wait flag so hulak waits until you save (zed --wait, code -w)",
+				},
 			},
-			Run: notImplemented("edit"),
+			Run: func(args []string) error { return runEnvEdit(args, *editEnv) },
 		},
 		{
 			Name:  "import-key",
