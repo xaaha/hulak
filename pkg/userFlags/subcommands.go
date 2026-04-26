@@ -279,7 +279,10 @@ func newGQLCmd() *command {
 			gqlCmd.printHelp()
 			return nil
 		}
-		data, refreshFn, warnings := loadGraphQLOperations(args[0], *envFlagVal)
+		data, refreshFn, warnings, err := loadGraphQLOperations(args[0], *envFlagVal)
+		if err != nil {
+			return err
+		}
 		if data.Operations == nil {
 			return nil
 		}

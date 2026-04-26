@@ -43,13 +43,16 @@ type Flags struct {
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
-	fileList, concurrentDir, sequentialDir := discoverFilePaths(
+	fileList, concurrentDir, sequentialDir, err := discoverFilePaths(
 		f.File,
 		f.FilePath,
 		f.Dir,
 		f.Dirseq,
 		f.Dir != "" || f.Dirseq != "",
 	)
+	if err != nil {
+		return err
+	}
 
 	allPaths := slices.Concat(fileList, concurrentDir, sequentialDir)
 
@@ -111,18 +114,29 @@ func InitializeProject(env string, isCli bool) (map[string]any, error) {
 }
 
 // discoverFilePaths collects all file paths from -f, -fp, -dir, and -dirseq flags.
+//
+// When the user provides only single-file flags (no -dir/-dirseq) and the
+// lookup fails, the error is fatal — there's nothing else to run, so it
+// returns up to the caller. When dir flags are also present the file-flag
+// failure becomes a warning so the directory work can still proceed.
+// Directory-listing failures are always reported as warnings; an empty
+// directory list isn't fatal on its own (callers may still have file-flag
+// matches to execute).
 func discoverFilePaths(
 	fileName, fp, dir, dirseq string,
 	hasDirFlags bool,
-) (fileList, concurrentDir, sequentialDir []string) {
+) ([]string, []string, []string, error) {
+	var fileList, concurrentDir, sequentialDir []string
+
 	if fp != "" || fileName != "" {
-		var err error
-		fileList, err = generateFilePathList(fileName, fp)
+		list, err := generateFilePathList(fileName, fp)
 		if err != nil {
 			if !hasDirFlags {
-				utils.PanicRedAndExit("%v", err)
+				return nil, nil, nil, err
 			}
 			utils.PrintWarningStderr(fmt.Sprintf("file flags: %v", err))
+		} else {
+			fileList = list
 		}
 	}
 
@@ -136,7 +150,7 @@ func discoverFilePaths(
 		}
 	}
 
-	return fileList, concurrentDir, sequentialDir
+	return fileList, concurrentDir, sequentialDir, nil
 }
 
 // outcome captures the result of executing one request file. Used to render

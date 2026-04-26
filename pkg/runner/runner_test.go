@@ -37,7 +37,7 @@ func TestDiscoverFilePaths_FpReturnsFileList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fileList, concurrent, sequential := discoverFilePaths(
+	fileList, concurrent, sequential, err := discoverFilePaths(
 		"",      // fileName
 		tmpFile, // fp
 		"",      // dir
@@ -45,6 +45,9 @@ func TestDiscoverFilePaths_FpReturnsFileList(t *testing.T) {
 		false,   // hasDirFlags
 	)
 
+	if err != nil {
+		t.Fatalf("discoverFilePaths: %v", err)
+	}
 	if len(fileList) != 1 || fileList[0] != tmpFile {
 		t.Errorf("fileList = %v, want [%s]", fileList, tmpFile)
 	}
@@ -65,7 +68,7 @@ func TestDiscoverFilePaths_DirReturnsConcurrent(t *testing.T) {
 		}
 	}
 
-	fileList, concurrent, sequential := discoverFilePaths(
+	fileList, concurrent, sequential, err := discoverFilePaths(
 		"",     // fileName
 		"",     // fp
 		tmpDir, // dir
@@ -73,6 +76,9 @@ func TestDiscoverFilePaths_DirReturnsConcurrent(t *testing.T) {
 		true,   // hasDirFlags
 	)
 
+	if err != nil {
+		t.Fatalf("discoverFilePaths: %v", err)
+	}
 	if len(fileList) != 0 {
 		t.Errorf("fileList should be empty, got %v", fileList)
 	}
@@ -93,13 +99,16 @@ func TestDiscoverFilePaths_DirseqReturnsSequential(t *testing.T) {
 		}
 	}
 
-	fileList, concurrent, sequential := discoverFilePaths(
+	fileList, concurrent, sequential, err := discoverFilePaths(
 		"",     // fileName
 		"",     // fp
 		"",     // dir
 		tmpDir, // dirseq
 		true,   // hasDirFlags
 	)
+	if err != nil {
+		t.Fatalf("discoverFilePaths: %v", err)
+	}
 
 	if len(fileList) != 0 {
 		t.Errorf("fileList should be empty, got %v", fileList)
@@ -141,9 +150,12 @@ func TestContainsTemplateVars_EmptyList(t *testing.T) {
 }
 
 func TestDiscoverFilePaths_EmptyInputs(t *testing.T) {
-	fileList, concurrent, sequential := discoverFilePaths(
+	fileList, concurrent, sequential, err := discoverFilePaths(
 		"", "", "", "", false,
 	)
+	if err != nil {
+		t.Fatalf("discoverFilePaths: %v", err)
+	}
 
 	if len(fileList) != 0 {
 		t.Errorf("fileList should be empty, got %v", fileList)
@@ -261,13 +273,16 @@ func TestDiscoverFilePaths_FpAndDirTogether(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fileList, concurrent, sequential := discoverFilePaths(
+	fileList, concurrent, sequential, err := discoverFilePaths(
 		"",      // fileName
 		tmpFile, // fp
 		tmpDir,  // dir
 		"",      // dirseq
 		true,    // hasDirFlags
 	)
+	if err != nil {
+		t.Fatalf("discoverFilePaths: %v", err)
+	}
 
 	if len(fileList) != 1 {
 		t.Errorf("fileList should have 1 entry, got %v", fileList)
