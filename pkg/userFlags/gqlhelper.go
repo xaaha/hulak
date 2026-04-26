@@ -62,12 +62,18 @@ func loadGraphQLOperations(arg string, env string) (
 		}, nil
 	}
 
-	return explorerDataFromLoadResult(loadResult, prepared.Results), refreshFn, loadResult.Warnings, nil
+	return explorerDataFromLoadResult(
+		loadResult,
+		prepared.Results,
+	), refreshFn, loadResult.Warnings, nil
 }
 
 // explorerDataFromLoadResult converts schema fetch results and process
 // results into the unified ExplorerData consumed by the TUI explorer.
-func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []graphql.ProcessResult) gqlexplorer.ExplorerData {
+func explorerDataFromLoadResult(
+	loadResult graphql.LoadResult,
+	processResults []graphql.ProcessResult,
+) gqlexplorer.ExplorerData {
 	data := gqlexplorer.ExplorerData{
 		InputTypes:      make(map[string]graphql.InputType),
 		EnumTypes:       make(map[string]graphql.EnumType),
@@ -87,7 +93,9 @@ func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []
 
 	for i := range loadResult.Endpoints {
 		endpoint := &loadResult.Endpoints[i]
-		data.Operations = append(data.Operations, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
+		data.Operations = append(
+			data.Operations,
+			gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
 		for k, v := range endpoint.Schema.InputTypes {
 			data.InputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}

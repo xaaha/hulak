@@ -207,7 +207,10 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 		if len(warnings) == 0 {
 			return LoadResult{}, nil
 		}
-		return LoadResult{}, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(warnings, "\n  "))
+		return LoadResult{}, fmt.Errorf(
+			"all schema fetches failed:\n  %s",
+			strings.Join(warnings, "\n  "),
+		)
 	}
 
 	endpointResults := make([]ProcessResult, 0, len(uniqueFetchResults))
@@ -266,7 +269,10 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 	sort.Strings(warnings)
 
 	if len(loaded) == 0 && len(warnings) > 0 {
-		return LoadResult{}, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(warnings, "\n  "))
+		return LoadResult{}, fmt.Errorf(
+			"all schema fetches failed:\n  %s",
+			strings.Join(warnings, "\n  "),
+		)
 	}
 
 	return LoadResult{
