@@ -306,10 +306,11 @@ func TestEnvAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"list", []string{"ls"}},
+		{"list", []string{"ls", "l"}},
 		{"set", []string{"add"}},
+		{"get", []string{"g", "show", "view"}},
 		{"keys", []string{"key"}},
-		{"delete", []string{"rm", "remove"}},
+		{"delete", []string{"rm", "remove", "del"}},
 	}
 
 	for _, tc := range tests {
@@ -319,6 +320,29 @@ func TestEnvAliases(t *testing.T) {
 					t.Errorf("expected env subcommand %q to resolve (alias of %q)", alias, tc.name)
 				}
 			})
+		}
+	}
+}
+
+// TestEnvSubcommandAliasesUnique guards against accidentally registering the
+// same name or alias under two env subcommands. findSub does first-match wins,
+// so a duplicate would silently shadow whichever command is later in the slice.
+func TestEnvSubcommandAliasesUnique(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	seen := map[string]string{} // identifier → owner name
+	for _, sub := range envCmd.SubCommands {
+		ids := append([]string{sub.Name}, sub.Aliases...)
+		for _, id := range ids {
+			if owner, dup := seen[id]; dup {
+				t.Errorf("identifier %q is claimed by both %q and %q", id, owner, sub.Name)
+				continue
+			}
+			seen[id] = sub.Name
 		}
 	}
 }

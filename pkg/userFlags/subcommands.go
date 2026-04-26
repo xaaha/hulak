@@ -407,10 +407,11 @@ func newEnvCmd() *command {
 			Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin) },
 		},
 		{
-			Name:  "get",
-			Short: "Get a value by key",
-			Long:  "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
-			Flags: getFs,
+			Name:    "get",
+			Aliases: []string{"g", "show", "view"},
+			Short:   "Get a value by key",
+			Long:    "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
+			Flags:   getFs,
 			Args: []argDef{
 				{Name: "key", Required: true, Desc: "Secret key to retrieve"},
 			},
@@ -432,7 +433,7 @@ func newEnvCmd() *command {
 		},
 		{
 			Name:    "list",
-			Aliases: []string{"ls"},
+			Aliases: []string{"ls", "l"},
 			Short:   "List environment names",
 			Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak env keys --env <name>` to list keys within an environment.",
 			Flags:   listFs,
@@ -469,7 +470,7 @@ func newEnvCmd() *command {
 		},
 		{
 			Name:    "delete",
-			Aliases: []string{"rm", "remove"},
+			Aliases: []string{"rm", "remove", "del"},
 			Short:   "Delete a key",
 			Long:    "Remove a secret from the encrypted vault.\n\nExits non-zero if the key doesn't exist.",
 			Flags:   deleteFs,
