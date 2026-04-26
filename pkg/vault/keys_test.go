@@ -84,23 +84,14 @@ func setupConfigDir(t *testing.T) string {
 		t.Fatalf("failed to resolve symlinks: %v", err)
 	}
 
-	// UserConfigDir on unix checks XDG_CONFIG_HOME first
-	oldXDG := os.Getenv("XDG_CONFIG_HOME")
+	// Point XDG_CONFIG_HOME at our temp dir so utils.UserConfigDir resolves
+	// to <tmpDir>/hulak — isolated from the user's real ~/.config/hulak.
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
-	t.Cleanup(func() {
-		os.Setenv("XDG_CONFIG_HOME", oldXDG)
-	})
 
-	// UserConfigDir appends "hulak" to XDG_CONFIG_HOME
-	// but our getIdentityFilePath calls UserConfigDir which returns tmpDir directly
-	// (since XDG_CONFIG_HOME is set, it returns it as-is without appending hulak)
-	// Let's check what UserConfigDir actually returns
 	configDir, err := utils.UserConfigDir()
 	if err != nil {
 		t.Fatalf("UserConfigDir() error: %v", err)
 	}
-
-	// Create the config dir if needed
 	if err := os.MkdirAll(configDir, utils.DirPer); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
@@ -272,6 +263,48 @@ func TestEnsureKeypairDetectsMismatch(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "mismatch") {
 		t.Errorf("error = %q, want it to contain 'mismatch'", err.Error())
+	}
+}
+
+// TestEnsureKeypairRecoversMissingPubKey verifies that if .hulak/key.pub
+// goes missing but the identity is intact, EnsureKeypair derives the
+// pubkey from the identity and writes it back — without generating a
+// new keypair (which would silently brick any existing store.age).
+func TestEnsureKeypairRecoversMissingPubKey(t *testing.T) {
+	projectDir := setupHulakProject(t)
+	setupConfigDir(t)
+
+	first, err := EnsureKeypair()
+	if err != nil {
+		t.Fatalf("EnsureKeypair() initial: %v", err)
+	}
+
+	// Simulate accidental deletion of key.pub.
+	pubKeyPath := filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)
+	if err := os.Remove(pubKeyPath); err != nil {
+		t.Fatalf("failed to remove key.pub: %v", err)
+	}
+
+	second, err := EnsureKeypair()
+	if err != nil {
+		t.Fatalf("EnsureKeypair() after pub-key loss: %v", err)
+	}
+
+	// Identity must NOT have rotated.
+	if second.Identity.String() != first.Identity.String() {
+		t.Error("EnsureKeypair() rotated identity on missing pubkey — would brick existing store.age")
+	}
+	// Recipient must derive from the same identity.
+	if second.Recipient.String() != first.Recipient.String() {
+		t.Errorf("recipient mismatch: got %q, want %q", second.Recipient.String(), first.Recipient.String())
+	}
+	// key.pub must be on disk again.
+	got, err := os.ReadFile(pubKeyPath)
+	if err != nil {
+		t.Fatalf("key.pub not re-created: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != first.Recipient.String() {
+		t.Errorf("re-derived key.pub = %q, want %q", strings.TrimSpace(string(got)), first.Recipient.String())
 	}
 }
 

@@ -64,10 +64,15 @@ func LoadIdentity() (*age.X25519Identity, error) {
 }
 
 // SetIdentity writes the private key to the global config identity file.
+// Creates the parent directory if it doesn't exist so first-use bootstrap
+// works without a separate "init the config dir" step.
 func SetIdentity(privateKey string) error {
 	identityFilePath, err := getIdentityFilePath()
 	if err != nil {
 		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(identityFilePath), utils.DirPer); err != nil {
+		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
 	return os.WriteFile(identityFilePath, []byte(privateKey+"\n"), utils.SecretPer)
