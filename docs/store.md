@@ -206,6 +206,9 @@ hulak env remove-recipient age1ql3z...
 | `hulak env rotate-key`                               | Generate a new identity, re-encrypt                    |
 | `hulak migrate env`                                  | Convert `env/*.env` to `store.age`                     |
 
+> [!Tip]
+> Need a snapshot of `store.age`? Just `cp .hulak/store.age my-backup.age`. The file is already encrypted — copy it anywhere. To restore, copy it back. No dedicated subcommand needed.
+
 > [!Note]
 > `hulak env edit` opens an interactive picker when `--env` is omitted — the same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
 
@@ -232,24 +235,6 @@ git commit
 
 > [!Tip]
 > For frequent recipient churn (large teams), consider squashing multiple `add-recipient` / `remove-recipient` commits into one to reduce merge surface area.
-
-## Passphrase-protected identity (advanced)
-
-age supports passphrase-encrypting the identity file itself: instead of `~/.config/hulak/identity.txt` containing a plaintext `AGE-SECRET-KEY-1...` line, it can be an age-encrypted blob requiring a passphrase to unlock.
-
-This is a layer of defense on top of file permissions and disk encryption — useful for shared workstations or laptops without full-disk encryption. The trade-off: every hulak command that needs to decrypt prompts for the passphrase (or you cache it in a key agent).
-
-To create a passphrase-protected identity:
-
-```bash
-# Generate (or take an existing identity) and re-encrypt it with a passphrase
-hulak env export-key | age -p > ~/.config/hulak/identity.txt
-chmod 600 ~/.config/hulak/identity.txt
-# age will prompt for a passphrase on every decrypt
-```
-
-> [!Note]
-> Passphrase-encrypted identities don't work well with CI — there's no one to type the passphrase. Use `HULAK_MASTER_KEY` (the raw key as an env var) for non-interactive contexts. First-class hulak support for this flow is tracked as a future enhancement.
 
 ## CI / scripts
 
@@ -314,12 +299,7 @@ This is the same playbook as SOPS, GPG, and git-crypt. Encryption can't un-show 
 
 ## Privacy
 
-hulak makes no network calls except when you explicitly opt in:
-
-- `hulak env add-recipient --github <user>` — fetches keys from `https://github.com/<user>.keys`
-- Any HTTP request you've defined in a `.hk.yaml` file — that's the whole product, obviously
-
-There is no telemetry, no analytics, no version-check ping, no error reporting. The CLI runs entirely against local files and the requests you author. If you observe a network call from hulak that isn't covered above, that's a bug — please file it.
+hulak makes no network calls except for the HTTP requests you author in your `.hk.yaml` files — that's the whole product. There is no telemetry, no analytics, no version-check ping, no error reporting. The CLI runs entirely against local files and the requests you author. If you observe a network call from hulak outside of running your own request files, that's a bug — please file it.
 
 ## FAQ
 
@@ -334,7 +314,7 @@ If you have no backup and no second recipient, the data is gone. Mitigations:
 
 - `hulak env export-key` → save in a password manager
 - `hulak env add-recipient <backup-key>` → second recipient as redundancy
-- `hulak env backup` → snapshot the encrypted store (still requires a key to decrypt)
+- `cp .hulak/store.age my-backup.age` → snapshot the encrypted store (still needs a key to decrypt)
 
 **Can I have both `env/` and `store.age`?**
 Yes, during migration. Vault takes priority. After verifying everything works, delete `env/`.
@@ -342,5 +322,5 @@ Yes, during migration. Vault takes priority. After verifying everything works, d
 **How big can a single value be?**
 Functionally, anything. Practically, hulak warns at 64 KB and recommends `{{getFile "path"}}` for large blobs (certs, JSON fixtures) — those are read from disk on demand instead of decrypted on every invocation.
 
-**Does this work with hardware security keys?**
-Not yet. age supports SSH ed25519 keys, which would let `~/.ssh/id_ed25519` double as a hulak identity. Tracking as a future enhancement.
+**Does this work with hardware security keys / SSH keys?**
+Not yet. age supports SSH ed25519 keys natively, which would let `~/.ssh/id_ed25519` double as a hulak identity. Tracked in [#170](https://github.com/xaaha/hulak/issues/170).
