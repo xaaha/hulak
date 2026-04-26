@@ -64,9 +64,14 @@ Running `hulak` with no file or directory target opens the interactive picker.
 
 ### Environment selection
 
-- The default environment is `global`.
-- Environment selection only matters when the request needs template resolution.
-- `run` and `gql` support `--env` / `--environment` to skip the environment picker.
+When `--env` is omitted, behavior depends on the command:
+
+- **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.
+- **`hulak env edit`**: always opens the picker — no default. Pass `--env <name>` (including for new envs you want to create).
+- **`hulak env set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
+- **`hulak env list`**: takes no `--env` (it lists envs themselves).
+
+All commands above accept `--env` / `--environment` to bypass any picker or default explicitly.
 
 ## Commands
 
@@ -162,28 +167,32 @@ Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
 
 ### `env`
 
-The `env` command tree is exposed in the CLI for encrypted environment-secret management.
+The `env` command tree manages secrets in the encrypted vault (`.hulak/store.age`). See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
 
 ```bash
 hulak env --help
 hulak env set API_KEY value --env prod
-hulak env list --env staging
-hulak env keys --env prod
+hulak env list
+hulak env keys --env prod --show
+hulak env get DB_URL --env staging        # raw to stdout — $(...) safe
+hulak env edit                            # picks env interactively, no --env default
 ```
 
-Subcommands currently shown by the CLI:
+| Subcommand                | Notes                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| `set` (`add`)             | Positional VALUE, secure prompt fallback, `--stdin` for scripts                               |
+| `get`                     | Raw stdout, exit non-zero on missing key                                                      |
+| `list` (`ls`)             | Environment names; styled header in TTY, plain when piped                                     |
+| `keys` (`key`)            | Masked by default, `--show`, `--search` (substring or glob)                                   |
+| `delete` (`rm`, `remove`) | Errors on missing key                                                                         |
+| `edit`                    | TUI env picker if `--env` omitted; no global default; pass `--env <name>` to create a new env |
+| `import-key`              | Import an age identity from a file or stdin                                                   |
+| `export-key`              | Print or save your private key                                                                |
+| `add-recipient`           | Authorize a new public key                                                                    |
+| `remove-recipient`        | Revoke a public key                                                                           |
+| `list-recipients`         | Show all authorized public keys                                                               |
 
-- `set` (`add`)
-- `get`
-- `list` (`ls`)
-- `keys` (`key`)
-- `delete` (`rm`, `remove`)
-- `edit`
-- `import-key`
-- `export-key`
-- `add-recipient`
-- `remove-recipient`
-- `list-recipients`
+**GUI editors** for `edit`: pass the wait flag in `$EDITOR` so hulak blocks until you save. e.g. `EDITOR="zed --wait"` or `EDITOR="code -w"`. Without it, the editor returns immediately and the file is read back unchanged.
 
 ### `help`
 

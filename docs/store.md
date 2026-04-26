@@ -188,23 +188,26 @@ hulak env remove-recipient age1ql3z...
 
 ## Commands
 
-| Command                                     | Purpose                                         |
-| ------------------------------------------- | ----------------------------------------------- |
-| `hulak init`                                | Generate keypair, write `recipients.txt`        |
-| `hulak env set KEY [VALUE] [--env name]`    | Set a secret (interactive prompt if no value)   |
-| `hulak env get KEY [--env name]`            | Print a value to stdout                         |
-| `hulak env list`                            | List environment names                          |
-| `hulak env keys --env name [--show]`        | List keys in an environment (masked by default) |
-| `hulak env delete KEY [--env name]`         | Remove a key                                    |
-| `hulak env edit [--env name]`               | Open `$EDITOR` on the decrypted env section     |
-| `hulak env export-key [--out path]`         | Print or save your private key                  |
-| `hulak env import-key path [--force]`       | Restore an identity from a file                 |
-| `hulak env add-recipient KEY [--name n]`    | Authorize a new public key                      |
-| `hulak env remove-recipient KEY [--name n]` | Revoke a public key                             |
-| `hulak env list-recipients`                 | Show all authorized public keys                 |
-| `hulak env backup [--out path]`             | Snapshot `store.age`                            |
-| `hulak env restore path`                    | Restore from a snapshot                         |
-| `hulak migrate env`                         | Convert `env/*.env` to `store.age`              |
+| Command                                              | Purpose                                                |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| `hulak init`                                         | Generate keypair, write `recipients.txt`               |
+| `hulak env set KEY [VALUE] [--env name] [--stdin]`   | Set a secret (interactive prompt if no value)          |
+| `hulak env get KEY [--env name]`                     | Print a value to stdout (raw, scriptable)              |
+| `hulak env list`                                     | List environment names                                 |
+| `hulak env keys [--env name] [--show] [--search p]`  | List keys, masked by default; substring/glob filter    |
+| `hulak env delete KEY [--env name]`                  | Remove a key                                           |
+| `hulak env edit [--env name]`                        | Open `$EDITOR` on the env (TUI picker if no `--env`)   |
+| `hulak env export-key [--out path]`                  | Print or save your private key                         |
+| `hulak env import-key path [--force]`                | Restore an identity from a file                        |
+| `hulak env add-recipient KEY [--name n]`             | Authorize a new public key                             |
+| `hulak env remove-recipient KEY [--name n]`          | Revoke a public key                                    |
+| `hulak env list-recipients`                          | Show all authorized public keys                        |
+| `hulak env rotate`                                   | Re-encrypt to the current recipient set                |
+| `hulak env rotate-key`                               | Generate a new identity, re-encrypt                    |
+| `hulak migrate env`                                  | Convert `env/*.env` to `store.age`                     |
+
+> [!Note]
+> `hulak env edit` opens an interactive picker when `--env` is omitted — the same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
 
 ## Merge conflicts on `recipients.txt` and `store.age`
 
