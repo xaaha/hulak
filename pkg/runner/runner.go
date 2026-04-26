@@ -137,20 +137,25 @@ func handleAPIRequests(
 	sequentialFiles []string,
 	fp string,
 ) {
+	totalFiles := len(concurrentFiles) + len(sequentialFiles)
+	// Per-file "Processed 'X'" lines only help when multiple files are running
+	// — they let the user track which file finished. With a single file there
+	// is exactly one outcome and the line is just noise; suppress it.
+	multiFile := totalFiles > 1
+
 	if len(concurrentFiles) > 0 {
 		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
 			utils.PrintInfoStderr(
 				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
 			)
 		}
-		runTasks(concurrentFiles, secrets, debug, fp)
+		runTasks(concurrentFiles, secrets, debug, fp, multiFile)
 	}
 	if len(sequentialFiles) > 0 {
 		utils.PrintInfoStderr(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
-		processFilesSequentially(sequentialFiles, secrets, debug)
+		processFilesSequentially(sequentialFiles, secrets, debug, multiFile)
 	}
 
-	totalFiles := len(concurrentFiles) + len(sequentialFiles)
 	if totalFiles == 0 {
 		utils.PrintWarningStderr(
 			"No files were processed. Please check your path or directory arguments.",
@@ -158,8 +163,10 @@ func handleAPIRequests(
 	}
 }
 
-// runTasks manages the go tasks with a limited worker pool
-func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string) {
+// runTasks manages the go tasks with a limited worker pool.
+// multiFile gates the per-file "Processed 'X'" line — useful when several
+// files are interleaving, useless and noisy for a single file.
+func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string, multiFile bool) {
 	maxWorkers := utils.GetWorkers(nil)
 	maxRetries := 3
 	timeout := 60 * time.Second
@@ -210,7 +217,9 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 					select {
 					case <-doneChan:
 						success = true
-						utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
+						if multiFile {
+							utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
+						}
 					case err := <-errChan:
 						lastErr = err
 						utils.PrintInfoStderr(fmt.Sprintf("(attempt %d/%d)", attempt+1, maxRetries))
@@ -250,15 +259,19 @@ func processTask(path string, secretsMap map[string]any, debug bool) error {
 	}
 }
 
-// processFilesSequentially handles files one by one
-func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool) {
+// processFilesSequentially handles files one by one.
+// multiFile gates the per-file success line — useless noise for a single file.
+func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool, multiFile bool) {
 	for _, path := range filePaths {
 		fileEnv := utils.CopyEnvMap(secretsMap)
 
 		err := processTask(path, fileEnv, debug)
-		utils.PrintInfoStderr(fmt.Sprintf("Processed: '%s'", filepath.Base(path)))
 		if err != nil {
 			utils.PrintErrorStderr(fmt.Sprintf("processing %s: %v", path, err))
+			continue
+		}
+		if multiFile {
+			utils.PrintInfoStderr(fmt.Sprintf("Processed '%s'", filepath.Base(path)))
 		}
 	}
 }
