@@ -27,12 +27,22 @@ func InitDefaultProject() error {
 		utils.PrintWarning(fmt.Sprintf("could not update .gitignore: %v", err))
 	}
 
-	content, err := embeddedFiles.ReadFile(utils.APIOptions)
+	root, err := utils.CreatePath(utils.APIOptions)
 	if err != nil {
 		return err
 	}
 
-	root, err := utils.CreatePath(utils.APIOptions)
+	// Don't clobber a customized example file. `hulak init` is designed to be
+	// safe to re-run; overwriting user-edited content would defeat that.
+	if utils.FileExists(root) {
+		utils.PrintWarning(
+			fmt.Sprintf("Kept existing '%s' (delete it to regenerate)", utils.APIOptions),
+		)
+		utils.PrintGreen("Done " + utils.CheckMark)
+		return nil
+	}
+
+	content, err := embeddedFiles.ReadFile(utils.APIOptions)
 	if err != nil {
 		return err
 	}
