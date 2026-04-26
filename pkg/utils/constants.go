@@ -80,7 +80,7 @@ const (
 
 // tick mark and x for success and failure
 const (
-	CheckMark           = "\u2713"  // tick
+	CheckMark           = "\u2714"  // tick
 	CrossMark           = "\u2717"  // x
 	ChevronRight        = "\uf054 " // >
 	ChevronRightCircled = "\uf138"
