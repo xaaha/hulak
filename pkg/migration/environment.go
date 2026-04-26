@@ -131,6 +131,6 @@ func migrateEnv(env Environment, comment ...string) error {
 		return utils.ColorError("error writing to file: %w", err)
 	}
 
-	utils.PrintGreen("\nEnvironment migration successful! " + utils.CheckMark)
+	utils.PrintSuccessStderr("Environment migration successful")
 	return nil
 }

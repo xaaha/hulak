@@ -113,15 +113,21 @@ func newInitCmd() *command {
 		Run: func(args []string) error {
 			if *createEnvFlag {
 				if len(args) == 0 {
-					utils.PrintWarning("No environment names provided after -env flag")
+					utils.PrintWarningStderr("No environment names provided after -env flag")
 					return nil
 				}
+				// Collect failures so the user sees every one, but bail at the
+				// end so the exit code reflects that something went wrong.
+				var firstErr error
 				for _, env := range args {
 					if err := envparser.CreateDefaultEnvs(&env); err != nil {
-						utils.PrintRed(err.Error())
+						utils.PrintErrorStderr(err.Error())
+						if firstErr == nil {
+							firstErr = err
+						}
 					}
 				}
-				return nil
+				return firstErr
 			}
 			return InitDefaultProject()
 		},
@@ -260,8 +266,10 @@ func newRunCmd() *command {
 			return err
 		}
 
-		runner.Execute(f)
-		return nil
+		// Propagate runner errors so the top-level exit code reflects failures.
+		// Per-file detail has already been printed; an empty error message is
+		// the runner's signal of "exit non-zero, no extra output needed".
+		return runner.Execute(f)
 	}
 
 	return runCmd
@@ -370,7 +378,9 @@ func newEnvCmd() *command {
 
 	notImplemented := func(name string) func([]string) error {
 		return func(_ []string) error {
-			fmt.Printf("hulak env %s is not yet implemented\n", name)
+			// Stderr — this is a status notice, not the data the user asked for.
+			// If the user pipes the output, $() must not capture this line.
+			fmt.Fprintf(os.Stderr, "hulak env %s is not yet implemented\n", name)
 			return nil
 		}
 	}

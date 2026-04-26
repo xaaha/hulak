@@ -98,7 +98,7 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 			return err
 		}
 
-		utils.PrintGreen(fmt.Sprintf("%s Set %s in %s", utils.CheckMark, key, envName))
+		utils.PrintSuccessStderr(fmt.Sprintf("Set %s in %s", key, envName))
 		return nil
 	})
 }
@@ -262,7 +262,7 @@ func runEnvDelete(args []string, envName string) error {
 			return err
 		}
 
-		utils.PrintGreen(fmt.Sprintf("%s Deleted %s from %s", utils.CheckMark, key, envName))
+		utils.PrintSuccessStderr(fmt.Sprintf("Deleted %s from %s", key, envName))
 		return nil
 	})
 }
@@ -548,7 +548,7 @@ func runEnvEdit(args []string, envName string) error {
 		}
 
 		if bytes.Equal(original, edited) {
-			utils.PrintGreen(fmt.Sprintf("%s No changes to %s", utils.CheckMark, envName))
+			utils.PrintSuccessStderr(fmt.Sprintf("No changes to %s", envName))
 			return nil
 		}
 
@@ -565,7 +565,7 @@ func runEnvEdit(args []string, envName string) error {
 			return err
 		}
 
-		utils.PrintGreen(fmt.Sprintf("%s Updated %s", utils.CheckMark, envName))
+		utils.PrintSuccessStderr(fmt.Sprintf("Updated %s", envName))
 		return nil
 	})
 }

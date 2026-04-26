@@ -46,9 +46,9 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 
 	// compare both values
 	if !slices.Contains(envFromFiles, envFromFlag) {
-		fmt.Printf("'%v.env' not found in the env directory\n", envFromFlag)
-		// ask to create the file, if the file does not exist
-		fmt.Printf("Create '%v.env'? (y/n)", envFromFlag)
+		// Prompts go to stderr so they never leak into $() capture.
+		fmt.Fprintf(os.Stderr, "'%v.env' not found in the env directory\n", envFromFlag)
+		fmt.Fprintf(os.Stderr, "Create '%v.env'? (y/n) ", envFromFlag)
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
@@ -65,13 +65,13 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 		} else {
 			fileCreationSkipped = true
 			envFromFlag = utils.DefaultEnvVal
-			utils.PrintGreen("Skipping file Creation")
+			utils.PrintInfoStderr("Skipping file creation")
 		}
 	}
 
 	err = os.Setenv(utils.EnvKey, envFromFlag)
 	if isCli {
-		utils.PrintGreen("Environment: " + os.Getenv(utils.EnvKey))
+		utils.PrintInfoStderr("Environment: " + os.Getenv(utils.EnvKey))
 	}
 	if err != nil {
 		return fileCreationSkipped, err
@@ -209,7 +209,7 @@ Replaces global key with custom when keys repeat
 func GenerateSecretsMap(envFromFlag string, isCli bool) (map[string]any, error) {
 	if vault.DetectStore() == vault.StoreAge {
 		if isCli {
-			utils.PrintGreen("Environment: " + envFromFlag)
+			utils.PrintInfoStderr("Environment: " + envFromFlag)
 		}
 		return loadSecretsFromVault(envFromFlag)
 	}

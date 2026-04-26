@@ -20,6 +20,12 @@ func main() {
 	// inside ParseFlagsSubcmds. It only returns here for interactive mode.
 	flags, err := userflags.ParseFlagsSubcmds()
 	if err != nil {
+		// Runner failures already printed per-file detail via printOutcome
+		// and a summary line — exit silently with non-zero so we don't
+		// print the failure twice.
+		if runner.IsRunFailure(err) {
+			os.Exit(1)
+		}
 		utils.PanicRedAndExit("%v", err)
 	}
 
@@ -33,9 +39,25 @@ func main() {
 
 	var envMap map[string]any
 	if utils.FileHasTemplateVars(filePath) {
-		envMap = runner.InitializeProject(flags.Env, false)
+		var initErr error
+		envMap, initErr = runner.InitializeProject(flags.Env, false)
+		if initErr != nil {
+			utils.PanicRedAndExit("%v", initErr)
+		}
 	}
-	runner.ExecuteSingleFile(envMap, flags.Debug, filePath)
+
+	if err := runner.ExecuteSingleFile(envMap, flags.Debug, filePath); err != nil {
+		// Same suppression as above: runner.IsRunFailure means printOutcome
+		// already explained the failure on stderr; just flip the exit code.
+		// The non-IsRunFailure branch is defensive — handleAPIRequests is
+		// the only thing ExecuteSingleFile can fail on today, and it always
+		// returns *runFailureError. Kept so a future caller change doesn't
+		// silently swallow a different error type.
+		if !runner.IsRunFailure(err) {
+			utils.PrintErrorStderr(err.Error())
+		}
+		os.Exit(1)
+	}
 }
 
 func runInteractiveFlow(env *string, envSet bool) string {
@@ -115,22 +137,22 @@ func ensureHulakProject() {
 		)
 	}
 
-	utils.PrintWarning("error: environment resolution requires a Hulak project")
-	fmt.Print("Initialize one here? [y/N] ")
+	utils.PrintErrorStderr("environment resolution requires a Hulak project")
+	fmt.Fprint(os.Stderr, "Initialize one here? [y/N] ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if answer == "y" || answer == "yes" {
-			fmt.Println()
+			fmt.Fprintln(os.Stderr)
 			if err := envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PanicRedAndExit("%v", err)
 			}
-			fmt.Println()
+			fmt.Fprintln(os.Stderr)
 			return
 		}
 	}
 
-	fmt.Println("\nTo set up manually, run: hulak init")
+	fmt.Fprintln(os.Stderr, "\nTo set up manually, run: hulak init")
 	os.Exit(0)
 }

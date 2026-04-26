@@ -51,12 +51,12 @@ func envItems() []string {
 	if vault.DetectStore() == vault.StoreAge {
 		identity, err := vault.LoadIdentity()
 		if err != nil {
-			utils.PrintRed(fmt.Sprintf("vault: %v", err))
+			utils.PrintErrorStderr(fmt.Sprintf("vault: %v", err))
 			return nil
 		}
 		store, err := vault.ReadStore(identity)
 		if err != nil {
-			utils.PrintRed(fmt.Sprintf("vault: failed to read store: %v", err))
+			utils.PrintErrorStderr(fmt.Sprintf("vault: failed to read store: %v", err))
 			return nil
 		}
 		return store.ListEnvs()

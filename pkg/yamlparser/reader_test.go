@@ -2,7 +2,6 @@ package yamlparser
 
 import (
 	"os"
-	"os/exec"
 	"testing"
 
 	"github.com/goccy/go-yaml"
@@ -62,33 +61,18 @@ KeyTwo: value2
 				filepath = "/non/existent/file.yaml"
 			}
 
+			buf, err := checkYamlFile(filepath, secretsMap)
 			if tc.expectErr {
-				// Simulate child process to test os.Exit behavior
-				if os.Getenv("EXPECT_EXIT") == "1" {
-					_, _ = checkYamlFile(
-						filepath,
-						secretsMap,
-					) // Call function that triggers os.Exit
-					return
+				if err == nil {
+					t.Fatalf("expected an error, got nil")
 				}
-				// handle the current subprocess
-				cmd := exec.Command(os.Args[0], "-test.run="+t.Name()) //nolint:gosec // Standard Go subprocess test pattern
-				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
-				err := cmd.Run()
-
-				// Verify exit code from the subprocess
-				if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
-					return // Test passes
-				}
-				t.Fatalf("Expected process to exit with code 1, but got %v", err)
-			} else {
-				buf, err := checkYamlFile(filepath, secretsMap)
-				if err != nil {
-					t.Fatalf("Unexpected error: %v", err)
-				}
-				if buf.Len() == 0 {
-					t.Errorf("Expected non-empty buffer, got empty buffer for test %s", tc.name)
-				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if buf.Len() == 0 {
+				t.Errorf("Expected non-empty buffer, got empty buffer for test %s", tc.name)
 			}
 		})
 	}
@@ -397,20 +381,13 @@ body:
 			}
 
 			if tc.expectErr {
-				if os.Getenv("EXPECT_EXIT") == "1" {
-					_, _ = checkYamlFile(filepath, tc.secretMap)
-					return
+				_, err := checkYamlFile(filepath, tc.secretMap)
+				if err == nil {
+					t.Fatalf("expected an error for test %s, got nil", tc.name)
 				}
-
-				cmd := exec.Command(os.Args[0], "-test.run="+t.Name()) //nolint:gosec // Standard Go subprocess test pattern
-				cmd.Env = append(os.Environ(), "EXPECT_EXIT=1")
-				err := cmd.Run()
-
-				if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
-					return // Expected exit, test passes
-				}
-				t.Fatalf("Expected process to exit with code 1, but got %v", err)
-			} else {
+				return
+			}
+			{
 				// For cases where we don't expect an error/panic
 				buf, err := checkYamlFile(filepath, tc.secretMap)
 				if err != nil {

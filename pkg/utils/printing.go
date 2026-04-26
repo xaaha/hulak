@@ -32,11 +32,39 @@ func PrintWarning(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
-// PrintWarningStderr writes a "warning: <msg>" line in yellow to stderr.
-// Use this for soft warnings during commands whose stdout must stay clean
-// (e.g. `hulak env get` captured via $(...) ).
+// Stderr-routed printers: use these for diagnostics, status, warnings, and
+// errors during commands whose stdout must stay clean. Stdout is reserved
+// for actual program output (e.g. `hulak env get` captured via $(...) must
+// return only the value). Each function colors ONLY the leading prefix —
+// the message body stays plain text so it remains readable when redirected
+// to a non-color terminal or a log file.
+
+// PrintWarningStderr writes a "warning: <msg>" line to stderr.
+// Prefix in yellow, message plain.
 func PrintWarningStderr(msg string) {
-	fmt.Fprintf(os.Stderr, "%swarning: %s%s\n", Yellow, msg, ColorReset)
+	fmt.Fprintf(os.Stderr, "%swarning:%s %s\n", Yellow, ColorReset, msg)
+}
+
+// PrintErrorStderr writes an "error: <msg>" line to stderr.
+// Prefix in red, message plain. Use for user-facing errors that have
+// already been handled (don't print one of these AND return an error —
+// pick one).
+func PrintErrorStderr(msg string) {
+	fmt.Fprintf(os.Stderr, "%serror:%s %s\n", Red, ColorReset, msg)
+}
+
+// PrintSuccessStderr writes a "✓ <msg>" line to stderr. Use for status
+// confirmations on commands whose stdout must stay clean (env set, env
+// delete, env edit). Checkmark in green, message plain.
+func PrintSuccessStderr(msg string) {
+	fmt.Fprintf(os.Stderr, "%s%s%s %s\n", Green, CheckMark, ColorReset, msg)
+}
+
+// PrintInfoStderr writes a plain informational line to stderr — no color,
+// no prefix. Use for progress hints and "FYI" output that shouldn't
+// pollute stdout but doesn't warrant warning/error decoration either.
+func PrintInfoStderr(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
 }
 
 // PrintRed is used mostly for errors
@@ -49,9 +77,12 @@ func PrintInfo(msg string) {
 	fmt.Printf("%s%s%s\n", Blue, msg, ColorReset)
 }
 
-// PanicRedAndExit Print message in Red and os.Exit(1)
+// PanicRedAndExit prints a fatal error to STDERR (red prefix, plain message)
+// and exits with code 1. Use sparingly — only for errors that must terminate
+// the process and cannot reasonably be returned. Library code should return
+// errors instead and let main() decide whether to call this.
 func PanicRedAndExit(msg string, args ...any) {
-	fmt.Printf("\n%s%s%s\n", Red, fmt.Sprintf(msg, args...), ColorReset)
+	fmt.Fprintf(os.Stderr, "\n%serror:%s %s\n", Red, ColorReset, fmt.Sprintf(msg, args...))
 	os.Exit(1)
 }
 

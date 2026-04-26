@@ -32,9 +32,9 @@ vhs assets/gql.tape
 [tasks."test:api"]
 description = "Run E2E API calls"
 run = """
-go run . -fp e2etests/test_collection/form_data.hk.yaml &&
-go run . -fp e2etests/test_collection/url_encoded_form.hk.yaml &&
-go run . -fp e2etests/test_collection/graphql.hk.yml
+go run . -fp e2etests/test_collection/form_data.hk.yaml -env global &&
+go run . -fp e2etests/test_collection/url_encoded_form.hk.yaml -env global &&
+go run . -fp e2etests/test_collection/graphql.hk.yml -env global
 """
 
 [tasks."test:auth2"]

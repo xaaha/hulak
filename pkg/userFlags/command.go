@@ -70,12 +70,13 @@ func (cmd *command) Execute(args []string) error {
 		return sub.Execute(args[1:])
 	}
 
-	// Unknown subcommand — show error + help if this command only has subcommands
+	// Unknown subcommand — show help, then return an error so the top-level
+	// caller (main) can decide on the exit code. Help goes to stderr because
+	// it's diagnostic output, not the user's intended program output.
 	if len(cmd.SubCommands) > 0 && len(args[0]) > 0 && args[0][0] != '-' {
-		utils.PrintRed(fmt.Sprintf("unknown command %q for %s", args[0], cmd.Name))
-		fmt.Println()
+		fmt.Fprintln(os.Stderr)
 		cmd.printHelp()
-		os.Exit(1)
+		return fmt.Errorf("unknown command %q for %s", args[0], cmd.Name)
 	}
 
 	// No subcommand matched — parse flags and run

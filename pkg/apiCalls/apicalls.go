@@ -84,28 +84,37 @@ func StandardCallWithClient(
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
-// and makes the Api Call with StandardCall and prints the response in console
-func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) error {
+// and makes the Api Call with StandardCall and prints the response in console.
+//
+// Returns the HTTP status string (e.g. "200 OK") so the runner can render
+// a per-file outcome line. On pre-flight failures (config parse, request
+// build) the status is empty. On transport failures (network down, DNS) the
+// status is also empty — the err carries the detail.
+func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) (string, error) {
 	apiConfig, _, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	resp, err := StandardCall(apiInfo, debug)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	PrintAndSaveFinalResp(resp, path)
-	return nil
+	status := ""
+	if resp.Response != nil {
+		status = resp.Response.Status
+	}
+	return status, nil
 }
 
 // PrintAndSaveFinalResp prints and saves the CustomResponse
@@ -117,15 +126,15 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 		strBody = string(jsonData)
 		err = utils.PrintJSONColored(jsonData)
 		if err != nil {
-			utils.PrintRed(string(err.Error()))
+			utils.PrintErrorStderr(err.Error())
 		}
 	} else {
-		utils.PrintWarning("error serializing response: " + err.Error())
+		utils.PrintWarningStderr("serializing response: " + err.Error())
 		strBody = fmt.Sprintf("%+v", resp) // Fallback to raw struct
 		fmt.Println(strBody)
 	}
 
 	if err := evalAndWriteRes(strBody, path); err != nil {
-		utils.PrintRed("PrintAndSaveFinalResp " + err.Error())
+		utils.PrintErrorStderr("saving response: " + err.Error())
 	}
 }
