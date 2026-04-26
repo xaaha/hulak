@@ -122,15 +122,15 @@ func ensureHulakProject() {
 	if scanner.Scan() {
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if answer == "y" || answer == "yes" {
-			fmt.Println()
+			fmt.Fprintln(os.Stderr)
 			if err := envparser.CreateDefaultEnvs(nil); err != nil {
 				utils.PanicRedAndExit("%v", err)
 			}
-			fmt.Println()
+			fmt.Fprintln(os.Stderr)
 			return
 		}
 	}
 
-	fmt.Println("\nTo set up manually, run: hulak init")
+	fmt.Fprintln(os.Stderr, "\nTo set up manually, run: hulak init")
 	os.Exit(0)
 }
