@@ -775,3 +775,136 @@ func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 		t.Error("large value should still be written")
 	}
 }
+
+// TestEscapeControlChars verifies that control characters which would break
+// table alignment (\n shifts rows; \r blanks the line; \t expands to tab stops)
+// are rendered as visible escapes, while plain text passes through unchanged.
+func TestEscapeControlChars(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain text unchanged", "hello", "hello"},
+		{"empty unchanged", "", ""},
+		{"newline escaped", "a\nb", `a\nb`},
+		{"carriage return escaped", "a\rb", `a\rb`},
+		{"crlf escaped", "a\r\nb", `a\r\nb`},
+		{"tab escaped", "a\tb", `a\tb`},
+		{"bell escaped as hex", "a\x07b", `a\x07b`},
+		{"esc escaped as hex", "a\x1bb", `a\x1bb`},
+		{"del escaped as hex", "a\x7fb", `a\x7fb`},
+		{"mixed", "k\rev\ny", `k\rev\ny`},
+		{"high-bit unchanged", "café", "café"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := escapeControlChars(tc.in); got != tc.want {
+				t.Errorf("escapeControlChars(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormatTableValue_EscapesControlChars asserts that the table formatter
+// uses escapeControlChars for string values. A regression here would let a
+// stored value containing \r or \n shift downstream rows or blank a line.
+func TestFormatTableValue_EscapesControlChars(t *testing.T) {
+	got := formatTableValue("k\rinjected\nrow")
+	want := `k\rinjected\nrow`
+	if got != want {
+		t.Errorf("formatTableValue = %q, want %q", got, want)
+	}
+}
+
+// TestRunEnvKeys_AlignsValuesContainingControlChars guards the end-to-end
+// behavior: a value with a CR must not blank or misalign the table line.
+// We render two rows; both must appear on their own line, in order.
+func TestRunEnvKeys_AlignsValuesContainingControlChars(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"FIRST", "value\rwith-cr"}, "global", false); err != nil {
+		t.Fatalf("seed FIRST: %v", err)
+	}
+	if err := runEnvSet([]string{"SECOND", "plain"}, "global", false); err != nil {
+		t.Fatalf("seed SECOND: %v", err)
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runEnvKeys(nil, "global", "", true)
+	})
+	if runErr != nil {
+		t.Fatalf("runEnvKeys: %v", runErr)
+	}
+	// Raw CR must not survive into the rendered output — it would erase
+	// the start of the line in many terminals.
+	if strings.ContainsRune(out, '\r') {
+		t.Errorf("output should not contain raw CR; got %q", out)
+	}
+	// Both rows present, in order.
+	first := strings.Index(out, "FIRST")
+	second := strings.Index(out, "SECOND")
+	if first == -1 || second == -1 || first >= second {
+		t.Errorf("rows missing or out of order: %q", out)
+	}
+}
+
+// TestRunEnvEdit_WholesaleReplacesEnv pins down the destructive semantic
+// documented in the help text: keys present before the edit but absent from
+// the saved JSON are removed. A future refactor that "merges" edits with
+// existing keys instead of replacing them would silently retain deleted
+// secrets — exactly the behavior we promise NOT to have.
+func TestRunEnvEdit_WholesaleReplacesEnv(t *testing.T) {
+	setupVaultProject(t)
+	for _, kv := range [][2]string{
+		{"KEEP", "1"}, {"REMOVE_ME", "2"}, {"ALSO_REMOVE", "3"},
+	} {
+		if err := runEnvSet([]string{kv[0], kv[1]}, "global", false); err != nil {
+			t.Fatalf("seed %s: %v", kv[0], err)
+		}
+	}
+
+	// Save only KEEP and a NEW key.
+	t.Setenv("EDITOR", fakeEditor(t, `{"KEEP":"1","NEW":"4"}`))
+	if err := runEnvEdit(nil, "global"); err != nil {
+		t.Fatalf("runEnvEdit: %v", err)
+	}
+
+	// KEEP and NEW present.
+	if got := readStoredValue(t, "global", "KEEP"); got != "1" {
+		t.Errorf("KEEP = %v, want %q", got, "1")
+	}
+	if got := readStoredValue(t, "global", "NEW"); got != "4" {
+		t.Errorf("NEW = %v, want %q", got, "4")
+	}
+	// REMOVE_ME / ALSO_REMOVE must be gone — get must error.
+	if err := runEnvGet([]string{"REMOVE_ME"}, "global"); err == nil {
+		t.Error("REMOVE_ME should be deleted by wholesale replacement")
+	}
+	if err := runEnvGet([]string{"ALSO_REMOVE"}, "global"); err == nil {
+		t.Error("ALSO_REMOVE should be deleted by wholesale replacement")
+	}
+}
+
+// TestRunEnvEdit_LeavesOtherEnvsUntouched is the second half of the wholesale
+// guarantee: replacing one env must not affect any other env in the store.
+func TestRunEnvEdit_LeavesOtherEnvsUntouched(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"P", "prod-value"}, "prod", false); err != nil {
+		t.Fatalf("seed prod: %v", err)
+	}
+	if err := runEnvSet([]string{"S", "staging-value"}, "staging", false); err != nil {
+		t.Fatalf("seed staging: %v", err)
+	}
+
+	// Wipe staging by saving an empty object.
+	t.Setenv("EDITOR", fakeEditor(t, `{}`))
+	if err := runEnvEdit(nil, "staging"); err != nil {
+		t.Fatalf("runEnvEdit: %v", err)
+	}
+
+	// prod is untouched.
+	if got := readStoredValue(t, "prod", "P"); got != "prod-value" {
+		t.Errorf("prod.P = %v, want %q (other envs must not be affected)", got, "prod-value")
+	}
+}

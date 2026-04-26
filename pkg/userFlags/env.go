@@ -380,10 +380,12 @@ func filterKeys(keys []string, pattern string) ([]string, error) {
 }
 
 // formatTableValue renders a stored value for inline (one-line) display.
-// Strings show raw with newlines escaped to "\n"; other types JSON-encode.
+// Strings show raw with control characters escaped (\n, \r, \t, etc.) so a
+// value containing a newline or carriage return can't shift later rows or
+// blank out the line via \r. Other types JSON-encode.
 func formatTableValue(v any) string {
 	if s, ok := v.(string); ok {
-		return strings.ReplaceAll(s, "\n", `\n`)
+		return escapeControlChars(s)
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -392,11 +394,73 @@ func formatTableValue(v any) string {
 	return string(b)
 }
 
+// escapeControlChars rewrites ASCII control characters to a visible escape
+// form so a stored value can't manipulate the terminal when printed in a
+// table row. Concretely:
+//
+//   - \n would push the rest of the row onto a new line, breaking column
+//     alignment for everything that follows.
+//   - \r would rewind the cursor and overwrite the start of the line — a
+//     subsequent value could blank out the key column entirely.
+//   - \t expands to the next tab stop, which varies by terminal.
+//   - other control bytes (BEL 0x07, ESC 0x1B, etc.) can ring the bell or
+//     start an escape sequence we never intended.
+//
+// All ASCII control chars are 0x00–0x1F plus 0x7F (DEL). Any byte >= 0x80
+// belongs to a multi-byte UTF-8 sequence (continuation bytes are 0x80–0xBF,
+// leading bytes are 0xC0+); none of those are control chars, so we can scan
+// byte-by-byte without ever splitting a rune.
+//
+// \n, \r, \t get the familiar two-char escapes; the rest fall back to \xNN
+// hex so the output always stays printable ASCII.
+func escapeControlChars(s string) string {
+	// Fast path: most values have no control bytes (URLs, tokens, IDs).
+	// Scan once and bail out without allocating if there's nothing to escape.
+	hasControl := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 0x20 || c == 0x7F {
+			hasControl = true
+			break
+		}
+	}
+	if !hasControl {
+		return s
+	}
+
+	// Slow path: at least one control byte. Pre-size the builder to the
+	// input length — a lower bound, since each escape grows the output.
+	var sb strings.Builder
+	sb.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\n':
+			sb.WriteString(`\n`)
+		case c == '\r':
+			sb.WriteString(`\r`)
+		case c == '\t':
+			sb.WriteString(`\t`)
+		case c < 0x20 || c == 0x7F:
+			// Catch-all for BEL, ESC, NUL, DEL, etc. Hex form keeps the
+			// output unambiguous and printable on every terminal.
+			fmt.Fprintf(&sb, `\x%02x`, c)
+		default:
+			// Printable ASCII (0x20–0x7E) and UTF-8 bytes (>= 0x80) pass
+			// through untouched — emojis, accents, CJK all render normally.
+			sb.WriteByte(c)
+		}
+	}
+	return sb.String()
+}
+
 // --- EDIT ---
 
 // runEnvEdit handles `hulak env edit`. Decrypts the named environment to a
 // temporary 0600 JSON file, opens it in $EDITOR (or vi), then validates and
-// merges the result back. Editor non-zero exit or unchanged content → no write.
+// writes the result back. The saved JSON REPLACES the environment wholesale —
+// keys removed in the editor are removed from the store. Other environments in
+// the store are untouched. Editor non-zero exit or unchanged content → no write.
 //
 // When envName is empty, the user is prompted via the env picker TUI — the
 // same flow as `hulak run`. Edit deliberately does NOT default to "global":
