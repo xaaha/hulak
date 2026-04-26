@@ -149,12 +149,15 @@ func newInitCmd() *command {
 		},
 		SubCommands: []*command{newInitClassicCmd()},
 		Run: func(args []string) error {
-			// TODO(#130): swap to InitVaultProject in Slice C. For now this
-			// still runs the classic path so existing behavior is preserved.
+			var envNames []string
 			if *createEnvFlag {
-				return runInitEnvScaffold(args)
+				if len(args) == 0 {
+					utils.PrintWarningStderr("No environment names provided after -env flag")
+				} else {
+					envNames = args
+				}
 			}
-			return InitClassicProject()
+			return InitVaultProject(envNames)
 		},
 	}
 }

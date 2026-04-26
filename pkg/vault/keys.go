@@ -27,6 +27,23 @@ func getIdentityFilePath() (string, error) {
 	return filepath.Join(configDir, identityFile), nil
 }
 
+// IdentityPath returns the absolute path to the user's age identity file.
+// Exposed for callers (e.g. `hulak init`) that want to display the path to
+// the user without resolving the config dir themselves.
+func IdentityPath() (string, error) {
+	return getIdentityFilePath()
+}
+
+// IdentityExists reports whether the identity file is already present on disk.
+// Cheaper than LoadIdentity when the caller only needs the boolean.
+func IdentityExists() bool {
+	path, err := getIdentityFilePath()
+	if err != nil {
+		return false
+	}
+	return utils.FileExists(path)
+}
+
 // getPublicKeyFilePath returns the 'key.pub' path from the project marker (.hulak/)
 func getPublicKeyFilePath() (string, error) {
 	markerPath, err := utils.GetProjectMarker()
