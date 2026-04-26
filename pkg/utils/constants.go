@@ -36,6 +36,12 @@ const (
 
 const StoreFile = "store.age"
 
+// Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees
+// `vi`, so this works in bare/minimal environments (Alpine, distroless, etc.)
+// where vim/nano may not be installed. Users who prefer something else should
+// set $EDITOR in their shell.
+const Editor = "vi"
+
 // acceptable file patterns
 const (
 	YAML = ".yaml"
@@ -67,14 +73,19 @@ const ResponseType = "code"
 
 // Permissions for creating directory and files
 const (
-	DirPer    fs.FileMode = 0o755
-	FilePer   fs.FileMode = 0o644
-	SecretPer fs.FileMode = 0o600
+	DirPer fs.FileMode = 0o755
+	// SecretDirPer is owner-only on the directory holding secret material
+	// (e.g. ~/.config/hulak that contains identity.txt). Group/other have
+	// no access — defense-in-depth so the directory listing alone can't leak
+	// the existence of an identity file to other users on a shared host.
+	SecretDirPer fs.FileMode = 0o700
+	FilePer      fs.FileMode = 0o644
+	SecretPer    fs.FileMode = 0o600
 )
 
 // tick mark and x for success and failure
 const (
-	CheckMark           = "\u2713"  // tick
+	CheckMark           = "\u2714"  // tick
 	CrossMark           = "\u2717"  // x
 	ChevronRight        = "\uf054 " // >
 	ChevronRightCircled = "\uf138"

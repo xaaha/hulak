@@ -32,6 +32,13 @@ func PrintWarning(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
+// PrintWarningStderr writes a "warning: <msg>" line in yellow to stderr.
+// Use this for soft warnings during commands whose stdout must stay clean
+// (e.g. `hulak env get` captured via $(...) ).
+func PrintWarningStderr(msg string) {
+	fmt.Fprintf(os.Stderr, "%swarning: %s%s\n", Yellow, msg, ColorReset)
+}
+
 // PrintRed is used mostly for errors
 func PrintRed(msg string) {
 	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)

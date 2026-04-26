@@ -2,27 +2,12 @@ package userflags
 
 import (
 	"flag"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
-
-// newTestRunFlagSet creates a fresh FlagSet with the same flags as the run
-// subcommand, returning the pointers tests need to pass to parseRunArgs.
-func newTestRunFlagSet() (fs *flag.FlagSet, envVal *string, seq *bool, debug *bool) {
-	fs = flag.NewFlagSet("run", flag.ContinueOnError)
-	fs.Usage = func() {}
-	fs.SetOutput(io.Discard)
-	envVal = registerEnvFlag(fs, "", "Environment to use")
-	var s, d bool
-	fs.BoolVar(&s, "sequential", false, "")
-	fs.BoolVar(&s, "seq", false, "")
-	fs.BoolVar(&d, "debug", false, "")
-	return fs, envVal, &s, &d
-}
 
 // TestSubCommandsExist verifies every expected subcommand is registered.
 // If a subcommand is removed or renamed, this test fails.
@@ -179,14 +164,12 @@ func TestRunSubcommandHasRunHandler(t *testing.T) {
 
 // TestParseRunArgsSetsFilePath verifies that passing a file path sets FilePath.
 func TestParseRunArgsSetsFilePath(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
-
 	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
 	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -201,10 +184,9 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 
 // TestParseRunArgsSetsDir verifies that passing a directory sets Dir (concurrent).
 func TestParseRunArgsSetsDir(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpDir})
+	f, err := parseRunArgs("", false, false, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,39 +202,37 @@ func TestParseRunArgsSetsDir(t *testing.T) {
 	}
 }
 
-// TestParseRunArgsTrailingFlags verifies that flags after the positional
-// argument are still parsed correctly.
-func TestParseRunArgsTrailingFlags(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
-
+// TestParseRunArgsRoutesFlags verifies that parsed flag values map to the
+// right runner.Flags fields. Flag parsing itself is the framework's job —
+// this test only checks the path → Flags translation.
+func TestParseRunArgsRoutesFlags(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
 	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpFile, "--debug", "--env", "staging"})
+	f, err := parseRunArgs("staging", false, true, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if !f.Debug {
-		t.Error("Debug should be true when --debug is passed after the path")
+		t.Error("Debug should mirror the debug arg")
 	}
 	if f.Env != "staging" {
 		t.Errorf("Env = %q, want %q", f.Env, "staging")
 	}
 	if !f.EnvSet {
-		t.Error("EnvSet should be true when --env is provided")
+		t.Error("EnvSet should be true when an env is provided")
 	}
 }
 
-// TestParseRunArgsSequentialDir verifies --sequential after a directory
-// sets Dirseq instead of Dir.
+// TestParseRunArgsSequentialDir verifies sequential=true on a directory
+// routes to Dirseq instead of Dir.
 func TestParseRunArgsSequentialDir(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpDir, "--sequential"})
+	f, err := parseRunArgs("", true, false, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -261,47 +241,27 @@ func TestParseRunArgsSequentialDir(t *testing.T) {
 		t.Errorf("Dirseq = %q, want %q", f.Dirseq, tmpDir)
 	}
 	if f.Dir != "" {
-		t.Error("Dir should be empty when --sequential is set")
+		t.Error("Dir should be empty when sequential is true")
 	}
 }
 
 // TestParseRunArgsBadPath verifies that a nonexistent path returns an error.
 func TestParseRunArgsBadPath(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
-
-	_, err := parseRunArgs(fs, envVal, seq, debug, []string{"/nonexistent/path.yaml"})
+	_, err := parseRunArgs("", false, false, []string{"/nonexistent/path.yaml"})
 	if err == nil {
 		t.Fatal("expected an error for nonexistent path")
 	}
 }
 
-// TestParseRunArgsUnknownTrailingFlag verifies that an unknown flag after
-// the path produces a parse error, not a silent pass.
-func TestParseRunArgsUnknownTrailingFlag(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
-
-	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
-	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpFile, "--bogus"})
-	if err == nil {
-		t.Fatal("expected an error for unknown trailing flag")
-	}
-}
-
-// TestParseRunArgsDefaultEnv verifies that when no --env is passed,
-// the default environment is used.
+// TestParseRunArgsDefaultEnv verifies that an empty envFlagVal falls back to
+// the default environment.
 func TestParseRunArgsDefaultEnv(t *testing.T) {
-	fs, envVal, seq, debug := newTestRunFlagSet()
-
 	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
 	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs(fs, envVal, seq, debug, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -310,7 +270,7 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 		t.Errorf("Env = %q, want default %q", f.Env, utils.DefaultEnvVal)
 	}
 	if f.EnvSet {
-		t.Error("EnvSet should be false when no --env is provided")
+		t.Error("EnvSet should be false when no env is provided")
 	}
 }
 
@@ -346,10 +306,11 @@ func TestEnvAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"list", []string{"ls"}},
+		{"list", []string{"ls", "l"}},
 		{"set", []string{"add"}},
+		{"get", []string{"g", "show", "view"}},
 		{"keys", []string{"key"}},
-		{"delete", []string{"rm", "remove"}},
+		{"delete", []string{"rm", "remove", "del"}},
 	}
 
 	for _, tc := range tests {
@@ -359,6 +320,29 @@ func TestEnvAliases(t *testing.T) {
 					t.Errorf("expected env subcommand %q to resolve (alias of %q)", alias, tc.name)
 				}
 			})
+		}
+	}
+}
+
+// TestEnvSubcommandAliasesUnique guards against accidentally registering the
+// same name or alias under two env subcommands. findSub does first-match wins,
+// so a duplicate would silently shadow whichever command is later in the slice.
+func TestEnvSubcommandAliasesUnique(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("env")
+	if envCmd == nil {
+		t.Fatal("expected env subcommand to exist")
+	}
+
+	seen := map[string]string{} // identifier → owner name
+	for _, sub := range envCmd.SubCommands {
+		ids := append([]string{sub.Name}, sub.Aliases...)
+		for _, id := range ids {
+			if owner, dup := seen[id]; dup {
+				t.Errorf("identifier %q is claimed by both %q and %q", id, owner, sub.Name)
+				continue
+			}
+			seen[id] = sub.Name
 		}
 	}
 }
@@ -373,7 +357,8 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 	}
 
 	// Subcommands that target a specific environment
-	needsEnvFlag := []string{"set", "get", "list", "keys", "delete", "edit"}
+	// list does not take --env (it lists environment names themselves)
+	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -399,7 +384,8 @@ func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	needsEnvFlag := []string{"set", "get", "list", "keys", "delete", "edit"}
+	// list does not take --env (it lists environment names themselves)
+	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -431,6 +417,7 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 	}{
 		{"set", "stdin"},
 		{"keys", "show"},
+		{"keys", "search"},
 		{"import-key", "stdin"},
 		{"export-key", "armor"},
 	}

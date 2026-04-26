@@ -71,7 +71,10 @@ func newVersionCmd() *command {
 	return &command{
 		Name:  "version",
 		Short: "Print hulak version",
-		Long:  "Print the current hulak version.",
+		Long:  "Print the current hulak version.\n\nUseful for bug reports and verifying installs.",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak version", Description: "Print the installed hulak version"},
+		},
 		Run: func(_ []string) error {
 			getVersion()
 			return nil
@@ -252,7 +255,7 @@ func newRunCmd() *command {
 			return nil
 		}
 
-		f, err := parseRunArgs(fs, envFlagVal, &sequential, &debug, args)
+		f, err := parseRunArgs(*envFlagVal, sequential, debug, args)
 		if err != nil {
 			return err
 		}
@@ -264,44 +267,27 @@ func newRunCmd() *command {
 	return runCmd
 }
 
-// parseRunArgs resolves the positional path and trailing flags into runner.Flags.
-// Extracted so tests can verify flag parsing without triggering runner.Execute.
-func parseRunArgs(
-	fs *flag.FlagSet,
-	envFlagVal *string,
-	sequential *bool,
-	debug *bool,
-	args []string,
-) (*runner.Flags, error) {
+// parseRunArgs builds a runner.Flags from the path and parsed flag values.
+// The path routes to FilePath (file), Dir (concurrent), or Dirseq (sequential).
+func parseRunArgs(envFlagVal string, sequential, debug bool, args []string) (*runner.Flags, error) {
 	path := args[0]
-
-	// Go's flag package stops at the first non-flag argument, so
-	// "run file.yaml --debug" leaves --debug unparsed. Re-parse
-	// the remaining args to pick up trailing flags.
-	if len(args) > 1 {
-		if err := fs.Parse(args[1:]); err != nil {
-			return nil, fmt.Errorf("%w\nSee 'hulak run --help' for usage", err)
-		}
-	}
 
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
-	f := &runner.Flags{
-		Debug: *debug,
-	}
+	f := &runner.Flags{Debug: debug}
 
-	if *envFlagVal != "" {
-		f.Env = *envFlagVal
+	if envFlagVal != "" {
+		f.Env = envFlagVal
 		f.EnvSet = true
 	} else {
 		f.Env = utils.DefaultEnvVal
 	}
 
 	if info.IsDir() {
-		if *sequential {
+		if sequential {
 			f.Dirseq = path
 		} else {
 			f.Dir = path
@@ -323,7 +309,7 @@ func newEnvCmd() *command {
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak env list",
-				Description: "List all key-value pairs in the default environment",
+				Description: "List environment names defined in the vault",
 			},
 			{
 				Command:     "hulak env set API_KEY sk-123 --env prod",
@@ -335,7 +321,7 @@ func newEnvCmd() *command {
 			},
 			{
 				Command:     "hulak env keys --env prod",
-				Description: "List all keys in the prod environment",
+				Description: "List keys in the prod environment (values masked)",
 			},
 			{
 				Command:     "hulak env delete OLD_KEY",
@@ -346,29 +332,33 @@ func newEnvCmd() *command {
 
 	// set — store a key-value pair
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	_ = registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
-	setFs.Bool("stdin", false, "Read value from stdin")
+	setEnv := registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
+	setStdin := setFs.Bool("stdin", false, "Read value from stdin")
 
 	// get — retrieve a value by key
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	_ = registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
+	getEnv := registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
 
-	// list — show all key-value pairs
+	// list — show environment names
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
-	_ = registerEnvFlag(listFs, utils.DefaultEnvVal, "Environment to operate on")
 
-	// keys — list keys only
+	// keys — list keys within an environment
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	_ = registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
-	keysFs.Bool("show", false, "Show actual values instead of masked output")
+	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
+	keysShow := keysFs.Bool("show", false, "Reveal values instead of masking them")
+	keysSearch := keysFs.String(
+		"search",
+		"",
+		"Filter keys by case-insensitive substring or glob pattern",
+	)
 
 	// delete — remove a key
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	_ = registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
+	deleteEnv := registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
 
-	// edit — interactive editor
+	// edit — interactive editor; empty default → TUI picker, like `hulak run`
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	_ = registerEnvFlag(editFs, utils.DefaultEnvVal, "Environment to operate on")
+	editEnv := registerEnvFlag(editFs, "", "Environment to edit (omit to pick interactively)")
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
@@ -390,94 +380,222 @@ func newEnvCmd() *command {
 			Name:    "set",
 			Aliases: []string{"add"},
 			Short:   "Set a key-value pair",
-			Long:    "Store a secret in the encrypted vault.\n\nUse --stdin to pipe the value from standard input.",
+			Long:    "Store a secret in the encrypted vault.\n\nIf VALUE is omitted, you'll be prompted to enter it (no echo, no shell history).\nUse --stdin to pipe the value from standard input (useful for scripts).",
 			Flags:   setFs,
 			Args: []argDef{
 				{Name: "key", Required: true, Desc: "Secret key name"},
-				{Name: "value", Desc: "Secret value (omit to use --stdin)"},
+				{Name: "value", Desc: "Secret value (omit to be prompted, or use --stdin)"},
 			},
-			Run: notImplemented("set"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env set API_KEY sk-123",
+					Description: "Set a value in the default (global) environment",
+				},
+				{
+					Command:     "hulak env set DB_URL --env prod",
+					Description: "Prompt for the value (no shell history)",
+				},
+				{
+					Command:     "echo -n \"$TOKEN\" | hulak env set TOKEN --stdin",
+					Description: "Read value from stdin (scripts/CI)",
+				},
+				{
+					Command:     "hulak env set FEATURE_FLAG true --env staging",
+					Description: "Set a value in a specific environment",
+				},
+			},
+			Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin) },
 		},
 		{
-			Name:  "get",
-			Short: "Get a value by key",
-			Long:  "Retrieve a secret from the encrypted vault and print it to stdout.",
-			Flags: getFs,
+			Name:    "get",
+			Aliases: []string{"g", "show", "view"},
+			Short:   "Get a value by key",
+			Long:    "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
+			Flags:   getFs,
 			Args: []argDef{
 				{Name: "key", Required: true, Desc: "Secret key to retrieve"},
 			},
-			Run: notImplemented("get"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env get API_KEY",
+					Description: "Print API_KEY from the default environment",
+				},
+				{
+					Command:     "hulak env get DB_URL --env prod",
+					Description: "Print DB_URL from the prod environment",
+				},
+				{
+					Command:     "API_KEY=$(hulak env get API_KEY --env staging)",
+					Description: "Capture a value into a shell variable",
+				},
+			},
+			Run: func(args []string) error { return runEnvGet(args, *getEnv) },
 		},
 		{
 			Name:    "list",
-			Aliases: []string{"ls"},
-			Short:   "List all key-value pairs",
-			Long:    "Show all secrets in an environment. Values are masked by default.",
+			Aliases: []string{"ls", "l"},
+			Short:   "List environment names",
+			Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak env keys --env <name>` to list keys within an environment.",
 			Flags:   listFs,
-			Run:     notImplemented("list"),
+			Examples: []*utils.CommandHelp{
+				{Command: "hulak env list", Description: "List all environment names"},
+				{Command: "hulak env ls", Description: "Same as list (alias)"},
+			},
+			Run: runEnvList,
 		},
 		{
 			Name:    "keys",
 			Aliases: []string{"key"},
-			Short:   "List keys only",
-			Long:    "Show all secret key names in an environment without values.\n\nUse --show to display actual values.",
+			Short:   "List keys in an environment",
+			Long:    "Show secret keys within an environment.\n\nValues are masked by default (••••) so the output is safe to share in screen recordings\nand meetings. Use --show to reveal them.\nUse --search to filter by case-insensitive substring or glob pattern (e.g. \"API*\", \"DB_?\").",
 			Flags:   keysFs,
-			Run:     notImplemented("keys"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env keys --env prod",
+					Description: "List keys in prod with values masked",
+				},
+				{Command: "hulak env keys --env prod --show", Description: "Reveal actual values"},
+				{
+					Command:     "hulak env keys --env prod --search \"API*\"",
+					Description: "Filter keys by glob pattern",
+				},
+				{
+					Command:     "hulak env keys --env staging --search api",
+					Description: "Filter by case-insensitive substring",
+				},
+			},
+			Run: func(args []string) error {
+				return runEnvKeys(args, *keysEnv, *keysSearch, *keysShow)
+			},
 		},
 		{
 			Name:    "delete",
-			Aliases: []string{"rm", "remove"},
+			Aliases: []string{"rm", "remove", "del"},
 			Short:   "Delete a key",
-			Long:    "Remove a secret from the encrypted vault.",
+			Long:    "Remove a secret from the encrypted vault.\n\nExits non-zero if the key doesn't exist.",
 			Flags:   deleteFs,
 			Args: []argDef{
 				{Name: "key", Required: true, Desc: "Secret key to delete"},
 			},
-			Run: notImplemented("delete"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env delete OLD_KEY",
+					Description: "Delete OLD_KEY from the default environment",
+				},
+				{
+					Command:     "hulak env rm STALE_TOKEN --env staging",
+					Description: "Delete from a specific environment (alias)",
+				},
+			},
+			Run: func(args []string) error { return runEnvDelete(args, *deleteEnv) },
 		},
 		{
 			Name:  "edit",
 			Short: "Edit secrets interactively",
-			Long:  "Open an interactive editor for secrets in an environment.",
+			Long:  "Open the decrypted environment in $EDITOR (falls back to vi).\n\nWhen --env is omitted you'll be prompted to pick an environment from a TUI list,\nthe same flow as `hulak run`. To create a brand-new environment, pass --env\nexplicitly with the new name.\n\nThe decrypted JSON is written to a temp file with 0600 permissions inside .hulak/.\nWhat you save in the editor REPLACES the entire environment — keys you delete\nfrom the file are deleted from the store. Other environments in the store are\nuntouched. The store is re-encrypted atomically.\n\nIf the editor exits non-zero or the file is unchanged, no write occurs.",
 			Flags: editFs,
-			Run:   notImplemented("edit"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env edit",
+					Description: "Pick an environment from the TUI, then edit",
+				},
+				{
+					Command:     "hulak env edit --env prod",
+					Description: "Edit prod directly (skip the picker)",
+				},
+				{
+					Command:     "hulak env edit --env new_one",
+					Description: "Create a brand-new environment by name",
+				},
+				{
+					Command:     "EDITOR=nvim hulak env edit --env staging",
+					Description: "Use a specific editor",
+				},
+				{
+					Command:     "EDITOR=\"zed --wait\" hulak env edit --env staging",
+					Description: "GUI editors need a wait flag so hulak waits until you save (zed --wait, code -w)",
+				},
+			},
+			Run: func(args []string) error { return runEnvEdit(args, *editEnv) },
 		},
 		{
 			Name:  "import-key",
 			Short: "Import an age identity file",
-			Long:  "Import an age private key from a file or stdin into the hulak config directory.",
+			Long:  "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key format before storing. Writes to ~/.config/hulak/identity.txt\n(or the platform-specific config dir).",
 			Flags: importKeyFs,
 			Args: []argDef{
 				{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"},
+			},
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env import-key /path/to/backup.txt",
+					Description: "Import from a backup file",
+				},
+				{
+					Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak env import-key --stdin",
+					Description: "Import from stdin (scripts)",
+				},
 			},
 			Run: notImplemented("import-key"),
 		},
 		{
 			Name:  "export-key",
 			Short: "Export the age identity file",
-			Long:  "Print the age private key to stdout for backup or transfer to another machine.",
+			Long:  "Print the age private key to stdout for backup or transfer to another machine.\n\nUse --armor for ASCII-armored output suitable for copy-paste.",
 			Flags: exportKeyFs,
-			Run:   notImplemented("export-key"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env export-key",
+					Description: "Print the private key (with security warning)",
+				},
+				{
+					Command:     "hulak env export-key > ~/backup.txt",
+					Description: "Save to a backup file",
+				},
+				{
+					Command:     "hulak env export-key --armor",
+					Description: "ASCII-armored output for copy-paste",
+				},
+			},
+			Run: notImplemented("export-key"),
 		},
 		{
 			Name:  "add-recipient",
 			Short: "Add a recipient for shared vault access",
-			Long:  "Add an age public key as a recipient so another user can decrypt the vault.",
+			Long:  "Add an age public key as a recipient so another user can decrypt the vault.\n\nThe vault is re-encrypted to all current recipients plus the new one.",
 			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
-			Run:   notImplemented("add-recipient"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env add-recipient age1ql3z...",
+					Description: "Add a teammate's public key",
+				},
+			},
+			Run: notImplemented("add-recipient"),
 		},
 		{
 			Name:  "remove-recipient",
 			Short: "Remove a recipient",
-			Long:  "Remove an age public key from the recipient list.",
+			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nNote: removed users can still decrypt copies of the vault from before this point.\nIf revocation matters, also rotate the underlying secrets.",
 			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to remove"}},
-			Run:   notImplemented("remove-recipient"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env remove-recipient age1ql3z...",
+					Description: "Remove a teammate's public key",
+				},
+			},
+			Run: notImplemented("remove-recipient"),
 		},
 		{
 			Name:  "list-recipients",
 			Short: "List all recipients",
 			Long:  "Show all age public keys that can decrypt the vault.",
-			Run:   notImplemented("list-recipients"),
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env list-recipients",
+					Description: "Show all recipients with names and key prefixes",
+				},
+			},
+			Run: notImplemented("list-recipients"),
 		},
 	}
 
@@ -488,6 +606,12 @@ func newHelpCmd(root *command) *command {
 	return &command{
 		Name:  "help",
 		Short: "Show help for hulak",
+		Long:  "Print the top-level hulak help.\n\nFor help on a specific command, use `hulak <command> --help` instead.",
+		Examples: []*utils.CommandHelp{
+			{Command: "hulak help", Description: "Show top-level help"},
+			{Command: "hulak env --help", Description: "Show help for a specific command"},
+			{Command: "hulak env keys --help", Description: "Show help for a nested subcommand"},
+		},
 		Run: func(_ []string) error {
 			root.printHelp()
 			return nil

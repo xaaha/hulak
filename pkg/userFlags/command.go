@@ -93,16 +93,27 @@ func (cmd *command) Execute(args []string) error {
 		cmd.Flags.Usage = func() {}
 		cmd.Flags.SetOutput(io.Discard)
 
-		if err := cmd.Flags.Parse(args); err != nil {
-			return fmt.Errorf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name)
+		// Iterative parse: stdlib flag.Parse stops at the first non-flag argument,
+		// so `hulak set FOO bar --env prod` would leave '--env prod' unparsed.
+		// Loop, peeling off one positional per iteration, until all flags (in any position) are consumed.
+		// After this, args holds only positionals.
+		var positionals []string
+		remaining := args
+		for {
+			if err := cmd.Flags.Parse(remaining); err != nil {
+				return fmt.Errorf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name)
+			}
+			if helpFlag {
+				cmd.printHelp()
+				return nil
+			}
+			if cmd.Flags.NArg() == 0 {
+				break
+			}
+			positionals = append(positionals, cmd.Flags.Arg(0))
+			remaining = cmd.Flags.Args()[1:]
 		}
-
-		if helpFlag {
-			cmd.printHelp()
-			return nil
-		}
-
-		args = cmd.Flags.Args()
+		args = positionals
 	}
 
 	if cmd.Run == nil {

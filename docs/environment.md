@@ -1,5 +1,8 @@
 # Environment Secrets
 
+> [!Note]
+> This page documents the legacy `env/` backend. For new projects, prefer the encrypted store — see [docs/store.md](./store.md). Hulak supports both; if `.hulak/store.age` exists, it takes priority over `env/`.
+
 - Environment secrets files (for example `global.env`) live in the `env/` folder at the project root.
 - The `env/` setup is required only for requests that use environment template vars like `{{.key}}`.
 - If a selected request needs environment vars and `env/global.env` is missing, Hulak asks to initialize the project setup at runtime.

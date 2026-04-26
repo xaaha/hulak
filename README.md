@@ -109,6 +109,7 @@ Start here for the full reference:
 - [Request Body](./docs/body.md)
 - [Actions](./docs/actions.md)
 - [Environment Secrets](./docs/environment.md)
+- [Encrypted Store](./docs/store.md)
 - [Response Files](./docs/response.md)
 - [GraphQL Explorer](./docs/graphql-explorer.md)
 - [Auth2.0](./docs/auth20.md)
