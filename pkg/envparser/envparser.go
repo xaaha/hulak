@@ -46,9 +46,9 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 
 	// compare both values
 	if !slices.Contains(envFromFiles, envFromFlag) {
-		fmt.Printf("'%v.env' not found in the env directory\n", envFromFlag)
-		// ask to create the file, if the file does not exist
-		fmt.Printf("Create '%v.env'? (y/n)", envFromFlag)
+		// Prompts go to stderr so they never leak into $() capture.
+		fmt.Fprintf(os.Stderr, "'%v.env' not found in the env directory\n", envFromFlag)
+		fmt.Fprintf(os.Stderr, "Create '%v.env'? (y/n) ", envFromFlag)
 		reader := bufio.NewReader(os.Stdin)
 		responses, err := reader.ReadString('\n')
 		if err != nil {
