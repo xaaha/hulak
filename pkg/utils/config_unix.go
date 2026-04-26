@@ -8,13 +8,15 @@ import (
 	"path/filepath"
 )
 
-// UserConfigDir returns global '.config/hulak' path for respective os
+// UserConfigDir returns the per-app config directory for hulak: either
+// $XDG_CONFIG_HOME/hulak or ~/.config/hulak. Always app-scoped — never
+// returns the bare config root.
 func UserConfigDir() (string, error) {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
 		if !filepath.IsAbs(dir) {
 			return "", errors.New("path in $XDG_CONFIG_HOME is relative")
 		}
-		return dir, nil
+		return filepath.Join(dir, ProjectName), nil
 	}
 
 	home, err := os.UserHomeDir()
