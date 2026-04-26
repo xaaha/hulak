@@ -49,6 +49,10 @@ func main() {
 	if err := runner.ExecuteSingleFile(envMap, flags.Debug, filePath); err != nil {
 		// Same suppression as above: runner.IsRunFailure means printOutcome
 		// already explained the failure on stderr; just flip the exit code.
+		// The non-IsRunFailure branch is defensive — handleAPIRequests is
+		// the only thing ExecuteSingleFile can fail on today, and it always
+		// returns *runFailureError. Kept so a future caller change doesn't
+		// silently swallow a different error type.
 		if !runner.IsRunFailure(err) {
 			utils.PrintErrorStderr(err.Error())
 		}

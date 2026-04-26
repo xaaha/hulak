@@ -1,9 +1,12 @@
 package runner
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestGenerateFilePathList_FpOnly(t *testing.T) {
@@ -274,5 +277,158 @@ func TestDiscoverFilePaths_FpAndDirTogether(t *testing.T) {
 	}
 	if len(sequential) != 0 {
 		t.Errorf("sequential should be empty, got %v", sequential)
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		name string
+		d    time.Duration
+		want string
+	}{
+		{"zero", 0, "0ms"},
+		{"sub-millisecond rounds down", 500 * time.Microsecond, "0ms"},
+		{"under one second", 142 * time.Millisecond, "142ms"},
+		{"just under one second", 999 * time.Millisecond, "999ms"},
+		{"one second exactly switches to seconds", time.Second, "1.0s"},
+		{"under one minute", 1234 * time.Millisecond, "1.2s"},
+		{"one minute exactly", time.Minute, "1m0s"},
+		{"minutes and seconds", 83 * time.Second, "1m23s"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatDuration(tc.d); got != tc.want {
+				t.Errorf("formatDuration(%v) = %q, want %q", tc.d, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSplitErrorForOutcome(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		wantHeadline string
+		wantHint     string
+	}{
+		{
+			name:         "nil error returns empty",
+			err:          nil,
+			wantHeadline: "",
+			wantHint:     "",
+		},
+		{
+			name:         "plain error has no hint",
+			err:          errors.New("something broke"),
+			wantHeadline: "something broke",
+			wantHint:     "",
+		},
+		{
+			name: "env-key-missing hint is split off",
+			err: errors.New(
+				`substituting "client_id": key "client_id" not found in environment "global". Add "client_id=<value>" to env/global.env`,
+			),
+			wantHeadline: `substituting "client_id": key "client_id" not found in environment "global".`,
+			wantHint:     `Add "client_id=<value>" to env/global.env`,
+		},
+		{
+			name:         "marker requires opening quote — false-positive prose stays unsplit",
+			err:          errors.New("you must Add this header before retrying"),
+			wantHeadline: "you must Add this header before retrying",
+			wantHint:     "",
+		},
+		{
+			name:         "embedded newlines collapse to spaces",
+			err:          errors.New("line one\nline two\nline three"),
+			wantHeadline: "line one line two line three",
+			wantHint:     "",
+		},
+		{
+			name:         "ANSI escape codes are stripped",
+			err:          errors.New("\x1b[31mred error\x1b[0m happened"),
+			wantHeadline: "red error happened",
+			wantHint:     "",
+		},
+		{
+			name: "ANSI + newline + hint together",
+			err: errors.New(
+				"\x1b[31mwrapped\x1b[0m:\nkey \"X\" not found in environment \"prod\". Add \"X=<value>\" to env/prod.env",
+			),
+			wantHeadline: `wrapped: key "X" not found in environment "prod".`,
+			wantHint:     `Add "X=<value>" to env/prod.env`,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotHL, gotHint := splitErrorForOutcome(tc.err)
+			if gotHL != tc.wantHeadline {
+				t.Errorf("headline = %q, want %q", gotHL, tc.wantHeadline)
+			}
+			if gotHint != tc.wantHint {
+				t.Errorf("hint = %q, want %q", gotHint, tc.wantHint)
+			}
+		})
+	}
+}
+
+func TestRunFailureError_String(t *testing.T) {
+	tests := []struct {
+		name string
+		err  *runFailureError
+		want string
+	}{
+		{"single file", &runFailureError{failed: 1, total: 1}, "request failed"},
+		{"multiple files", &runFailureError{failed: 2, total: 5}, "2 of 5 files failed"},
+		{"all failed", &runFailureError{failed: 4, total: 4}, "4 of 4 files failed"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.err.Error(); got != tc.want {
+				t.Errorf("Error() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsRunFailure(t *testing.T) {
+	rf := &runFailureError{failed: 1, total: 3}
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil is not a run failure", nil, false},
+		{"plain error is not", errors.New("boom"), false},
+		{"runFailureError is", rf, true},
+		{"wrapped runFailureError is detectable via errors.As", fmt.Errorf("wrap: %w", rf), true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsRunFailure(tc.err); got != tc.want {
+				t.Errorf("IsRunFailure(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsRetryable(t *testing.T) {
+	cfgErr := &configError{errors.New("missing key")}
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil never retries", nil, false},
+		{"configError fails fast", cfgErr, false},
+		{"wrapped configError fails fast (errors.As)", fmt.Errorf("wrap: %w", cfgErr), false},
+		{"plain error retries (assumed transport)", errors.New("dial tcp: timeout"), true},
+		{"context.DeadlineExceeded-style retries", errors.New("timeout after 60s"), true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isRetryable(tc.err); got != tc.want {
+				t.Errorf("isRetryable(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
 	}
 }

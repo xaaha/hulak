@@ -107,6 +107,7 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
+		// TODO(#180): see issue — migrate ColorError to fmt.Errorf.
 		return APIInfo{}, utils.ColorError(utils.ErrBodyEncoding, err)
 	}
 

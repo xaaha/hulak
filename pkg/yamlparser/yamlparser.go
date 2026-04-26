@@ -120,6 +120,8 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	// translate the types, if acceptable
 	parsedMap, err = translateType(data, parsedMap, secretsMap, actions.GetValueOf)
 	if err != nil {
+		// TODO(#180): replace with fmt.Errorf — ColorError injects \n + ANSI
+		// codes that the runner has to strip before rendering.
 		return nil, utils.ColorError(utils.ErrYAMLPostProcessing, err)
 	}
 

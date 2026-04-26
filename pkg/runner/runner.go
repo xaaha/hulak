@@ -222,6 +222,11 @@ type runFailureError struct {
 }
 
 func (e *runFailureError) Error() string {
+	// "request failed" is intentionally generic — current call sites all
+	// gate printing on IsRunFailure() and skip the message entirely (the
+	// per-file outcome line already explained what went wrong). It only
+	// surfaces if a future caller forgets the IsRunFailure check; in that
+	// case, generic-but-correct beats a stale chained message.
 	if e.total == 1 {
 		return "request failed"
 	}
@@ -306,8 +311,9 @@ func printOutcome(o outcome) {
 
 // splitErrorForOutcome flattens an error chain into one short headline plus
 // an optional hint extracted from the deepest error message. The headline is
-// wrapper-context (file path, key path) joined with " → " for readability;
-// the hint is the trailing actionable sentence (e.g. "Add ... to env/X.env").
+// the full wrapped chain with whitespace and ANSI codes normalized; the hint
+// is the trailing actionable sentence (e.g. "Add ... to env/X.env") pulled
+// onto its own line so the user's eye lands on it.
 //
 // Why bother: errors here are wrapped 3-4 deep ("substituting ...:
 // substituting ...: key X not found in environment Y. Add ..."). Printing
@@ -319,21 +325,24 @@ func splitErrorForOutcome(err error) (headline, hint string) {
 	}
 	msg := err.Error()
 	// Collapse any embedded newlines a wrapper may have injected (legacy
-	// ColorError used to do this). Spaces preserve the message; tabs become
-	// single spaces too. strings.Join keeps it compact.
+	// ColorError used to do this). Tabs collapse the same way so a stray
+	// indented line doesn't widen the rendered outcome.
 	msg = strings.ReplaceAll(msg, "\n", " ")
 	msg = strings.ReplaceAll(msg, "\t", " ")
 	// Trim any leftover ANSI escape codes from older wrappers.
 	msg = ansiInOutcome.ReplaceAllString(msg, "")
 	msg = strings.TrimSpace(msg)
 
-	// Heuristic split: the deepest error often ends with a sentence starting
-	// with "Add ...", "Run ...", or "Use ..." — a hint. Pull it onto its own
-	// line so the user's eye lands on it.
-	for _, marker := range []string{`. Add "`, ". Run ", ". Use ", ". Try "} {
-		if i := strings.LastIndex(msg, marker); i >= 0 {
-			return strings.TrimSpace(msg[:i+1]), strings.TrimSpace(msg[i+2:])
-		}
+	// Heuristic split: pull a trailing actionable sentence onto its own line.
+	// Marker is intentionally narrow — `. Add "` (period + space + Add + space
+	// + open quote) only matches the env-key-missing error format from
+	// envparser.formatMissingKeyError, where the quote anchors it to a real
+	// hint rather than free-form prose like "you must Add this header...".
+	// New hint-bearing errors should either use this exact format or, better,
+	// surface a typed hintError that this function can read explicitly.
+	const marker = `. Add "`
+	if i := strings.LastIndex(msg, marker); i >= 0 {
+		return strings.TrimSpace(msg[:i+1]), strings.TrimSpace(msg[i+2:])
 	}
 	return msg, ""
 }
