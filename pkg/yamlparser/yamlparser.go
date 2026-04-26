@@ -16,22 +16,38 @@ import (
 // From the yaml file, create a json file. But the json could have {{}} on it
 // So, we need to, read the file, make sure those values are handled, then return the proper map
 
-// Parses the user's input yaml file to a json interface.
-// Then, this function recursively replaces all variables {{.value}} specified in user's yaml values, with values from environment map
-// This is necessary, as the some variables, like URL needs correct string
+// replaceVarsWithValues walks the YAML tree and substitutes {{...}} template
+// references with values from secretsMap. Errors carry a dotted path of the
+// failing key (e.g. "body.urlencodedformdata.client_secret") so the user can
+// jump straight to the offending YAML node — no need for a nested wrapper
+// chain at each recursion level.
 func replaceVarsWithValues(
 	dict map[string]any,
 	secretsMap map[string]any,
 ) (map[string]any, error) {
+	return replaceVarsWithPrefix(dict, secretsMap, "")
+}
+
+// replaceVarsWithPrefix is the recursive helper. prefix is the dotted path
+// of the parent map; the empty string at the root suppresses a leading dot.
+func replaceVarsWithPrefix(
+	dict map[string]any,
+	secretsMap map[string]any,
+	prefix string,
+) (map[string]any, error) {
 	changedMap := make(map[string]any)
 
 	for key, val := range dict {
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+
 		switch valTyped := val.(type) {
 		case map[string]any:
-			// Recursively process nested maps
-			nestedMap, err := replaceVarsWithValues(valTyped, secretsMap)
+			nestedMap, err := replaceVarsWithPrefix(valTyped, secretsMap, fullKey)
 			if err != nil {
-				return nil, fmt.Errorf("error in %s: %w", key, err)
+				return nil, err
 			}
 			changedMap[key] = nestedMap
 
@@ -41,33 +57,23 @@ func replaceVarsWithValues(
 				changedMap[key] = valTyped
 				continue
 			}
-
-			// Process template variables
 			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
 			if err != nil {
-				errMsg := fmt.Sprintf("error substituting variable in '%s': %v", key, err)
-				return nil, utils.ColorError(errMsg)
+				return nil, fmt.Errorf("substituting %q: %w", fullKey, err)
 			}
-
-			// Only store the processed template value
 			changedMap[key] = finalChangedValue
 
 		case map[string]string:
 			innerMap := make(map[string]any)
 			for k, v := range valTyped {
-				// OPTIMIZATION: Skip template parsing if no template syntax present
 				if !strings.Contains(v, "{{") {
 					innerMap[k] = v
 					continue
 				}
-
-				// Process template variables
 				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
 				if err != nil {
-					return nil, fmt.Errorf("error substituting variable in '%s.%s': %w", key, k, err)
+					return nil, fmt.Errorf("substituting %q: %w", fullKey+"."+k, err)
 				}
-
-				// Only store the processed template value
 				innerMap[k] = finalChangedValue
 			}
 			changedMap[key] = innerMap

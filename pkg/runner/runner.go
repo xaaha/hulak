@@ -4,10 +4,13 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -165,8 +168,12 @@ func handleAPIRequests(
 		outcomes = append(outcomes, runTasks(concurrentFiles, secrets, debug, fp, multiFile)...)
 	}
 	if len(sequentialFiles) > 0 {
-		utils.PrintInfoStderr(fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)))
-		outcomes = append(outcomes, processFilesSequentially(sequentialFiles, secrets, debug, multiFile)...)
+		utils.PrintInfoStderr(
+			fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)),
+		)
+		outcomes = append(
+			outcomes,
+			processFilesSequentially(sequentialFiles, secrets, debug, multiFile)...)
 	}
 
 	if totalFiles == 0 {
@@ -219,7 +226,10 @@ func formatDuration(d time.Duration) string {
 }
 
 // printOutcome renders one ✓/✗ line per file. status is empty for non-API
-// kinds (Auth2, future kinds) — the line just shows the timing.
+// kinds (Auth2, future kinds) — the line just shows the timing. Errors are
+// flattened to a single line so the outcome list stays scannable; if the
+// underlying error has actionable detail (e.g. a hint), it gets printed on
+// a follow-up indented line so the cause is still discoverable.
 func printOutcome(o outcome) {
 	name := filepath.Base(o.path)
 	dur := formatDuration(o.duration)
@@ -237,13 +247,64 @@ func printOutcome(o outcome) {
 	if o.status != "" {
 		bracket = o.status + ", " + dur
 	}
-	utils.PrintErrorStderr(fmt.Sprintf("%s [%s]: %v", name, bracket, o.err))
+	headline, hint := splitErrorForOutcome(o.err)
+	utils.PrintErrorStderr(fmt.Sprintf("%s [%s]: %s", name, bracket, headline))
+	if hint != "" {
+		// Two-space indent groups the hint visually under the failure line —
+		// matches the summary's `  ✗ X` indent so the eye reads them as one block.
+		fmt.Fprintf(os.Stderr, "  %s\n", hint)
+	}
 }
+
+// splitErrorForOutcome flattens an error chain into one short headline plus
+// an optional hint extracted from the deepest error message. The headline is
+// wrapper-context (file path, key path) joined with " → " for readability;
+// the hint is the trailing actionable sentence (e.g. "Add ... to env/X.env").
+//
+// Why bother: errors here are wrapped 3-4 deep ("substituting ...:
+// substituting ...: key X not found in environment Y. Add ..."). Printing
+// the whole chain in one line is unreadable; printing only the leaf loses
+// the file/key context. We keep both, just present them tidily.
+func splitErrorForOutcome(err error) (headline, hint string) {
+	if err == nil {
+		return "", ""
+	}
+	msg := err.Error()
+	// Collapse any embedded newlines a wrapper may have injected (legacy
+	// ColorError used to do this). Spaces preserve the message; tabs become
+	// single spaces too. strings.Join keeps it compact.
+	msg = strings.ReplaceAll(msg, "\n", " ")
+	msg = strings.ReplaceAll(msg, "\t", " ")
+	// Trim any leftover ANSI escape codes from older wrappers.
+	msg = ansiInOutcome.ReplaceAllString(msg, "")
+	msg = strings.TrimSpace(msg)
+
+	// Heuristic split: the deepest error often ends with a sentence starting
+	// with "Add ...", "Run ...", or "Use ..." — a hint. Pull it onto its own
+	// line so the user's eye lands on it.
+	for _, marker := range []string{`. Add "`, ". Run ", ". Use ", ". Try "} {
+		if i := strings.LastIndex(msg, marker); i >= 0 {
+			return strings.TrimSpace(msg[:i+1]), strings.TrimSpace(msg[i+2:])
+		}
+	}
+	return msg, ""
+}
+
+// ansiInOutcome strips ANSI SGR escape sequences from error strings.
+// Older wrappers (ColorError) baked colors into errors; we don't want those
+// surviving into the outcome line.
+var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // runTasks manages the go tasks with a limited worker pool. Returns one
 // outcome per file in the order they finished. multiFile gates whether the
 // per-file outcome line is printed (skipped for single-file runs).
-func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp string, multiFile bool) []outcome {
+func runTasks(
+	filePathList []string,
+	secretsMap map[string]any,
+	debug bool,
+	fp string,
+	multiFile bool,
+) []outcome {
 	maxWorkers := utils.GetWorkers(nil)
 	maxRetries := 3
 	timeout := 60 * time.Second
@@ -273,7 +334,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 					if attempt > 0 {
 						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
 						utils.PrintWarningStderr(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
-							path, attempt+1, maxRetries, backoffDuration))
+							filepath.Base(path), attempt+1, maxRetries, backoffDuration))
 						time.Sleep(backoffDuration)
 					}
 
@@ -296,7 +357,7 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 					}
 					cancel()
 
-					if final.ok {
+					if final.ok || !isRetryable(final.err) {
 						break
 					}
 				}
@@ -321,6 +382,26 @@ func runTasks(filePathList []string, secretsMap map[string]any, debug bool, fp s
 	return outcomes
 }
 
+// configError marks an error that came from parsing/validating the YAML
+// config (not from the network). The retry loop checks for this type and
+// fails fast — retrying a malformed file or missing env var won't help and
+// just delays the user seeing the real problem.
+type configError struct{ err error }
+
+func (e *configError) Error() string { return e.err.Error() }
+func (e *configError) Unwrap() error { return e.err }
+
+// isRetryable reports whether the runner should retry after this error.
+// Network/transport errors and timeouts are retryable; config errors and
+// unsupported-kind errors are not.
+func isRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	var cfgErr *configError
+	return !errors.As(err, &cfgErr)
+}
+
 // processTask handles a single task and returns a structured outcome.
 // Wall-clock duration is measured around the dispatched call so it reflects
 // the actual API latency (plus YAML parse time, which is small).
@@ -328,7 +409,7 @@ func processTask(path string, secretsMap map[string]any, debug bool) outcome {
 	start := time.Now()
 	config, err := yamlparser.ParseConfig(path, secretsMap)
 	if err != nil {
-		return outcome{path: path, ok: false, duration: time.Since(start), err: fmt.Errorf("failed to parse config: %w", err)}
+		return outcome{path: path, ok: false, duration: time.Since(start), err: &configError{err}}
 	}
 
 	switch {
@@ -337,9 +418,20 @@ func processTask(path string, secretsMap map[string]any, debug bool) outcome {
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case (config.IsAPI() || config.IsGraphql()):
 		status, err := apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
-		return outcome{path: path, ok: err == nil, status: status, duration: time.Since(start), err: err}
+		return outcome{
+			path:     path,
+			ok:       err == nil,
+			status:   status,
+			duration: time.Since(start),
+			err:      err,
+		}
 	default:
-		return outcome{path: path, ok: false, duration: time.Since(start), err: fmt.Errorf("unsupported kind in file: %s", path)}
+		return outcome{
+			path:     path,
+			ok:       false,
+			duration: time.Since(start),
+			err:      &configError{fmt.Errorf("unsupported kind in file: %s", path)},
+		}
 	}
 }
 
@@ -347,7 +439,12 @@ func processTask(path string, secretsMap map[string]any, debug bool) outcome {
 // execution order. multiFile gates the per-file outcome line — single-file
 // mode keeps stderr quiet on success since the response body already prints
 // to stdout; failures always surface so a silent error isn't mistaken for OK.
-func processFilesSequentially(filePaths []string, secretsMap map[string]any, debug bool, multiFile bool) []outcome {
+func processFilesSequentially(
+	filePaths []string,
+	secretsMap map[string]any,
+	debug bool,
+	multiFile bool,
+) []outcome {
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
 		fileEnv := utils.CopyEnvMap(secretsMap)

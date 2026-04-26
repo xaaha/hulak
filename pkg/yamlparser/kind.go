@@ -2,10 +2,10 @@
 package yamlparser
 
 import (
+	"fmt"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Kind represents the type of YAML flow hulak should follow.
@@ -82,15 +82,17 @@ func (c *ConfigType) IsGraphql() bool {
 
 // ParseConfig parses a YAML file into ConfigType.
 func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error) {
+	// checkYamlFile errors already carry the file path; don't wrap with a
+	// generic "error reading YAML file" prefix that just adds noise.
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return nil, utils.ColorError("error reading YAML file", err)
+		return nil, err
 	}
 
 	var cfg ConfigType
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&cfg); err != nil {
-		return nil, utils.ColorError("error decoding YAML", err)
+		return nil, fmt.Errorf("decoding %s: %w", filePath, err)
 	}
 
 	cfg.Kind = cfg.Kind.normalize()
