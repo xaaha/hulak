@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
@@ -15,10 +16,28 @@ import (
 //go:embed apiOptions.hk.yaml
 var embeddedFiles embed.FS
 
-// InitDefaultProject performs the default hulak project initialization:
-// creates env/ directory, global.env, and the apiOptions.hk.yaml example file.
-// It also adds env/ to .gitignore if not already present.
-func InitDefaultProject() error {
+// InitClassicProject sets up the plaintext env/ layout: env/ directory,
+// global.env, the apiOptions.hk.yaml example, and an env/ entry in .gitignore.
+//
+// Refuses to run if .hulak/ already exists in the current directory — that
+// signals the user has already initialized the encrypted vault, and bolting
+// a parallel plaintext layout next to it would create two sources of truth
+// for environment values. The user has to remove .hulak/ explicitly to opt
+// out of the vault.
+func InitClassicProject() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not determine current directory: %w", err)
+	}
+	if utils.DirExists(filepath.Join(cwd, utils.HiddenProjectName)) {
+		return fmt.Errorf(
+			"refusing to create plaintext env/ layout: %s/ already exists "+
+				"(this project is using the encrypted vault) — "+
+				"remove %s/ first if you really want to switch",
+			utils.HiddenProjectName, utils.HiddenProjectName,
+		)
+	}
+
 	if err := envparser.CreateDefaultEnvs(nil); err != nil {
 		return err
 	}
