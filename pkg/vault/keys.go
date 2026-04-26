@@ -18,8 +18,10 @@ const (
 	publicKeyFile = "key.pub"
 )
 
-// getIdentityFilePath returns the 'identity.txt' from the global conifg location
-func getIdentityFilePath() (string, error) {
+// IdentityPath returns the absolute path to the user's age identity file
+// under the platform config dir (~/.config/hulak/identity.txt on Linux,
+// the macOS equivalent, etc.).
+func IdentityPath() (string, error) {
 	configDir, err := utils.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -27,17 +29,10 @@ func getIdentityFilePath() (string, error) {
 	return filepath.Join(configDir, identityFile), nil
 }
 
-// IdentityPath returns the absolute path to the user's age identity file.
-// Exposed for callers (e.g. `hulak init`) that want to display the path to
-// the user without resolving the config dir themselves.
-func IdentityPath() (string, error) {
-	return getIdentityFilePath()
-}
-
 // IdentityExists reports whether the identity file is already present on disk.
 // Cheaper than LoadIdentity when the caller only needs the boolean.
 func IdentityExists() bool {
-	path, err := getIdentityFilePath()
+	path, err := IdentityPath()
 	if err != nil {
 		return false
 	}
@@ -55,7 +50,7 @@ func getPublicKeyFilePath() (string, error) {
 
 // GetIdentity reads and returns the raw private key string from the identity file.
 func GetIdentity() (string, error) {
-	path, err := getIdentityFilePath()
+	path, err := IdentityPath()
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +79,7 @@ func LoadIdentity() (*age.X25519Identity, error) {
 // Creates the parent directory if it doesn't exist so first-use bootstrap
 // works without a separate "init the config dir" step.
 func SetIdentity(privateKey string) error {
-	identityFilePath, err := getIdentityFilePath()
+	identityFilePath, err := IdentityPath()
 	if err != nil {
 		return err
 	}
@@ -121,7 +116,7 @@ func VerifyKeypair(rawPrivateKey, rawPublicKey string) (AgeKey, error) {
 
 // DeleteIdentity removes the identity file from the global config directory.
 func DeleteIdentity() error {
-	identityFilePath, err := getIdentityFilePath()
+	identityFilePath, err := IdentityPath()
 	if err != nil {
 		return err
 	}

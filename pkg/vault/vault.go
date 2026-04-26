@@ -78,7 +78,7 @@ func SetPublicKey(publicEncKey string) error {
 //   - identity missing, no store.age   → generate a fresh keypair and write
 //     both files. Any orphan pubkey from a previous identity is overwritten.
 func EnsureKeypair() (AgeKey, error) {
-	identityPath, err := getIdentityFilePath()
+	identityPath, err := IdentityPath()
 	if err != nil {
 		return AgeKey{}, err
 	}
