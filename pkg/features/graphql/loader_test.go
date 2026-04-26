@@ -46,7 +46,7 @@ func TestLoadSchemasFromDirectory(t *testing.T) {
 			t.Fatal("validateGraphQLFile should not be called for directories")
 			return "", false, nil
 		},
-		resolveSecretsForEnv: func(urlToFileMap map[string]string, needsEnv bool, env string) (map[string]any, string, bool) {
+		resolveSecretsForEnv: func(urlToFileMap map[string]string, needsEnv bool, env string) (map[string]any, string, bool, error) {
 			if !needsEnv {
 				t.Fatal("expected needsEnv=true")
 			}
@@ -56,7 +56,7 @@ func TestLoadSchemasFromDirectory(t *testing.T) {
 			if len(urlToFileMap) != 2 {
 				t.Fatalf("expected 2 urls, got %d", len(urlToFileMap))
 			}
-			return map[string]any{"token": "x"}, "dev", false
+			return map[string]any{"token": "x"}, "dev", false, nil
 		},
 		processFilesConcurrent: func(filePaths []string, _ map[string]any) []ProcessResult {
 			want := []string{"/tmp/apis/a.yaml", "/tmp/apis/b.yaml"}
@@ -118,14 +118,14 @@ func TestLoadSchemasFromFile(t *testing.T) {
 			}
 			return "https://api.test/graphql", false, nil
 		},
-		resolveSecretsForEnv: func(_ map[string]string, needsEnv bool, env string) (map[string]any, string, bool) {
+		resolveSecretsForEnv: func(_ map[string]string, needsEnv bool, env string) (map[string]any, string, bool, error) {
 			if needsEnv {
 				t.Fatal("expected needsEnv=false")
 			}
 			if env != "prod" {
 				t.Fatalf("unexpected env: %s", env)
 			}
-			return map[string]any{}, "prod", false
+			return map[string]any{}, "prod", false, nil
 		},
 		processFilesConcurrent: func(filePaths []string, _ map[string]any) []ProcessResult {
 			if !reflect.DeepEqual(filePaths, []string{"/tmp/query.yaml"}) {
@@ -168,8 +168,8 @@ func TestLoadSchemasReturnsWarningsForPartialFailures(t *testing.T) {
 			return map[string]string{"https://good.test/graphql": "/tmp/good.yaml"}, false, nil
 		},
 		validateGraphQLFile: func(string) (string, bool, error) { return "", false, nil },
-		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool) {
-			return map[string]any{}, "", false
+		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool, error) {
+			return map[string]any{}, "", false, nil
 		},
 		processFilesConcurrent: func([]string, map[string]any) []ProcessResult {
 			return []ProcessResult{
@@ -223,8 +223,8 @@ func TestLoadSchemasUsesFilePathWhenProcessWarningHasNoURL(t *testing.T) {
 		validateGraphQLFile: func(string) (string, bool, error) {
 			return "https://api.test/graphql", false, nil
 		},
-		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool) {
-			return map[string]any{}, "", false
+		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool, error) {
+			return map[string]any{}, "", false, nil
 		},
 		processFilesConcurrent: func([]string, map[string]any) []ProcessResult {
 			return []ProcessResult{
@@ -264,8 +264,8 @@ func TestLoadSchemasDoesNotCollapseWarningsBeforeConcurrentFetch(t *testing.T) {
 			return map[string]string{"https://same.test/graphql": "/tmp/apis/a.yaml"}, false, nil
 		},
 		validateGraphQLFile: func(string) (string, bool, error) { return "", false, nil },
-		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool) {
-			return map[string]any{}, "", false
+		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool, error) {
+			return map[string]any{}, "", false, nil
 		},
 		processFilesConcurrent: func([]string, map[string]any) []ProcessResult {
 			return []ProcessResult{
@@ -330,8 +330,8 @@ func TestLoadSchemasReturnsErrorWhenAllEndpointsFail(t *testing.T) {
 		validateGraphQLFile: func(string) (string, bool, error) {
 			return "https://api.test/graphql", false, nil
 		},
-		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool) {
-			return map[string]any{}, "", false
+		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool, error) {
+			return map[string]any{}, "", false, nil
 		},
 		processFilesConcurrent: func([]string, map[string]any) []ProcessResult {
 			return []ProcessResult{
@@ -369,8 +369,8 @@ func TestLoadSchemasReturnsCancelledWhenEnvSelectionCancelled(t *testing.T) {
 			return map[string]string{"https://api.test/graphql": "/tmp/query.yaml"}, true, nil
 		},
 		validateGraphQLFile: func(string) (string, bool, error) { return "", false, nil },
-		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool) {
-			return nil, "", true
+		resolveSecretsForEnv: func(map[string]string, bool, string) (map[string]any, string, bool, error) {
+			return nil, "", true, nil
 		},
 		processFilesConcurrent: func([]string, map[string]any) []ProcessResult {
 			t.Fatal("processFilesConcurrent should not be called when env selection is cancelled")

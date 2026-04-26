@@ -8,7 +8,6 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
-	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -104,61 +103,61 @@ func detectContentType(body string) string {
 	}
 }
 
-// GetSecretsForEnv loads secrets based on whether templates exist in the files.
-// If env is provided, uses that environment directly.
-// If env is empty and templates are needed, shows the interactive selector.
-// Returns empty map if no templates needed, nil if user cancelled.
-func GetSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) map[string]any {
-	secretsMap, _, cancelled := ResolveSecretsForEnv(urlToFileMap, needsEnv, env)
-	if cancelled {
-		return nil
-	}
-	return secretsMap
-}
-
 // ResolveSecretsForEnv loads secrets and returns the resolved environment name.
-// If no environment is needed, the returned env name is empty.
-func ResolveSecretsForEnv(urlToFileMap map[string]string, needsEnv bool, env string) (map[string]any, string, bool) {
+// If no environment is needed, the returned env name is empty. The bool is
+// true when the user cancelled the interactive picker (not an error). Other
+// failures (selector failure, missing env file) come back as a non-nil error.
+func ResolveSecretsForEnv(
+	urlToFileMap map[string]string,
+	needsEnv bool,
+	env string,
+) (map[string]any, string, bool, error) {
 	// If env is explicitly provided, always load it (user knows what they want)
 	if env != "" {
-		secretsMap, selectedEnv := loadSecretsForEnv(env)
-		return secretsMap, selectedEnv, false
+		secretsMap, selectedEnv, err := loadSecretsForEnv(env)
+		if err != nil {
+			return nil, "", false, err
+		}
+		return secretsMap, selectedEnv, false, nil
 	}
 
 	if NeedsEnvResolution(urlToFileMap) || needsEnv {
-		secretsMap, selectedEnv := loadSecretsForEnv("")
-		if secretsMap == nil {
-			return nil, "", true
+		secretsMap, selectedEnv, err := loadSecretsForEnv("")
+		if err != nil {
+			return nil, "", false, err
 		}
-		return secretsMap, selectedEnv, false
+		if secretsMap == nil {
+			return nil, "", true, nil
+		}
+		return secretsMap, selectedEnv, false, nil
 	}
 
-	return map[string]any{}, "", false
+	return map[string]any{}, "", false, nil
 }
 
 // loadSecretsForEnv loads secrets from the specified environment.
-// If env is empty, shows the interactive env selector TUI.
-// Returns nil if user cancelled the selector.
-func loadSecretsForEnv(env string) (map[string]any, string) {
+// If env is empty, shows the interactive env selector TUI; a returned
+// secretsMap of nil with no error means the user cancelled the picker.
+func loadSecretsForEnv(env string) (map[string]any, string, error) {
 	selectedEnv := env
 
 	// If no env provided, show the interactive selector
 	if selectedEnv == "" {
-		var err error
-		selectedEnv, err = envselect.RunEnvSelector()
+		picked, err := envselect.RunEnvSelector()
 		if err != nil {
-			utils.PanicRedAndExit("Environment selector error: %v", err)
+			return nil, "", fmt.Errorf("environment selector: %w", err)
 		}
-		if selectedEnv == "" {
-			return nil, ""
+		if picked == "" {
+			return nil, "", nil
 		}
+		selectedEnv = picked
 	}
 
 	// Load secrets from the environment
 	secretsMap, err := envparser.LoadSecretsMap(selectedEnv)
 	if err != nil {
-		utils.PanicRedAndExit("Failed to load environment '%s': %v", selectedEnv, err)
+		return nil, "", fmt.Errorf("loading environment %q: %w", selectedEnv, err)
 	}
 
-	return secretsMap, selectedEnv
+	return secretsMap, selectedEnv, nil
 }

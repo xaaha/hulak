@@ -95,15 +95,83 @@ func newInitCmd() *command {
 		Short: "Initialize a hulak project",
 		Long: fmt.Sprintf(
 			"Set up a new hulak project in the current directory.\n\n"+
-				"Creates an env/ directory with global.env, a .gitignore entry,\n"+
-				"and an example '%s' file. Use -env to create specific environments.",
+				"By default, creates an encrypted vault (.hulak/store.age) plus an example '%s'.\n"+
+				"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n"+
+				"layout instead. Use -env to scaffold specific environments.",
 			utils.APIOptions,
 		),
 		Examples: []*utils.CommandHelp{
-			{Command: "hulak init", Description: "Default setup (global.env + example file)"},
+			{Command: "hulak init", Description: "Default setup (encrypted vault + example file)"},
 			{
 				Command:     "hulak init -env staging prod",
-				Description: "Create staging.env and prod.env",
+				Description: "Scaffold staging and prod environments alongside global",
+			},
+			{
+				Command:     "hulak init classic",
+				Description: "Use the plaintext env/ layout (global.env + example file)",
+			},
+			{
+				Command:     "hulak init plain",
+				Description: "Same as 'classic' (alias — see also: 'no-vault')",
+			},
+			{
+				Command:     "hulak init classic -env staging prod",
+				Description: "Plaintext layout with extra environments scaffolded",
+			},
+			{
+				Command:     "hulak init classic --help",
+				Description: "Show full help for the classic subcommand",
+			},
+		},
+		Flags: fs,
+		Args: []argDef{
+			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
+		},
+		SubCommands: []*command{newInitClassicCmd()},
+		Run: func(args []string) error {
+			var envNames []string
+			if *createEnvFlag {
+				if len(args) == 0 {
+					utils.PrintWarningStderr("No environment names provided after -env flag")
+				} else {
+					envNames = args
+				}
+			}
+			return InitVaultProject(envNames)
+		},
+	}
+}
+
+func newInitClassicCmd() *command {
+	fs := flag.NewFlagSet("init classic", flag.ContinueOnError)
+	createEnvFlag := fs.Bool(
+		"env",
+		false,
+		"Create specific environment files instead of the default setup",
+	)
+
+	return &command{
+		Name:    "classic",
+		Aliases: []string{"plain", "no-vault"},
+		Short:   "Initialize with the plaintext env/ layout",
+		Long: fmt.Sprintf(
+			"Initialize a hulak project using the plaintext env/ layout.\n\n"+
+				"Creates an env/ directory with global.env, a .gitignore entry,\n"+
+				"and an example '%s' file. Use this when you don't want the\n"+
+				"encrypted vault — for example, in throwaway scripts or when\n"+
+				"secrets are managed entirely outside hulak.",
+			utils.APIOptions,
+		),
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak init classic",
+				Description: "Plaintext setup (global.env + example file)",
+			},
+			{Command: "hulak init plain", Description: "Same as classic (alias)"},
+			{Command: "hulak init no-vault", Description: "Same as classic (alias)"},
+			{
+				Command:     "hulak init classic -env staging prod",
+				Description: "Create staging.env and prod.env in the env/ directory",
 			},
 		},
 		Flags: fs,
@@ -111,25 +179,25 @@ func newInitCmd() *command {
 			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
 		},
 		Run: func(args []string) error {
-			if *createEnvFlag {
-				if len(args) == 0 {
-					utils.PrintWarningStderr("No environment names provided after -env flag")
-					return nil
-				}
-				// Collect failures so the user sees every one, but bail at the
-				// end so the exit code reflects that something went wrong.
-				var firstErr error
-				for _, env := range args {
-					if err := envparser.CreateDefaultEnvs(&env); err != nil {
-						utils.PrintErrorStderr(err.Error())
-						if firstErr == nil {
-							firstErr = err
-						}
+			if !*createEnvFlag {
+				return InitClassicProject()
+			}
+			if len(args) == 0 {
+				utils.PrintWarningStderr("No environment names provided after -env flag")
+				return nil
+			}
+			// Collect failures so the user sees every one, but return the
+			// first error so the exit code reflects that something went wrong.
+			var firstErr error
+			for _, env := range args {
+				if err := envparser.CreateDefaultEnvs(&env); err != nil {
+					utils.PrintErrorStderr(err.Error())
+					if firstErr == nil {
+						firstErr = err
 					}
 				}
-				return firstErr
 			}
-			return InitDefaultProject()
+			return firstErr
 		},
 	}
 }
@@ -206,7 +274,10 @@ func newGQLCmd() *command {
 			gqlCmd.printHelp()
 			return nil
 		}
-		data, refreshFn, warnings := loadGraphQLOperations(args[0], *envFlagVal)
+		data, refreshFn, warnings, err := loadGraphQLOperations(args[0], *envFlagVal)
+		if err != nil {
+			return err
+		}
 		if data.Operations == nil {
 			return nil
 		}

@@ -39,7 +39,7 @@ type schemaLoader struct {
 	getwd                  func() (string, error)
 	findGraphQLFiles       func(string) (map[string]string, bool, error)
 	validateGraphQLFile    func(string) (string, bool, error)
-	resolveSecretsForEnv   func(map[string]string, bool, string) (map[string]any, string, bool)
+	resolveSecretsForEnv   func(map[string]string, bool, string) (map[string]any, string, bool, error)
 	processFilesConcurrent func([]string, map[string]any) []ProcessResult
 	fetchAndParseSchema    func(yamlparser.APIInfo) (Schema, error)
 	getWorkers             func(*int) int
@@ -146,7 +146,10 @@ func (l schemaLoader) loadFromDirectory(dir, env string) ([]ProcessResult, strin
 	}
 	sort.Strings(filePaths)
 
-	secretsMap, selectedEnv, cancelled := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	secretsMap, selectedEnv, cancelled, err := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	if err != nil {
+		return nil, "", false, err
+	}
 	if cancelled {
 		return nil, "", true, nil
 	}
@@ -161,7 +164,10 @@ func (l schemaLoader) loadFromFile(filePath, env string) ([]ProcessResult, strin
 	}
 
 	urlToFileMap := map[string]string{rawURL: filePath}
-	secretsMap, selectedEnv, cancelled := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	secretsMap, selectedEnv, cancelled, err := l.resolveSecretsForEnv(urlToFileMap, needsEnv, env)
+	if err != nil {
+		return nil, "", false, err
+	}
 	if cancelled {
 		return nil, "", true, nil
 	}
@@ -201,7 +207,10 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 		if len(warnings) == 0 {
 			return LoadResult{}, nil
 		}
-		return LoadResult{}, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(warnings, "\n  "))
+		return LoadResult{}, fmt.Errorf(
+			"all schema fetches failed:\n  %s",
+			strings.Join(warnings, "\n  "),
+		)
 	}
 
 	endpointResults := make([]ProcessResult, 0, len(uniqueFetchResults))
@@ -260,7 +269,10 @@ func (l schemaLoader) fetchSchemas(results []ProcessResult) (LoadResult, error) 
 	sort.Strings(warnings)
 
 	if len(loaded) == 0 && len(warnings) > 0 {
-		return LoadResult{}, fmt.Errorf("all schema fetches failed:\n  %s", strings.Join(warnings, "\n  "))
+		return LoadResult{}, fmt.Errorf(
+			"all schema fetches failed:\n  %s",
+			strings.Join(warnings, "\n  "),
+		)
 	}
 
 	return LoadResult{

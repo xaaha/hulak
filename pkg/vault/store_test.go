@@ -92,6 +92,41 @@ func TestStoreListEnvs(t *testing.T) {
 	}
 }
 
+func TestStoreEnsureSection(t *testing.T) {
+	t.Run("creates section on nil Envs map", func(t *testing.T) {
+		s := &Store{}
+		if !s.EnsureSection("global") {
+			t.Error("EnsureSection on nil Envs should return true")
+		}
+		if s.GetEnv("global") == nil {
+			t.Error("EnsureSection did not create section")
+		}
+	})
+
+	t.Run("returns false when section already exists", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{"prod": {"K": "v"}}}
+		if s.EnsureSection("prod") {
+			t.Error("EnsureSection on existing section should return false")
+		}
+		if s.Envs["prod"]["K"] != "v" {
+			t.Error("EnsureSection clobbered existing section contents")
+		}
+	})
+
+	t.Run("creates new section alongside existing", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{"global": {"K": "v"}}}
+		if !s.EnsureSection("staging") {
+			t.Error("EnsureSection on new name should return true")
+		}
+		if s.GetEnv("staging") == nil || len(s.GetEnv("staging")) != 0 {
+			t.Errorf("expected empty staging section, got %v", s.GetEnv("staging"))
+		}
+		if s.Envs["global"]["K"] != "v" {
+			t.Error("EnsureSection disturbed unrelated section")
+		}
+	})
+}
+
 func TestStoreSetKey(t *testing.T) {
 	t.Run("set key in new env", func(t *testing.T) {
 		s := &Store{Envs: make(map[string]Env)}

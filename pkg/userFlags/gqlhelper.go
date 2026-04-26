@@ -1,26 +1,30 @@
 package userflags
 
 import (
+	"fmt"
+
 	"github.com/xaaha/hulak/pkg/features/graphql"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
-	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // loadGraphQLOperations handles single file mode and directory mode along
-// with unifying the operations into ExplorerData for the TUI.
+// with unifying the operations into ExplorerData for the TUI. Returns a
+// zero-valued ExplorerData with a nil refresh function when the user
+// cancelled either the env picker or the spinner — that's not an error.
 func loadGraphQLOperations(arg string, env string) (
 	gqlexplorer.ExplorerData,
 	gqlexplorer.RefreshFunc,
 	[]string,
+	error,
 ) {
 	prepared, err := graphql.PrepareSchemaLoad(arg, env)
 	if err != nil {
-		utils.PanicRedAndExit("Schema preparation error: %v", err)
+		return gqlexplorer.ExplorerData{}, nil, nil, fmt.Errorf("schema preparation: %w", err)
 	}
 	if prepared.Cancelled {
-		return gqlexplorer.ExplorerData{}, nil, nil
+		return gqlexplorer.ExplorerData{}, nil, nil, nil
 	}
 
 	// load spinner while waiting
@@ -28,15 +32,17 @@ func loadGraphQLOperations(arg string, env string) (
 		return graphql.FetchPreparedSchemas(prepared)
 	})
 	if err != nil {
-		utils.PanicRedAndExit("Schema fetch error: %v", err)
+		return gqlexplorer.ExplorerData{}, nil, nil, fmt.Errorf("schema fetch: %w", err)
 	}
 	loadResult, ok := raw.(graphql.LoadResult)
 	if !ok && raw != nil {
-		utils.PanicRedAndExit("unexpected result type from schema fetch")
+		return gqlexplorer.ExplorerData{}, nil, nil, fmt.Errorf(
+			"internal error: unexpected result type %T from schema fetch", raw,
+		)
 	}
 
 	if loadResult.Cancelled {
-		return gqlexplorer.ExplorerData{}, nil, nil
+		return gqlexplorer.ExplorerData{}, nil, nil, nil
 	}
 	refreshFn := func() (gqlexplorer.RefreshPayload, error) {
 		freshPrepared, err := graphql.PrepareSchemaLoad(arg, prepared.Env)
@@ -56,12 +62,18 @@ func loadGraphQLOperations(arg string, env string) (
 		}, nil
 	}
 
-	return explorerDataFromLoadResult(loadResult, prepared.Results), refreshFn, loadResult.Warnings
+	return explorerDataFromLoadResult(
+		loadResult,
+		prepared.Results,
+	), refreshFn, loadResult.Warnings, nil
 }
 
 // explorerDataFromLoadResult converts schema fetch results and process
 // results into the unified ExplorerData consumed by the TUI explorer.
-func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []graphql.ProcessResult) gqlexplorer.ExplorerData {
+func explorerDataFromLoadResult(
+	loadResult graphql.LoadResult,
+	processResults []graphql.ProcessResult,
+) gqlexplorer.ExplorerData {
 	data := gqlexplorer.ExplorerData{
 		InputTypes:      make(map[string]graphql.InputType),
 		EnumTypes:       make(map[string]graphql.EnumType),
@@ -81,7 +93,9 @@ func explorerDataFromLoadResult(loadResult graphql.LoadResult, processResults []
 
 	for i := range loadResult.Endpoints {
 		endpoint := &loadResult.Endpoints[i]
-		data.Operations = append(data.Operations, gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
+		data.Operations = append(
+			data.Operations,
+			gqlexplorer.CollectOperations(&endpoint.Schema, endpoint.URL)...)
 		for k, v := range endpoint.Schema.InputTypes {
 			data.InputTypes[gqlexplorer.ScopedTypeKey(endpoint.URL, k)] = v
 		}
