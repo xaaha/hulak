@@ -121,6 +121,38 @@ func SaveRecipients(entries []RecipientEntry) error {
 	return os.WriteFile(path, buf.Bytes(), utils.FilePer)
 }
 
+// AddRecipientEntry validates the new key, checks for duplicates, and returns
+// the updated entry list. Does not write to disk — caller does that.
+func AddRecipientEntry(entries []RecipientEntry, pubKey, name string) ([]RecipientEntry, error) {
+	if _, err := age.ParseX25519Recipient(pubKey); err != nil {
+		return nil, fmt.Errorf("invalid age public key: %w", err)
+	}
+
+	for _, e := range entries {
+		if e.Key == pubKey {
+			return nil, fmt.Errorf("key already in recipients list")
+		}
+	}
+
+	return append(entries, RecipientEntry{
+		Key:  pubKey,
+		Name: FormatRecipientName(name),
+	}), nil
+}
+
+// RecipientsFromEntries converts RecipientEntry slice to age.Recipient slice.
+func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
+	recipients := make([]age.Recipient, len(entries))
+	for i, e := range entries {
+		r, err := age.ParseX25519Recipient(e.Key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid key in recipients: %w", err)
+		}
+		recipients[i] = r
+	}
+	return recipients, nil
+}
+
 // FormatRecipientName builds a comment label with today's date.
 // Empty name returns empty string.
 func FormatRecipientName(name string) string {

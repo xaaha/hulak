@@ -211,6 +211,49 @@ func TestSaveRecipients(t *testing.T) {
 	})
 }
 
+func TestAddRecipientEntry(t *testing.T) {
+	t.Run("adds new key", func(t *testing.T) {
+		key1, _ := GenerateKeyPair()
+		key2, _ := GenerateKeyPair()
+
+		existing := []RecipientEntry{{Key: key1.Recipient.String(), Name: "Alice"}}
+		got, err := AddRecipientEntry(existing, key2.Recipient.String(), "Bob")
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("got %d entries, want 2", len(got))
+		}
+	})
+
+	t.Run("rejects duplicate key", func(t *testing.T) {
+		key1, _ := GenerateKeyPair()
+		existing := []RecipientEntry{{Key: key1.Recipient.String(), Name: "Alice"}}
+		_, err := AddRecipientEntry(existing, key1.Recipient.String(), "Alice Again")
+		if err == nil {
+			t.Fatal("expected duplicate error")
+		}
+	})
+
+	t.Run("rejects malformed key", func(t *testing.T) {
+		_, err := AddRecipientEntry(nil, "not-a-valid-key", "Bad")
+		if err == nil {
+			t.Fatal("expected parse error")
+		}
+	})
+
+	t.Run("no name produces empty Name field", func(t *testing.T) {
+		key1, _ := GenerateKeyPair()
+		got, err := AddRecipientEntry(nil, key1.Recipient.String(), "")
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if got[0].Name != "" {
+			t.Errorf("expected empty Name, got %q", got[0].Name)
+		}
+	})
+}
+
 func TestFormatRecipientName(t *testing.T) {
 	t.Run("formats name with date", func(t *testing.T) {
 		got := FormatRecipientName("Alice")
