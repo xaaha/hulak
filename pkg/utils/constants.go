@@ -37,6 +37,7 @@ const (
 const (
 	StoreFile      = "store.age"
 	RecipientsFile = "recipients.txt"
+	IdentityFile   = "identity.txt"
 )
 
 // Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees
