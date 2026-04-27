@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"strings"
 
 	"filippo.io/age"
 
@@ -55,75 +53,25 @@ func DecryptText(cypherText []byte, identities ...age.Identity) ([]byte, error) 
 	return plaintext, nil
 }
 
-// SetPublicKey writes the public encryption key to .hulak/key.pub in the project root.
-func SetPublicKey(publicEncKey string) error {
-	pubKeyPath, err := getPublicKeyFilePath()
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(pubKeyPath, []byte(publicEncKey+"\n"), utils.FilePer)
-}
-
 // EnsureKeypair returns the age keypair for this project, lazily creating one
-// on first use. Identity is the source of truth; key.pub is derived. So:
+// on first use. Identity is the source of truth:
 //
-//   - identity + pubkey both present  → verify they match, return.
-//   - identity present, pubkey missing → derive pubkey from identity and write
-//     it back. Recovers from accidental key.pub deletion without generating
-//     a new identity (which would silently brick any existing store.age).
+//   - identity exists → parse and derive recipient from it, return.
 //   - identity missing, store.age exists → refuse. Generating a new identity
-//     would make the existing ciphertext permanently undecryptable. Likely
-//     cause: $XDG_CONFIG_HOME changed between runs, so the resolved path
-//     no longer points at the original identity file.
-//   - identity missing, no store.age   → generate a fresh keypair and write
-//     both files. Any orphan pubkey from a previous identity is overwritten.
+//     would make the existing ciphertext permanently undecryptable.
+//   - identity missing, no store.age → generate a fresh keypair, write identity.
 func EnsureKeypair() (AgeKey, error) {
 	identityPath, err := IdentityPath()
 	if err != nil {
 		return AgeKey{}, err
 	}
 
-	pubKeyPath, err := getPublicKeyFilePath()
-	if err != nil {
-		return AgeKey{}, err
+	if utils.FileExists(identityPath) {
+		return LoadKeypair()
 	}
 
-	identityExists := utils.FileExists(identityPath)
-	pubKeyExists := utils.FileExists(pubKeyPath)
-
-	if identityExists && pubKeyExists {
-		privKeyStr, err := GetIdentity()
-		if err != nil {
-			return AgeKey{}, err
-		}
-		pubKeyBytes, err := os.ReadFile(pubKeyPath)
-		if err != nil {
-			return AgeKey{}, err
-		}
-		return VerifyKeypair(privKeyStr, string(pubKeyBytes))
-	}
-
-	if identityExists {
-		// Pubkey is missing but identity is present — derive and re-write
-		// the pubkey instead of generating a new keypair.
-		privKeyStr, err := GetIdentity()
-		if err != nil {
-			return AgeKey{}, err
-		}
-		identity, err := age.ParseX25519Identity(strings.TrimSpace(privKeyStr))
-		if err != nil {
-			return AgeKey{}, fmt.Errorf("failed to parse identity: %w", err)
-		}
-		recipient := identity.Recipient()
-		if err := SetPublicKey(recipient.String()); err != nil {
-			return AgeKey{}, err
-		}
-		return AgeKey{Identity: identity, Recipient: recipient}, nil
-	}
-
-	// Identity missing. Refuse to generate a new keypair if a store already
-	// exists — the new identity wouldn't match the recipient store.age was
-	// encrypted to, and the ciphertext would be unrecoverable.
+	// Identity missing. Refuse if a store already exists — the new identity
+	// wouldn't match the recipient store.age was encrypted to.
 	if existingStore, err := storePath(); err == nil && utils.FileExists(existingStore) {
 		return AgeKey{}, utils.HelpfulError(
 			fmt.Sprintf(
@@ -144,14 +92,19 @@ func EnsureKeypair() (AgeKey, error) {
 		return AgeKey{}, err
 	}
 
-	if err := SetPublicKey(ageKey.Recipient.String()); err != nil {
-		return AgeKey{}, err
-	}
-
 	if err := SetIdentity(ageKey.Identity.String()); err != nil {
-		os.Remove(pubKeyPath)
 		return AgeKey{}, err
 	}
 
 	return ageKey, nil
+}
+
+// LoadKeypair reads the existing identity and derives the recipient from it.
+// Unlike EnsureKeypair, does not generate keys if missing.
+func LoadKeypair() (AgeKey, error) {
+	identity, err := LoadIdentity()
+	if err != nil {
+		return AgeKey{}, err
+	}
+	return AgeKey{Identity: identity, Recipient: identity.Recipient()}, nil
 }
