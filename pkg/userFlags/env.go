@@ -94,7 +94,7 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 		store.SetKey(envName, key, value)
 
 		// write  (atomic .tmp+rename)
-		if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 
@@ -258,7 +258,7 @@ func runEnvDelete(args []string, envName string) error {
 
 		store.DeleteKey(envName, key)
 
-		if err := vault.WriteStore(store, identity.Recipient()); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 
@@ -561,7 +561,7 @@ func runEnvEdit(args []string, envName string) error {
 
 		store.Envs[envName] = newEnv
 
-		if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 

@@ -37,6 +37,20 @@ func setupVaultProject(t *testing.T) string {
 	}
 
 	t.Cleanup(chdirTemp(t, projectDir))
+
+	// EnsureKeypair creates identity + recipients.txt (via ensureRecipientsFile
+	// in init.go flow). Tests that call runEnvSet get this for free, but tests
+	// that call runEnvGet/Delete/List/Keys need the recipients file pre-seeded.
+	ageKey, err := vault.EnsureKeypair()
+	if err != nil {
+		t.Fatalf("EnsureKeypair: %v", err)
+	}
+	if err := vault.SaveRecipients([]vault.RecipientEntry{
+		{Key: ageKey.Recipient.String()},
+	}); err != nil {
+		t.Fatalf("SaveRecipients: %v", err)
+	}
+
 	return projectDir
 }
 
