@@ -596,3 +596,68 @@ func launchEditor(path string) error {
 	}
 	return nil
 }
+
+// --- ADD-RECIPIENT ---
+
+// runAddRecipient handles `hulak env add-recipient <public-key> [--name n]`.
+func runAddRecipient(args []string, name string) error {
+	if len(args) == 0 {
+		return errors.New("missing required argument: public-key")
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("too many arguments: got %d, expected 1 (public-key)", len(args))
+	}
+	pubKey := args[0]
+
+	return vault.WithStoreLock(func() error {
+		// Read current entries
+		recipPath, err := vault.RecipientsFilePath()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(recipPath)
+		if err != nil {
+			return fmt.Errorf("failed to read recipients file: %w", err)
+		}
+		entries, err := vault.ParseRecipientsFileContent(data)
+		if err != nil {
+			return err
+		}
+
+		// Add new entry (validates key, rejects dupes)
+		entries, err = vault.AddRecipientEntry(entries, pubKey, name)
+		if err != nil {
+			return err
+		}
+
+		// Re-encrypt store to all recipients including new one
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		// Write store first (prefer store updated + stale recipients
+		//	over recipients updated + stale store)
+		recipients, err := vault.RecipientsFromEntries(entries)
+		if err != nil {
+			return err
+		}
+		if err := vault.WriteStore(store, recipients...); err != nil {
+			return err
+		}
+		if err := vault.SaveRecipients(entries); err != nil {
+			return err
+		}
+
+		keyPrefix := pubKey
+		if len(keyPrefix) > 20 {
+			keyPrefix = keyPrefix[:20] + utils.Ellipsis
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("Added recipient %s", keyPrefix))
+		return nil
+	})
+}
