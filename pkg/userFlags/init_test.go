@@ -123,8 +123,8 @@ func TestInitClassicProject_AllowsEmptyHulakDir(t *testing.T) {
 }
 
 // TestInitVaultProject_FreshSetup verifies the happy path: empty directory
-// gets .hulak/store.age, .hulak/key.pub, an identity file under the test
-// XDG dir, an apiOptions example, and a decryptable store containing
+// gets .hulak/store.age, .hulak/recipients.txt, an identity file under the
+// test XDG dir, an apiOptions example, and a decryptable store containing
 // only the implicit "global" section.
 func TestInitVaultProject_FreshSetup(t *testing.T) {
 	dir := vaultTestSetup(t)
@@ -133,10 +133,10 @@ func TestInitVaultProject_FreshSetup(t *testing.T) {
 		t.Fatalf("InitVaultProject: %v", err)
 	}
 
-	// .hulak/ + store.age + key.pub
+	// .hulak/ + store.age + recipients.txt
 	wantFiles := []string{
 		filepath.Join(dir, utils.HiddenProjectName, utils.StoreFile),
-		filepath.Join(dir, utils.HiddenProjectName, "key.pub"),
+		filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile),
 		filepath.Join(dir, utils.APIOptions),
 	}
 	for _, f := range wantFiles {
