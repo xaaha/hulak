@@ -254,6 +254,66 @@ func TestAddRecipientEntry(t *testing.T) {
 	})
 }
 
+func TestRemoveRecipientEntry(t *testing.T) {
+	key1, _ := GenerateKeyPair()
+	key2, _ := GenerateKeyPair()
+
+	entries := []RecipientEntry{
+		{Key: key1.Recipient.String(), Name: "Alice"},
+		{Key: key2.Recipient.String(), Name: "Bob"},
+	}
+
+	t.Run("removes by key", func(t *testing.T) {
+		got, removed, err := RemoveRecipientEntry(entries, key1.Recipient.String())
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if !removed {
+			t.Fatal("expected removed=true")
+		}
+		if len(got) != 1 {
+			t.Fatalf("got %d, want 1", len(got))
+		}
+		if got[0].Key != key2.Recipient.String() {
+			t.Error("wrong entry removed")
+		}
+	})
+
+	t.Run("removes by name", func(t *testing.T) {
+		got, removed, err := RemoveRecipientEntry(entries, "Bob")
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if !removed {
+			t.Fatal("expected removed=true")
+		}
+		if len(got) != 1 {
+			t.Fatalf("got %d, want 1", len(got))
+		}
+	})
+
+	t.Run("refuses to remove last recipient", func(t *testing.T) {
+		single := []RecipientEntry{{Key: key1.Recipient.String(), Name: "Alice"}}
+		_, _, err := RemoveRecipientEntry(single, key1.Recipient.String())
+		if err == nil {
+			t.Fatal("expected error when removing last recipient")
+		}
+	})
+
+	t.Run("no-op for unknown query", func(t *testing.T) {
+		got, removed, err := RemoveRecipientEntry(entries, "unknown-query")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if removed {
+			t.Fatal("expected removed=false")
+		}
+		if len(got) != 2 {
+			t.Fatal("entries should be unchanged")
+		}
+	})
+}
+
 func TestFormatRecipientName(t *testing.T) {
 	t.Run("formats name with date", func(t *testing.T) {
 		got := FormatRecipientName("Alice")

@@ -140,6 +140,31 @@ func AddRecipientEntry(entries []RecipientEntry, pubKey, name string) ([]Recipie
 	}), nil
 }
 
+// RemoveRecipientEntry removes entries matching query (by full key string or
+// by name substring). Returns error if removing would leave zero recipients.
+// Returns the original list unchanged if no match found.
+func RemoveRecipientEntry(entries []RecipientEntry, query string) ([]RecipientEntry, bool, error) {
+	if len(entries) <= 1 {
+		return nil, false, fmt.Errorf(
+			"refusing to remove the last recipient — the store would become unrecoverable. " +
+				"Add another recipient first, or delete .hulak/store.age manually",
+		)
+	}
+
+	var remaining []RecipientEntry
+	var removed bool
+
+	for _, e := range entries {
+		if e.Key == query || (e.Name != "" && strings.Contains(e.Name, query)) {
+			removed = true
+			continue
+		}
+		remaining = append(remaining, e)
+	}
+
+	return remaining, removed, nil
+}
+
 // RecipientsFromEntries converts RecipientEntry slice to age.Recipient slice.
 func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
 	recipients := make([]age.Recipient, len(entries))
