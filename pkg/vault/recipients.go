@@ -127,6 +127,6 @@ func FormatRecipientName(name string) string {
 	if name == "" {
 		return ""
 	}
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().Format(time.DateOnly)
 	return fmt.Sprintf("%s (added %s)", name, today)
 }
