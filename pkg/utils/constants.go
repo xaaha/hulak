@@ -98,4 +98,7 @@ const (
 	ConnectorVertical   = "|"
 )
 
-const Ellipsis = "..."
+const (
+	Ellipsis = "..."
+	Comment  = "#"
+)
