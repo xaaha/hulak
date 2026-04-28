@@ -179,7 +179,7 @@ func runEnvGet(args []string, envName string) error {
 		return err
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -242,7 +242,7 @@ func runEnvDelete(args []string, envName string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -280,7 +280,7 @@ func runEnvList(args []string) error {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -313,7 +313,7 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return err
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -669,7 +669,7 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 		}
 
 		// Re-encrypt store to all recipients including new ones
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -745,7 +745,7 @@ func runRemoveRecipient(args []string) error {
 		}
 
 		// Re-encrypt to remaining recipients
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -824,7 +824,7 @@ func runSync(args []string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
