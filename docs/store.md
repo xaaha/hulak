@@ -66,8 +66,11 @@ age1yr5tpz76yxqeg5ktrp7g2wgkxfmq9rmef0gxhvsky2pyv6lsf8msgmd00n
 ```bash
 mkdir my-apis && cd my-apis
 hulak init
-# ✓ Identity saved to ~/.config/hulak/identity.txt
-# ✓ Recipients file written to .hulak/recipients.txt (1 recipient: you)
+# ✓ Initialized vault at .hulak/
+#   Public key:    age1ql3z...
+#   Recipients:    .hulak/recipients.txt
+#   Identity file: ~/.config/hulak/identity.txt
+# ⚠ Back up the identity file — losing it means losing access to the vault.
 
 hulak env set API_KEY --env prod
 # Enter value for API_KEY: ▊
@@ -123,18 +126,19 @@ A single `store.age` can be encrypted to many recipients. Each teammate has thei
 ```bash
 # === New member's machine ===
 hulak init
-# Generates the new member's own keypair locally
-cat .hulak/recipients.txt | tail -1
-# age1bob...
+# Shows their public key in the output:
+#   Public key: age1bob...
+
+hulak env list-recipients
+# Shows their own key
 ```
 
 The new member sends their **public key** (`age1bob...`) to an existing team member via Slack, email, or a PR. **Public keys are not secret.** Never share the private key from `~/.config/hulak/identity.txt`.
 
 ```bash
 # === Existing team member ===
-hulak env add-recipient age1bob... --name "Bob"
-# ✓ Added Bob to .hulak/recipients.txt
-# ✓ Re-encrypted store.age for 3 recipients
+hulak env add-recipient age1bob... --name Bob
+# ✓ Added recipient age1bob...
 
 git add .hulak/recipients.txt .hulak/store.age
 git commit -m "add Bob as recipient"
@@ -148,15 +152,14 @@ hulak env list   # ✓ works — Bob's identity can decrypt
 ### Leaving a team
 
 ```bash
-hulak env remove-recipient --name "Alice"
-# ✓ Removed Alice from .hulak/recipients.txt
-# ✓ Re-encrypted store.age for 2 recipients
-#
-# ⚠ Reminder: Alice may have already read any secrets in this store.
-#   remove-recipient only prevents FUTURE access. To fully revoke:
-#     1. Rotate the actual secret values upstream (API keys, passwords, etc.)
-#     2. hulak env set <KEY> <new-value> for each rotated secret
-#     3. Commit and push
+hulak env remove-recipient Alice
+# ✓ Removed recipient
+# ⚠ Note: Alice can still decrypt copies of store.age from before this point.
+#   Rotate upstream secrets if compromise is suspected.
+
+git add .hulak/recipients.txt .hulak/store.age
+git commit -m "remove Alice as recipient"
+git push
 ```
 
 ### Why rotation matters
@@ -178,12 +181,8 @@ You cannot remove yourself if you are the only recipient — that would brick th
 
 ```bash
 hulak env remove-recipient age1ql3z...
-# error: cannot remove the last recipient — this would brick the store.
-#
-#   Add another recipient first:
-#     hulak env add-recipient <new-public-key>
-#
-#   Or, if you intended to delete the project, remove .hulak/store.age manually.
+# error: refusing to remove the last recipient — the store would become
+# unrecoverable. Add another recipient first, or delete .hulak/store.age manually
 ```
 
 ## Commands
@@ -199,10 +198,10 @@ hulak env remove-recipient age1ql3z...
 | `hulak env edit [--env name]`                        | Open `$EDITOR` on the env (TUI picker if no `--env`)   |
 | `hulak env export-key [--out path]`                  | Print or save your private key                         |
 | `hulak env import-key path [--force]`                | Restore an identity from a file                        |
-| `hulak env add-recipient KEY [--name n]`             | Authorize a new public key                             |
-| `hulak env remove-recipient KEY [--name n]`          | Revoke a public key                                    |
+| `hulak env add-recipient KEY [--name n] [--stdin]`   | Authorize a new public key (or many via stdin)         |
+| `hulak env remove-recipient <key-or-name>`           | Revoke by public key or name label                     |
 | `hulak env list-recipients`                          | Show all authorized public keys                        |
-| `hulak env rotate`                                   | Re-encrypt to the current recipient set                |
+| `hulak env rotate` (aliases: `sync`, `reencrypt`)    | Re-encrypt to the current recipient set                |
 | `hulak env rotate-key`                               | Generate a new identity, re-encrypt                    |
 | `hulak migrate env`                                  | Convert `env/*.env` to `store.age`                     |
 
@@ -231,7 +230,7 @@ git add .hulak/store.age .hulak/recipients.txt
 git commit
 ```
 
-`hulak env rotate` (see #144) re-encrypts the store to the current `recipients.txt` without changing keys — exactly what you need after a merge.
+`hulak env rotate` re-encrypts the store to the current `recipients.txt` without changing keys — exactly what you need after a merge.
 
 > [!Tip]
 > For frequent recipient churn (large teams), consider squashing multiple `add-recipient` / `remove-recipient` commits into one to reduce merge surface area.
