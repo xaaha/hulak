@@ -461,3 +461,34 @@ func TestWrapDecryptError(t *testing.T) {
 		}
 	})
 }
+
+func TestExportKey(t *testing.T) {
+	t.Run("returns identity string when file exists", func(t *testing.T) {
+		setupConfigDir(t)
+
+		id, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ExportKey()
+		if err != nil {
+			t.Fatalf("ExportKey() error: %v", err)
+		}
+		if got != id.String() {
+			t.Errorf("ExportKey() = %q, want %q", got, id.String())
+		}
+	})
+
+	t.Run("errors when no identity exists", func(t *testing.T) {
+		setupConfigDir(t)
+
+		_, err := ExportKey()
+		if err == nil {
+			t.Fatal("ExportKey() should error when no identity")
+		}
+		if !strings.Contains(err.Error(), "hulak init") {
+			t.Errorf("error %q should mention 'hulak init'", err.Error())
+		}
+	})
+}

@@ -165,3 +165,15 @@ func WrapDecryptError(err error) error {
 		utils.MasterKey,
 	)
 }
+
+// ExportKey reads the identity file and returns the raw private key string.
+// Returns a friendly error pointing to `hulak init` if no identity exists.
+func ExportKey() (string, error) {
+	raw, err := GetIdentity()
+	if err != nil {
+		return "", fmt.Errorf(
+			"no identity file found — run 'hulak init' to create one: %w", err,
+		)
+	}
+	return strings.TrimSpace(raw), nil
+}

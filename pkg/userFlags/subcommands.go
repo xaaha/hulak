@@ -445,7 +445,10 @@ func newEnvCmd() *command {
 
 	// export-key — export the age identity
 	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
-	exportKeyFs.Bool("armor", false, "Output in ASCII-armored format")
+	var exportKeyOutVal string
+	exportKeyFs.StringVar(&exportKeyOutVal, "out", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyFs.StringVar(&exportKeyOutVal, "o", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyOut := &exportKeyOutVal
 
 	// add-recipient
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
@@ -626,24 +629,20 @@ func newEnvCmd() *command {
 		},
 		{
 			Name:  "export-key",
-			Short: "Export the age identity file",
-			Long:  "Print the age private key to stdout for backup or transfer to another machine.\n\nUse --armor for ASCII-armored output suitable for copy-paste.",
+			Short: "Export the age identity (private key)",
+			Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
 			Flags: exportKeyFs,
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env export-key",
-					Description: "Print the private key (with security warning)",
+					Description: "Print the private key (with security warning on stderr)",
 				},
 				{
-					Command:     "hulak env export-key > ~/backup.txt",
-					Description: "Save to a backup file",
-				},
-				{
-					Command:     "hulak env export-key --armor",
-					Description: "ASCII-armored output for copy-paste",
+					Command:     "hulak env export-key --out ~/backup-identity.txt",
+					Description: "Save to a file with 0600 permissions",
 				},
 			},
-			Run: notImplemented("export-key"),
+			Run: func(args []string) error { return runExportKey(args, *exportKeyOut) },
 		},
 		{
 			Name:  "add-recipient",

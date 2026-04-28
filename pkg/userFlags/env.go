@@ -601,6 +601,37 @@ func launchEditor(path string) error {
 	return nil
 }
 
+// --- EXPORT-KEY ---
+
+// runExportKey handles `hulak env export-key [--out path]`.
+func runExportKey(args []string, outPath string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	key, err := vault.ExportKey()
+	if err != nil {
+		return err
+	}
+
+	if outPath != "" {
+		if utils.FileExists(outPath) {
+			return fmt.Errorf("file %q already exists — use a different path or remove it first", outPath)
+		}
+		if err := os.WriteFile(outPath, []byte(key+"\n"), utils.SecretPer); err != nil {
+			return fmt.Errorf("failed to write key to %s: %w", outPath, err)
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("Key written to %s (mode 0600)", outPath))
+		return nil
+	}
+
+	// Print to stdout with a security warning on stderr.
+	utils.PrintWarningStderr("This is your age private key. Treat it like a password.")
+	utils.PrintWarningStderr("Do not commit it or share it. Store it in a password manager.")
+	fmt.Println(key)
+	return nil
+}
+
 // --- ADD-RECIPIENT ---
 
 // resolveRecipientKeys returns public keys to add. From --stdin (one per line,
