@@ -801,7 +801,7 @@ func runListRecipients(args []string) error {
 		}
 		keyPrefix := entry.Key
 		if len(keyPrefix) > EllipsisLength {
-			keyPrefix = keyPrefix[:20] + utils.Ellipsis
+			keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
 		}
 		rows[idx] = []string{name, keyPrefix}
 	}
