@@ -145,3 +145,23 @@ func parseMasterKey(raw string) (*age.X25519Identity, error) {
 	}
 	return identity, nil
 }
+
+// WrapDecryptError checks if HULAK_MASTER_KEY is set and the error looks like
+// an age "no identity matched" failure. If so, wraps it with actionable hints.
+// Otherwise returns the original error unchanged.
+func WrapDecryptError(err error) error {
+	if os.Getenv(utils.MasterKey) == "" {
+		return err
+	}
+	if !strings.Contains(err.Error(), "no identity matched") {
+		return err
+	}
+	return fmt.Errorf(
+		"failed to decrypt store: %s is set but does not match any recipient in this project.\n"+
+			"Common causes:\n"+
+			"  - This key is for a different project\n"+
+			"  - You were removed as a recipient\n"+
+			"  - Stale whitespace or quotes from copy-paste",
+		utils.MasterKey,
+	)
+}

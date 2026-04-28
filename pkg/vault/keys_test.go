@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -421,6 +422,42 @@ func TestResolveIdentity(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "no identity found") {
 			t.Errorf("error %q should say 'no identity found'", err.Error())
+		}
+	})
+}
+
+func TestWrapDecryptError(t *testing.T) {
+	t.Run("wraps no-match when HULAK_MASTER_KEY set", func(t *testing.T) {
+		raw := errors.New("no identity matched any of the recipients")
+		t.Setenv("HULAK_MASTER_KEY", "AGE-SECRET-KEY-fake")
+
+		got := WrapDecryptError(raw)
+		msg := got.Error()
+		if !strings.Contains(msg, "HULAK_MASTER_KEY") {
+			t.Errorf("error %q should mention HULAK_MASTER_KEY", msg)
+		}
+		if !strings.Contains(msg, "different project") {
+			t.Errorf("error %q should suggest 'different project'", msg)
+		}
+	})
+
+	t.Run("passes through when HULAK_MASTER_KEY unset", func(t *testing.T) {
+		raw := errors.New("no identity matched any of the recipients")
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		got := WrapDecryptError(raw)
+		if got.Error() != raw.Error() {
+			t.Errorf("got %q, want original error %q", got.Error(), raw.Error())
+		}
+	})
+
+	t.Run("passes through non-matching errors", func(t *testing.T) {
+		raw := errors.New("some other error")
+		t.Setenv("HULAK_MASTER_KEY", "something")
+
+		got := WrapDecryptError(raw)
+		if got.Error() != raw.Error() {
+			t.Errorf("got %q, want original error %q", got.Error(), raw.Error())
 		}
 	})
 }

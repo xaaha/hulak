@@ -189,7 +189,7 @@ func ReadStore(identity age.Identity) (*Store, error) {
 
 	plainText, err := DecryptText(cipherText, identity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt store: %w", err)
+		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt store: %w", err))
 	}
 
 	maybeWarnStoreSize(len(plainText))
