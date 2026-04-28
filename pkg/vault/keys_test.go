@@ -110,7 +110,7 @@ func TestSetIdentityGetIdentityRoundTrip(t *testing.T) {
 	}
 
 	// Verify file exists with correct permissions
-	identityPath := filepath.Join(configDir, identityFile)
+	identityPath := filepath.Join(configDir, utils.IdentityFile)
 	info, err := os.Stat(identityPath)
 	if err != nil {
 		t.Fatalf("identity file not created: %v", err)
@@ -153,36 +153,6 @@ func TestDeleteIdentityNonexistent(t *testing.T) {
 	err := DeleteIdentity()
 	if err == nil {
 		t.Error("DeleteIdentity() on nonexistent file should return error")
-	}
-}
-
-func TestSetPublicKey(t *testing.T) {
-	projectDir := setupHulakProject(t)
-
-	id, _ := age.GenerateX25519Identity()
-	pubKey := id.Recipient().String()
-
-	if err := SetPublicKey(pubKey); err != nil {
-		t.Fatalf("SetPublicKey() error: %v", err)
-	}
-
-	pubKeyPath := filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)
-	got, err := os.ReadFile(pubKeyPath)
-	if err != nil {
-		t.Fatalf("failed to read key.pub: %v", err)
-	}
-
-	if strings.TrimSpace(string(got)) != pubKey {
-		t.Errorf("key.pub content = %q, want %q", strings.TrimSpace(string(got)), pubKey)
-	}
-
-	// Verify file permissions
-	info, err := os.Stat(pubKeyPath)
-	if err != nil {
-		t.Fatalf("failed to stat key.pub: %v", err)
-	}
-	if info.Mode().Perm() != utils.FilePer {
-		t.Errorf("key.pub permissions = %o, want %o", info.Mode().Perm(), utils.FilePer)
 	}
 }
 
@@ -240,38 +210,8 @@ func TestEnsureKeypairIdempotent(t *testing.T) {
 	}
 }
 
-func TestEnsureKeypairDetectsMismatch(t *testing.T) {
-	projectDir := setupHulakProject(t)
-	setupConfigDir(t)
-
-	// Generate and store a keypair
-	_, err := EnsureKeypair()
-	if err != nil {
-		t.Fatalf("EnsureKeypair() error: %v", err)
-	}
-
-	// Replace key.pub with a different key
-	id2, _ := age.GenerateX25519Identity()
-	pubKeyPath := filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)
-	if err := os.WriteFile(pubKeyPath, []byte(id2.Recipient().String()+"\n"), utils.FilePer); err != nil {
-		t.Fatalf("failed to overwrite key.pub: %v", err)
-	}
-
-	_, err = EnsureKeypair()
-	if err == nil {
-		t.Error("EnsureKeypair() with mismatched keys should return error")
-	}
-	if !strings.Contains(err.Error(), "mismatch") {
-		t.Errorf("error = %q, want it to contain 'mismatch'", err.Error())
-	}
-}
-
-// TestEnsureKeypairRecoversMissingPubKey verifies that if .hulak/key.pub
-// goes missing but the identity is intact, EnsureKeypair derives the
-// pubkey from the identity and writes it back — without generating a
-// new keypair (which would silently brick any existing store.age).
-func TestEnsureKeypairRecoversMissingPubKey(t *testing.T) {
-	projectDir := setupHulakProject(t)
+func TestEnsureKeypairDerivesRecipient(t *testing.T) {
+	setupHulakProject(t)
 	setupConfigDir(t)
 
 	first, err := EnsureKeypair()
@@ -279,32 +219,21 @@ func TestEnsureKeypairRecoversMissingPubKey(t *testing.T) {
 		t.Fatalf("EnsureKeypair() initial: %v", err)
 	}
 
-	// Simulate accidental deletion of key.pub.
-	pubKeyPath := filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)
-	if err := os.Remove(pubKeyPath); err != nil {
-		t.Fatalf("failed to remove key.pub: %v", err)
-	}
-
+	// Call again — should derive same recipient from identity on disk.
 	second, err := EnsureKeypair()
 	if err != nil {
-		t.Fatalf("EnsureKeypair() after pub-key loss: %v", err)
+		t.Fatalf("EnsureKeypair() second call: %v", err)
 	}
 
-	// Identity must NOT have rotated.
 	if second.Identity.String() != first.Identity.String() {
-		t.Error("EnsureKeypair() rotated identity on missing pubkey — would brick existing store.age")
+		t.Error("identity changed between calls")
 	}
-	// Recipient must derive from the same identity.
 	if second.Recipient.String() != first.Recipient.String() {
-		t.Errorf("recipient mismatch: got %q, want %q", second.Recipient.String(), first.Recipient.String())
-	}
-	// key.pub must be on disk again.
-	got, err := os.ReadFile(pubKeyPath)
-	if err != nil {
-		t.Fatalf("key.pub not re-created: %v", err)
-	}
-	if strings.TrimSpace(string(got)) != first.Recipient.String() {
-		t.Errorf("re-derived key.pub = %q, want %q", strings.TrimSpace(string(got)), first.Recipient.String())
+		t.Errorf(
+			"recipient mismatch: got %q, want %q",
+			second.Recipient.String(),
+			first.Recipient.String(),
+		)
 	}
 }
 
@@ -319,7 +248,7 @@ func TestEnsureKeypairRecoversMissingPubKey(t *testing.T) {
 // SSH session with no XDG, etc.). The error guides the user to fix the
 // path rather than silently destroying their data.
 func TestEnsureKeypairRefusesToOverwriteExistingStore(t *testing.T) {
-	projectDir := setupHulakProject(t)
+	setupHulakProject(t)
 	configDir := setupConfigDir(t)
 
 	// Create a real keypair and write a store encrypted to it.
@@ -334,12 +263,8 @@ func TestEnsureKeypairRefusesToOverwriteExistingStore(t *testing.T) {
 
 	// Simulate the "XDG changed; identity not at the resolved path" scenario:
 	// remove identity.txt while leaving store.age intact.
-	if err := os.Remove(filepath.Join(configDir, identityFile)); err != nil {
+	if err := os.Remove(filepath.Join(configDir, utils.IdentityFile)); err != nil {
 		t.Fatalf("remove identity: %v", err)
-	}
-	// Also remove key.pub so we can't take the "derive from identity" path.
-	if err := os.Remove(filepath.Join(projectDir, utils.HiddenProjectName, publicKeyFile)); err != nil {
-		t.Fatalf("remove key.pub: %v", err)
 	}
 
 	_, err = EnsureKeypair()

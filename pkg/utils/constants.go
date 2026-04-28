@@ -34,7 +34,11 @@ const (
 	DefaultEnvFileSuffix = ".env"
 )
 
-const StoreFile = "store.age"
+const (
+	StoreFile      = "store.age"
+	RecipientsFile = "recipients.txt"
+	IdentityFile   = "identity.txt"
+)
 
 // Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees
 // `vi`, so this works in bare/minimal environments (Alpine, distroless, etc.)
@@ -95,4 +99,7 @@ const (
 	ConnectorVertical   = "|"
 )
 
-const Ellipsis = "..."
+const (
+	Ellipsis = "..."
+	Comment  = "#"
+)

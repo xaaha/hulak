@@ -19,8 +19,12 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// maskedValue is what `keys` prints in place of secret values when --show is off.
-const maskedValue = "••••"
+const (
+	// maskedValue is what `keys` prints in place of secret values when --show is off.
+	maskedValue = "••••"
+	// Length after which Ellipsis start
+	EllipsisLength = 20
+)
 
 // envPicker is the function called to interactively pick an environment when
 // the user omits --env on `hulak env edit`. Indirected as a package variable
@@ -94,7 +98,7 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 		store.SetKey(envName, key, value)
 
 		// write  (atomic .tmp+rename)
-		if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 
@@ -258,7 +262,7 @@ func runEnvDelete(args []string, envName string) error {
 
 		store.DeleteKey(envName, key)
 
-		if err := vault.WriteStore(store, identity.Recipient()); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 
@@ -561,7 +565,7 @@ func runEnvEdit(args []string, envName string) error {
 
 		store.Envs[envName] = newEnv
 
-		if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
 
@@ -595,4 +599,246 @@ func launchEditor(path string) error {
 		return fmt.Errorf("editor failed: %w", err)
 	}
 	return nil
+}
+
+// --- ADD-RECIPIENT ---
+
+// resolveRecipientKeys returns public keys to add. From --stdin (one per line,
+// blank lines and # comments ignored) or from positional arg. Error if both.
+func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
+	if useStdin && len(args) > 0 {
+		return nil, errors.New("cannot use both --stdin and a positional key — pick one")
+	}
+
+	if useStdin {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read stdin: %w", err)
+		}
+		var keys []string
+		for line := range strings.SplitSeq(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, utils.Comment) {
+				continue
+			}
+			keys = append(keys, line)
+		}
+		if len(keys) == 0 {
+			return nil, errors.New("no keys found in stdin")
+		}
+		return keys, nil
+	}
+
+	if len(args) == 0 {
+		return nil, errors.New("missing required argument: public-key")
+	}
+	if len(args) > 1 {
+		return nil, fmt.Errorf("too many arguments: got %d, expected 1 (public-key)", len(args))
+	}
+	return []string{args[0]}, nil
+}
+
+// runAddRecipient handles `hulak env add-recipient <public-key> [--name n] [--stdin]`.
+func runAddRecipient(args []string, name string, useStdin bool) error {
+	pubKeys, err := resolveRecipientKeys(args, useStdin)
+	if err != nil {
+		return err
+	}
+
+	return vault.WithStoreLock(func() error {
+		// Read current entries
+		recipPath, err := vault.RecipientsFilePath()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(recipPath)
+		if err != nil {
+			return fmt.Errorf("failed to read recipients file: %w", err)
+		}
+		entries, err := vault.ParseRecipientsFileContent(data)
+		if err != nil {
+			return err
+		}
+
+		// Add each key
+		for _, pubKey := range pubKeys {
+			entries, err = vault.AddRecipientEntry(entries, pubKey, name)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Re-encrypt store to all recipients including new ones
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		// Write store first (prefer store updated + stale recipients
+		//	over recipients updated + stale store)
+		recipients, err := vault.RecipientsFromEntries(entries)
+		if err != nil {
+			return err
+		}
+		if err := vault.WriteStore(store, recipients...); err != nil {
+			return err
+		}
+		if err := vault.SaveRecipients(entries); err != nil {
+			return err
+		}
+
+		if len(pubKeys) == 1 {
+			keyPrefix := pubKeys[0]
+			if len(keyPrefix) > EllipsisLength {
+				keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
+			}
+			utils.PrintSuccessStderr(fmt.Sprintf("Added recipient %s", keyPrefix))
+		} else {
+			utils.PrintSuccessStderr(fmt.Sprintf("Added %d recipients", len(pubKeys)))
+		}
+		return nil
+	})
+}
+
+// --- REMOVE-RECIPIENT ---
+
+// RotationReminder is the security notice printed after removing a recipient.
+const RotationReminder = "Note: %s can still decrypt copies of store.age from before this point. Rotate upstream secrets if compromise is suspected."
+
+// runRemoveRecipient handles `hulak env remove-recipient <key-or-name>`.
+func runRemoveRecipient(args []string) error {
+	if len(args) == 0 {
+		return errors.New("missing required argument: public-key or name label")
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("too many arguments: got %d, expected 1", len(args))
+	}
+	query := args[0]
+
+	return vault.WithStoreLock(func() error {
+		recipPath, err := vault.RecipientsFilePath()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(recipPath)
+		if err != nil {
+			return fmt.Errorf("failed to read recipients file: %w", err)
+		}
+		entries, err := vault.ParseRecipientsFileContent(data)
+		if err != nil {
+			return err
+		}
+
+		entries, removed, err := vault.RemoveRecipientEntry(entries, query)
+		if err != nil {
+			return err
+		}
+		if !removed {
+			utils.PrintWarningStderr(
+				fmt.Sprintf("No recipient matching %q found — no changes made", query),
+			)
+			return nil
+		}
+
+		// Re-encrypt to remaining recipients
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		// Write store first (same atomicity reasoning as add-recipient)
+		recipients, err := vault.RecipientsFromEntries(entries)
+		if err != nil {
+			return err
+		}
+		if err := vault.WriteStore(store, recipients...); err != nil {
+			return err
+		}
+		if err := vault.SaveRecipients(entries); err != nil {
+			return err
+		}
+
+		utils.PrintSuccessStderr("Removed recipient")
+		utils.PrintWarningStderr(fmt.Sprintf(RotationReminder, query))
+		return nil
+	})
+}
+
+// --- LIST-RECIPIENTS ---
+
+// runListRecipients handles `hulak env list-recipients`.
+func runListRecipients(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	recipPath, err := vault.RecipientsFilePath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(recipPath)
+	if err != nil {
+		return fmt.Errorf("failed to read recipients file: %w", err)
+	}
+	entries, err := vault.ParseRecipientsFileContent(data)
+	if err != nil {
+		return err
+	}
+
+	rows := make([][]string, len(entries))
+	for idx, entry := range entries {
+		name := entry.Name
+		if name == "" {
+			name = "(no label)"
+		}
+		keyPrefix := entry.Key
+		if len(keyPrefix) > EllipsisLength {
+			keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
+		}
+		rows[idx] = []string{name, keyPrefix}
+	}
+	return utils.PrintTable(
+		os.Stdout,
+		stdoutHeaders([]string{"NAME", "KEY"}),
+		rows,
+		0,
+	)
+}
+
+// --- SYNC ---
+
+// runSync handles `hulak env sync`.
+// Re-encrypts store.age to match the current recipients.txt.
+// Useful after manually editing recipients.txt.
+func runSync(args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	return vault.WithStoreLock(func() error {
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		if err := vault.WriteStoreToRecipients(store); err != nil {
+			return err
+		}
+
+		utils.PrintSuccessStderr("Re-encrypted store to current recipients")
+		return nil
+	})
 }

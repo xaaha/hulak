@@ -249,6 +249,17 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 	return nil
 }
 
+// WriteStoreToRecipients loads recipients from .hulak/recipients.txt and
+// encrypts the store to all of them. Most write-path callers should use
+// this instead of passing recipients manually.
+func WriteStoreToRecipients(store *Store) error {
+	recipients, err := LoadRecipients()
+	if err != nil {
+		return fmt.Errorf("failed to load recipients: %w", err)
+	}
+	return WriteStore(store, recipients...)
+}
+
 type StoreType int
 
 const (

@@ -57,7 +57,7 @@ func InitClassicProject() error {
 }
 
 // InitVaultProject sets up the encrypted vault layout: .hulak/store.age,
-// .hulak/key.pub, and the user's age identity at ~/.config/hulak/identity.txt.
+// .hulak/recipients.txt, and the user's age identity at ~/.config/hulak/identity.txt.
 // Also writes the apiOptions.hk.yaml example.
 //
 // Behaviour notes:
@@ -114,6 +114,11 @@ func InitVaultProject(envNames []string) error {
 		return err
 	}
 
+	// Ensure recipients.txt exists with at least the user's own key.
+	if err := ensureRecipientsFile(ageKey); err != nil {
+		return err
+	}
+
 	store, err := vault.ReadStore(ageKey.Identity)
 	if err != nil {
 		return err
@@ -121,7 +126,7 @@ func InitVaultProject(envNames []string) error {
 
 	added := ensureStoreSections(store, envNames)
 
-	if err := vault.WriteStore(store, ageKey.Recipient); err != nil {
+	if err := vault.WriteStoreToRecipients(store); err != nil {
 		return err
 	}
 
@@ -141,6 +146,7 @@ func InitVaultProject(envNames []string) error {
 			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 		)
 		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
+		fmt.Fprintf(os.Stderr, "  Recipients:    %s/%s\n", utils.HiddenProjectName, utils.RecipientsFile)
 		fmt.Fprintf(os.Stderr, "  Identity file: %s\n", identityPath)
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
@@ -182,6 +188,22 @@ func ensureStoreSections(store *vault.Store, names []string) []string {
 		}
 	}
 	return added
+}
+
+// ensureRecipientsFile creates .hulak/recipients.txt with the user's own
+// public key if the file doesn't already exist. Idempotent — re-running
+// init on an existing project is a no-op.
+func ensureRecipientsFile(ageKey vault.AgeKey) error {
+	path, err := vault.RecipientsFilePath()
+	if err != nil {
+		return err
+	}
+	if utils.FileExists(path) {
+		return nil
+	}
+	return vault.SaveRecipients([]vault.RecipientEntry{
+		{Key: ageKey.Recipient.String(), Name: vault.FormatRecipientName("owner")},
+	})
 }
 
 // writeAPIOptionsExample writes the embedded apiOptions.hk.yaml to the project

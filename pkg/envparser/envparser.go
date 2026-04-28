@@ -118,7 +118,7 @@ func LoadEnvVars(filePath string) (map[string]any, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		// Skip empty lines and comments
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
+		if len(line) == 0 || strings.HasPrefix(line, utils.Comment) {
 			continue
 		}
 		// Remove empty lines

@@ -447,6 +447,11 @@ func newEnvCmd() *command {
 	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
 	exportKeyFs.Bool("armor", false, "Output in ASCII-armored format")
 
+	// add-recipient
+	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
+	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
+	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
+
 	notImplemented := func(name string) func([]string) error {
 		return func(_ []string) error {
 			// Stderr — this is a status notice, not the data the user asked for.
@@ -643,40 +648,72 @@ func newEnvCmd() *command {
 		{
 			Name:  "add-recipient",
 			Short: "Add a recipient for shared vault access",
-			Long:  "Add an age public key as a recipient so another user can decrypt the vault.\n\nThe vault is re-encrypted to all current recipients plus the new one.",
+			Long:  "Add an age public key as a recipient so another user can decrypt the vault.\n\nThe vault is re-encrypted to all current recipients plus the new one.\nUse --name to add a human-readable label.",
+			Flags: addRecipientFs,
 			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env add-recipient age1ql3z...",
 					Description: "Add a teammate's public key",
 				},
+				{
+					Command:     "hulak env add-recipient age1ql3z... --name Alice",
+					Description: "Add with a label",
+				},
+				{
+					Command:     "cat keys.txt | hulak env add-recipient --stdin --name Team",
+					Description: "Add multiple keys from stdin",
+				},
 			},
-			Run: notImplemented("add-recipient"),
+			Run: func(args []string) error { return runAddRecipient(args, *addRecipientName, *addRecipientStdin) },
 		},
 		{
 			Name:  "remove-recipient",
 			Short: "Remove a recipient",
-			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nNote: removed users can still decrypt copies of the vault from before this point.\nIf revocation matters, also rotate the underlying secrets.",
-			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to remove"}},
+			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nMatch by key string or name label. Refuses to remove the last recipient.\nNote: removed users can still decrypt copies from before this point.",
+			Args:  []argDef{{Name: "key-or-name", Required: true, Desc: "Age public key or name label to remove"}},
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env remove-recipient age1ql3z...",
-					Description: "Remove a teammate's public key",
+					Description: "Remove by public key",
+				},
+				{
+					Command:     "hulak env remove-recipient Alice",
+					Description: "Remove by name label",
 				},
 			},
-			Run: notImplemented("remove-recipient"),
+			Run: runRemoveRecipient,
 		},
 		{
 			Name:  "list-recipients",
 			Short: "List all recipients",
-			Long:  "Show all age public keys that can decrypt the vault.",
+			Long:  "Show all age public keys that can decrypt the vault, with labels.",
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env list-recipients",
 					Description: "Show all recipients with names and key prefixes",
 				},
 			},
-			Run: notImplemented("list-recipients"),
+			Run: runListRecipients,
+		},
+		{
+			Name:    "rotate",
+			Aliases: []string{"sync", "reencrypt"},
+			Short:   "Re-encrypt the store to current recipients",
+			Long: "Re-encrypt store.age to match the current recipients.txt.\n\n" +
+				"Use this after manually editing recipients.txt. Not needed after\n" +
+				"add-recipient or remove-recipient — those re-encrypt automatically.",
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env rotate",
+					Description: "Re-encrypt store to match recipients.txt",
+				},
+				{
+					Command:     "hulak env sync",
+					Description: "Same as rotate (alias)",
+				},
+			},
+			Run: runSync,
 		},
 	}
 

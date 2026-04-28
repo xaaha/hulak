@@ -13,11 +13,6 @@ import (
 
 // Contains everythig about public and private keys (identity)
 
-const (
-	identityFile  = "identity.txt"
-	publicKeyFile = "key.pub"
-)
-
 // IdentityPath returns the absolute path to the user's age identity file
 // under the platform config dir (~/.config/hulak/identity.txt on Linux,
 // the macOS equivalent, etc.).
@@ -26,7 +21,7 @@ func IdentityPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, identityFile), nil
+	return filepath.Join(configDir, utils.IdentityFile), nil
 }
 
 // IdentityExists reports whether the identity file is already present on disk.
@@ -37,15 +32,6 @@ func IdentityExists() bool {
 		return false
 	}
 	return utils.FileExists(path)
-}
-
-// getPublicKeyFilePath returns the 'key.pub' path from the project marker (.hulak/)
-func getPublicKeyFilePath() (string, error) {
-	markerPath, err := utils.GetProjectMarker()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(markerPath, publicKeyFile), nil
 }
 
 // GetIdentity reads and returns the raw private key string from the identity file.
