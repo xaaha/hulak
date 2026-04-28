@@ -307,3 +307,120 @@ func TestLoadIdentity(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveIdentity(t *testing.T) {
+	t.Run("prefers HULAK_MASTER_KEY over identity file", func(t *testing.T) {
+		setupConfigDir(t)
+
+		// Write a file-based identity
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		// Set env var to a different identity
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.String())
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != envID.String() {
+			t.Errorf("got %q, want env var identity %q", got.String(), envID.String())
+		}
+	})
+
+	t.Run("falls back to identity file when env var unset", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		}
+	})
+
+	t.Run("empty env var is treated as unset", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		}
+	})
+
+	t.Run("env var with whitespace is trimmed", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", "  "+envID.String()+"\n")
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != envID.String() {
+			t.Errorf("got %q, want %q", got.String(), envID.String())
+		}
+	})
+
+	t.Run("env var with public key gives helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.Recipient().String())
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error for public key in HULAK_MASTER_KEY")
+		}
+		if !strings.Contains(err.Error(), "public key") {
+			t.Errorf("error %q should mention 'public key'", err.Error())
+		}
+	})
+
+	t.Run("env var with garbage gives helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "not-a-real-key")
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error for garbage HULAK_MASTER_KEY")
+		}
+		if !strings.Contains(err.Error(), "HULAK_MASTER_KEY") {
+			t.Errorf("error %q should mention HULAK_MASTER_KEY", err.Error())
+		}
+		if !strings.Contains(err.Error(), "AGE-SECRET-KEY-") {
+			t.Errorf("error %q should hint at correct format", err.Error())
+		}
+	})
+
+	t.Run("no env var and no file gives original error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error when no identity available")
+		}
+		if !strings.Contains(err.Error(), "no identity found") {
+			t.Errorf("error %q should say 'no identity found'", err.Error())
+		}
+	})
+}

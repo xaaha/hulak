@@ -112,3 +112,36 @@ func DeleteIdentity() error {
 	}
 	return nil
 }
+
+// ResolveIdentity returns the age identity to use for decryption.
+// Precedence: HULAK_MASTER_KEY env var → ~/.config/hulak/identity.txt.
+//
+// Wraps parse errors with user-friendly messages:
+//   - public key in env var → "this looks like a public key"
+//   - garbage in env var → hint at AGE-SECRET-KEY- format
+func ResolveIdentity() (*age.X25519Identity, error) {
+	if raw := strings.TrimSpace(os.Getenv(utils.MasterKey)); raw != "" {
+		return parseMasterKey(raw)
+	}
+	return LoadIdentity()
+}
+
+// parseMasterKey parses the HULAK_MASTER_KEY value with friendly errors.
+func parseMasterKey(raw string) (*age.X25519Identity, error) {
+	identity, err := age.ParseX25519Identity(raw)
+	if err != nil {
+		if strings.HasPrefix(raw, "age1") {
+			return nil, fmt.Errorf(
+				"%s contains what looks like a public key (age1...), not a private key. "+
+					"Private keys start with AGE-SECRET-KEY-",
+				utils.MasterKey,
+			)
+		}
+		return nil, fmt.Errorf(
+			"%s is set but could not be parsed as an age private key: %w\n"+
+				"Expected format: AGE-SECRET-KEY-1... ",
+			utils.MasterKey, err,
+		)
+	}
+	return identity, nil
+}
