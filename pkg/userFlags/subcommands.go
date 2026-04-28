@@ -665,15 +665,19 @@ func newEnvCmd() *command {
 		{
 			Name:  "remove-recipient",
 			Short: "Remove a recipient",
-			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nNote: removed users can still decrypt copies of the vault from before this point.\nIf revocation matters, also rotate the underlying secrets.",
-			Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to remove"}},
+			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nMatch by key string or name label. Refuses to remove the last recipient.\nNote: removed users can still decrypt copies from before this point.",
+			Args:  []argDef{{Name: "key-or-name", Required: true, Desc: "Age public key or name label to remove"}},
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env remove-recipient age1ql3z...",
-					Description: "Remove a teammate's public key",
+					Description: "Remove by public key",
+				},
+				{
+					Command:     "hulak env remove-recipient Alice",
+					Description: "Remove by name label",
 				},
 			},
-			Run: notImplemented("remove-recipient"),
+			Run: runRemoveRecipient,
 		},
 		{
 			Name:  "list-recipients",

@@ -661,3 +661,69 @@ func runAddRecipient(args []string, name string) error {
 		return nil
 	})
 }
+
+// --- REMOVE-RECIPIENT ---
+
+// RotationReminder is the security notice printed after removing a recipient.
+const RotationReminder = "Note: %s can still decrypt copies of store.age from before this point. Rotate upstream secrets if compromise is suspected."
+
+// runRemoveRecipient handles `hulak env remove-recipient <key-or-name>`.
+func runRemoveRecipient(args []string) error {
+	if len(args) == 0 {
+		return errors.New("missing required argument: public-key or name label")
+	}
+	if len(args) > 1 {
+		return fmt.Errorf("too many arguments: got %d, expected 1", len(args))
+	}
+	query := args[0]
+
+	return vault.WithStoreLock(func() error {
+		recipPath, err := vault.RecipientsFilePath()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(recipPath)
+		if err != nil {
+			return fmt.Errorf("failed to read recipients file: %w", err)
+		}
+		entries, err := vault.ParseRecipientsFileContent(data)
+		if err != nil {
+			return err
+		}
+
+		entries, removed, err := vault.RemoveRecipientEntry(entries, query)
+		if err != nil {
+			return err
+		}
+		if !removed {
+			utils.PrintWarningStderr(fmt.Sprintf("No recipient matching %q found — no changes made", query))
+			return nil
+		}
+
+		// Re-encrypt to remaining recipients
+		identity, err := vault.LoadIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to load identity: %w", err)
+		}
+		store, err := vault.ReadStore(identity)
+		if err != nil {
+			return err
+		}
+
+		// Write store first (same atomicity reasoning as add-recipient)
+		recipients, err := vault.RecipientsFromEntries(entries)
+		if err != nil {
+			return err
+		}
+		if err := vault.WriteStore(store, recipients...); err != nil {
+			return err
+		}
+		if err := vault.SaveRecipients(entries); err != nil {
+			return err
+		}
+
+		utils.PrintSuccessStderr("Removed recipient")
+		utils.PrintWarningStderr(fmt.Sprintf(RotationReminder, query))
+		return nil
+	})
+}
