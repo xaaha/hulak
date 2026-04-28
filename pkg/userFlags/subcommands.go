@@ -682,14 +682,33 @@ func newEnvCmd() *command {
 		{
 			Name:  "list-recipients",
 			Short: "List all recipients",
-			Long:  "Show all age public keys that can decrypt the vault.",
+			Long:  "Show all age public keys that can decrypt the vault, with labels.",
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env list-recipients",
 					Description: "Show all recipients with names and key prefixes",
 				},
 			},
-			Run: notImplemented("list-recipients"),
+			Run: runListRecipients,
+		},
+		{
+			Name:    "rotate",
+			Aliases: []string{"sync", "reencrypt"},
+			Short:   "Re-encrypt the store to current recipients",
+			Long: "Re-encrypt store.age to match the current recipients.txt.\n\n" +
+				"Use this after manually editing recipients.txt. Not needed after\n" +
+				"add-recipient or remove-recipient — those re-encrypt automatically.",
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env rotate",
+					Description: "Re-encrypt store to match recipients.txt",
+				},
+				{
+					Command:     "hulak env sync",
+					Description: "Same as rotate (alias)",
+				},
+			},
+			Run: runSync,
 		},
 	}
 
