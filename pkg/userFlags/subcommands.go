@@ -450,6 +450,7 @@ func newEnvCmd() *command {
 	// add-recipient
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
 	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
+	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
 
 	notImplemented := func(name string) func([]string) error {
 		return func(_ []string) error {
@@ -659,8 +660,12 @@ func newEnvCmd() *command {
 					Command:     "hulak env add-recipient age1ql3z... --name Alice",
 					Description: "Add with a label",
 				},
+				{
+					Command:     "cat keys.txt | hulak env add-recipient --stdin --name Team",
+					Description: "Add multiple keys from stdin",
+				},
 			},
-			Run: func(args []string) error { return runAddRecipient(args, *addRecipientName) },
+			Run: func(args []string) error { return runAddRecipient(args, *addRecipientName, *addRecipientStdin) },
 		},
 		{
 			Name:  "remove-recipient",

@@ -603,15 +603,47 @@ func launchEditor(path string) error {
 
 // --- ADD-RECIPIENT ---
 
-// runAddRecipient handles `hulak env add-recipient <public-key> [--name n]`.
-func runAddRecipient(args []string, name string) error {
+// resolveRecipientKeys returns public keys to add. From --stdin (one per line,
+// blank lines and # comments ignored) or from positional arg. Error if both.
+func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
+	if useStdin && len(args) > 0 {
+		return nil, errors.New("cannot use both --stdin and a positional key — pick one")
+	}
+
+	if useStdin {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read stdin: %w", err)
+		}
+		var keys []string
+		for line := range strings.SplitSeq(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, utils.Comment) {
+				continue
+			}
+			keys = append(keys, line)
+		}
+		if len(keys) == 0 {
+			return nil, errors.New("no keys found in stdin")
+		}
+		return keys, nil
+	}
+
 	if len(args) == 0 {
-		return errors.New("missing required argument: public-key")
+		return nil, errors.New("missing required argument: public-key")
 	}
 	if len(args) > 1 {
-		return fmt.Errorf("too many arguments: got %d, expected 1 (public-key)", len(args))
+		return nil, fmt.Errorf("too many arguments: got %d, expected 1 (public-key)", len(args))
 	}
-	pubKey := args[0]
+	return []string{args[0]}, nil
+}
+
+// runAddRecipient handles `hulak env add-recipient <public-key> [--name n] [--stdin]`.
+func runAddRecipient(args []string, name string, useStdin bool) error {
+	pubKeys, err := resolveRecipientKeys(args, useStdin)
+	if err != nil {
+		return err
+	}
 
 	return vault.WithStoreLock(func() error {
 		// Read current entries
@@ -628,13 +660,15 @@ func runAddRecipient(args []string, name string) error {
 			return err
 		}
 
-		// Add new entry (validates key, rejects dupes)
-		entries, err = vault.AddRecipientEntry(entries, pubKey, name)
-		if err != nil {
-			return err
+		// Add each key
+		for _, pubKey := range pubKeys {
+			entries, err = vault.AddRecipientEntry(entries, pubKey, name)
+			if err != nil {
+				return err
+			}
 		}
 
-		// Re-encrypt store to all recipients including new one
+		// Re-encrypt store to all recipients including new ones
 		identity, err := vault.LoadIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
@@ -657,11 +691,15 @@ func runAddRecipient(args []string, name string) error {
 			return err
 		}
 
-		keyPrefix := pubKey
-		if len(keyPrefix) > EllipsisLength {
-			keyPrefix = keyPrefix[:20] + utils.Ellipsis
+		if len(pubKeys) == 1 {
+			keyPrefix := pubKeys[0]
+			if len(keyPrefix) > EllipsisLength {
+				keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
+			}
+			utils.PrintSuccessStderr(fmt.Sprintf("Added recipient %s", keyPrefix))
+		} else {
+			utils.PrintSuccessStderr(fmt.Sprintf("Added %d recipients", len(pubKeys)))
 		}
-		utils.PrintSuccessStderr(fmt.Sprintf("Added recipient %s", keyPrefix))
 		return nil
 	})
 }
