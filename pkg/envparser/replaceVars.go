@@ -64,6 +64,7 @@ func replaceVariables(
 		utils.TemplateFuncGetValueOf: actions.GetValueOf,
 		utils.TemplateFuncGetFile:    actions.GetFile,
 		utils.TemplateFuncBasicAuth:  actions.BasicAuth,
+		utils.TemplateFuncOs:         os.Getenv,
 	}
 
 	tmpl, err := template.New("template").

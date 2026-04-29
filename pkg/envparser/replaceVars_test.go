@@ -87,6 +87,10 @@ func TestHandleEnvVarValue(t *testing.T) {
 }
 
 func TestSubstituteVariables(t *testing.T) {
+	// Set OS env for {{os}} tests
+	os.Setenv("HULAK_TEST_OS_TOKEN", "test_os_value")
+	defer os.Unsetenv("HULAK_TEST_OS_TOKEN")
+
 	varMap := map[string]any{
 		"varName":       "replacedValue",
 		"secondName":    "John",
@@ -201,6 +205,13 @@ func TestSubstituteVariables(t *testing.T) {
 			expectedOutput: "Authorization: Basic dXNlcjpwYXNz",
 			expectedErr:    nil,
 			varMap:         map[string]any{"user": "user", "pass": "pass"},
+		},
+		{
+			name:           "os func resolves OS env var",
+			stringToChange: `Bearer {{os "HULAK_TEST_OS_TOKEN"}}`,
+			expectedOutput: "Bearer test_os_value",
+			expectedErr:    nil,
+			varMap:         map[string]any{},
 		},
 	}
 
