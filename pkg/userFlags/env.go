@@ -179,7 +179,7 @@ func runEnvGet(args []string, envName string) error {
 		return err
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -242,7 +242,7 @@ func runEnvDelete(args []string, envName string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -280,7 +280,7 @@ func runEnvList(args []string) error {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -313,7 +313,7 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return err
 	}
 
-	identity, err := vault.LoadIdentity()
+	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
 	}
@@ -601,6 +601,80 @@ func launchEditor(path string) error {
 	return nil
 }
 
+// --- IMPORT-KEY ---
+
+// runImportKey handles `hulak env import-key [path] [--stdin] [--force]`.
+func runImportKey(args []string, useStdin, force bool) error {
+	if useStdin && len(args) > 0 {
+		return errors.New("cannot use both --stdin and a positional path — pick one")
+	}
+
+	var raw string
+	switch {
+	case useStdin:
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read stdin: %w", err)
+		}
+		raw = string(data)
+
+	case len(args) > 0:
+		if len(args) > 1 {
+			return fmt.Errorf("too many arguments: got %d, expected 1 (path)", len(args))
+		}
+		data, err := os.ReadFile(args[0])
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", args[0], err)
+		}
+		raw = string(data)
+
+	default:
+		return errors.New("missing required argument: path (or use --stdin)")
+	}
+
+	if err := vault.ImportKey(raw, force); err != nil {
+		return err
+	}
+
+	identityPath, err := vault.IdentityPath()
+	if err != nil {
+		return err
+	}
+	utils.PrintSuccessStderr(fmt.Sprintf("Identity imported to %s", identityPath))
+	return nil
+}
+
+// --- EXPORT-KEY ---
+
+// runExportKey handles `hulak env export-key [--out path]`.
+func runExportKey(args []string, outPath string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+
+	key, err := vault.ExportKey()
+	if err != nil {
+		return err
+	}
+
+	if outPath != "" {
+		if utils.FileExists(outPath) {
+			return fmt.Errorf("file %q already exists — use a different path or remove it first", outPath)
+		}
+		if err := os.WriteFile(outPath, []byte(key+"\n"), utils.SecretPer); err != nil {
+			return fmt.Errorf("failed to write key to %s: %w", outPath, err)
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("Key written to %s (mode 0600)", outPath))
+		return nil
+	}
+
+	// Print to stdout with a security warning on stderr.
+	utils.PrintWarningStderr("This is your age private key. Treat it like a password.")
+	utils.PrintWarningStderr("Do not commit it or share it. Store it in a password manager.")
+	fmt.Println(key)
+	return nil
+}
+
 // --- ADD-RECIPIENT ---
 
 // resolveRecipientKeys returns public keys to add. From --stdin (one per line,
@@ -669,7 +743,7 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 		}
 
 		// Re-encrypt store to all recipients including new ones
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -745,7 +819,7 @@ func runRemoveRecipient(args []string) error {
 		}
 
 		// Re-encrypt to remaining recipients
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}
@@ -824,7 +898,7 @@ func runSync(args []string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			return fmt.Errorf("failed to load identity: %w", err)
 		}

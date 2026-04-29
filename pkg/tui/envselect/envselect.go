@@ -49,7 +49,7 @@ func noEnvFilesError() error {
 // Reads from encrypted store when available, otherwise from env/ directory.
 func envItems() []string {
 	if vault.DetectStore() == vault.StoreAge {
-		identity, err := vault.LoadIdentity()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
 			utils.PrintErrorStderr(fmt.Sprintf("vault: %v", err))
 			return nil

@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,6 +305,321 @@ func TestLoadIdentity(t *testing.T) {
 		_, err := LoadIdentity()
 		if err == nil {
 			t.Error("LoadIdentity() should error when identity is missing")
+		}
+	})
+}
+
+func TestResolveIdentity(t *testing.T) {
+	t.Run("prefers HULAK_MASTER_KEY over identity file", func(t *testing.T) {
+		setupConfigDir(t)
+
+		// Write a file-based identity
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		// Set env var to a different identity
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.String())
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != envID.String() {
+			t.Errorf("got %q, want env var identity %q", got.String(), envID.String())
+		}
+	})
+
+	t.Run("falls back to identity file when env var unset", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		}
+	})
+
+	t.Run("empty env var is treated as unset", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		}
+	})
+
+	t.Run("env var with whitespace is trimmed", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", "  "+envID.String()+"\n")
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("ResolveIdentity() error: %v", err)
+		}
+		if got.String() != envID.String() {
+			t.Errorf("got %q, want %q", got.String(), envID.String())
+		}
+	})
+
+	t.Run("env var with public key gives helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.Recipient().String())
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error for public key in HULAK_MASTER_KEY")
+		}
+		if !strings.Contains(err.Error(), "public key") {
+			t.Errorf("error %q should mention 'public key'", err.Error())
+		}
+	})
+
+	t.Run("env var with garbage gives helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "not-a-real-key")
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error for garbage HULAK_MASTER_KEY")
+		}
+		if !strings.Contains(err.Error(), "HULAK_MASTER_KEY") {
+			t.Errorf("error %q should mention HULAK_MASTER_KEY", err.Error())
+		}
+		if !strings.Contains(err.Error(), "AGE-SECRET-KEY-") {
+			t.Errorf("error %q should hint at correct format", err.Error())
+		}
+	})
+
+	t.Run("no env var and no file gives original error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error when no identity available")
+		}
+		if !strings.Contains(err.Error(), "no identity found") {
+			t.Errorf("error %q should say 'no identity found'", err.Error())
+		}
+	})
+}
+
+func TestWrapDecryptError(t *testing.T) {
+	t.Run("wraps no-match when HULAK_MASTER_KEY set", func(t *testing.T) {
+		raw := errors.New("no identity matched any of the recipients")
+		t.Setenv("HULAK_MASTER_KEY", "AGE-SECRET-KEY-fake")
+
+		got := WrapDecryptError(raw)
+		msg := got.Error()
+		if !strings.Contains(msg, "HULAK_MASTER_KEY") {
+			t.Errorf("error %q should mention HULAK_MASTER_KEY", msg)
+		}
+		if !strings.Contains(msg, "different project") {
+			t.Errorf("error %q should suggest 'different project'", msg)
+		}
+	})
+
+	t.Run("passes through when HULAK_MASTER_KEY unset", func(t *testing.T) {
+		raw := errors.New("no identity matched any of the recipients")
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		got := WrapDecryptError(raw)
+		if got.Error() != raw.Error() {
+			t.Errorf("got %q, want original error %q", got.Error(), raw.Error())
+		}
+	})
+
+	t.Run("passes through non-matching errors", func(t *testing.T) {
+		raw := errors.New("some other error")
+		t.Setenv("HULAK_MASTER_KEY", "something")
+
+		got := WrapDecryptError(raw)
+		if got.Error() != raw.Error() {
+			t.Errorf("got %q, want original error %q", got.Error(), raw.Error())
+		}
+	})
+}
+
+func TestExportKey(t *testing.T) {
+	t.Run("returns identity string when file exists", func(t *testing.T) {
+		setupConfigDir(t)
+
+		id, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		got, err := ExportKey()
+		if err != nil {
+			t.Fatalf("ExportKey() error: %v", err)
+		}
+		if got != id.String() {
+			t.Errorf("ExportKey() = %q, want %q", got, id.String())
+		}
+	})
+
+	t.Run("errors when no identity exists", func(t *testing.T) {
+		setupConfigDir(t)
+
+		_, err := ExportKey()
+		if err == nil {
+			t.Fatal("ExportKey() should error when no identity")
+		}
+		if !strings.Contains(err.Error(), "hulak init") {
+			t.Errorf("error %q should mention 'hulak init'", err.Error())
+		}
+	})
+}
+
+func TestImportKey(t *testing.T) {
+	t.Run("imports valid key", func(t *testing.T) {
+		configDir := setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		id, _ := age.GenerateX25519Identity()
+
+		err := ImportKey(id.String(), false)
+		if err != nil {
+			t.Fatalf("ImportKey() error: %v", err)
+		}
+
+		got, err := GetIdentity()
+		if err != nil {
+			t.Fatalf("GetIdentity() after import: %v", err)
+		}
+		if strings.TrimSpace(got) != id.String() {
+			t.Errorf("imported key = %q, want %q", strings.TrimSpace(got), id.String())
+		}
+
+		info, _ := os.Stat(filepath.Join(configDir, utils.IdentityFile))
+		if info.Mode().Perm() != utils.SecretPer {
+			t.Errorf("permissions = %o, want %o", info.Mode().Perm(), utils.SecretPer)
+		}
+	})
+
+	t.Run("trims whitespace and extra newlines", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		id, _ := age.GenerateX25519Identity()
+
+		err := ImportKey("  "+id.String()+"\n\n", false)
+		if err != nil {
+			t.Fatalf("ImportKey() error: %v", err)
+		}
+
+		loaded, _ := LoadIdentity()
+		if loaded.String() != id.String() {
+			t.Errorf("got %q, want %q", loaded.String(), id.String())
+		}
+	})
+
+	t.Run("rejects malformed key", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		err := ImportKey("not-a-key", false)
+		if err == nil {
+			t.Fatal("expected error for malformed key")
+		}
+	})
+
+	t.Run("refuses overwrite without force", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		id1, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id1.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		id2, _ := age.GenerateX25519Identity()
+		err := ImportKey(id2.String(), false)
+		if err == nil {
+			t.Fatal("expected error when overwriting without --force")
+		}
+		if !strings.Contains(err.Error(), "already exists") {
+			t.Errorf("error %q should mention 'already exists'", err.Error())
+		}
+
+		loaded, _ := LoadIdentity()
+		if loaded.String() != id1.String() {
+			t.Error("original identity was overwritten without --force")
+		}
+	})
+
+	t.Run("overwrites with force", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		id1, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id1.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		id2, _ := age.GenerateX25519Identity()
+		err := ImportKey(id2.String(), true)
+		if err != nil {
+			t.Fatalf("ImportKey with force error: %v", err)
+		}
+
+		loaded, _ := LoadIdentity()
+		if loaded.String() != id2.String() {
+			t.Errorf("got %q, want %q", loaded.String(), id2.String())
+		}
+	})
+
+	t.Run("refuses when HULAK_MASTER_KEY is set", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.String())
+
+		id, _ := age.GenerateX25519Identity()
+		err := ImportKey(id.String(), false)
+		if err == nil {
+			t.Fatal("expected error when HULAK_MASTER_KEY is set")
+		}
+		if !strings.Contains(err.Error(), "HULAK_MASTER_KEY") {
+			t.Errorf("error %q should mention HULAK_MASTER_KEY", err.Error())
+		}
+	})
+
+	t.Run("extracts key from multi-line input with comments", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+
+		id, _ := age.GenerateX25519Identity()
+		input := "# created: 2026-04-28\n# public key: " + id.Recipient().String() + "\n" + id.String() + "\n"
+
+		err := ImportKey(input, false)
+		if err != nil {
+			t.Fatalf("ImportKey() error: %v", err)
+		}
+		loaded, _ := LoadIdentity()
+		if loaded.String() != id.String() {
+			t.Errorf("got %q, want %q", loaded.String(), id.String())
 		}
 	})
 }

@@ -441,25 +441,20 @@ func newEnvCmd() *command {
 
 	// import-key — import an age identity
 	importKeyFs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
-	importKeyFs.Bool("stdin", false, "Read key from stdin")
+	importKeyStdin := importKeyFs.Bool("stdin", false, "Read key from stdin")
+	importKeyForce := importKeyFs.Bool("force", false, "Overwrite existing identity file")
 
 	// export-key — export the age identity
 	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
-	exportKeyFs.Bool("armor", false, "Output in ASCII-armored format")
+	var exportKeyOutVal string
+	exportKeyFs.StringVar(&exportKeyOutVal, "out", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyFs.StringVar(&exportKeyOutVal, "o", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyOut := &exportKeyOutVal
 
 	// add-recipient
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
 	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
-
-	notImplemented := func(name string) func([]string) error {
-		return func(_ []string) error {
-			// Stderr — this is a status notice, not the data the user asked for.
-			// If the user pipes the output, $() must not capture this line.
-			fmt.Fprintf(os.Stderr, "hulak env %s is not yet implemented\n", name)
-			return nil
-		}
-	}
 
 	envCmd.SubCommands = []*command{
 		{
@@ -606,44 +601,44 @@ func newEnvCmd() *command {
 		},
 		{
 			Name:  "import-key",
-			Short: "Import an age identity file",
-			Long:  "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key format before storing. Writes to ~/.config/hulak/identity.txt\n(or the platform-specific config dir).",
+			Short: "Import an age identity (private key)",
+			Long:  "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key before writing. Refuses to overwrite an existing identity unless --force is passed.\nAtomic write (tmp + rename) so an interrupted import can never corrupt an existing identity.",
 			Flags: importKeyFs,
 			Args: []argDef{
-				{Name: "path", Desc: "Path to the identity file (omit to read from stdin)"},
+				{Name: "path", Desc: "Path to the identity file (omit with --stdin)"},
 			},
 			Examples: []*utils.CommandHelp{
 				{
-					Command:     "hulak env import-key /path/to/backup.txt",
+					Command:     "hulak env import-key ~/backup-identity.txt",
 					Description: "Import from a backup file",
 				},
 				{
+					Command:     "hulak env import-key ~/backup.txt --force",
+					Description: "Overwrite existing identity",
+				},
+				{
 					Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak env import-key --stdin",
-					Description: "Import from stdin (scripts)",
+					Description: "Import from stdin (password manager pipe)",
 				},
 			},
-			Run: notImplemented("import-key"),
+			Run: func(args []string) error { return runImportKey(args, *importKeyStdin, *importKeyForce) },
 		},
 		{
 			Name:  "export-key",
-			Short: "Export the age identity file",
-			Long:  "Print the age private key to stdout for backup or transfer to another machine.\n\nUse --armor for ASCII-armored output suitable for copy-paste.",
+			Short: "Export the age identity (private key)",
+			Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
 			Flags: exportKeyFs,
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env export-key",
-					Description: "Print the private key (with security warning)",
+					Description: "Print the private key (with security warning on stderr)",
 				},
 				{
-					Command:     "hulak env export-key > ~/backup.txt",
-					Description: "Save to a backup file",
-				},
-				{
-					Command:     "hulak env export-key --armor",
-					Description: "ASCII-armored output for copy-paste",
+					Command:     "hulak env export-key --out ~/backup-identity.txt",
+					Description: "Save to a file with 0600 permissions",
 				},
 			},
-			Run: notImplemented("export-key"),
+			Run: func(args []string) error { return runExportKey(args, *exportKeyOut) },
 		},
 		{
 			Name:  "add-recipient",

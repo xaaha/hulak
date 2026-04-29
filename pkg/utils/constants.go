@@ -38,6 +38,10 @@ const (
 	StoreFile      = "store.age"
 	RecipientsFile = "recipients.txt"
 	IdentityFile   = "identity.txt"
+
+	// MasterKey is the environment variable that overrides the on-disk identity.
+	// Intended for CI where the identity file isn't practical.
+	MasterKey = "HULAK_MASTER_KEY"
 )
 
 // Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees

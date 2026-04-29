@@ -419,7 +419,8 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 		{"keys", "show"},
 		{"keys", "search"},
 		{"import-key", "stdin"},
-		{"export-key", "armor"},
+		{"import-key", "force"},
+		{"export-key", "out"},
 	}
 
 	for _, tc := range tests {
