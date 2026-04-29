@@ -90,6 +90,10 @@ func TestSubstituteVariables(t *testing.T) {
 	// Set OS env for {{os}} tests
 	os.Setenv("HULAK_TEST_OS_TOKEN", "test_os_value")
 	defer os.Unsetenv("HULAK_TEST_OS_TOKEN")
+	os.Setenv("HULAK_TEST_A", "val_a")
+	os.Setenv("HULAK_TEST_B", "val_b")
+	defer os.Unsetenv("HULAK_TEST_A")
+	defer os.Unsetenv("HULAK_TEST_B")
 
 	varMap := map[string]any{
 		"varName":       "replacedValue",
@@ -213,6 +217,34 @@ func TestSubstituteVariables(t *testing.T) {
 			expectedErr:    nil,
 			varMap:         map[string]any{},
 		},
+		{
+			name:           "os func unset var returns empty string",
+			stringToChange: `{{os "HULAK_TEST_UNSET_VAR_XYZ"}}`,
+			expectedOutput: "",
+			expectedErr:    nil,
+			varMap:         map[string]any{},
+		},
+		{
+			name:           "os func alongside store var",
+			stringToChange: `{{.HOST}}/{{os "HULAK_TEST_OS_TOKEN"}}`,
+			expectedOutput: "api.com/test_os_value",
+			expectedErr:    nil,
+			varMap:         map[string]any{"HOST": "api.com"},
+		},
+		{
+			name:           "os func is case sensitive",
+			stringToChange: `{{os "hulak_test_os_token"}}`,
+			expectedOutput: "",
+			expectedErr:    nil,
+			varMap:         map[string]any{},
+		},
+		{
+			name:           "multiple os funcs in one string",
+			stringToChange: `{{os "HULAK_TEST_A"}}-{{os "HULAK_TEST_B"}}`,
+			expectedOutput: "val_a-val_b",
+			expectedErr:    nil,
+			varMap:         map[string]any{},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -323,6 +355,60 @@ func TestFormatMissingKeyError(t *testing.T) {
 			for _, expectedStr := range tc.expectedInMsg {
 				if !strings.Contains(errMsg, expectedStr) {
 					t.Errorf("Expected error message to contain '%s', got:\n%s", expectedStr, errMsg)
+				}
+			}
+		})
+	}
+}
+
+func TestResolveEnvRefsInMap(t *testing.T) {
+	os.Setenv("HULAK_TEST_VAULT_TOKEN", "resolved_token")
+	defer os.Unsetenv("HULAK_TEST_VAULT_TOKEN")
+
+	tests := []struct {
+		name     string
+		input    map[string]any
+		expected map[string]any
+	}{
+		{
+			name:     "dollar var resolves from OS",
+			input:    map[string]any{"TOKEN": "$HULAK_TEST_VAULT_TOKEN"},
+			expected: map[string]any{"TOKEN": "resolved_token"},
+		},
+		{
+			name:     "dollar var unset returns empty",
+			input:    map[string]any{"TOKEN": "$HULAK_TEST_NONEXISTENT_XYZ"},
+			expected: map[string]any{"TOKEN": ""},
+		},
+		{
+			name:     "non-dollar string unchanged",
+			input:    map[string]any{"KEY": "literal_value"},
+			expected: map[string]any{"KEY": "literal_value"},
+		},
+		{
+			name:     "non-string values unchanged",
+			input:    map[string]any{"PORT": 8080, "DEBUG": true, "RATE": 1.5},
+			expected: map[string]any{"PORT": 8080, "DEBUG": true, "RATE": 1.5},
+		},
+		{
+			name:     "bare dollar returns empty",
+			input:    map[string]any{"KEY": "$"},
+			expected: map[string]any{"KEY": ""},
+		},
+		{
+			name:     "mixed dollar and non-dollar",
+			input:    map[string]any{"A": "$HULAK_TEST_VAULT_TOKEN", "B": "plain"},
+			expected: map[string]any{"A": "resolved_token", "B": "plain"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := resolveEnvRefs(tc.input)
+			for k, want := range tc.expected {
+				got := result[k]
+				if got != want {
+					t.Errorf("key %q: got %v (%T), want %v (%T)", k, got, got, want, want)
 				}
 			}
 		})

@@ -169,6 +169,18 @@ func inferType(val string, wasTrimmed bool) any {
 	return val
 }
 
+// resolveEnvRefs applies $VAR → os.LookupEnv resolution to string values
+// in the map. Matches the behavior of handleEnvVarValue used by LoadEnvVars
+// for .env files, giving vault store values the same $VAR semantics.
+func resolveEnvRefs(m map[string]any) map[string]any {
+	for key, val := range m {
+		if str, ok := val.(string); ok {
+			m[key] = handleEnvVarValue(str)
+		}
+	}
+	return m
+}
+
 // loadSecretsFromVault decrypts the store and returns merged env vars.
 // Uses the same merge pattern as classic: global base + custom overlay.
 func loadSecretsFromVault(envName string) (map[string]any, error) {
@@ -189,7 +201,7 @@ func loadSecretsFromVault(envName string) (map[string]any, error) {
 	resultMap := utils.CopyEnvMap(globalMap)
 
 	if envName == "" || strings.EqualFold(envName, utils.DefaultEnvVal) {
-		return resultMap, nil
+		return resolveEnvRefs(resultMap), nil
 	}
 
 	custom := store.GetEnv(envName)
@@ -197,7 +209,7 @@ func loadSecretsFromVault(envName string) (map[string]any, error) {
 		return nil, fmt.Errorf("environment %q not found in vault store", envName)
 	}
 	maps.Copy(resultMap, custom)
-	return resultMap, nil
+	return resolveEnvRefs(resultMap), nil
 }
 
 /*

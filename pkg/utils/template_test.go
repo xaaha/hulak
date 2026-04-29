@@ -79,6 +79,16 @@ func TestFileHasTemplateVars(t *testing.T) {
 			content:  "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
 			expected: true,
 		},
+		{
+			name:     "os_func_only_no_env_loading_needed",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{os \"GITHUB_TOKEN\"}}'\n",
+			expected: false,
+		},
+		{
+			name:     "os_func_with_spaces_no_env_loading_needed",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{ os \"TOKEN\" }}'\n",
+			expected: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -330,6 +340,20 @@ func TestMapHasEnvVars(t *testing.T) {
 				},
 			},
 			expected: true,
+		},
+		{
+			name:     "os_func_in_value_no_env_loading_needed",
+			data:     map[string]any{"auth": `{{os "GITHUB_TOKEN"}}`},
+			expected: false,
+		},
+		{
+			name: "os_func_nested_no_env_loading_needed",
+			data: map[string]any{
+				"headers": map[string]any{
+					"X-Token": `{{os "CI_TOKEN"}}`,
+				},
+			},
+			expected: false,
 		},
 	}
 
