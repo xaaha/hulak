@@ -900,3 +900,98 @@ func TestSanitizeDirPathWithSpecialPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestAtomicWriteFile(t *testing.T) {
+	t.Run("writes file with correct content and permissions", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "test.txt")
+
+		err := AtomicWriteFile(path, []byte("hello"), SecretPer, DirPer)
+		if err != nil {
+			t.Fatalf("AtomicWriteFile() error: %v", err)
+		}
+
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile() error: %v", err)
+		}
+		if string(got) != "hello" {
+			t.Errorf("content = %q, want %q", string(got), "hello")
+		}
+
+		info, _ := os.Stat(path)
+		if info.Mode().Perm() != SecretPer {
+			t.Errorf("permissions = %o, want %o", info.Mode().Perm(), SecretPer)
+		}
+	})
+
+	t.Run("creates parent directories", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "nested", "deep", "file.txt")
+
+		err := AtomicWriteFile(path, []byte("nested"), SecretPer, SecretDirPer)
+		if err != nil {
+			t.Fatalf("AtomicWriteFile() error: %v", err)
+		}
+
+		got, _ := os.ReadFile(path)
+		if string(got) != "nested" {
+			t.Errorf("content = %q, want %q", string(got), "nested")
+		}
+
+		// Check parent dir permissions
+		parentInfo, _ := os.Stat(filepath.Join(dir, "nested"))
+		if parentInfo.Mode().Perm() != SecretDirPer {
+			t.Errorf("parent dir permissions = %o, want %o", parentInfo.Mode().Perm(), SecretDirPer)
+		}
+	})
+
+	t.Run("overwrites existing file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "overwrite.txt")
+
+		if err := os.WriteFile(path, []byte("old"), FilePer); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		err := AtomicWriteFile(path, []byte("new"), SecretPer, DirPer)
+		if err != nil {
+			t.Fatalf("AtomicWriteFile() error: %v", err)
+		}
+
+		got, _ := os.ReadFile(path)
+		if string(got) != "new" {
+			t.Errorf("content = %q, want %q", string(got), "new")
+		}
+	})
+
+	t.Run("no leftover tmp file on success", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "clean.txt")
+
+		err := AtomicWriteFile(path, []byte("data"), FilePer, DirPer)
+		if err != nil {
+			t.Fatalf("AtomicWriteFile() error: %v", err)
+		}
+
+		tmpPath := path + ".tmp"
+		if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+			t.Error("AtomicWriteFile() left behind .tmp file")
+		}
+	})
+
+	t.Run("empty data writes empty file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "empty.txt")
+
+		err := AtomicWriteFile(path, []byte{}, FilePer, DirPer)
+		if err != nil {
+			t.Fatalf("AtomicWriteFile() error: %v", err)
+		}
+
+		info, _ := os.Stat(path)
+		if info.Size() != 0 {
+			t.Errorf("file size = %d, want 0", info.Size())
+		}
+	})
+}
