@@ -235,18 +235,7 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 		return fmt.Errorf("failed to encrypt store: %w", err)
 	}
 
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, cipherText, utils.SecretPer); err != nil {
-		os.Remove(tmpPath) // remove tmp, might be corrupted
-		return fmt.Errorf("failed to write store: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("failed to finalize store: %w", err)
-	}
-
-	return nil
+	return utils.AtomicWriteFile(path, cipherText, utils.SecretPer, utils.DirPer)
 }
 
 // WriteStoreToRecipients loads recipients from .hulak/recipients.txt and

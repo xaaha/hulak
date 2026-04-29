@@ -601,6 +601,49 @@ func launchEditor(path string) error {
 	return nil
 }
 
+// --- IMPORT-KEY ---
+
+// runImportKey handles `hulak env import-key [path] [--stdin] [--force]`.
+func runImportKey(args []string, useStdin, force bool) error {
+	if useStdin && len(args) > 0 {
+		return errors.New("cannot use both --stdin and a positional path — pick one")
+	}
+
+	var raw string
+	switch {
+	case useStdin:
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read stdin: %w", err)
+		}
+		raw = string(data)
+
+	case len(args) > 0:
+		if len(args) > 1 {
+			return fmt.Errorf("too many arguments: got %d, expected 1 (path)", len(args))
+		}
+		data, err := os.ReadFile(args[0])
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", args[0], err)
+		}
+		raw = string(data)
+
+	default:
+		return errors.New("missing required argument: path (or use --stdin)")
+	}
+
+	if err := vault.ImportKey(raw, force); err != nil {
+		return err
+	}
+
+	identityPath, err := vault.IdentityPath()
+	if err != nil {
+		return err
+	}
+	utils.PrintSuccessStderr(fmt.Sprintf("Identity imported to %s", identityPath))
+	return nil
+}
+
 // --- EXPORT-KEY ---
 
 // runExportKey handles `hulak env export-key [--out path]`.

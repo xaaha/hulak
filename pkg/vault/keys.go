@@ -177,3 +177,57 @@ func ExportKey() (string, error) {
 	}
 	return strings.TrimSpace(raw), nil
 }
+
+// ImportKey validates the raw key material, normalizes whitespace, and writes
+// it to the identity file atomically (tmp + rename). Refuses to overwrite an
+// existing identity unless force is true.
+//
+// The raw input may be multi-line (e.g. age-keygen output with comments).
+// Only the first non-empty, non-comment line is used as the key.
+//
+// Refuses to run if HULAK_MASTER_KEY is set — importing while the env var
+// shadows the on-disk identity makes the import dead-on-arrival.
+func ImportKey(raw string, force bool) error {
+	if os.Getenv(utils.MasterKey) != "" {
+		return fmt.Errorf(
+			"%s is set — unset it before importing an identity, "+
+				"otherwise the env var shadows the on-disk file",
+			utils.MasterKey,
+		)
+	}
+
+	key := extractKeyLine(raw)
+	if key == "" {
+		return fmt.Errorf("no age private key found in input")
+	}
+
+	if _, err := age.ParseX25519Identity(key); err != nil {
+		return fmt.Errorf("invalid age private key: %w", err)
+	}
+
+	identityPath, err := IdentityPath()
+	if err != nil {
+		return err
+	}
+
+	if !force && utils.FileExists(identityPath) {
+		return fmt.Errorf(
+			"identity already exists at %s — use --force to overwrite", identityPath,
+		)
+	}
+
+	return utils.AtomicWriteFile(identityPath, []byte(key+"\n"), utils.SecretPer, utils.SecretDirPer)
+}
+
+// extractKeyLine returns the first non-empty, non-comment line from raw input.
+// Handles age-keygen output where comments (# lines) precede the key.
+func extractKeyLine(raw string) string {
+	for line := range strings.SplitSeq(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		return line
+	}
+	return ""
+}

@@ -279,3 +279,23 @@ func DirExists(path string) bool {
 	info, err := stat(path)
 	return err == nil && info.IsDir()
 }
+
+// AtomicWriteFile writes data to path via a temporary file + rename.
+// An interrupted or failed write never leaves a corrupted target file.
+// Creates parent directories with dirPerm if they don't exist.
+func AtomicWriteFile(path string, data []byte, filePerm, dirPerm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, data, filePerm); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to finalize file: %w", err)
+	}
+	return nil
+}
