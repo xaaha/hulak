@@ -216,7 +216,12 @@ func ImportKey(raw string, force bool) error {
 		)
 	}
 
-	return utils.AtomicWriteFile(identityPath, []byte(key+"\n"), utils.SecretPer, utils.SecretDirPer)
+	return utils.AtomicWriteFile(
+		identityPath,
+		[]byte(key+"\n"),
+		utils.SecretPer,
+		utils.SecretDirPer,
+	)
 }
 
 // extractKeyLine returns the first non-empty, non-comment line from raw input.

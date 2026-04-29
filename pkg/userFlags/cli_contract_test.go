@@ -419,6 +419,7 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 		{"keys", "show"},
 		{"keys", "search"},
 		{"import-key", "stdin"},
+		{"import-key", "force"},
 		{"export-key", "out"},
 	}
 
