@@ -91,6 +91,82 @@ KEY3='value3'
 	}
 }
 
+func TestLoadEnvVarsRaw(t *testing.T) {
+	t.Setenv("HULAK_TEST_RAW_TOKEN", "resolved_value")
+
+	content := `
+# comment line
+TOKEN=$HULAK_TEST_RAW_TOKEN
+MISSING=$HULAK_TEST_DOES_NOT_EXIST
+PLAIN=hello
+PORT=8080
+RATE=3.14
+DEBUG=true
+QUOTED="some string"
+`
+	filePath, err := createTempEnvFile(content)
+	if err != nil {
+		t.Fatalf("Failed to create temp env file: %v", err)
+	}
+	defer os.Remove(filePath)
+
+	raw, err := LoadEnvVarsRaw(filePath)
+	if err != nil {
+		t.Fatalf("LoadEnvVarsRaw error: %v", err)
+	}
+
+	t.Run("preserves dollar var as literal", func(t *testing.T) {
+		if raw["TOKEN"] != "$HULAK_TEST_RAW_TOKEN" {
+			t.Errorf("TOKEN = %v, want literal $HULAK_TEST_RAW_TOKEN", raw["TOKEN"])
+		}
+	})
+
+	t.Run("preserves missing dollar var as literal", func(t *testing.T) {
+		if raw["MISSING"] != "$HULAK_TEST_DOES_NOT_EXIST" {
+			t.Errorf("MISSING = %v, want literal $HULAK_TEST_DOES_NOT_EXIST", raw["MISSING"])
+		}
+	})
+
+	t.Run("plain string unchanged", func(t *testing.T) {
+		if raw["PLAIN"] != "hello" {
+			t.Errorf("PLAIN = %v, want hello", raw["PLAIN"])
+		}
+	})
+
+	t.Run("type inference still works", func(t *testing.T) {
+		if raw["PORT"] != 8080 {
+			t.Errorf("PORT = %v (%T), want int 8080", raw["PORT"], raw["PORT"])
+		}
+		if raw["RATE"] != 3.14 {
+			t.Errorf("RATE = %v (%T), want float 3.14", raw["RATE"], raw["RATE"])
+		}
+		if raw["DEBUG"] != true {
+			t.Errorf("DEBUG = %v (%T), want bool true", raw["DEBUG"], raw["DEBUG"])
+		}
+	})
+
+	t.Run("quoted string stays string", func(t *testing.T) {
+		if raw["QUOTED"] != "some string" {
+			t.Errorf("QUOTED = %v, want 'some string'", raw["QUOTED"])
+		}
+	})
+
+	// Regression: LoadEnvVars still resolves $VAR
+	t.Run("LoadEnvVars still resolves dollar var", func(t *testing.T) {
+		resolved, err := LoadEnvVars(filePath)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if resolved["TOKEN"] != "resolved_value" {
+			t.Errorf("TOKEN = %v, want resolved_value", resolved["TOKEN"])
+		}
+		// $MISSING resolves to empty string (var not set)
+		if resolved["MISSING"] != "" {
+			t.Errorf("MISSING = %v, want empty string", resolved["MISSING"])
+		}
+	})
+}
+
 func setupVaultProject(t *testing.T, store *vault.Store) {
 	t.Helper()
 
