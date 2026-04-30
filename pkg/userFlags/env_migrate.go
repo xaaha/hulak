@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -132,10 +133,20 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 	store.EnsureSection(envName)
 	existing := store.GetEnv(envName)
 
-	newKeys, skipped := 0, 0
+	newKeys, skipped, invalidUTF8 := 0, 0, 0
 	for key, val := range parsed {
 		if _, exists := existing[key]; exists {
 			skipped++
+			continue
+		}
+		// JSON requires valid UTF-8. Skip binary/corrupt values with a warning.
+		if str, ok := val.(string); ok && !utf8.ValidString(str) {
+			invalidUTF8++
+			utils.PrintWarningStderr(fmt.Sprintf(
+				"Skipped: key %q in %s contains invalid UTF-8 bytes. "+
+					"Store binary data as files and use {{getFile \"path\"}} instead.",
+				key, filepath.Base(filePath),
+			))
 			continue
 		}
 		store.SetKey(envName, key, val)
@@ -143,15 +154,17 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 	}
 
 	fileName := filepath.Base(filePath)
+	var parts []string
+	parts = append(parts, fmt.Sprintf("%d new", newKeys))
 	if skipped > 0 {
-		utils.PrintSuccessStderr(fmt.Sprintf(
-			"Migrated %s → store.age[%s] (%d new, %d skipped)", fileName, envName, newKeys, skipped,
-		))
-	} else {
-		utils.PrintSuccessStderr(fmt.Sprintf(
-			"Migrated %s → store.age[%s] (%d keys)", fileName, envName, newKeys,
-		))
+		parts = append(parts, fmt.Sprintf("%d skipped", skipped))
 	}
+	if invalidUTF8 > 0 {
+		parts = append(parts, fmt.Sprintf("%d invalid UTF-8", invalidUTF8))
+	}
+	utils.PrintSuccessStderr(fmt.Sprintf(
+		"Migrated %s → store.age[%s] (%s)", fileName, envName, strings.Join(parts, ", "),
+	))
 
 	return nil
 }

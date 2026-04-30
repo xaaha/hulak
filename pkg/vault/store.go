@@ -46,13 +46,22 @@ type Store struct {
 
 // MarshalJSON serializes the store as a flat object with `_version` alongside
 // the named environments: {"_version": 1, "global": {...}, "prod": {...}}.
+// Uses SetEscapeHTML(false) so characters like &, <, > in values (e.g. URLs)
+// are kept literal instead of being escaped to \u003c etc.
 func (s *Store) MarshalJSON() ([]byte, error) {
 	out := make(map[string]any, len(s.Envs)+1)
 	out[versionFieldName] = StoreVersion
 	for name, env := range s.Envs {
 		out[name] = env
 	}
-	return json.Marshal(out)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(out); err != nil {
+		return nil, err
+	}
+	// Encode appends a trailing newline; trim it for MarshalJSON contract.
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // UnmarshalJSON parses the flat object form, validates the version, and
@@ -224,11 +233,17 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 		return err
 	}
 
-	// for edit command, we need to display readable json
-	plainText, err := json.MarshalIndent(store, "", "  ")
-	if err != nil {
+	// Encoder with SetEscapeHTML(false) keeps &, <, > literal in values
+	// (e.g. URLs with query params) instead of escaping to \u003c etc.
+	// Indented for readability in hulak env edit.
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(store); err != nil {
 		return fmt.Errorf("failed to marshal store: %w", err)
 	}
+	plainText := buf.Bytes()
 
 	cipherText, err := EncryptText(plainText, recipients...)
 	if err != nil {

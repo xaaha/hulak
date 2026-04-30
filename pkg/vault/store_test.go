@@ -299,6 +299,74 @@ func TestReadStoreWriteStoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRoundTripNonASCIIAndHTMLChars(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	original := &Store{Envs: map[string]Env{
+		"global": {
+			"NAME":     "José",
+			"GREET":    "こんにちは",
+			"EMOJI":    "🚀",
+			"HTML_URL": "https://example.com/api?a=1&b=2",
+			"TAG":      "<script>alert('xss')</script>",
+		},
+	}}
+
+	if err := WriteStore(original, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore error: %v", err)
+	}
+
+	got, err := ReadStore(id)
+	if err != nil {
+		t.Fatalf("ReadStore error: %v", err)
+	}
+
+	env := got.GetEnv("global")
+	cases := map[string]string{
+		"NAME":     "José",
+		"GREET":    "こんにちは",
+		"EMOJI":    "🚀",
+		"HTML_URL": "https://example.com/api?a=1&b=2",
+		"TAG":      "<script>alert('xss')</script>",
+	}
+	for key, want := range cases {
+		if env[key] != want {
+			t.Errorf("%s = %v, want %s", key, env[key], want)
+		}
+	}
+}
+
+func TestWriteStoreNoHTMLEscaping(t *testing.T) {
+	setupHulakProject(t)
+	id, _ := age.GenerateX25519Identity()
+
+	store := &Store{Envs: map[string]Env{
+		"global": {
+			"URL": "https://example.com?a=1&b=2",
+			"TAG": "<div>hi</div>",
+		},
+	}}
+
+	if err := WriteStore(store, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore error: %v", err)
+	}
+
+	// Read back and verify HTML chars survived un-escaped.
+	got, err := ReadStore(id)
+	if err != nil {
+		t.Fatalf("ReadStore error: %v", err)
+	}
+
+	env := got.GetEnv("global")
+	if env["URL"] != "https://example.com?a=1&b=2" {
+		t.Errorf("URL = %v, want literal &", env["URL"])
+	}
+	if env["TAG"] != "<div>hi</div>" {
+		t.Errorf("TAG = %v, want literal < >", env["TAG"])
+	}
+}
+
 func TestReadStorePreservesNumberTypes(t *testing.T) {
 	setupHulakProject(t)
 	id, _ := age.GenerateX25519Identity()

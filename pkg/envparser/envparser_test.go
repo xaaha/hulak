@@ -167,6 +167,175 @@ QUOTED="some string"
 	})
 }
 
+// createTempEnvFileBytes writes raw bytes to a temp .env file.
+// Use this instead of createTempEnvFile when you need to write BOM bytes.
+func createTempEnvFileBytes(data []byte) (string, error) {
+	file, err := os.CreateTemp("", "*.env")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	if _, err := file.Write(data); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
+}
+
+func TestBOMHandling(t *testing.T) {
+	t.Run("strips UTF-8 BOM", func(t *testing.T) {
+		content := append([]byte{0xEF, 0xBB, 0xBF}, []byte("KEY1=value1\nKEY2=value2\n")...)
+
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		result, err := LoadEnvVars(path)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if result["KEY1"] != "value1" {
+			t.Errorf("KEY1 = %v, want value1", result["KEY1"])
+		}
+		if result["KEY2"] != "value2" {
+			t.Errorf("KEY2 = %v, want value2", result["KEY2"])
+		}
+	})
+
+	t.Run("rejects UTF-16 BE BOM", func(t *testing.T) {
+		content := append([]byte{0xFE, 0xFF}, []byte("KEY=val\n")...)
+
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		_, err = LoadEnvVars(path)
+		if err == nil {
+			t.Fatal("expected error for UTF-16 BE BOM")
+		}
+		if !strings.Contains(err.Error(), "UTF-16 BE") {
+			t.Errorf("error = %v, want mention of UTF-16 BE", err)
+		}
+	})
+
+	t.Run("rejects UTF-16 LE BOM", func(t *testing.T) {
+		content := append([]byte{0xFF, 0xFE}, []byte("KEY=val\n")...)
+
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		_, err = LoadEnvVars(path)
+		if err == nil {
+			t.Fatal("expected error for UTF-16 LE BOM")
+		}
+		if !strings.Contains(err.Error(), "UTF-16 LE") {
+			t.Errorf("error = %v, want mention of UTF-16 LE", err)
+		}
+	})
+
+	t.Run("rejects UTF-32 BE BOM", func(t *testing.T) {
+		content := append([]byte{0x00, 0x00, 0xFE, 0xFF}, []byte("KEY=val\n")...)
+
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		_, err = LoadEnvVars(path)
+		if err == nil {
+			t.Fatal("expected error for UTF-32 BE BOM")
+		}
+		if !strings.Contains(err.Error(), "UTF-32 BE") {
+			t.Errorf("error = %v, want mention of UTF-32 BE", err)
+		}
+	})
+
+	t.Run("no BOM works unchanged", func(t *testing.T) {
+		path, err := createTempEnvFile("KEY=value\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		result, err := LoadEnvVars(path)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if result["KEY"] != "value" {
+			t.Errorf("KEY = %v, want value", result["KEY"])
+		}
+	})
+}
+
+func TestNonASCIIValues(t *testing.T) {
+	t.Run("preserves UTF-8 non-ASCII in values", func(t *testing.T) {
+		content := "NAME=José\nGREET=こんにちは\nEMOJI=🚀\n"
+		path, err := createTempEnvFile(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		result, err := LoadEnvVars(path)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if result["NAME"] != "José" {
+			t.Errorf("NAME = %v, want José", result["NAME"])
+		}
+		if result["GREET"] != "こんにちは" {
+			t.Errorf("GREET = %v, want こんにちは", result["GREET"])
+		}
+		if result["EMOJI"] != "🚀" {
+			t.Errorf("EMOJI = %v, want 🚀", result["EMOJI"])
+		}
+	})
+
+	t.Run("CRLF line endings parse correctly", func(t *testing.T) {
+		content := []byte("KEY1=val1\r\nKEY2=val2\r\n")
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		result, err := LoadEnvVars(path)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if result["KEY1"] != "val1" {
+			t.Errorf("KEY1 = %q, want val1", result["KEY1"])
+		}
+		if result["KEY2"] != "val2" {
+			t.Errorf("KEY2 = %q, want val2", result["KEY2"])
+		}
+	})
+
+	t.Run("UTF-8 BOM with non-ASCII values", func(t *testing.T) {
+		content := append([]byte{0xEF, 0xBB, 0xBF}, []byte("NAME=José\n")...)
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		result, err := LoadEnvVars(path)
+		if err != nil {
+			t.Fatalf("LoadEnvVars error: %v", err)
+		}
+		if result["NAME"] != "José" {
+			t.Errorf("NAME = %v, want José", result["NAME"])
+		}
+	})
+}
+
 func setupVaultProject(t *testing.T, store *vault.Store) {
 	t.Helper()
 
