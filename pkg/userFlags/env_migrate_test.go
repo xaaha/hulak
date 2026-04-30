@@ -208,6 +208,62 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 	})
 
+	t.Run("skips invalid UTF-8 values", func(t *testing.T) {
+		setupMigrateTest(t, map[string]string{
+			"global.env": "GOOD=hello\n",
+		}, nil)
+
+		// Write a second env file with raw invalid UTF-8 bytes.
+		cwd, _ := os.Getwd()
+		badContent := append([]byte("VALID=ok\nBAD="), []byte{0xFF, 0xFE, 0x80}...)
+		badContent = append(badContent, '\n')
+		if err := os.WriteFile(
+			filepath.Join(cwd, utils.EnvironmentFolder, "staging.env"),
+			badContent, utils.FilePer,
+		); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := runEnvMigrate(); err != nil {
+			t.Fatalf("runEnvMigrate error: %v", err)
+		}
+
+		identity, _ := vault.ResolveIdentity()
+		store, _ := vault.ReadStore(identity)
+
+		staging := store.GetEnv("staging")
+		if staging == nil {
+			t.Fatal("expected 'staging' section")
+		}
+		if staging["VALID"] != "ok" {
+			t.Errorf("VALID = %v, want ok", staging["VALID"])
+		}
+		if _, exists := staging["BAD"]; exists {
+			t.Error("BAD key should have been skipped (invalid UTF-8)")
+		}
+	})
+
+	t.Run("preserves valid non-ASCII in migration", func(t *testing.T) {
+		setupMigrateTest(t, map[string]string{
+			"global.env": "NAME=José\nGREET=こんにちは\n",
+		}, nil)
+
+		if err := runEnvMigrate(); err != nil {
+			t.Fatalf("runEnvMigrate error: %v", err)
+		}
+
+		identity, _ := vault.ResolveIdentity()
+		store, _ := vault.ReadStore(identity)
+
+		env := store.GetEnv("global")
+		if env["NAME"] != "José" {
+			t.Errorf("NAME = %v, want José", env["NAME"])
+		}
+		if env["GREET"] != "こんにちは" {
+			t.Errorf("GREET = %v, want こんにちは", env["GREET"])
+		}
+	})
+
 	t.Run("errors when env dir missing", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		tmpDir, _ = filepath.EvalSymlinks(tmpDir)
