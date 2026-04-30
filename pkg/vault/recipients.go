@@ -224,6 +224,10 @@ func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
 	return recipients, nil
 }
 
+// recipientNameSuffix is the format string appended by FormatRecipientName.
+// ParseRecipientName strips it. Keep them in sync by using this constant.
+const recipientNameSuffix = " (added "
+
 // FormatRecipientName builds a comment label with today's date.
 // Empty name returns empty string.
 func FormatRecipientName(name string) string {
@@ -231,5 +235,14 @@ func FormatRecipientName(name string) string {
 		return ""
 	}
 	today := time.Now().Format(time.DateOnly)
-	return fmt.Sprintf("%s (added %s)", name, today)
+	return fmt.Sprintf("%s%s%s)", name, recipientNameSuffix, today)
+}
+
+// ParseRecipientName strips the date suffix added by FormatRecipientName.
+// Returns the original name if no suffix is found.
+func ParseRecipientName(formatted string) string {
+	if idx := strings.Index(formatted, recipientNameSuffix); idx >= 0 {
+		return formatted[:idx]
+	}
+	return formatted
 }

@@ -3,7 +3,6 @@ package userflags
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"filippo.io/age"
 
@@ -136,15 +135,11 @@ func swapRecipients(oldKey, newKey string) ([]vault.RecipientEntry, int, error) 
 }
 
 // extractRecipientName finds the name from the first entry matching key,
-// stripping the " (added YYYY-MM-DD)" suffix.
+// stripping the date suffix added by FormatRecipientName.
 func extractRecipientName(entries []vault.RecipientEntry, key string) string {
 	for _, e := range entries {
 		if e.Key == key {
-			name := e.Name
-			if idx := strings.Index(name, " (added "); idx >= 0 {
-				name = name[:idx]
-			}
-			return name
+			return vault.ParseRecipientName(e.Name)
 		}
 	}
 	return ""
