@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"filippo.io/age"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -329,6 +331,76 @@ func TestFormatRecipientName(t *testing.T) {
 		got := FormatRecipientName("")
 		if got != "" {
 			t.Errorf("FormatRecipientName(\"\") = %q, want empty", got)
+		}
+	})
+}
+
+func TestSwapRecipientKey(t *testing.T) {
+	id1, _ := age.GenerateX25519Identity()
+	id2, _ := age.GenerateX25519Identity()
+	id3, _ := age.GenerateX25519Identity()
+	oldKey := id1.Recipient().String()
+	newKey := id2.Recipient().String()
+	otherKey := id3.Recipient().String()
+
+	t.Run("swaps single matching entry", func(t *testing.T) {
+		entries := []RecipientEntry{
+			{Key: oldKey, Name: "me (added 2026-04-01)"},
+		}
+		got, count, err := SwapRecipientKey(entries, oldKey, newKey, "me")
+		if err != nil {
+			t.Fatalf("SwapRecipientKey error: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("replaced count = %d, want 1", count)
+		}
+		if len(got) != 1 {
+			t.Fatalf("len = %d, want 1", len(got))
+		}
+		if got[0].Key != newKey {
+			t.Errorf("key = %q, want %q", got[0].Key, newKey)
+		}
+		if !strings.Contains(got[0].Name, "me") {
+			t.Errorf("name = %q, want it to contain 'me'", got[0].Name)
+		}
+	})
+
+	t.Run("swaps multiple matching entries into one", func(t *testing.T) {
+		entries := []RecipientEntry{
+			{Key: oldKey, Name: "me-laptop"},
+			{Key: otherKey, Name: "teammate"},
+			{Key: oldKey, Name: "me-desktop"},
+		}
+		got, count, err := SwapRecipientKey(entries, oldKey, newKey, "me")
+		if err != nil {
+			t.Fatalf("SwapRecipientKey error: %v", err)
+		}
+		if count != 2 {
+			t.Errorf("replaced count = %d, want 2", count)
+		}
+		// Should have 2 entries: new key (replaces first match) + teammate
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+		// Teammate should be preserved
+		found := false
+		for _, e := range got {
+			if e.Key == otherKey {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("teammate key should be preserved")
+		}
+	})
+
+	t.Run("errors when old key not found", func(t *testing.T) {
+		entries := []RecipientEntry{
+			{Key: otherKey, Name: "teammate"},
+		}
+		_, _, err := SwapRecipientKey(entries, oldKey, newKey, "me")
+		if err == nil {
+			t.Error("should error when old key not in entries")
 		}
 	})
 }
