@@ -263,7 +263,7 @@ func TestInitVaultProject_WithExtraEnvs(t *testing.T) {
 
 // TestInitVaultProject_LegacyEnvNudge verifies that init in a directory with
 // pre-existing env/ but no .hulak/ returns nil without creating .hulak/, so
-// the user can run `hulak migrate env` deliberately.
+// the user can run `hulak env migrate` deliberately.
 func TestInitVaultProject_LegacyEnvNudge(t *testing.T) {
 	dir := vaultTestSetup(t)
 

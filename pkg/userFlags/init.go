@@ -62,7 +62,7 @@ func InitClassicProject() error {
 //
 // Behaviour notes:
 //   - If env/ exists but .hulak/ does not, returns nil after printing a one-line
-//     migration nudge — the user should choose between `hulak migrate env`
+//     migration nudge — the user should choose between `hulak env migrate`
 //     (vault) and `hulak init classic` (stay plaintext) rather than have hulak
 //     silently bolt a vault next to existing plaintext.
 //   - Idempotent: re-running on a project that already has .hulak/ does not
@@ -95,7 +95,7 @@ func InitVaultProject(envNames []string) error {
 	if !utils.DirExists(hulakDir) && utils.DirExists(envDir) {
 		utils.PrintInfoStderr(
 			"This project uses the legacy env/ layout. " +
-				"Run 'hulak migrate env' to upgrade, or 'hulak init classic' to stay plaintext.",
+				"Run 'hulak env migrate' to upgrade, or 'hulak init classic' to stay plaintext.",
 		)
 		return nil
 	}
