@@ -100,26 +100,9 @@ func InitVaultProject(envNames []string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(hulakDir, utils.DirPer); err != nil {
-		return fmt.Errorf("could not create %s: %w", utils.HiddenProjectName, err)
-	}
-
-	// Snapshot identity presence BEFORE EnsureKeypair: the difference between
-	// "fresh identity just generated" (show backup nudge) and "reused existing
-	// identity" (already documented elsewhere) hangs on this check.
 	wasFresh := !vault.IdentityExists()
 
-	ageKey, err := vault.EnsureKeypair()
-	if err != nil {
-		return err
-	}
-
-	// Ensure recipients.txt exists with at least the user's own key.
-	if err := ensureRecipientsFile(ageKey); err != nil {
-		return err
-	}
-
-	store, err := vault.ReadStore(ageKey.Identity)
+	ageKey, store, err := bootstrapVault(cwd)
 	if err != nil {
 		return err
 	}
