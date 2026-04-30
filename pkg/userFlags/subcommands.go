@@ -710,6 +710,18 @@ func newEnvCmd() *command {
 			},
 			Run: runSync,
 		},
+		{
+			Name:  "migrate",
+			Short: "Migrate env/*.env files to the encrypted vault",
+			Long: "Convert plaintext env/*.env files into the encrypted vault (.hulak/store.age).\n\n" +
+				"Parses each .env file, creates environment sections in the store, and encrypts.\n" +
+				"If the store already has values, existing values win on conflicts (safe to re-run).\n" +
+				"The env/ directory is NOT deleted — remove it manually after verifying the migration.",
+			Examples: []*utils.CommandHelp{
+				{Command: "hulak env migrate", Description: "Migrate all env/*.env files to the vault"},
+			},
+			Run: func(_ []string) error { return runEnvMigrate() },
+		},
 	}
 
 	return envCmd

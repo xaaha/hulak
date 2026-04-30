@@ -105,8 +105,7 @@ func handleEnvVarValue(val string) string {
 	return val
 }
 
-// LoadEnvVars returns map of the key-value pair from the provided .env filepath
-func LoadEnvVars(filePath string) (map[string]any, error) {
+func loadEnvVarsFromFile(filePath string, resolveOsVar bool) (map[string]any, error) {
 	hulakEnvironmentVariable := make(map[string]any)
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -138,10 +137,12 @@ func LoadEnvVars(filePath string) (map[string]any, error) {
 		}
 		key := strings.TrimSpace(secret[0])
 		val := strings.TrimSpace(secret[1])
-		val = handleEnvVarValue(val)
+
+		if resolveOsVar {
+			val = handleEnvVarValue(val)
+		}
 
 		val, wasTrimmed := trimQuotes(val)
-
 		// Infer value type and assign to the map
 		hulakEnvironmentVariable[key] = inferType(val, wasTrimmed)
 	}
@@ -151,6 +152,17 @@ func LoadEnvVars(filePath string) (map[string]any, error) {
 	}
 
 	return hulakEnvironmentVariable, nil
+}
+
+// LoadEnvVars returns map of the key-value pair from the provided .env filepath
+func LoadEnvVars(filePath string) (map[string]any, error) {
+	return loadEnvVarsFromFile(filePath, true)
+}
+
+// LoadEnvVarsRaw returns raw key-value pairs without resolving $VAR references.
+// Used by migration to preserve literal $VAR strings in the vault store.
+func LoadEnvVarsRaw(filePath string) (map[string]any, error) {
+	return loadEnvVarsFromFile(filePath, false)
 }
 
 // Helper function to infer type of a value

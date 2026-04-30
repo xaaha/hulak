@@ -62,7 +62,7 @@ func InitClassicProject() error {
 //
 // Behaviour notes:
 //   - If env/ exists but .hulak/ does not, returns nil after printing a one-line
-//     migration nudge — the user should choose between `hulak migrate env`
+//     migration nudge — the user should choose between `hulak env migrate`
 //     (vault) and `hulak init classic` (stay plaintext) rather than have hulak
 //     silently bolt a vault next to existing plaintext.
 //   - Idempotent: re-running on a project that already has .hulak/ does not
@@ -95,31 +95,14 @@ func InitVaultProject(envNames []string) error {
 	if !utils.DirExists(hulakDir) && utils.DirExists(envDir) {
 		utils.PrintInfoStderr(
 			"This project uses the legacy env/ layout. " +
-				"Run 'hulak migrate env' to upgrade, or 'hulak init classic' to stay plaintext.",
+				"Run 'hulak env migrate' to upgrade, or 'hulak init classic' to stay plaintext.",
 		)
 		return nil
 	}
 
-	if err := os.MkdirAll(hulakDir, utils.DirPer); err != nil {
-		return fmt.Errorf("could not create %s: %w", utils.HiddenProjectName, err)
-	}
-
-	// Snapshot identity presence BEFORE EnsureKeypair: the difference between
-	// "fresh identity just generated" (show backup nudge) and "reused existing
-	// identity" (already documented elsewhere) hangs on this check.
 	wasFresh := !vault.IdentityExists()
 
-	ageKey, err := vault.EnsureKeypair()
-	if err != nil {
-		return err
-	}
-
-	// Ensure recipients.txt exists with at least the user's own key.
-	if err := ensureRecipientsFile(ageKey); err != nil {
-		return err
-	}
-
-	store, err := vault.ReadStore(ageKey.Identity)
+	ageKey, store, err := bootstrapVault(cwd)
 	if err != nil {
 		return err
 	}
