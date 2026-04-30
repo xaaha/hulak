@@ -257,6 +257,26 @@ func TestBOMHandling(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects UTF-32 LE BOM over UTF-16 LE", func(t *testing.T) {
+		// UTF-32 LE starts with same 2 bytes as UTF-16 LE (\xFF\xFE).
+		// Must be detected as UTF-32 LE (4-byte match wins).
+		content := append([]byte{0xFF, 0xFE, 0x00, 0x00}, []byte("KEY=val\n")...)
+
+		path, err := createTempEnvFileBytes(content)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(path)
+
+		_, err = LoadEnvVars(path)
+		if err == nil {
+			t.Fatal("expected error for UTF-32 LE BOM")
+		}
+		if !strings.Contains(err.Error(), "UTF-32 LE") {
+			t.Errorf("error = %v, want mention of UTF-32 LE (not UTF-16 LE)", err)
+		}
+	})
+
 	t.Run("no BOM works unchanged", func(t *testing.T) {
 		path, err := createTempEnvFile("KEY=value\n")
 		if err != nil {

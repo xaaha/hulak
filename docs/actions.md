@@ -156,7 +156,7 @@ apiPassword = secret123
 method: GET
 url: https://api.example.com/protected
 headers:
-  Authorization: '{{basicAuth .apiUser .apiPassword}}'
+  Authorization: "{{basicAuth .apiUser .apiPassword}}"
 ```
 
 ```bash
@@ -164,3 +164,36 @@ hulak -env prod -f request
 ```
 
 This works the same as `curl -u admin:secret123 https://api.example.com/protected`.
+
+## 4. Using `os`
+
+Reads an OS environment variable at template execution time. Takes a single argument — the variable name — and returns its value, or an empty string if unset.
+
+```yaml
+# request.hk.yaml
+method: GET
+url: https://api.example.com
+headers:
+  Authorization: 'Bearer {{os "GITHUB_TOKEN"}}'
+```
+
+```bash
+export GITHUB_TOKEN=ghp_abc123
+hulak -f request
+```
+
+This is useful for secrets that live in your shell environment (CI tokens, credentials injected by your platform) rather than in `.env` files or the vault store.
+
+### Combining with store variables
+
+`os` can be used alongside `{{.Var}}` references in the same template:
+
+```yaml
+url: '{{.BASE_URL}}/callback?token={{os "SESSION_TOKEN"}}'
+```
+
+### Behaviour notes
+
+- Variable names are **case sensitive** — `{{os "path"}}` and `{{os "PATH"}}` are different
+- Returns an **empty string** if the variable is not set (no error)
+- Does **not** trigger env file loading — it reads directly from the OS environment
