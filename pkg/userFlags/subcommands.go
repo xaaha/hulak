@@ -600,10 +600,11 @@ func newEnvCmd() *command {
 			Run: func(args []string) error { return runEnvEdit(args, *editEnv) },
 		},
 		{
-			Name:  "import-key",
-			Short: "Import an age identity (private key)",
-			Long:  "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key before writing. Refuses to overwrite an existing identity unless --force is passed.\nAtomic write (tmp + rename) so an interrupted import can never corrupt an existing identity.",
-			Flags: importKeyFs,
+			Name:    "import-key",
+			Aliases: []string{"import-identity"},
+			Short:   "Import an age identity (private key)",
+			Long:    "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key before writing. Refuses to overwrite an existing identity unless --force is passed.\nAtomic write (tmp + rename) so an interrupted import can never corrupt an existing identity.",
+			Flags:   importKeyFs,
 			Args: []argDef{
 				{Name: "path", Desc: "Path to the identity file (omit with --stdin)"},
 			},
@@ -624,10 +625,11 @@ func newEnvCmd() *command {
 			Run: func(args []string) error { return runImportKey(args, *importKeyStdin, *importKeyForce) },
 		},
 		{
-			Name:  "export-key",
-			Short: "Export the age identity (private key)",
-			Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
-			Flags: exportKeyFs,
+			Name:    "export-key",
+			Aliases: []string{"export-identity"},
+			Short:   "Export the age identity (private key)",
+			Long:    "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
+			Flags:   exportKeyFs,
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env export-key",
@@ -709,6 +711,24 @@ func newEnvCmd() *command {
 				},
 			},
 			Run: runSync,
+		},
+		{
+			Name:    "rotate-key",
+			Aliases: []string{"rotate-identity"},
+			Short:   "Rotate your age identity (keypair)",
+			Long: "Generate a new age keypair, swap it in recipients.txt, and re-encrypt the store.\n\n" +
+				"This is the \"my key was compromised\" command. After rotation:\n" +
+				"  - Your old private key is backed up to identity.txt.old\n" +
+				"  - The store is re-encrypted to the new key\n" +
+				"  - Teammates' keys are untouched\n\n" +
+				"Distinct from 'rotate' (which re-encrypts without changing keys).",
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env rotate-key",
+					Description: "Rotate your identity and re-encrypt the store",
+				},
+			},
+			Run: runRotateKey,
 		},
 		{
 			Name:  "migrate",
