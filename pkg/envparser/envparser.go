@@ -3,6 +3,7 @@ package envparser
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"maps"
 	"os"
@@ -105,15 +106,49 @@ func handleEnvVarValue(val string) string {
 	return val
 }
 
+// utf8BOM is the 3-byte byte order mark prepended by some editors (notably Windows).
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// nonUTF8BOMs lists BOMs for encodings hulak does not support. Ordered
+// longest-first so UTF-32 LE (which shares a 2-byte prefix with UTF-16 LE)
+// is detected before the shorter match.
+var nonUTF8BOMs = []struct {
+	bom  []byte
+	name string
+}{
+	{[]byte{0xFF, 0xFE, 0x00, 0x00}, "UTF-32 LE"},
+	{[]byte{0x00, 0x00, 0xFE, 0xFF}, "UTF-32 BE"},
+	{[]byte{0xFE, 0xFF}, "UTF-16 BE"},
+	{[]byte{0xFF, 0xFE}, "UTF-16 LE"},
+}
+
+// stripBOM removes a UTF-8 BOM from data if present. Returns an error
+// for non-UTF-8 BOMs (UTF-16, UTF-32) since hulak only supports UTF-8.
+func stripBOM(data []byte) ([]byte, error) {
+	for _, nb := range nonUTF8BOMs {
+		if bytes.HasPrefix(data, nb.bom) {
+			return nil, fmt.Errorf(
+				"file has %s BOM — hulak only supports UTF-8 encoded .env files",
+				nb.name,
+			)
+		}
+	}
+	return bytes.TrimPrefix(data, utf8BOM), nil
+}
+
 func loadEnvVarsFromFile(filePath string, resolveOsVar bool) (map[string]any, error) {
 	hulakEnvironmentVariable := make(map[string]any)
-	file, err := os.Open(filePath)
+	raw, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	content, err := stripBOM(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", filepath.Base(filePath), err)
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
 		line := scanner.Text()
 		// Skip empty lines and comments
