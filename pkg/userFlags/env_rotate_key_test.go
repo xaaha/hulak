@@ -154,6 +154,23 @@ func TestRunRotateKey(t *testing.T) {
 		if err == nil {
 			t.Error("old identity should NOT decrypt store")
 		}
+
+		// Teammate's entry in recipients.txt is byte-for-byte unchanged
+		recipientPath, _ := vault.RecipientsFilePath()
+		data, _ := os.ReadFile(recipientPath)
+		entries, _ := vault.ParseRecipientsFileContent(data)
+		found := false
+		for _, e := range entries {
+			if e.Key == teammate.Recipient().String() {
+				found = true
+				if e.Name != "teammate" {
+					t.Errorf("teammate name changed to %q", e.Name)
+				}
+			}
+		}
+		if !found {
+			t.Error("teammate key missing from recipients.txt after rotation")
+		}
 	})
 
 	t.Run("refuses when HULAK_MASTER_KEY set", func(t *testing.T) {
