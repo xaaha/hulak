@@ -42,8 +42,7 @@ func runEnvMigrate() error {
 		return err
 	}
 
-	printMigrateSummary(wasFresh, ageKey)
-	return nil
+	return printMigrateSummary(wasFresh, ageKey)
 }
 
 // requireDirectory checks that path exists and is a directory.
@@ -159,13 +158,14 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 
 // printMigrateSummary shows identity details on first-time setup
 // and reminds the user that env/ is untouched.
-func printMigrateSummary(wasFresh bool, ageKey vault.AgeKey) {
+func printMigrateSummary(wasFresh bool, ageKey vault.AgeKey) error {
 	if wasFresh {
 		identityPath, err := vault.IdentityPath()
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "\n  Identity file: %s\n", identityPath)
-			fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
+		if err != nil {
+			return fmt.Errorf("could not resolve identity path: %w", err)
 		}
+		fmt.Fprintf(os.Stderr, "\n  Identity file: %s\n", identityPath)
+		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)
@@ -176,4 +176,5 @@ func printMigrateSummary(wasFresh bool, ageKey vault.AgeKey) {
 		"env/ is untouched. The encrypted store now takes priority.\n" +
 			"Delete it manually when ready: rm -rf env/",
 	)
+	return nil
 }
