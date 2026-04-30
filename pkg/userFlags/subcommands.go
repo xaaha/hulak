@@ -447,8 +447,18 @@ func newEnvCmd() *command {
 	// export-key — export the age identity
 	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
 	var exportKeyOutVal string
-	exportKeyFs.StringVar(&exportKeyOutVal, "out", "", "Write key to file instead of stdout (mode 0600)")
-	exportKeyFs.StringVar(&exportKeyOutVal, "o", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyFs.StringVar(
+		&exportKeyOutVal,
+		"out",
+		"",
+		"Write key to file instead of stdout (mode 0600)",
+	)
+	exportKeyFs.StringVar(
+		&exportKeyOutVal,
+		"o",
+		"",
+		"Write key to file instead of stdout (mode 0600)",
+	)
 	exportKeyOut := &exportKeyOutVal
 
 	// add-recipient
@@ -668,7 +678,13 @@ func newEnvCmd() *command {
 			Name:  "remove-recipient",
 			Short: "Remove a recipient",
 			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nMatch by key string or name label. Refuses to remove the last recipient.\nNote: removed users can still decrypt copies from before this point.",
-			Args:  []argDef{{Name: "key-or-name", Required: true, Desc: "Age public key or name label to remove"}},
+			Args: []argDef{
+				{
+					Name:     "key-or-name",
+					Required: true,
+					Desc:     "Age public key or name label to remove",
+				},
+			},
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env remove-recipient age1ql3z...",
@@ -738,7 +754,10 @@ func newEnvCmd() *command {
 				"If the store already has values, existing values win on conflicts (safe to re-run).\n" +
 				"The env/ directory is NOT deleted — remove it manually after verifying the migration.",
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env migrate", Description: "Migrate all env/*.env files to the vault"},
+				{
+					Command:     "hulak env migrate",
+					Description: "Migrate all env/*.env files to the vault",
+				},
 			},
 			Run: func(_ []string) error { return runEnvMigrate() },
 		},
