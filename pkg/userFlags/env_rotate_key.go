@@ -1,3 +1,4 @@
+// Contains command factory and handler for hulak env rotate-key.
 package userflags
 
 import (
@@ -9,6 +10,27 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
+
+func newEnvRotateKeyCmd() *command {
+	return &command{
+		Name:    "rotate-key",
+		Aliases: []string{"rotate-identity"},
+		Short:   "Rotate your age identity (keypair)",
+		Long: "Generate a new age keypair, swap it in recipients.txt, and re-encrypt the store.\n\n" +
+			"This is the \"my key was compromised\" command. After rotation:\n" +
+			"  - Your old private key is backed up to identity.txt.old\n" +
+			"  - The store is re-encrypted to the new key\n" +
+			"  - Teammates' keys are untouched\n\n" +
+			"Distinct from 'rotate' (which re-encrypts without changing keys).",
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak env rotate-key",
+				Description: "Rotate your identity and re-encrypt the store",
+			},
+		},
+		Run: runRotateKey,
+	}
+}
 
 // rotationState holds all the data collected during a key rotation.
 type rotationState struct {
@@ -183,9 +205,16 @@ func printRotationSummary(rs *rotationState) {
 		utils.PrintSuccessStderr("Rotated identity key")
 	}
 	utils.PrintInfoStderr(fmt.Sprintf("  Old public key: %s", rs.swapOldKey))
-	utils.PrintInfoStderr(fmt.Sprintf("  New public key: %s  <- share this with your team", rs.newKey.Recipient.String()))
+	utils.PrintInfoStderr(
+		fmt.Sprintf(
+			"  New public key: %s  <- share this with your team",
+			rs.newKey.Recipient.String(),
+		),
+	)
 	utils.PrintInfoStderr(fmt.Sprintf("  Old private key backed up to %s", oldBackupPath))
-	utils.PrintInfoStderr(fmt.Sprintf("  Replaced %d old key(s) in recipients.txt", rs.replacedCount))
+	utils.PrintInfoStderr(
+		fmt.Sprintf("  Replaced %d old key(s) in recipients.txt", rs.replacedCount),
+	)
 	utils.PrintWarningStderr(
 		"Your old private key may still decrypt copies of store.age from before this rotation. " +
 			"Rotate upstream secrets if compromise is suspected.",

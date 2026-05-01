@@ -129,7 +129,12 @@ func InitVaultProject(envNames []string) error {
 			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 		)
 		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
-		fmt.Fprintf(os.Stderr, "  Recipients:    %s/%s\n", utils.HiddenProjectName, utils.RecipientsFile)
+		fmt.Fprintf(
+			os.Stderr,
+			"  Recipients:    %s/%s\n",
+			utils.HiddenProjectName,
+			utils.RecipientsFile,
+		)
 		fmt.Fprintf(os.Stderr, "  Identity file: %s\n", identityPath)
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
