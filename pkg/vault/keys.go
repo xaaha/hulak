@@ -113,6 +113,52 @@ func DeleteIdentity() error {
 	return nil
 }
 
+// IdentityOldPath returns the path to the backup identity file
+// (~/.config/hulak/identity.txt.old). Used by rotate-key for crash recovery.
+func IdentityOldPath() (string, error) {
+	path, err := IdentityPath()
+	if err != nil {
+		return "", err
+	}
+	return path + ".old", nil
+}
+
+// BackupIdentity copies the current identity.txt to identity.txt.old (mode 0600).
+// Overwrites any existing .old file (one generation only).
+func BackupIdentity() error {
+	src, err := IdentityPath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("no identity to back up: %w", err)
+	}
+	dst, err := IdentityOldPath()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, utils.SecretPer)
+}
+
+// LoadIdentityOld reads and parses the backup identity file (identity.txt.old).
+// Returns error if the file doesn't exist or can't be parsed.
+func LoadIdentityOld() (*age.X25519Identity, error) {
+	path, err := IdentityOldPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("no backup identity found: %w", err)
+	}
+	identity, err := age.ParseX25519Identity(strings.TrimSpace(string(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse backup identity: %w", err)
+	}
+	return identity, nil
+}
+
 // ResolveIdentity returns the age identity to use for decryption.
 // Precedence: HULAK_MASTER_KEY env var → ~/.config/hulak/identity.txt.
 //

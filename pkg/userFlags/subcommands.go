@@ -447,8 +447,18 @@ func newEnvCmd() *command {
 	// export-key — export the age identity
 	exportKeyFs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
 	var exportKeyOutVal string
-	exportKeyFs.StringVar(&exportKeyOutVal, "out", "", "Write key to file instead of stdout (mode 0600)")
-	exportKeyFs.StringVar(&exportKeyOutVal, "o", "", "Write key to file instead of stdout (mode 0600)")
+	exportKeyFs.StringVar(
+		&exportKeyOutVal,
+		"out",
+		"",
+		"Write key to file instead of stdout (mode 0600)",
+	)
+	exportKeyFs.StringVar(
+		&exportKeyOutVal,
+		"o",
+		"",
+		"Write key to file instead of stdout (mode 0600)",
+	)
 	exportKeyOut := &exportKeyOutVal
 
 	// add-recipient
@@ -600,10 +610,11 @@ func newEnvCmd() *command {
 			Run: func(args []string) error { return runEnvEdit(args, *editEnv) },
 		},
 		{
-			Name:  "import-key",
-			Short: "Import an age identity (private key)",
-			Long:  "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key before writing. Refuses to overwrite an existing identity unless --force is passed.\nAtomic write (tmp + rename) so an interrupted import can never corrupt an existing identity.",
-			Flags: importKeyFs,
+			Name:    "import-key",
+			Aliases: []string{"import-identity"},
+			Short:   "Import an age identity (private key)",
+			Long:    "Import an age private key from a file or stdin into the hulak config directory.\n\nValidates the key before writing. Refuses to overwrite an existing identity unless --force is passed.\nAtomic write (tmp + rename) so an interrupted import can never corrupt an existing identity.",
+			Flags:   importKeyFs,
 			Args: []argDef{
 				{Name: "path", Desc: "Path to the identity file (omit with --stdin)"},
 			},
@@ -624,10 +635,11 @@ func newEnvCmd() *command {
 			Run: func(args []string) error { return runImportKey(args, *importKeyStdin, *importKeyForce) },
 		},
 		{
-			Name:  "export-key",
-			Short: "Export the age identity (private key)",
-			Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
-			Flags: exportKeyFs,
+			Name:    "export-key",
+			Aliases: []string{"export-identity"},
+			Short:   "Export the age identity (private key)",
+			Long:    "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
+			Flags:   exportKeyFs,
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env export-key",
@@ -666,7 +678,13 @@ func newEnvCmd() *command {
 			Name:  "remove-recipient",
 			Short: "Remove a recipient",
 			Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nMatch by key string or name label. Refuses to remove the last recipient.\nNote: removed users can still decrypt copies from before this point.",
-			Args:  []argDef{{Name: "key-or-name", Required: true, Desc: "Age public key or name label to remove"}},
+			Args: []argDef{
+				{
+					Name:     "key-or-name",
+					Required: true,
+					Desc:     "Age public key or name label to remove",
+				},
+			},
 			Examples: []*utils.CommandHelp{
 				{
 					Command:     "hulak env remove-recipient age1ql3z...",
@@ -711,6 +729,24 @@ func newEnvCmd() *command {
 			Run: runSync,
 		},
 		{
+			Name:    "rotate-key",
+			Aliases: []string{"rotate-identity"},
+			Short:   "Rotate your age identity (keypair)",
+			Long: "Generate a new age keypair, swap it in recipients.txt, and re-encrypt the store.\n\n" +
+				"This is the \"my key was compromised\" command. After rotation:\n" +
+				"  - Your old private key is backed up to identity.txt.old\n" +
+				"  - The store is re-encrypted to the new key\n" +
+				"  - Teammates' keys are untouched\n\n" +
+				"Distinct from 'rotate' (which re-encrypts without changing keys).",
+			Examples: []*utils.CommandHelp{
+				{
+					Command:     "hulak env rotate-key",
+					Description: "Rotate your identity and re-encrypt the store",
+				},
+			},
+			Run: runRotateKey,
+		},
+		{
 			Name:  "migrate",
 			Short: "Migrate env/*.env files to the encrypted vault",
 			Long: "Convert plaintext env/*.env files into the encrypted vault (.hulak/store.age).\n\n" +
@@ -718,7 +754,10 @@ func newEnvCmd() *command {
 				"If the store already has values, existing values win on conflicts (safe to re-run).\n" +
 				"The env/ directory is NOT deleted — remove it manually after verifying the migration.",
 			Examples: []*utils.CommandHelp{
-				{Command: "hulak env migrate", Description: "Migrate all env/*.env files to the vault"},
+				{
+					Command:     "hulak env migrate",
+					Description: "Migrate all env/*.env files to the vault",
+				},
 			},
 			Run: func(_ []string) error { return runEnvMigrate() },
 		},

@@ -60,8 +60,8 @@ func (s *Store) MarshalJSON() ([]byte, error) {
 	if err := enc.Encode(out); err != nil {
 		return nil, err
 	}
-	// Encode appends a trailing newline; trim it for MarshalJSON contract.
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	// Encode appends exactly one trailing newline; strip it for MarshalJSON contract.
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }
 
 // UnmarshalJSON parses the flat object form, validates the version, and

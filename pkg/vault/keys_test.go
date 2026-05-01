@@ -623,3 +623,89 @@ func TestImportKey(t *testing.T) {
 		}
 	})
 }
+
+func TestBackupIdentity(t *testing.T) {
+	setupConfigDir(t)
+
+	id, _ := age.GenerateX25519Identity()
+	if err := SetIdentity(id.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("backs up identity to .old", func(t *testing.T) {
+		if err := BackupIdentity(); err != nil {
+			t.Fatalf("BackupIdentity() error: %v", err)
+		}
+
+		oldPath, _ := IdentityOldPath()
+		data, err := os.ReadFile(oldPath)
+		if err != nil {
+			t.Fatalf("identity.txt.old not created: %v", err)
+		}
+		if strings.TrimSpace(string(data)) != id.String() {
+			t.Errorf("backup content = %q, want %q", strings.TrimSpace(string(data)), id.String())
+		}
+
+		info, err := os.Stat(oldPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != utils.SecretPer {
+			t.Errorf("backup permissions = %o, want %o", info.Mode().Perm(), utils.SecretPer)
+		}
+	})
+
+	t.Run("overwrites existing .old on second backup", func(t *testing.T) {
+		id2, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(id2.String()); err != nil {
+			t.Fatal(err)
+		}
+		if err := BackupIdentity(); err != nil {
+			t.Fatal(err)
+		}
+
+		oldPath, _ := IdentityOldPath()
+		data, _ := os.ReadFile(oldPath)
+		if strings.TrimSpace(string(data)) != id2.String() {
+			t.Errorf("second backup should overwrite first")
+		}
+	})
+
+	t.Run("errors when no identity exists", func(t *testing.T) {
+		setupConfigDir(t) // fresh config dir, no identity
+		err := BackupIdentity()
+		if err == nil {
+			t.Error("BackupIdentity() should error when no identity exists")
+		}
+	})
+}
+
+func TestLoadIdentityOld(t *testing.T) {
+	setupConfigDir(t)
+
+	id, _ := age.GenerateX25519Identity()
+	if err := SetIdentity(id.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := BackupIdentity(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("loads backed up identity", func(t *testing.T) {
+		got, err := LoadIdentityOld()
+		if err != nil {
+			t.Fatalf("LoadIdentityOld() error: %v", err)
+		}
+		if got.String() != id.String() {
+			t.Errorf("LoadIdentityOld() = %q, want %q", got.String(), id.String())
+		}
+	})
+
+	t.Run("errors when no .old file", func(t *testing.T) {
+		setupConfigDir(t) // fresh dir, no .old
+		_, err := LoadIdentityOld()
+		if err == nil {
+			t.Error("LoadIdentityOld() should error when no .old file")
+		}
+	})
+}

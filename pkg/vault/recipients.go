@@ -170,6 +170,47 @@ func RemoveRecipientEntry(entries []RecipientEntry, query string) ([]RecipientEn
 	return remaining, true, nil
 }
 
+// SwapRecipientKey replaces all entries matching oldKey with a single entry for
+// newKey. Preserves the name from the first matched entry (with updated date).
+// Returns the updated entries, the count of replaced keys, and an error if
+// oldKey was not found.
+func SwapRecipientKey(
+	entries []RecipientEntry,
+	oldKey, newKey, name string,
+) ([]RecipientEntry, int, error) {
+	// Count matches first
+	replaced := 0
+	for _, e := range entries {
+		if e.Key == oldKey {
+			replaced++
+		}
+	}
+	if replaced == 0 {
+		return nil, 0, fmt.Errorf(
+			"current public key not found in recipients.txt — cannot determine which key to replace",
+		)
+	}
+
+	// Build result: replace first match, skip the rest
+	result := make([]RecipientEntry, 0, len(entries)-replaced+1)
+	swapped := false
+	for _, entry := range entries {
+		if entry.Key == oldKey {
+			if !swapped {
+				result = append(result, RecipientEntry{
+					Key:  newKey,
+					Name: FormatRecipientName(name),
+				})
+				swapped = true
+			}
+			continue
+		}
+		result = append(result, entry)
+	}
+
+	return result, replaced, nil
+}
+
 // RecipientsFromEntries converts RecipientEntry slice to age.Recipient slice.
 func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
 	recipients := make([]age.Recipient, len(entries))
@@ -183,6 +224,10 @@ func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
 	return recipients, nil
 }
 
+// recipientNameSuffix is the format string appended by FormatRecipientName.
+// ParseRecipientName strips it. Keep them in sync by using this constant.
+const recipientNameSuffix = " (added "
+
 // FormatRecipientName builds a comment label with today's date.
 // Empty name returns empty string.
 func FormatRecipientName(name string) string {
@@ -190,5 +235,14 @@ func FormatRecipientName(name string) string {
 		return ""
 	}
 	today := time.Now().Format(time.DateOnly)
-	return fmt.Sprintf("%s (added %s)", name, today)
+	return fmt.Sprintf("%s%s%s)", name, recipientNameSuffix, today)
+}
+
+// ParseRecipientName strips the date suffix added by FormatRecipientName.
+// Returns the original name if no suffix is found.
+func ParseRecipientName(formatted string) string {
+	if idx := strings.Index(formatted, recipientNameSuffix); idx >= 0 {
+		return formatted[:idx]
+	}
+	return formatted
 }
