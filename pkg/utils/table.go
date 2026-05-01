@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Two spaces matches the mise / kubectl convention — tight enough to scan,
@@ -148,6 +150,16 @@ func PrintTable(out io.Writer, headers []string, rows [][]string, maxCellWidth i
 		if err := writeRow(r); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// StdoutHeaders returns headers when stdout is a TTY, nil when piped.
+// Hiding headers under pipe redirection keeps scripts like
+// `for env in $(hulak env list)` clean — the same convention as kubectl / mise.
+func StdoutHeaders(headers []string) []string {
+	if term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		return headers
 	}
 	return nil
 }
