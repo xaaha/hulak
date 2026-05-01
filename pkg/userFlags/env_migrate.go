@@ -1,3 +1,4 @@
+// Contains command factory and handler for hulak env migrate.
 package userflags
 
 import (
@@ -11,6 +12,24 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
+
+func newEnvMigrateCmd() *command {
+	return &command{
+		Name:  "migrate",
+		Short: "Migrate env/*.env files to the encrypted vault",
+		Long: "Convert plaintext env/*.env files into the encrypted vault (.hulak/store.age).\n\n" +
+			"Parses each .env file, creates environment sections in the store, and encrypts.\n" +
+			"If the store already has values, existing values win on conflicts (safe to re-run).\n" +
+			"The env/ directory is NOT deleted — remove it manually after verifying the migration.",
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak env migrate",
+				Description: "Migrate all env/*.env files to the vault",
+			},
+		},
+		Run: func(_ []string) error { return runEnvMigrate() },
+	}
+}
 
 // runEnvMigrate converts env/*.env files into the encrypted vault store.
 // Existing store values win on conflicts, making re-runs safe.
@@ -66,7 +85,11 @@ func requireDirectory(path string) error {
 func bootstrapVault(projectRoot string) (vault.AgeKey, *vault.Store, error) {
 	hulakDir := filepath.Join(projectRoot, utils.HiddenProjectName)
 	if err := os.MkdirAll(hulakDir, utils.DirPer); err != nil {
-		return vault.AgeKey{}, nil, fmt.Errorf("could not create %s/: %w", utils.HiddenProjectName, err)
+		return vault.AgeKey{}, nil, fmt.Errorf(
+			"could not create %s/: %w",
+			utils.HiddenProjectName,
+			err,
+		)
 	}
 
 	ageKey, err := vault.EnsureKeypair()
