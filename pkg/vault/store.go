@@ -170,8 +170,8 @@ func (s *Store) DeleteKey(envName, key string) {
 	delete(env, key)
 }
 
-// storePath returns the absolute path to .hulak/store.age in the project root.
-func storePath() (string, error) {
+// StorePath returns the absolute path to .hulak/store.age in the project root.
+func StorePath() (string, error) {
 	markerPath, err := utils.GetProjectMarker()
 	if err != nil {
 		return "", err
@@ -179,10 +179,19 @@ func storePath() (string, error) {
 	return filepath.Join(markerPath, utils.StoreFile), nil
 }
 
+// BackupsDir returns the absolute path to .hulak/backups/ in the project root.
+func BackupsDir() (string, error) {
+	markerPath, err := utils.GetProjectMarker()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(markerPath, "backups"), nil
+}
+
 // ReadStore decrypts store.age and returns the Store.
 // Uses json.Decoder.UseNumber() to preserve int/float distinction.
 func ReadStore(identity age.Identity) (*Store, error) {
-	path, err := storePath()
+	path, err := StorePath()
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +219,26 @@ func ReadStore(identity age.Identity) (*Store, error) {
 	return store, nil
 }
 
+// ReadStoreFrom decrypts an age-encrypted store file at the given path.
+// Unlike ReadStore, a missing file is an error (not an empty store).
+func ReadStoreFrom(path string, identity age.Identity) (*Store, error) {
+	cipherText, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read backup: %w", err)
+	}
+
+	plainText, err := DecryptText(cipherText, identity)
+	if err != nil {
+		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt backup: %w", err))
+	}
+
+	store := &Store{}
+	if err := json.Unmarshal(plainText, store); err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
 // maybeWarnStoreSize prints a one-time stderr warning if the decrypted store
 // exceeds MaxStoreSizeWarnBytes. Stderr (not stdout) so callers like
 // `hulak env get` captured via $(...) stay clean.
@@ -228,7 +257,7 @@ func maybeWarnStoreSize(size int) {
 // WriteStore marshals the store to JSON, encrypts it, and writes to store.age.
 // Uses atomic write: writes to .tmp first, then renames to prevent corruption.
 func WriteStore(store *Store, recipients ...age.Recipient) error {
-	path, err := storePath()
+	path, err := StorePath()
 	if err != nil {
 		return err
 	}
@@ -275,7 +304,7 @@ const (
 // DetectStore checks which storage backend is available.
 // .hulak/store.age takes priority over env/ if both exist.
 func DetectStore() StoreType {
-	if path, err := storePath(); err == nil && utils.FileExists(path) {
+	if path, err := StorePath(); err == nil && utils.FileExists(path) {
 		return StoreAge
 	}
 

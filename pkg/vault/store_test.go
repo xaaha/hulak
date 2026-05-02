@@ -733,3 +733,62 @@ func TestWriteStoreAtomicCleanup(t *testing.T) {
 		t.Error("WriteStore() left behind .tmp file")
 	}
 }
+
+func TestReadStoreFrom(t *testing.T) {
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("generate identity: %v", err)
+	}
+
+	store := &Store{Envs: map[string]Env{
+		"global": {"SECRET": "hello"},
+	}}
+	jsonData, err := json.Marshal(store)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	cipher, err := EncryptText(jsonData, id.Recipient())
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+
+	backupPath := filepath.Join(t.TempDir(), "backup.age")
+	if err := os.WriteFile(backupPath, cipher, 0o600); err != nil {
+		t.Fatalf("write backup: %v", err)
+	}
+
+	got, err := ReadStoreFrom(backupPath, id)
+	if err != nil {
+		t.Fatalf("ReadStoreFrom: %v", err)
+	}
+	if v, ok := got.GetEnv("global")["SECRET"].(string); !ok || v != "hello" {
+		t.Errorf("got SECRET=%v, want %q", got.GetEnv("global")["SECRET"], "hello")
+	}
+}
+
+func TestReadStoreFrom_MissingFile(t *testing.T) {
+	id, _ := age.GenerateX25519Identity()
+	_, err := ReadStoreFrom("/nonexistent/path.age", id)
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestReadStoreFrom_WrongIdentity(t *testing.T) {
+	id1, _ := age.GenerateX25519Identity()
+	id2, _ := age.GenerateX25519Identity()
+
+	store := &Store{Envs: map[string]Env{"global": {"K": "V"}}}
+	jsonData, _ := json.Marshal(store)
+	cipher, _ := EncryptText(jsonData, id1.Recipient())
+
+	path := filepath.Join(t.TempDir(), "backup.age")
+	if err := os.WriteFile(path, cipher, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_, err := ReadStoreFrom(path, id2)
+	if err == nil {
+		t.Fatal("expected error when decrypting with wrong identity")
+	}
+}
