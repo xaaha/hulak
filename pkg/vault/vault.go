@@ -72,7 +72,7 @@ func EnsureKeypair() (AgeKey, error) {
 
 	// Identity missing. Refuse if a store already exists — the new identity
 	// wouldn't match the recipient store.age was encrypted to.
-	if existingStore, err := storePath(); err == nil && utils.FileExists(existingStore) {
+	if existingStore, err := StorePath(); err == nil && utils.FileExists(existingStore) {
 		return AgeKey{}, utils.HelpfulError(
 			fmt.Sprintf(
 				"identity not found at %s but %s exists. Refusing to generate a new identity that would not match the existing store",

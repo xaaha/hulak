@@ -2,10 +2,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/runner"
@@ -138,19 +136,17 @@ func ensureHulakProject() {
 	}
 
 	utils.PrintErrorStderr("environment resolution requires a Hulak project")
-	fmt.Fprint(os.Stderr, "Initialize one here? [y/N] ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-		if answer == "y" || answer == "yes" {
-			fmt.Fprintln(os.Stderr)
-			if err := envparser.CreateDefaultEnvs(nil); err != nil {
-				utils.PanicRedAndExit("%v", err)
-			}
-			fmt.Fprintln(os.Stderr)
-			return
+	confirmed, err := utils.ConfirmAction("Initialize one here? [y/N] ")
+	if err != nil {
+		utils.PanicRedAndExit("failed to read input: %v", err)
+	}
+	if confirmed {
+		fmt.Fprintln(os.Stderr)
+		if err := envparser.CreateDefaultEnvs(nil); err != nil {
+			utils.PanicRedAndExit("%v", err)
 		}
+		fmt.Fprintln(os.Stderr)
+		return
 	}
 
 	fmt.Fprintln(os.Stderr, "\nTo set up manually, run: hulak init")

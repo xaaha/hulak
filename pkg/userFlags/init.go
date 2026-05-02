@@ -44,7 +44,8 @@ func InitClassicProject() error {
 		return err
 	}
 
-	if err := ensureGitignoreEntry(); err != nil {
+	// gitignored path suffix is "/"
+	if err := ensureGitignoreEntry(utils.EnvironmentFolder + "/"); err != nil {
 		utils.PrintWarningStderr(fmt.Sprintf("could not update .gitignore: %v", err))
 	}
 
@@ -223,15 +224,12 @@ func writeAPIOptionsExample() (bool, error) {
 	return true, nil
 }
 
-// ensureGitignoreEntry adds env/ to .gitignore if not already present.
-func ensureGitignoreEntry() error {
+// ensureGitignoreEntry adds entry to .gitignore if not already present.
+func ensureGitignoreEntry(entry string) error {
 	gitignorePath, err := utils.CreatePath(".gitignore")
 	if err != nil {
 		return fmt.Errorf("could not resolve .gitignore path: %w", err)
 	}
-
-	// .gitignored uses forward / for path
-	entry := utils.EnvironmentFolder + "/"
 
 	if utils.FileExists(gitignorePath) {
 		file, err := os.Open(gitignorePath)
@@ -240,10 +238,11 @@ func ensureGitignoreEntry() error {
 		}
 		defer file.Close()
 
+		bare := strings.TrimRight(entry, "/")
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-			if line == entry || line == utils.EnvironmentFolder {
+			if line == entry || line == bare {
 				return nil
 			}
 		}
