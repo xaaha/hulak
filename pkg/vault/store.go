@@ -232,8 +232,12 @@ func ReadStoreFrom(path string, identity age.Identity) (*Store, error) {
 		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt backup: %w", err))
 	}
 
+	maybeWarnStoreSize(len(plainText))
+
+	dec := json.NewDecoder(bytes.NewReader(plainText))
+	dec.UseNumber()
 	store := &Store{}
-	if err := json.Unmarshal(plainText, store); err != nil {
+	if err := dec.Decode(store); err != nil {
 		return nil, err
 	}
 	return store, nil
