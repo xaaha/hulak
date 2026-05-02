@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -128,6 +129,19 @@ func WriteCommandHelp(commands []*CommandHelp) error {
 		}
 	}
 	return w.Flush()
+}
+
+// ConfirmAction prints prompt to stderr and reads a single line from stdin.
+// Returns true for "y" or "yes" (case-insensitive), false otherwise.
+// Returns false (not error) on EOF or non-interactive stdin.
+func ConfirmAction(prompt string) (bool, error) {
+	fmt.Fprint(os.Stderr, prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		return false, scanner.Err()
+	}
+	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+	return answer == "y" || answer == "yes", nil
 }
 
 // HelpfulError formats a multi-line error with a title, a section heading, and a
