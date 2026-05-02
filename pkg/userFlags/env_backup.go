@@ -155,9 +155,13 @@ func resolveBackupDest(outPath string, force bool) (string, error) {
 	ts := time.Now().Format(backupTimestampFormat)
 	base := filepath.Join(backupsDir, backupPrefix+ts)
 
-	// Same-second collision: append .1, .2, etc.
+	// Same-second collision: append .1, .2, etc. Cap at 999 to avoid unbounded spin.
 	dest := base
+	const maxCollisions = 999
 	for counter := 1; utils.FileExists(dest); counter++ {
+		if counter > maxCollisions {
+			return "", fmt.Errorf("too many backups with timestamp %s (max %d)", ts, maxCollisions)
+		}
 		dest = fmt.Sprintf("%s.%d", base, counter)
 	}
 
