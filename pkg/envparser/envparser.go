@@ -49,13 +49,11 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 	if !slices.Contains(envFromFiles, envFromFlag) {
 		// Prompts go to stderr so they never leak into $() capture.
 		fmt.Fprintf(os.Stderr, "'%v.env' not found in the env directory\n", envFromFlag)
-		fmt.Fprintf(os.Stderr, "Create '%v.env'? (y/n) ", envFromFlag)
-		reader := bufio.NewReader(os.Stdin)
-		responses, err := reader.ReadString('\n')
-		if err != nil {
-			return fileCreationSkipped, utils.ColorError("failed to read responses: %v", err)
+		confirmed, confirmErr := utils.ConfirmAction(fmt.Sprintf("Create '%v.env'? [y/N] ", envFromFlag))
+		if confirmErr != nil {
+			return fileCreationSkipped, utils.ColorError("failed to read input: %v", confirmErr)
 		}
-		if strings.TrimSpace(responses) == "y" || strings.TrimSpace(responses) == "Y" {
+		if confirmed {
 			err := CreateDefaultEnvs(&envFromFlag)
 			if err != nil {
 				return fileCreationSkipped, utils.ColorError(
