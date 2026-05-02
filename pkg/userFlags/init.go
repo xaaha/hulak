@@ -238,10 +238,11 @@ func ensureGitignoreEntry(entry string) error {
 		}
 		defer file.Close()
 
+		bare := strings.TrimRight(entry, "/")
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-			if line == entry {
+			if line == entry || line == bare {
 				return nil
 			}
 		}
