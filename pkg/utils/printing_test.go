@@ -5,47 +5,45 @@ import (
 	"testing"
 )
 
-func TestConfirmAction_Yes(t *testing.T) {
-	for _, input := range []string{"y\n", "yes\n", "Y\n", "YES\n", "Yes\n"} {
-		r, w, _ := os.Pipe()
-		if _, err := w.WriteString(input); err != nil {
-			t.Fatalf("input %q: failed to write to pipe: %v", input, err)
-		}
-		w.Close()
-
-		orig := os.Stdin
-		os.Stdin = r
-		t.Cleanup(func() { os.Stdin = orig })
-
-		got, err := ConfirmAction("Continue? [y/N] ")
-		if err != nil {
-			t.Fatalf("input %q: unexpected error: %v", input, err)
-		}
-		if !got {
-			t.Errorf("input %q: want true, got false", input)
-		}
+func TestConfirmAction(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		// Affirmative inputs
+		{"lowercase y", "y\n", true},
+		{"lowercase yes", "yes\n", true},
+		{"uppercase Y", "Y\n", true},
+		{"uppercase YES", "YES\n", true},
+		{"mixed case Yes", "Yes\n", true},
+		// Negative / other inputs
+		{"lowercase n", "n\n", false},
+		{"lowercase no", "no\n", false},
+		{"empty line", "\n", false},
+		{"arbitrary text", "anything\n", false},
 	}
-}
 
-func TestConfirmAction_No(t *testing.T) {
-	for _, input := range []string{"n\n", "no\n", "\n", "anything\n"} {
-		r, w, _ := os.Pipe()
-		if _, err := w.WriteString(input); err != nil {
-			t.Fatalf("input %q: failed to write to pipe: %v", input, err)
-		}
-		w.Close()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, w, _ := os.Pipe()
+			if _, err := w.WriteString(tt.input); err != nil {
+				t.Fatalf("failed to write to pipe: %v", err)
+			}
+			w.Close()
 
-		orig := os.Stdin
-		os.Stdin = r
-		t.Cleanup(func() { os.Stdin = orig })
+			orig := os.Stdin
+			os.Stdin = r
+			t.Cleanup(func() { os.Stdin = orig })
 
-		got, err := ConfirmAction("Continue? [y/N] ")
-		if err != nil {
-			t.Fatalf("input %q: unexpected error: %v", input, err)
-		}
-		if got {
-			t.Errorf("input %q: want false, got true", input)
-		}
+			got, err := ConfirmAction("Continue? [y/N] ")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ConfirmAction(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 
