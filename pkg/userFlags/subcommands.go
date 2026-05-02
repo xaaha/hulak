@@ -427,6 +427,8 @@ func newEnvCmd() *command {
 		newEnvSyncCmd(),
 		newEnvRotateKeyCmd(),
 		newEnvMigrateCmd(),
+		newEnvBackupCmd(),
+		newEnvRestoreCmd(),
 	}
 
 	return envCmd
