@@ -4,6 +4,7 @@ package apicalls
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,15 +28,17 @@ func IsHTML(str string) bool {
 	return err == nil && strings.Contains(str, "</html>") && doc != nil
 }
 
-// Write the content to the specified path with the appropriate file extension
-func writeFile(path, suffixType, contentBody string) {
+// Write the content to the specified path with the appropriate file extension.
+// Returns an error if the disk write fails so the caller can fail the task
+// instead of silently losing the response file.
+func writeFile(path, suffixType, contentBody string) error {
 	fileName := utils.FileNameWithoutExtension(path) + utils.ResponseBase
 	dir := filepath.Dir(path)
 	fullFilePath := filepath.Join(dir, fileName+suffixType)
 	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0o600); err != nil {
-		utils.PrintErrorStderr("saving response file: " + err.Error())
-		return
+		return fmt.Errorf("saving response %s: %w", fullFilePath, err)
 	}
+	return nil
 }
 
 // checks the content type of resBody and writes to the corresponding file format
@@ -46,13 +49,12 @@ func evalAndWriteRes(resBody, path string) error {
 
 	switch {
 	case IsJSON(resBody):
-		writeFile(path, ".json", resBody)
+		return writeFile(path, ".json", resBody)
 	case IsXML(resBody):
-		writeFile(path, ".xml", resBody)
+		return writeFile(path, ".xml", resBody)
 	case IsHTML(resBody):
-		writeFile(path, ".html", resBody)
+		return writeFile(path, ".html", resBody)
 	default:
-		writeFile(path, ".txt", resBody)
+		return writeFile(path, ".txt", resBody)
 	}
-	return nil
 }
