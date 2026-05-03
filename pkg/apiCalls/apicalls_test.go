@@ -182,6 +182,45 @@ func TestStandardCallWithClient_NetworkError(t *testing.T) {
 	}
 }
 
+// TestStandardCallWithClient_BodyReadError simulates a transport error mid-stream
+// (e.g., TCP reset, connection drop while reading the response body). Regression
+// for #204 — previously this triggered log.Fatalf and killed the entire process,
+// abandoning sibling requests in the worker pool.
+func TestStandardCallWithClient_BodyReadError(t *testing.T) {
+	mockClient := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Status:     "200 OK",
+				Body:       &erroringReadCloser{err: ErrMockNetwork},
+				Header:     make(http.Header),
+			}, nil
+		},
+	}
+
+	apiInfo := yamlparser.APIInfo{
+		Method:  "GET",
+		URL:     "http://example.com/api/test",
+		Headers: map[string]string{},
+	}
+
+	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	if err == nil {
+		t.Fatal("expected error from body read failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "reading response body") {
+		t.Errorf("expected error to wrap with 'reading response body', got %v", err)
+	}
+}
+
+// erroringReadCloser returns err on every Read, simulating a broken stream.
+type erroringReadCloser struct {
+	err error
+}
+
+func (e *erroringReadCloser) Read(_ []byte) (int, error) { return 0, e.err }
+func (e *erroringReadCloser) Close() error               { return nil }
+
 func TestStandardCallWithClient_URLParams(t *testing.T) {
 	var capturedURL string
 

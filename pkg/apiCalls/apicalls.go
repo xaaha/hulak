@@ -80,7 +80,7 @@ func StandardCallWithClient(
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug, reqBodyForDebug), nil
+	return processResponse(req, response, duration, debug, reqBodyForDebug)
 }
 
 // SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
