@@ -45,7 +45,10 @@ func TestEnvItemsWithEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
 	defer cleanup()
 
-	items := envItems()
+	items, err := envItems()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(items) != 3 {
 		t.Errorf("expected 3 items, got %d", len(items))
@@ -63,7 +66,10 @@ func TestEnvItemsWithNoEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{})
 	defer cleanup()
 
-	items := envItems()
+	items, err := envItems()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(items) != 0 {
 		t.Errorf("expected 0 items, got %d", len(items))
@@ -74,7 +80,10 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "readme.txt", "config.yaml"})
 	defer cleanup()
 
-	items := envItems()
+	items, err := envItems()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(items) != 1 {
 		t.Errorf("expected 1 item, got %d", len(items))
@@ -138,7 +147,10 @@ func TestEnvItemsFromVault(t *testing.T) {
 		t.Fatalf("WriteStore() error: %v", err)
 	}
 
-	items := envItems()
+	items, err := envItems()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if len(items) != 3 {
 		t.Fatalf("EnvItems() len = %d, want 3", len(items))
@@ -203,4 +215,98 @@ func TestNoEnvFilesErrorVaultMode(t *testing.T) {
 	if strings.Contains(errStr, "hulak init") {
 		t.Errorf("vault error should not mention 'hulak init', got: %s", errStr)
 	}
+}
+
+// setupVaultProject prepares a working dir with a .hulak/ marker and an
+// isolated XDG_CONFIG_HOME pointing at a temp dir. Returns the project dir.
+// Used by the broken-vault regressions for #209.
+func setupVaultProject(t *testing.T) string {
+	t.Helper()
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Errorf("chdir back: %v", err)
+		}
+	})
+
+	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+	hulakDir := filepath.Join(tmpDir, utils.HiddenProjectName)
+	if err := os.Mkdir(hulakDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+
+	configTmp := t.TempDir()
+	configTmp, _ = filepath.EvalSymlinks(configTmp)
+	t.Setenv("XDG_CONFIG_HOME", configTmp)
+	t.Setenv(utils.MasterKey, "") // ensure no env-var identity bleeds in
+
+	configDir, err := utils.UserConfigDir()
+	if err != nil {
+		t.Fatalf("UserConfigDir: %v", err)
+	}
+	if err := os.MkdirAll(configDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	return tmpDir
+}
+
+// TestEnvItems_VaultErrors regression for #209 — vault read failures used to
+// be swallowed and shown to the user as "no envs found", masking the real
+// problem. Each subtest sets up a broken vault and asserts envItems surfaces
+// the error instead of returning a silent empty list.
+func TestEnvItems_VaultErrors(t *testing.T) {
+	t.Run("missing identity", func(t *testing.T) {
+		tmpDir := setupVaultProject(t)
+		// Write a store file but no identity. ResolveIdentity must fail.
+		storePath := filepath.Join(tmpDir, utils.HiddenProjectName, utils.StoreFile)
+		if err := os.WriteFile(storePath, []byte("encrypted"), utils.SecretPer); err != nil {
+			t.Fatal(err)
+		}
+
+		items, err := envItems()
+		if err == nil {
+			t.Fatalf("expected error, got items=%v", items)
+		}
+		if items != nil {
+			t.Errorf("expected nil items on error, got %v", items)
+		}
+		if !strings.Contains(err.Error(), "vault") {
+			t.Errorf("expected error to wrap with 'vault', got %v", err)
+		}
+	})
+
+	t.Run("corrupted store", func(t *testing.T) {
+		tmpDir := setupVaultProject(t)
+
+		id, err := age.GenerateX25519Identity()
+		if err != nil {
+			t.Fatalf("GenerateX25519Identity: %v", err)
+		}
+		if err := vault.SetIdentity(id.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+		// Write garbage where the encrypted store should be — ReadStore will
+		// fail to decrypt.
+		storePath := filepath.Join(tmpDir, utils.HiddenProjectName, utils.StoreFile)
+		if err := os.WriteFile(storePath, []byte("not a valid age ciphertext"), utils.SecretPer); err != nil {
+			t.Fatal(err)
+		}
+
+		items, err := envItems()
+		if err == nil {
+			t.Fatalf("expected error, got items=%v", items)
+		}
+		if !strings.Contains(err.Error(), "vault") {
+			t.Errorf("expected error to wrap with 'vault', got %v", err)
+		}
+	})
 }

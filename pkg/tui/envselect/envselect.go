@@ -47,19 +47,22 @@ func noEnvFilesError() error {
 
 // envItems returns available environment names.
 // Reads from encrypted store when available, otherwise from env/ directory.
-func envItems() []string {
+//
+// Returns a non-nil error only when the vault is broken (missing identity,
+// decrypt failure, recipient drift). An empty-but-healthy vault and a missing
+// env/ directory both return (nil, nil) so the caller falls through to the
+// "no envs configured" prompt instead of an alarming error.
+func envItems() ([]string, error) {
 	if vault.DetectStore() == vault.StoreAge {
 		identity, err := vault.ResolveIdentity()
 		if err != nil {
-			utils.PrintErrorStderr(fmt.Sprintf("vault: %v", err))
-			return nil
+			return nil, fmt.Errorf("vault: %w", err)
 		}
 		store, err := vault.ReadStore(identity)
 		if err != nil {
-			utils.PrintErrorStderr(fmt.Sprintf("vault: failed to read store: %v", err))
-			return nil
+			return nil, fmt.Errorf("vault: reading store: %w", err)
 		}
-		return store.ListEnvs()
+		return store.ListEnvs(), nil
 	}
 
 	var items []string
@@ -70,10 +73,16 @@ func envItems() []string {
 			}
 		}
 	}
-	return items
+	return items, nil
 }
 
 // RunEnvSelector runs the environment selector and returns the selected environment.
+// Surfaces vault-layer errors verbatim so the user sees the actual problem
+// (e.g. "identity file is corrupt") instead of an empty selector.
 func RunEnvSelector() (string, error) {
-	return tui.RunSelector(envItems(), "Select Environment: ", noEnvFilesError())
+	items, err := envItems()
+	if err != nil {
+		return "", err
+	}
+	return tui.RunSelector(items, "Select Environment: ", noEnvFilesError())
 }

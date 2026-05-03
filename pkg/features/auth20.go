@@ -136,8 +136,7 @@ func SendAPIRequestForAuth2(secretsMap map[string]any, filePath string, debug bo
 	if err != nil {
 		return err
 	}
-	apicalls.PrintAndSaveFinalResp(resp, filePath)
-	return nil
+	return apicalls.PrintAndSaveFinalResp(resp, filePath)
 }
 
 // isWSL checks if the Go program is running inside Windows Subsystem for Linux

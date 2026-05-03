@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -40,13 +39,13 @@ func processResponse(
 	duration time.Duration,
 	debug bool,
 	reqBody []byte,
-) CustomResponse {
+) (CustomResponse, error) {
 	respBody, err := io.ReadAll(resp.Body)
 	if closeErr := resp.Body.Close(); closeErr != nil {
-		log.Printf("prepare.go: Error while closing response body: %v", closeErr)
+		utils.PrintWarningStderr("closing response body: " + closeErr.Error())
 	}
 	if err != nil {
-		log.Fatalf("prepare.go: Error while reading response: %v", err)
+		return CustomResponse{}, fmt.Errorf("reading response body: %w", err)
 	}
 
 	// Formatting the duration to two decimal points
@@ -60,6 +59,8 @@ func processResponse(
 		responseBody = string(respBody)
 	}
 
+	contentType := resp.Header.Get("Content-Type")
+
 	if !debug {
 		// Return minimal set of data
 		return CustomResponse{
@@ -68,8 +69,9 @@ func processResponse(
 				Status:     resp.Status,
 				Body:       responseBody,
 			},
-			Duration: durationFormatted,
-		}
+			Duration:    durationFormatted,
+			contentType: contentType,
+		}, nil
 	}
 
 	// Reading Response Headers
@@ -121,9 +123,10 @@ func processResponse(
 			Headers:    responseHeaders,
 			Body:       responseBody,
 		},
-		HTTPInfo: &tlsInfo,
-		Duration: durationFormatted,
-	}
+		HTTPInfo:    &tlsInfo,
+		Duration:    durationFormatted,
+		contentType: contentType,
+	}, nil
 }
 
 // when the flag is -dir run all the requests concurrently this is the current behavior.
