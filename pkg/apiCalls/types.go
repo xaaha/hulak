@@ -7,6 +7,11 @@ type CustomResponse struct {
 	Response *ResponseInfo `json:"response,omitempty"`
 	HTTPInfo *HTTPInfo     `json:"http_info,omitempty"`
 	Duration string        `json:"duration,omitempty"`
+
+	// contentType captures the response Content-Type header so the saved
+	// file can use the right extension (#208). Unexported so it doesn't
+	// leak into the JSON output users see — encoding/json skips it.
+	contentType string
 }
 
 // RequestInfo has all the information about the  request body
