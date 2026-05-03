@@ -137,5 +137,5 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) error {
 		fmt.Println(strBody)
 	}
 
-	return evalAndWriteRes(strBody, path)
+	return evalAndWriteRes(strBody, resp.contentType, path)
 }
