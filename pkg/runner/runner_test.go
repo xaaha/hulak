@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -421,6 +422,92 @@ func TestIsRunFailure(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := IsRunFailure(tc.err); got != tc.want {
 				t.Errorf("IsRunFailure(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestResolveBaseTimeout covers the flag → env → default precedence and
+// rejects malformed env values up front (#206).
+func TestResolveBaseTimeout(t *testing.T) {
+	tests := []struct {
+		name     string
+		flag     time.Duration
+		env      string // unset if empty
+		want     time.Duration
+		wantErr  bool
+		errMatch string
+	}{
+		{"all unset → default", 0, "", DefaultTimeout, false, ""},
+		{"env only", 0, "5m", 5 * time.Minute, false, ""},
+		{"flag only", 2 * time.Minute, "", 2 * time.Minute, false, ""},
+		{"flag wins over env", 2 * time.Minute, "5m", 2 * time.Minute, false, ""},
+		{"invalid env duration", 0, "not-a-duration", 0, true, "invalid HULAK_TIMEOUT"},
+		{"non-positive env duration", 0, "0s", 0, true, "must be positive"},
+		{"negative env duration", 0, "-1s", 0, true, "must be positive"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.env == "" {
+				t.Setenv(HulakTimeoutEnv, "")
+				_ = os.Unsetenv(HulakTimeoutEnv)
+			} else {
+				t.Setenv(HulakTimeoutEnv, tc.env)
+			}
+			got, err := resolveBaseTimeout(tc.flag)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("error = %v, wantErr = %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if !strings.Contains(err.Error(), tc.errMatch) {
+					t.Errorf("error %q does not contain %q", err.Error(), tc.errMatch)
+				}
+				return
+			}
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestResolveFileTimeout verifies the YAML peek picks up valid `timeout:`
+// values, and falls back to the base for missing/invalid/unreadable files.
+func TestResolveFileTimeout(t *testing.T) {
+	dir := t.TempDir()
+
+	good := filepath.Join(dir, "good.hk.yaml")
+	if err := os.WriteFile(good, []byte("kind: API\ntimeout: 250ms\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	noTimeout := filepath.Join(dir, "none.hk.yaml")
+	if err := os.WriteFile(noTimeout, []byte("kind: API\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// ParseConfig validates timeout, so a bad value makes the peek error out
+	// and resolveFileTimeout falls back to base — the real error surfaces
+	// later from processTask.
+	bad := filepath.Join(dir, "bad.hk.yaml")
+	if err := os.WriteFile(bad, []byte("kind: API\ntimeout: 60\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	base := 7 * time.Second
+	tests := []struct {
+		name string
+		path string
+		want time.Duration
+	}{
+		{"YAML timeout wins", good, 250 * time.Millisecond},
+		{"missing timeout falls back", noTimeout, base},
+		{"invalid timeout falls back", bad, base},
+		{"unreadable file falls back", filepath.Join(dir, "missing.yaml"), base},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := resolveFileTimeout(tc.path, nil, base)
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
 			}
 		})
 	}

@@ -36,13 +36,32 @@ type Flags struct {
 	Debug    bool
 	Dir      string
 	Dirseq   string
+	// Timeout overrides the default 60s per-request timeout. Zero means
+	// "fall back to HULAK_TIMEOUT, then the 60s default". A YAML `timeout:`
+	// field on the request file wins over this flag.
+	Timeout time.Duration
 }
+
+// DefaultTimeout is the per-request timeout used when no override is set
+// (no YAML `timeout:` field, no --timeout flag, no HULAK_TIMEOUT env var).
+const DefaultTimeout = 60 * time.Second
+
+// HulakTimeoutEnv is the env var users set to override the default timeout
+// for a session without editing request files or passing --timeout.
+const HulakTimeoutEnv = "HULAK_TIMEOUT"
 
 // Execute runs the full pipeline: discover files, resolve env, execute requests.
 // Returns an error if any request file failed — callers should propagate it
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
+	// Resolve the flag/env layer of the timeout chain up front so a malformed
+	// HULAK_TIMEOUT fails fast before any request work begins.
+	baseTimeout, err := resolveBaseTimeout(f.Timeout)
+	if err != nil {
+		return err
+	}
+
 	fileList, concurrentDir, sequentialDir, err := discoverFilePaths(
 		f.File,
 		f.FilePath,
@@ -84,13 +103,65 @@ func Execute(f *Flags) error {
 		append(fileList, concurrentDir...),
 		sequentialDir,
 		f.FilePath,
+		baseTimeout,
 	)
 }
 
 // ExecuteSingleFile runs a single file through the pipeline.
 // Used by interactive mode where the file is already known.
-func ExecuteSingleFile(envMap map[string]any, debug bool, filePath string) error {
-	return handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath)
+//
+// flagTimeout is the value of --timeout (zero if unset). HULAK_TIMEOUT and
+// the default 60s still apply through resolveBaseTimeout.
+func ExecuteSingleFile(
+	envMap map[string]any,
+	debug bool,
+	filePath string,
+	flagTimeout time.Duration,
+) error {
+	baseTimeout, err := resolveBaseTimeout(flagTimeout)
+	if err != nil {
+		return err
+	}
+	return handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath, baseTimeout)
+}
+
+// resolveFileTimeout returns the per-file timeout, preferring a valid YAML
+// `timeout:` field over base. A peek failure (file unreadable, decode error,
+// malformed timeout) returns base — processTask runs ParseConfig again and
+// surfaces the same error as a config error in the outcome.
+func resolveFileTimeout(path string, secretsMap map[string]any, base time.Duration) time.Duration {
+	cfg, err := yamlparser.ParseConfig(path, secretsMap)
+	if err != nil {
+		return base
+	}
+	d, err := cfg.ParsedTimeout()
+	if err != nil || d <= 0 {
+		return base
+	}
+	return d
+}
+
+// resolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
+// into a single duration the runner uses when no per-file YAML override is
+// set. Precedence: flag > env > DefaultTimeout. A non-empty but invalid env
+// var returns an error so the user sees the typo instead of getting a silent
+// fallback.
+func resolveBaseTimeout(flagT time.Duration) (time.Duration, error) {
+	if flagT > 0 {
+		return flagT, nil
+	}
+	raw := os.Getenv(HulakTimeoutEnv)
+	if raw == "" {
+		return DefaultTimeout, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", HulakTimeoutEnv, raw, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("%s must be positive, got %q", HulakTimeoutEnv, raw)
+	}
+	return d, nil
 }
 
 // containsTemplateVars returns true if any file in the list uses template vars.
@@ -166,12 +237,16 @@ type outcome struct {
 // handleAPIRequests processes API requests from pre-discovered file lists.
 // Returns nil if every dispatched request succeeded; otherwise an error
 // summarizing the failures so the call site can propagate a non-zero exit.
+//
+// baseTimeout is the resolved flag/env timeout (or DefaultTimeout). It is
+// the floor used for each request unless the file's YAML overrides it.
 func handleAPIRequests(
 	secrets map[string]any,
 	debug bool,
 	concurrentFiles []string,
 	sequentialFiles []string,
 	fp string,
+	baseTimeout time.Duration,
 ) error {
 	totalFiles := len(concurrentFiles) + len(sequentialFiles)
 	// Per-file outcome lines only help when multiple files are running — they
@@ -188,7 +263,9 @@ func handleAPIRequests(
 				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
 			)
 		}
-		outcomes = append(outcomes, runTasks(concurrentFiles, secrets, debug, fp, multiFile)...)
+		outcomes = append(
+			outcomes,
+			runTasks(concurrentFiles, secrets, debug, fp, multiFile, baseTimeout)...)
 	}
 	if len(sequentialFiles) > 0 {
 		utils.PrintInfoStderr(
@@ -369,16 +446,21 @@ var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 // runTasks manages the go tasks with a limited worker pool. Returns one
 // outcome per file in the order they finished. multiFile gates whether the
 // per-file outcome line is printed (skipped for single-file runs).
+//
+// baseTimeout is the per-request timeout when a file has no YAML `timeout:`
+// override. The peek that resolves the YAML override happens inside the
+// worker so failures (unreadable file, malformed timeout) become outcomes
+// instead of crashing the dispatcher.
 func runTasks(
 	filePathList []string,
 	secretsMap map[string]any,
 	debug bool,
 	fp string,
 	multiFile bool,
+	baseTimeout time.Duration,
 ) []outcome {
 	maxWorkers := utils.GetWorkers(nil)
 	maxRetries := 3
-	timeout := 60 * time.Second
 
 	if fp != "" {
 		maxRetries = 1
@@ -400,6 +482,11 @@ func runTasks(
 
 			for path := range taskChan {
 				var final outcome
+
+				// Resolve per-file timeout once per task. YAML override wins;
+				// peek failures fall back to baseTimeout — processTask runs
+				// ParseConfig again and surfaces the real error in the outcome.
+				timeout := resolveFileTimeout(path, secretsMap, baseTimeout)
 
 				for attempt := 0; attempt < maxRetries; attempt++ {
 					if attempt > 0 {
