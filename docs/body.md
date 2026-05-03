@@ -39,6 +39,67 @@ urlparams:
   check: true
 ```
 
+### Timeout
+
+Optional per-request timeout. When unset, Hulak falls back to the `--timeout` flag, then `$HULAK_TIMEOUT`, then a 60-second default.
+
+```yaml
+method: GET
+url: "https://slow.example.com/big-export"
+timeout: 5m
+```
+
+Accepts any [Go duration string](https://pkg.go.dev/time#ParseDuration): `30s`, `90s`, `5m`, `2m30s`, `1h`. Bare numbers (`60`) are rejected — always include the unit.
+
+#### Precedence
+
+When more than one source could time-out a request, Hulak picks the highest-precedence source that is set:
+
+1. **YAML `timeout:` field** — wins over everything else for this file.
+2. **`--timeout <duration>` flag** — fallback for files with no YAML override. Works on `hulak run`, `hulak -fp`, and `hulak -dir`.
+3. **`HULAK_TIMEOUT` env var** — same scope as the flag, scoped to the shell session. Useful for slow VPNs or one-off runs without retyping.
+4. **60-second default** — when nothing above is set.
+
+A non-zero value at any layer overrides every layer below it; an unset / zero layer falls through to the next.
+
+#### Single-file runs
+
+```bash
+hulak run requests/big-export.hk.yaml                    # uses YAML timeout if set, else 60s
+hulak run requests/big-export.hk.yaml --timeout 10m      # 10m unless the YAML overrides it
+HULAK_TIMEOUT=2m hulak run requests/big-export.hk.yaml   # 2m unless YAML or --timeout overrides
+hulak -fp requests/big-export.hk.yaml --timeout 10m      # same precedence on the root-flag form
+```
+
+If the YAML has `timeout: 30s`, the file takes 30s no matter what `--timeout` or `HULAK_TIMEOUT` say.
+
+#### Directory / bulk runs
+
+Each file's YAML wins for that file. `--timeout` and `HULAK_TIMEOUT` act as the per-file fallback for files with no `timeout:` field. Resolution is per-file: in a directory of ten files where two set `timeout: 5m` in YAML, those two get 5 minutes and the other eight get the resolved fallback.
+
+```bash
+hulak run requests/ --timeout 90s          # 90s for files without YAML timeout, YAML still wins per-file
+hulak run requests/ --sequential --timeout 90s
+hulak -dir ./requests --timeout 90s        # root-flag form, concurrent
+hulak -dirseq ./requests --timeout 90s     # root-flag form, sequential
+```
+
+Files in concurrent mode (`-dir` / `hulak run <dir>`) each get their own resolved timeout independently — one slow file does not steal the budget from the next. Sequential mode (`-dirseq` / `--sequential`) applies the same per-file resolution one file at a time.
+
+#### Errors
+
+Hulak validates timeouts up front so a typo cannot silently fall back to the default:
+
+- A YAML `timeout:` value that is not a valid positive Go duration fails that file with `in <path>: invalid timeout "<value>": ...` before any request goes out. Other files in the run are unaffected.
+- An invalid `HULAK_TIMEOUT` aborts the whole run before any request work begins.
+- An invalid `--timeout` is rejected by Go's `flag` package the same way as any other duration flag.
+
+> [!Note]
+>
+> 1. `timeout: 0s` and negative durations are rejected — there is no "no timeout" mode. Set a value high enough for the slowest request you expect.
+> 2. The timeout covers the whole request (connect + send + read). It is not a connect-only or read-only timeout.
+> 3. Each retry attempt uses the same timeout independently; the value is per-attempt, not a total budget across retries.
+
 ### Body
 
 Represents the body of an HTTP request. Only one body type is allowed per request.
