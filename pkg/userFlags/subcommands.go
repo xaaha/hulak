@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/migration"
@@ -298,9 +299,16 @@ func newRunCmd() *command {
 	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
 	var sequential bool
 	var debug bool
+	var timeout time.Duration
 	fs.BoolVar(&sequential, "sequential", false, "Run directory files sequentially")
 	fs.BoolVar(&sequential, "seq", false, "Run directory files sequentially")
 	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
+	fs.DurationVar(
+		&timeout,
+		"timeout",
+		0,
+		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+	)
 
 	runCmd := &command{
 		Name:  "run",
@@ -335,7 +343,7 @@ func newRunCmd() *command {
 			return nil
 		}
 
-		f, err := parseRunArgs(*envFlagVal, sequential, debug, args)
+		f, err := parseRunArgs(*envFlagVal, sequential, debug, timeout, args)
 		if err != nil {
 			return err
 		}
@@ -351,7 +359,12 @@ func newRunCmd() *command {
 
 // parseRunArgs builds a runner.Flags from the path and parsed flag values.
 // The path routes to FilePath (file), Dir (concurrent), or Dirseq (sequential).
-func parseRunArgs(envFlagVal string, sequential, debug bool, args []string) (*runner.Flags, error) {
+func parseRunArgs(
+	envFlagVal string,
+	sequential, debug bool,
+	timeout time.Duration,
+	args []string,
+) (*runner.Flags, error) {
 	path := args[0]
 
 	info, err := os.Stat(path)
@@ -359,7 +372,7 @@ func parseRunArgs(envFlagVal string, sequential, debug bool, args []string) (*ru
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
-	f := &runner.Flags{Debug: debug}
+	f := &runner.Flags{Debug: debug, Timeout: timeout}
 
 	if envFlagVal != "" {
 		f.Env = envFlagVal
