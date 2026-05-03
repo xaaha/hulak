@@ -109,16 +109,19 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) (
 		return "", err
 	}
 
-	PrintAndSaveFinalResp(resp, path)
+	saveErr := PrintAndSaveFinalResp(resp, path)
 	status := ""
 	if resp.Response != nil {
 		status = resp.Response.Status
 	}
-	return status, nil
+	return status, saveErr
 }
 
-// PrintAndSaveFinalResp prints and saves the CustomResponse
-func PrintAndSaveFinalResp(resp CustomResponse, path string) {
+// PrintAndSaveFinalResp prints the CustomResponse to stdout and saves it to
+// disk next to the request file. Returns an error if the disk write fails so
+// the caller can fail the task — a successful HTTP request with a missing
+// response file should not look like a success to the user.
+func PrintAndSaveFinalResp(resp CustomResponse, path string) error {
 	jsonData, err := json.MarshalIndent(resp, "", "  ")
 
 	var strBody string
@@ -134,7 +137,5 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) {
 		fmt.Println(strBody)
 	}
 
-	if err := evalAndWriteRes(strBody, path); err != nil {
-		utils.PrintErrorStderr("saving response: " + err.Error())
-	}
+	return evalAndWriteRes(strBody, path)
 }
