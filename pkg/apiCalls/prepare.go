@@ -59,6 +59,8 @@ func processResponse(
 		responseBody = string(respBody)
 	}
 
+	contentType := resp.Header.Get("Content-Type")
+
 	if !debug {
 		// Return minimal set of data
 		return CustomResponse{
@@ -67,7 +69,8 @@ func processResponse(
 				Status:     resp.Status,
 				Body:       responseBody,
 			},
-			Duration: durationFormatted,
+			Duration:    durationFormatted,
+			contentType: contentType,
 		}, nil
 	}
 
@@ -120,8 +123,9 @@ func processResponse(
 			Headers:    responseHeaders,
 			Body:       responseBody,
 		},
-		HTTPInfo: &tlsInfo,
-		Duration: durationFormatted,
+		HTTPInfo:    &tlsInfo,
+		Duration:    durationFormatted,
+		contentType: contentType,
 	}, nil
 }
 
