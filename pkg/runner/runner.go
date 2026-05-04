@@ -129,13 +129,20 @@ func ExecuteSingleFile(
 // `timeout:` field over base. A peek failure (file unreadable, decode error,
 // malformed timeout) returns base — processTask runs ParseConfig again and
 // surfaces the same error as a config error in the outcome.
+//
+// secretsMap is copied before being passed into ParseConfig because workers
+// share a single secretsMap and ParseConfig's template substitution path
+// reads through it; matching the CopyEnvMap discipline used by processTask
+// keeps the peek race-free without auditing every action's caching behavior.
 func resolveFileTimeout(path string, secretsMap map[string]any, base time.Duration) time.Duration {
-	cfg, err := yamlparser.ParseConfig(path, secretsMap)
+	cfg, err := yamlparser.ParseConfig(path, utils.CopyEnvMap(secretsMap))
 	if err != nil {
 		return base
 	}
-	d, err := cfg.ParsedTimeout()
-	if err != nil || d <= 0 {
+	// ParseConfig already validated Timeout via ParsedTimeout, so the parse
+	// here cannot fail — only an unset value (d == 0) reaches base.
+	d, _ := cfg.ParsedTimeout()
+	if d <= 0 {
 		return base
 	}
 	return d
@@ -273,7 +280,7 @@ func handleAPIRequests(
 		)
 		outcomes = append(
 			outcomes,
-			processFilesSequentially(sequentialFiles, secrets, debug, multiFile)...)
+			processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
 	}
 
 	if totalFiles == 0 {
@@ -597,16 +604,41 @@ func processTask(path string, secretsMap map[string]any, debug bool) outcome {
 // execution order. multiFile gates the per-file outcome line — single-file
 // mode keeps stderr quiet on success since the response body already prints
 // to stdout; failures always surface so a silent error isn't mistaken for OK.
+//
+// baseTimeout is the per-request timeout when a file has no YAML override.
+// Mirrors the runTasks pattern so `-dirseq` honors --timeout / HULAK_TIMEOUT
+// the same way concurrent runs do; sequential mode has no retry loop, so a
+// timeout becomes the final outcome for that file and the run continues.
 func processFilesSequentially(
 	filePaths []string,
 	secretsMap map[string]any,
 	debug bool,
 	multiFile bool,
+	baseTimeout time.Duration,
 ) []outcome {
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
-		fileEnv := utils.CopyEnvMap(secretsMap)
-		o := processTask(path, fileEnv, debug)
+		timeout := resolveFileTimeout(path, secretsMap, baseTimeout)
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		resCh := make(chan outcome, 1)
+		go func() {
+			resCh <- processTask(path, utils.CopyEnvMap(secretsMap), debug)
+		}()
+
+		var o outcome
+		select {
+		case res := <-resCh:
+			o = res
+		case <-ctx.Done():
+			o = outcome{
+				path: path,
+				ok:   false,
+				err:  fmt.Errorf("timeout after %v", timeout),
+			}
+		}
+		cancel()
+
 		if multiFile || !o.ok {
 			printOutcome(o)
 		}

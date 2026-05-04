@@ -3,6 +3,8 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -510,6 +512,105 @@ func TestResolveFileTimeout(t *testing.T) {
 				t.Errorf("got %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestProcessFilesSequentially_TimeoutEnforced verifies the sequential path
+// honors baseTimeout: when the request takes longer than the timeout, the
+// loop returns a timeout outcome and moves on instead of hanging. Regression
+// guard for the gap that existed before #206 was bundled into this branch
+// (concurrent path enforced timeouts; sequential path was unbounded).
+func TestProcessFilesSequentially_TimeoutEnforced(t *testing.T) {
+	// Hold the handler open until the test releases it in cleanup. Using a
+	// channel instead of time.Sleep avoids slow-CI flakiness and lets
+	// httptest.Server.Close() return immediately once the test finishes.
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	yaml := fmt.Sprintf("method: GET\nurl: %q\n", server.URL)
+	path := filepath.Join(t.TempDir(), "slow.hk.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	timeout := 100 * time.Millisecond
+	start := time.Now()
+	outcomes := processFilesSequentially([]string{path}, nil, false, false, timeout)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	o := outcomes[0]
+	if o.ok {
+		t.Errorf("outcome.ok = true, want false (request should have timed out)")
+	}
+	if o.err == nil || !strings.Contains(o.err.Error(), "timeout") {
+		t.Errorf("err = %v, want one containing 'timeout'", o.err)
+	}
+	// The select race fires near the timeout. Cap the slack generously so
+	// slow CI doesn't false-positive but a regression that re-introduces an
+	// unbounded sequential mode would clearly exceed the bound.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — timeout did not abandon the in-flight request", elapsed)
+	}
+}
+
+// TestProcessFilesSequentially_YAMLTimeoutWins is the end-to-end check that
+// a YAML `timeout:` value actually reaches context.WithTimeout — not just
+// resolveFileTimeout in isolation. With a generous base, a wiring slip that
+// dropped the per-file override would cause the request to block until the
+// test cleanup fires, blowing past the elapsed bound.
+func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	yaml := fmt.Sprintf("method: GET\nurl: %q\ntimeout: 100ms\n", server.URL)
+	path := filepath.Join(t.TempDir(), "yaml-timeout.hk.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Generous base — if the YAML field were ignored or lost in the wiring,
+	// the request would block on the server until cleanup, and elapsed would
+	// approach this base instead of the YAML's 100ms.
+	base := 10 * time.Second
+	start := time.Now()
+	outcomes := processFilesSequentially([]string{path}, nil, false, false, base)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	o := outcomes[0]
+	if o.ok {
+		t.Errorf("outcome.ok = true, want false")
+	}
+	if o.err == nil || !strings.Contains(o.err.Error(), "timeout") {
+		t.Errorf("err = %v, want one containing 'timeout'", o.err)
+	}
+	if !strings.Contains(o.err.Error(), "100ms") {
+		// The error message embeds the resolved timeout; confirming the YAML
+		// value reached the select arm rules out "base happened to be small
+		// enough" false positives if someone later tweaks the test.
+		t.Errorf("err = %v, want one mentioning the YAML-resolved 100ms", o.err)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — YAML timeout did not override base %v", elapsed, base)
 	}
 }
 
