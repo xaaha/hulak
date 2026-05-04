@@ -569,6 +569,72 @@ func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
 	}
 }
 
+// TestRunTasks_TimeoutEnforced verifies the concurrent path cancels the HTTP
+// request when baseTimeout expires.
+func TestRunTasks_TimeoutEnforced(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	path := filepath.Join(t.TempDir(), "slow.hk.yaml")
+	if err := os.WriteFile(path, []byte(fmt.Sprintf("method: GET\nurl: %q\n", server.URL)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	outcomes := runTasks([]string{path}, nil, false, path, false, 100*time.Millisecond)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	if outcomes[0].ok {
+		t.Error("outcome.ok = true, want false")
+	}
+	if outcomes[0].err == nil || !strings.Contains(outcomes[0].err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want context deadline exceeded", outcomes[0].err)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — timeout did not cancel the request", elapsed)
+	}
+}
+
+// TestProcessTask_YAMLTimeoutOverridesBase verifies processTask picks the
+// YAML timeout over baseTimeout.
+func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	path := filepath.Join(t.TempDir(), "fast-yaml.hk.yaml")
+	if err := os.WriteFile(path, []byte(fmt.Sprintf("method: GET\nurl: %q\ntimeout: 100ms\n", server.URL)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	o := processTask(path, nil, false, 10*time.Second)
+	elapsed := time.Since(start)
+
+	if o.ok {
+		t.Error("outcome.ok = true, want false")
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — YAML 100ms timeout did not override 10s base", elapsed)
+	}
+}
+
 func TestIsRetryable(t *testing.T) {
 	cfgErr := &configError{errors.New("missing key")}
 	tests := []struct {
