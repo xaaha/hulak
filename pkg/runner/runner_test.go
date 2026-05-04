@@ -473,57 +473,16 @@ func TestResolveBaseTimeout(t *testing.T) {
 	}
 }
 
-// TestResolveFileTimeout verifies the YAML peek picks up valid `timeout:`
-// values, and falls back to the base for missing/invalid/unreadable files.
-func TestResolveFileTimeout(t *testing.T) {
-	dir := t.TempDir()
-
-	good := filepath.Join(dir, "good.hk.yaml")
-	if err := os.WriteFile(good, []byte("kind: API\ntimeout: 250ms\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	noTimeout := filepath.Join(dir, "none.hk.yaml")
-	if err := os.WriteFile(noTimeout, []byte("kind: API\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	// ParseConfig validates timeout, so a bad value makes the peek error out
-	// and resolveFileTimeout falls back to base — the real error surfaces
-	// later from processTask.
-	bad := filepath.Join(dir, "bad.hk.yaml")
-	if err := os.WriteFile(bad, []byte("kind: API\ntimeout: 60\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	base := 7 * time.Second
-	tests := []struct {
-		name string
-		path string
-		want time.Duration
-	}{
-		{"YAML timeout wins", good, 250 * time.Millisecond},
-		{"missing timeout falls back", noTimeout, base},
-		{"invalid timeout falls back", bad, base},
-		{"unreadable file falls back", filepath.Join(dir, "missing.yaml"), base},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := resolveFileTimeout(tc.path, nil, base)
-			if got != tc.want {
-				t.Errorf("got %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
-
 // TestProcessFilesSequentially_TimeoutEnforced verifies the sequential path
 // honors baseTimeout: when the request takes longer than the timeout, the
-// loop returns a timeout outcome and moves on instead of hanging. Regression
-// guard for the gap that existed before #206 was bundled into this branch
-// (concurrent path enforced timeouts; sequential path was unbounded).
+// context deadline cancels the HTTP request and the outcome surfaces the
+// error. Regression guard for the gap that existed before #206 was bundled
+// into this branch (concurrent path enforced timeouts; sequential path was
+// unbounded).
 func TestProcessFilesSequentially_TimeoutEnforced(t *testing.T) {
-	// Hold the handler open until the test releases it in cleanup. Using a
-	// channel instead of time.Sleep avoids slow-CI flakiness and lets
-	// httptest.Server.Close() return immediately once the test finishes.
+	// Hold the handler open until the request's context cancels or the test
+	// releases it. Using a channel instead of time.Sleep avoids slow-CI
+	// flakiness and lets httptest.Server.Close() return immediately.
 	block := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		select {
@@ -552,22 +511,22 @@ func TestProcessFilesSequentially_TimeoutEnforced(t *testing.T) {
 	if o.ok {
 		t.Errorf("outcome.ok = true, want false (request should have timed out)")
 	}
-	if o.err == nil || !strings.Contains(o.err.Error(), "timeout") {
-		t.Errorf("err = %v, want one containing 'timeout'", o.err)
+	if o.err == nil || !strings.Contains(o.err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want one containing 'context deadline exceeded'", o.err)
 	}
-	// The select race fires near the timeout. Cap the slack generously so
-	// slow CI doesn't false-positive but a regression that re-introduces an
-	// unbounded sequential mode would clearly exceed the bound.
+	// Cap the slack generously so slow CI doesn't false-positive but a
+	// regression that re-introduces an unbounded sequential mode would
+	// clearly exceed the bound.
 	if elapsed > 500*time.Millisecond {
-		t.Errorf("elapsed %v — timeout did not abandon the in-flight request", elapsed)
+		t.Errorf("elapsed %v — timeout did not cancel the in-flight request", elapsed)
 	}
 }
 
 // TestProcessFilesSequentially_YAMLTimeoutWins is the end-to-end check that
-// a YAML `timeout:` value actually reaches context.WithTimeout — not just
-// resolveFileTimeout in isolation. With a generous base, a wiring slip that
-// dropped the per-file override would cause the request to block until the
-// test cleanup fires, blowing past the elapsed bound.
+// a YAML `timeout:` value actually reaches context.WithTimeout inside
+// processTask. With a generous base (10s), a wiring slip that dropped the
+// per-file override would cause the request to block until the test cleanup
+// fires, blowing past the elapsed bound.
 func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
 	block := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
@@ -600,15 +559,11 @@ func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
 	if o.ok {
 		t.Errorf("outcome.ok = true, want false")
 	}
-	if o.err == nil || !strings.Contains(o.err.Error(), "timeout") {
-		t.Errorf("err = %v, want one containing 'timeout'", o.err)
+	if o.err == nil || !strings.Contains(o.err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want one containing 'context deadline exceeded'", o.err)
 	}
-	if !strings.Contains(o.err.Error(), "100ms") {
-		// The error message embeds the resolved timeout; confirming the YAML
-		// value reached the select arm rules out "base happened to be small
-		// enough" false positives if someone later tweaks the test.
-		t.Errorf("err = %v, want one mentioning the YAML-resolved 100ms", o.err)
-	}
+	// The elapsed time is the real proof that YAML override worked: ~100ms
+	// not ~10s. If YAML timeout were ignored, elapsed would approach base.
 	if elapsed > 500*time.Millisecond {
 		t.Errorf("elapsed %v — YAML timeout did not override base %v", elapsed, base)
 	}

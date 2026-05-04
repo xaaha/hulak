@@ -125,29 +125,6 @@ func ExecuteSingleFile(
 	return handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath, baseTimeout)
 }
 
-// resolveFileTimeout returns the per-file timeout, preferring a valid YAML
-// `timeout:` field over base. A peek failure (file unreadable, decode error,
-// malformed timeout) returns base — processTask runs ParseConfig again and
-// surfaces the same error as a config error in the outcome.
-//
-// secretsMap is copied before being passed into ParseConfig because workers
-// share a single secretsMap and ParseConfig's template substitution path
-// reads through it; matching the CopyEnvMap discipline used by processTask
-// keeps the peek race-free without auditing every action's caching behavior.
-func resolveFileTimeout(path string, secretsMap map[string]any, base time.Duration) time.Duration {
-	cfg, err := yamlparser.ParseConfig(path, utils.CopyEnvMap(secretsMap))
-	if err != nil {
-		return base
-	}
-	// ParseConfig already validated Timeout via ParsedTimeout, so the parse
-	// here cannot fail — only an unset value (d == 0) reaches base.
-	d, _ := cfg.ParsedTimeout()
-	if d <= 0 {
-		return base
-	}
-	return d
-}
-
 // resolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
 // into a single duration the runner uses when no per-file YAML override is
 // set. Precedence: flag > env > DefaultTimeout. A non-empty but invalid env
@@ -455,9 +432,9 @@ var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 // per-file outcome line is printed (skipped for single-file runs).
 //
 // baseTimeout is the per-request timeout when a file has no YAML `timeout:`
-// override. The peek that resolves the YAML override happens inside the
-// worker so failures (unreadable file, malformed timeout) become outcomes
-// instead of crashing the dispatcher.
+// override. processTask resolves the YAML override internally (single
+// ParseConfig call) and threads the resulting context into the HTTP client
+// for real cancellation — no leaked goroutines on timeout.
 func runTasks(
 	filePathList []string,
 	secretsMap map[string]any,
@@ -490,11 +467,6 @@ func runTasks(
 			for path := range taskChan {
 				var final outcome
 
-				// Resolve per-file timeout once per task. YAML override wins;
-				// peek failures fall back to baseTimeout — processTask runs
-				// ParseConfig again and surfaces the real error in the outcome.
-				timeout := resolveFileTimeout(path, secretsMap, baseTimeout)
-
 				for attempt := 0; attempt < maxRetries; attempt++ {
 					if attempt > 0 {
 						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
@@ -503,24 +475,7 @@ func runTasks(
 						time.Sleep(backoffDuration)
 					}
 
-					ctx, cancel := context.WithTimeout(context.Background(), timeout)
-
-					resCh := make(chan outcome, 1)
-					go func() {
-						resCh <- processTask(path, utils.CopyEnvMap(secretsMap), debug)
-					}()
-
-					select {
-					case res := <-resCh:
-						final = res
-					case <-ctx.Done():
-						final = outcome{
-							path: path,
-							ok:   false,
-							err:  fmt.Errorf("timeout after %v", timeout),
-						}
-					}
-					cancel()
+					final = processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
 
 					if final.ok || !isRetryable(final.err) {
 						break
@@ -570,19 +525,32 @@ func isRetryable(err error) bool {
 // processTask handles a single task and returns a structured outcome.
 // Wall-clock duration is measured around the dispatched call so it reflects
 // the actual API latency (plus YAML parse time, which is small).
-func processTask(path string, secretsMap map[string]any, debug bool) outcome {
+//
+// baseTimeout is the resolved flag/env timeout. The YAML `timeout:` field
+// on the parsed config wins over base. The context created here flows into
+// the HTTP client so the request is truly cancelled on deadline — no leaked
+// goroutines.
+func processTask(path string, secretsMap map[string]any, debug bool, baseTimeout time.Duration) outcome {
 	start := time.Now()
 	config, err := yamlparser.ParseConfig(path, secretsMap)
 	if err != nil {
 		return outcome{path: path, ok: false, duration: time.Since(start), err: &configError{err}}
 	}
 
+	// Resolve per-file timeout: YAML wins over base.
+	timeout := baseTimeout
+	if d, _ := config.ParsedTimeout(); d > 0 {
+		timeout = d
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	switch {
 	case config.IsAuth():
-		err := features.SendAPIRequestForAuth2(secretsMap, path, debug)
+		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, debug)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
-	case (config.IsAPI() || config.IsGraphql()):
-		status, err := apicalls.SendAndSaveAPIRequest(secretsMap, path, debug)
+	case config.IsAPI() || config.IsGraphql():
+		status, err := apicalls.SendAndSaveAPIRequest(ctx, secretsMap, path, debug)
 		return outcome{
 			path:     path,
 			ok:       err == nil,
@@ -606,9 +574,8 @@ func processTask(path string, secretsMap map[string]any, debug bool) outcome {
 // to stdout; failures always surface so a silent error isn't mistaken for OK.
 //
 // baseTimeout is the per-request timeout when a file has no YAML override.
-// Mirrors the runTasks pattern so `-dirseq` honors --timeout / HULAK_TIMEOUT
-// the same way concurrent runs do; sequential mode has no retry loop, so a
-// timeout becomes the final outcome for that file and the run continues.
+// processTask resolves the YAML override internally and threads the context
+// into the HTTP client — same cancellation path as runTasks.
 func processFilesSequentially(
 	filePaths []string,
 	secretsMap map[string]any,
@@ -618,27 +585,7 @@ func processFilesSequentially(
 ) []outcome {
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
-		timeout := resolveFileTimeout(path, secretsMap, baseTimeout)
-
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		resCh := make(chan outcome, 1)
-		go func() {
-			resCh <- processTask(path, utils.CopyEnvMap(secretsMap), debug)
-		}()
-
-		var o outcome
-		select {
-		case res := <-resCh:
-			o = res
-		case <-ctx.Done():
-			o = outcome{
-				path: path,
-				ok:   false,
-				err:  fmt.Errorf("timeout after %v", timeout),
-			}
-		}
-		cancel()
-
+		o := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
 		if multiFile || !o.ok {
 			printOutcome(o)
 		}

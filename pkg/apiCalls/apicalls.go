@@ -3,6 +3,7 @@ package apicalls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,13 +24,14 @@ var DefaultClient HTTPClient = &http.Client{}
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
-func StandardCall(apiInfo yamlparser.APIInfo, debug bool) (CustomResponse, error) {
-	return StandardCallWithClient(apiInfo, debug, DefaultClient)
+func StandardCall(ctx context.Context, apiInfo yamlparser.APIInfo, debug bool) (CustomResponse, error) {
+	return StandardCallWithClient(ctx, apiInfo, debug, DefaultClient)
 }
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
 // This function allows dependency injection for testing purposes
 func StandardCallWithClient(
+	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
 	client HTTPClient,
@@ -59,7 +61,7 @@ func StandardCallWithClient(
 	reqBodyForDebug := make([]byte, len(bodyBytes))
 	copy(reqBodyForDebug, bodyBytes)
 
-	req, err := http.NewRequest(method, preparedURL, newBodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, preparedURL, newBodyReader)
 	if err != nil {
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %v", method, err)
 	}
@@ -90,7 +92,7 @@ func StandardCallWithClient(
 // a per-file outcome line. On pre-flight failures (config parse, request
 // build) the status is empty. On transport failures (network down, DNS) the
 // status is also empty — the err carries the detail.
-func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) (string, error) {
+func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path string, debug bool) (string, error) {
 	apiConfig, _, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
@@ -104,7 +106,7 @@ func SendAndSaveAPIRequest(secretsMap map[string]any, path string, debug bool) (
 		return "", err
 	}
 
-	resp, err := StandardCall(apiInfo, debug)
+	resp, err := StandardCall(ctx, apiInfo, debug)
 	if err != nil {
 		return "", err
 	}

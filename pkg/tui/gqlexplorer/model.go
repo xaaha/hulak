@@ -1,6 +1,7 @@
 package gqlexplorer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1032,7 +1033,7 @@ func (m *Model) executeQuery() tea.Cmd {
 	m.updateActionRow()
 
 	apiCall := func() tea.Msg {
-		resp, err := apicalls.StandardCall(apiInfo, false)
+		resp, err := apicalls.StandardCall(context.Background(), apiInfo, false)
 		if err != nil {
 			return queryErrorMsg{err: err}
 		}

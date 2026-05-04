@@ -2,6 +2,7 @@
 package features
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -117,7 +118,7 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 
 // SendAPIRequestForAuth2  calls the PrepareStruct using the provided envMap
 // and makes the Api Call with StandardCall and prints the response in console
-func SendAPIRequestForAuth2(secretsMap map[string]any, filePath string, debug bool) error {
+func SendAPIRequestForAuth2(ctx context.Context, secretsMap map[string]any, filePath string, debug bool) error {
 	code, err := openBrowserAndGetCode(filePath, secretsMap)
 	if err != nil {
 		return err
@@ -132,7 +133,7 @@ func SendAPIRequestForAuth2(secretsMap map[string]any, filePath string, debug bo
 	if err != nil {
 		return err
 	}
-	resp, err := apicalls.StandardCall(apiInfo, debug)
+	resp, err := apicalls.StandardCall(ctx, apiInfo, debug)
 	if err != nil {
 		return err
 	}
