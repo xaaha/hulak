@@ -588,7 +588,7 @@ func TestRunTasks_TimeoutEnforced(t *testing.T) {
 	}
 
 	start := time.Now()
-	outcomes := runTasks([]string{path}, nil, false, path, false, 100*time.Millisecond)
+	outcomes := runTasks([]string{path}, nil, false, 100*time.Millisecond)
 	elapsed := time.Since(start)
 
 	if len(outcomes) != 1 {
@@ -632,27 +632,5 @@ func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
 	}
 	if elapsed > 500*time.Millisecond {
 		t.Errorf("elapsed %v — YAML 100ms timeout did not override 10s base", elapsed)
-	}
-}
-
-func TestIsRetryable(t *testing.T) {
-	cfgErr := &configError{errors.New("missing key")}
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil never retries", nil, false},
-		{"configError fails fast", cfgErr, false},
-		{"wrapped configError fails fast (errors.As)", fmt.Errorf("wrap: %w", cfgErr), false},
-		{"plain error retries (assumed transport)", errors.New("dial tcp: timeout"), true},
-		{"context.DeadlineExceeded-style retries", errors.New("timeout after 60s"), true},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isRetryable(tc.err); got != tc.want {
-				t.Errorf("isRetryable(%v) = %v, want %v", tc.err, got, tc.want)
-			}
-		})
 	}
 }
