@@ -27,6 +27,7 @@ var (
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
 	flagDirseq  string
 	flagDebug   bool
+	flagQuiet   bool
 	flagTimeout time.Duration
 
 	flagVersion bool
@@ -50,6 +51,9 @@ func init() {
 	flag.StringVar(&flagF, "file", "", "File name for making an API request (case-insensitive)")
 
 	flag.BoolVar(&flagDebug, "debug", false, "Enable debug mode for full request/response details")
+
+	flag.BoolVar(&flagQuiet, "quiet", false, "Suppress the end-of-run summary table")
+	flag.BoolVar(&flagQuiet, "q", false, "Suppress the end-of-run summary table")
 
 	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 
