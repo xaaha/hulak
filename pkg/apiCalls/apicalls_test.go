@@ -2,6 +2,7 @@ package apicalls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -70,7 +71,7 @@ func TestStandardCallWithClient_Success(t *testing.T) {
 				Headers: map[string]string{},
 			}
 
-			resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+			resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -102,7 +103,7 @@ func TestStandardCallWithClient_Headers(t *testing.T) {
 		},
 	}
 
-	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -141,7 +142,7 @@ func TestStandardCallWithClient_PostWithBody(t *testing.T) {
 		Body:    bytes.NewReader([]byte(requestBody)),
 	}
 
-	resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +173,7 @@ func TestStandardCallWithClient_NetworkError(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -204,7 +205,7 @@ func TestStandardCallWithClient_BodyReadError(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err == nil {
 		t.Fatal("expected error from body read failure, got nil")
 	}
@@ -241,7 +242,7 @@ func TestStandardCallWithClient_URLParams(t *testing.T) {
 		},
 	}
 
-	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -272,7 +273,7 @@ func TestStandardCallWithClient_DebugMode(t *testing.T) {
 	}
 
 	// Test with debug=true
-	resp, err := StandardCallWithClient(apiInfo, true, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, true, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -308,7 +309,7 @@ func TestStandardCallWithClient_NonDebugMode(t *testing.T) {
 	}
 
 	// Test with debug=false
-	resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -339,7 +340,7 @@ func TestStandardCallWithClient_JSONResponse(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -374,7 +375,7 @@ func TestStandardCallWithClient_PlainTextResponse(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -404,7 +405,7 @@ func TestStandardCallWithClient_NilHeaders(t *testing.T) {
 		Headers: nil, // explicitly nil
 	}
 
-	_, err := StandardCallWithClient(apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error with nil headers: %v", err)
 	}
@@ -423,7 +424,7 @@ func TestStandardCallWithClient_Duration(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -450,7 +451,7 @@ func TestStandardCall_UsesDefaultClient(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCall(apiInfo, false)
+	resp, err := StandardCall(context.Background(), apiInfo, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

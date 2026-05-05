@@ -3,8 +3,11 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -423,6 +426,212 @@ func TestIsRunFailure(t *testing.T) {
 				t.Errorf("IsRunFailure(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestResolveBaseTimeout covers the flag → env → default precedence and
+// rejects malformed env values up front (#206).
+func TestResolveBaseTimeout(t *testing.T) {
+	tests := []struct {
+		name     string
+		flag     time.Duration
+		env      string // unset if empty
+		want     time.Duration
+		wantErr  bool
+		errMatch string
+	}{
+		{"all unset → default", 0, "", DefaultTimeout, false, ""},
+		{"env only", 0, "5m", 5 * time.Minute, false, ""},
+		{"flag only", 2 * time.Minute, "", 2 * time.Minute, false, ""},
+		{"flag wins over env", 2 * time.Minute, "5m", 2 * time.Minute, false, ""},
+		{"invalid env duration", 0, "not-a-duration", 0, true, "invalid HULAK_TIMEOUT"},
+		{"non-positive env duration", 0, "0s", 0, true, "must be positive"},
+		{"negative env duration", 0, "-1s", 0, true, "must be positive"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.env == "" {
+				t.Setenv(HulakTimeoutEnv, "")
+				_ = os.Unsetenv(HulakTimeoutEnv)
+			} else {
+				t.Setenv(HulakTimeoutEnv, tc.env)
+			}
+			got, err := resolveBaseTimeout(tc.flag)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("error = %v, wantErr = %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if !strings.Contains(err.Error(), tc.errMatch) {
+					t.Errorf("error %q does not contain %q", err.Error(), tc.errMatch)
+				}
+				return
+			}
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestProcessFilesSequentially_TimeoutEnforced verifies the sequential path
+// honors baseTimeout: when the request takes longer than the timeout, the
+// context deadline cancels the HTTP request and the outcome surfaces the
+// error. Regression guard for the gap that existed before #206 was bundled
+// into this branch (concurrent path enforced timeouts; sequential path was
+// unbounded).
+func TestProcessFilesSequentially_TimeoutEnforced(t *testing.T) {
+	// Hold the handler open until the request's context cancels or the test
+	// releases it. Using a channel instead of time.Sleep avoids slow-CI
+	// flakiness and lets httptest.Server.Close() return immediately.
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	yaml := fmt.Sprintf("method: GET\nurl: %q\n", server.URL)
+	path := filepath.Join(t.TempDir(), "slow.hk.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	timeout := 100 * time.Millisecond
+	start := time.Now()
+	outcomes := processFilesSequentially([]string{path}, nil, false, false, timeout)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	o := outcomes[0]
+	if o.ok {
+		t.Errorf("outcome.ok = true, want false (request should have timed out)")
+	}
+	if o.err == nil || !strings.Contains(o.err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want one containing 'context deadline exceeded'", o.err)
+	}
+	// Cap the slack generously so slow CI doesn't false-positive but a
+	// regression that re-introduces an unbounded sequential mode would
+	// clearly exceed the bound.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — timeout did not cancel the in-flight request", elapsed)
+	}
+}
+
+// TestProcessFilesSequentially_YAMLTimeoutWins is the end-to-end check that
+// a YAML `timeout:` value actually reaches context.WithTimeout inside
+// processTask. With a generous base (10s), a wiring slip that dropped the
+// per-file override would cause the request to block until the test cleanup
+// fires, blowing past the elapsed bound.
+func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	yaml := fmt.Sprintf("method: GET\nurl: %q\ntimeout: 100ms\n", server.URL)
+	path := filepath.Join(t.TempDir(), "yaml-timeout.hk.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Generous base — if the YAML field were ignored or lost in the wiring,
+	// the request would block on the server until cleanup, and elapsed would
+	// approach this base instead of the YAML's 100ms.
+	base := 10 * time.Second
+	start := time.Now()
+	outcomes := processFilesSequentially([]string{path}, nil, false, false, base)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	o := outcomes[0]
+	if o.ok {
+		t.Errorf("outcome.ok = true, want false")
+	}
+	if o.err == nil || !strings.Contains(o.err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want one containing 'context deadline exceeded'", o.err)
+	}
+	// The elapsed time is the real proof that YAML override worked: ~100ms
+	// not ~10s. If YAML timeout were ignored, elapsed would approach base.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — YAML timeout did not override base %v", elapsed, base)
+	}
+}
+
+// TestRunTasks_TimeoutEnforced verifies the concurrent path cancels the HTTP
+// request when baseTimeout expires.
+func TestRunTasks_TimeoutEnforced(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	path := filepath.Join(t.TempDir(), "slow.hk.yaml")
+	if err := os.WriteFile(path, []byte(fmt.Sprintf("method: GET\nurl: %q\n", server.URL)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	outcomes := runTasks([]string{path}, nil, false, path, false, 100*time.Millisecond)
+	elapsed := time.Since(start)
+
+	if len(outcomes) != 1 {
+		t.Fatalf("got %d outcomes, want 1", len(outcomes))
+	}
+	if outcomes[0].ok {
+		t.Error("outcome.ok = true, want false")
+	}
+	if outcomes[0].err == nil || !strings.Contains(outcomes[0].err.Error(), "context deadline exceeded") {
+		t.Errorf("err = %v, want context deadline exceeded", outcomes[0].err)
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — timeout did not cancel the request", elapsed)
+	}
+}
+
+// TestProcessTask_YAMLTimeoutOverridesBase verifies processTask picks the
+// YAML timeout over baseTimeout.
+func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
+	block := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(block) })
+
+	path := filepath.Join(t.TempDir(), "fast-yaml.hk.yaml")
+	if err := os.WriteFile(path, []byte(fmt.Sprintf("method: GET\nurl: %q\ntimeout: 100ms\n", server.URL)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	o := processTask(path, nil, false, 10*time.Second)
+	elapsed := time.Since(start)
+
+	if o.ok {
+		t.Error("outcome.ok = true, want false")
+	}
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("elapsed %v — YAML 100ms timeout did not override 10s base", elapsed)
 	}
 }
 

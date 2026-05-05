@@ -3,6 +3,7 @@ package userflags
 
 import (
 	"flag"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -24,8 +25,9 @@ var (
 	//   dir_0/dir_0/dir_1/is.md
 	//
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
-	flagDirseq string
-	flagDebug  bool
+	flagDirseq  string
+	flagDebug   bool
+	flagTimeout time.Duration
 
 	flagVersion bool
 	flagHelp    bool
@@ -52,6 +54,13 @@ func init() {
 	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 
 	flag.StringVar(&flagDirseq, "dirseq", "", "Directory path to run in alphabetical order")
+
+	flag.DurationVar(
+		&flagTimeout,
+		"timeout",
+		0,
+		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+	)
 
 	flag.BoolVar(&flagVersion, "v", false, "Print the version")
 	flag.BoolVar(&flagVersion, "version", false, "Print the version")

@@ -10,6 +10,12 @@
       "description": "Request type that determines the flow to follow.",
       "enum": ["API", "Auth", "GraphQL", "graphql", "api", "auth"]
     },
+    "timeout": {
+      "title": "requestTimeout",
+      "type": "string",
+      "description": "Per-request timeout as a Go duration string (e.g. 30s, 5m, 1h30m). Overrides --timeout and $HULAK_TIMEOUT for this file. Default 60s.",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
     "method": {
       "title": "httpMethod",
       "type": "string",

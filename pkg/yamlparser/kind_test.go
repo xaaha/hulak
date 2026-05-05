@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 // createTempYAMLFile is the helper function
@@ -99,22 +101,30 @@ func TestParseConfig(t *testing.T) {
 		// API kinds
 		{"API lowercase", `kind: api`, true, ConfigType{Kind: KindAPI}},
 		{"API uppercase", `kind: API`, true, ConfigType{Kind: KindAPI}},
-		{"API mixed", `kind: ApI`, true, ConfigType{KindAPI}},
+		{"API mixed", `kind: ApI`, true, ConfigType{Kind: KindAPI}},
 
 		// Auth kinds
-		{"Auth lowercase", `kind: auth`, true, ConfigType{KindAuth}},
-		{"Auth uppercase", `kind: AUTH`, true, ConfigType{KindAuth}},
-		{"Auth mixed", `kind: AuTh`, true, ConfigType{KindAuth}},
+		{"Auth lowercase", `kind: auth`, true, ConfigType{Kind: KindAuth}},
+		{"Auth uppercase", `kind: AUTH`, true, ConfigType{Kind: KindAuth}},
+		{"Auth mixed", `kind: AuTh`, true, ConfigType{Kind: KindAuth}},
 
 		// GraphQL kinds
-		{"GraphQL", `kind: GraphQL`, true, ConfigType{KindGraphQL}},
-		{"graphql lower", `kind: graphql`, true, ConfigType{KindGraphQL}},
+		{"GraphQL", `kind: GraphQL`, true, ConfigType{Kind: KindGraphQL}},
+		{"graphql lower", `kind: graphql`, true, ConfigType{Kind: KindGraphQL}},
 
 		// Missing kind (defaults to API)
 		{"missing kind defaults to API", `method: POST`, true, ConfigType{Kind: KindAPI}},
 
 		// Invalid kinds
 		{"invalid kind", `kind: invalid`, true, ConfigType{Kind: "invalid"}},
+
+		// Timeout pass-through (validation tested in TestParsedTimeout).
+		{
+			"timeout passes through",
+			"kind: API\ntimeout: 5m",
+			true,
+			ConfigType{Kind: KindAPI, Timeout: "5m"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +144,65 @@ func TestParseConfig(t *testing.T) {
 
 			if !reflect.DeepEqual(*got, tt.want) {
 				t.Errorf("ParseConfig() = %#v, want %#v", *got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseConfig_InvalidTimeout asserts that a bad `timeout:` value fails
+// the file with a clear, file-scoped error rather than silently falling back.
+func TestParseConfig_InvalidTimeout(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		errMatch string
+	}{
+		{"missing unit", "kind: API\ntimeout: 60", "invalid timeout"},
+		{"garbage", "kind: API\ntimeout: not-a-duration", "invalid timeout"},
+		{"zero", "kind: API\ntimeout: 0s", "must be positive"},
+		{"negative", "kind: API\ntimeout: -5m", "must be positive"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := createTempYAMLFile(t, tc.yaml)
+			_, err := ParseConfig(path, nil)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.errMatch) {
+				t.Errorf("error %q does not contain %q", err.Error(), tc.errMatch)
+			}
+		})
+	}
+}
+
+// TestParsedTimeout covers the value-level parsing rules: unset returns 0,
+// valid durations parse, malformed/non-positive errors clearly.
+func TestParsedTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{"empty unset", "", 0, false},
+		{"5m", "5m", 5 * time.Minute, false},
+		{"90s", "90s", 90 * time.Second, false},
+		{"2m30s", "2m30s", 2*time.Minute + 30*time.Second, false},
+		{"missing unit", "60", 0, true},
+		{"garbage", "soon", 0, true},
+		{"zero", "0s", 0, true},
+		{"negative", "-1s", 0, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &ConfigType{Timeout: tc.value}
+			got, err := c.ParsedTimeout()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err=%v, wantErr=%v", err, tc.wantErr)
+			}
+			if !tc.wantErr && got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
 			}
 		})
 	}

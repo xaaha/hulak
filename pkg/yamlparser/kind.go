@@ -4,6 +4,7 @@ package yamlparser
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	yaml "github.com/goccy/go-yaml"
 )
@@ -43,7 +44,29 @@ var registry = newKindRegistry()
 
 // ConfigType is the root YAML configuration structure.
 type ConfigType struct {
-	Kind Kind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind Kind `json:"kind,omitempty"    yaml:"kind,omitempty"`
+	// Timeout is the optional per-request timeout, e.g. "5m", "90s", "2m30s".
+	// Parsed via time.ParseDuration; see ParsedTimeout for resolution. Empty
+	// string falls through to the runner's flag/env/default chain.
+	Timeout string `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+}
+
+// ParsedTimeout returns the configured per-request timeout, or 0 if unset.
+// Returns an error when Timeout is set but not a valid positive Go duration —
+// callers should surface this as a config error so the user fixes the YAML
+// instead of silently falling back to the default.
+func (c *ConfigType) ParsedTimeout() (time.Duration, error) {
+	if c == nil || c.Timeout == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timeout %q: %w", c.Timeout, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("timeout must be positive, got %q", c.Timeout)
+	}
+	return d, nil
 }
 
 // normalize resolves case insensitivity and defaulting.
@@ -96,6 +119,13 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 	}
 
 	cfg.Kind = cfg.Kind.normalize()
+
+	// Validate the timeout eagerly so a malformed value (e.g. `timeout: 60`
+	// with no unit) fails the file with a clear config error instead of
+	// silently falling back to the default.
+	if _, err := cfg.ParsedTimeout(); err != nil {
+		return nil, fmt.Errorf("in %s: %w", filePath, err)
+	}
 
 	return &cfg, nil
 }

@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -26,7 +27,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 	apiInfo.Body = bytes.NewReader(jsonData)
 
 	// Make the HTTP call
-	resp, err := apicalls.StandardCall(apiInfo, false)
+	resp, err := apicalls.StandardCall(context.Background(), apiInfo, false)
 	if err != nil {
 		return Schema{}, fmt.Errorf("introspection request failed: %w", err)
 	}

@@ -89,11 +89,12 @@ hulak run path/to/dir/ --sequential
 
 Supported flags:
 
-| Flag                     | Meaning                                  |
-| ------------------------ | ---------------------------------------- |
-| `--env`, `--environment` | Use a specific environment               |
-| `--debug`                | Print request and response debug details |
-| `--sequential`, `--seq`  | Run directory files one at a time        |
+| Flag                     | Meaning                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--env`, `--environment` | Use a specific environment                                                                                                            |
+| `--debug`                | Print request and response debug details                                                                                              |
+| `--sequential`, `--seq`  | Run directory files one at a time                                                                                                     |
+| `--timeout`              | Per-request timeout, e.g. `5m` or `90s`. Overrides `$HULAK_TIMEOUT`; YAML `timeout:` wins per file. See [body.md](./body.md#timeout). |
 
 Notes:
 
@@ -212,15 +213,16 @@ hulak <command> --help
 
 These are still supported. They are useful when you want the older root-flag style or need file-name search behavior.
 
-| Flag                    | Meaning                                                    | Example                                         |
-| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| `-env`, `--environment` | Select an environment for root-flag execution              | `hulak -env prod -fp requests/get-user.hk.yaml` |
-| `-fp`, `--file-path`    | Run one exact file path                                    | `hulak -fp requests/get-user.hk.yaml`           |
-| `-f`, `--file`          | Search for matching file names recursively and run matches | `hulak -f getUser`                              |
-| `-dir`                  | Run a directory concurrently                               | `hulak -dir ./requests/`                        |
-| `-dirseq`               | Run a directory sequentially                               | `hulak -dirseq ./requests/`                     |
-| `-debug`                | Enable debug output                                        | `hulak -fp requests/get-user.hk.yaml -debug`    |
-| `-v`, `--version`       | Print version                                              | `hulak --version`                               |
-| `-h`, `--help`          | Print help                                                 | `hulak --help`                                  |
+| Flag                    | Meaning                                                    | Example                                           |
+| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| `-env`, `--environment` | Select an environment for root-flag execution              | `hulak -env prod -fp requests/get-user.hk.yaml`   |
+| `-fp`, `--file-path`    | Run one exact file path                                    | `hulak -fp requests/get-user.hk.yaml`             |
+| `-f`, `--file`          | Search for matching file names recursively and run matches | `hulak -f getUser`                                |
+| `-dir`                  | Run a directory concurrently                               | `hulak -dir ./requests/`                          |
+| `-dirseq`               | Run a directory sequentially                               | `hulak -dirseq ./requests/`                       |
+| `-debug`                | Enable debug output                                        | `hulak -fp requests/get-user.hk.yaml -debug`      |
+| `-timeout`              | Per-request timeout, e.g. `5m` or `90s`                    | `hulak -fp requests/get-user.hk.yaml -timeout 2m` |
+| `-v`, `--version`       | Print version                                              | `hulak --version`                                 |
+| `-h`, `--help`          | Print help                                                 | `hulak --help`                                    |
 
 Use the shorthand form when it fits your workflow, but prefer `hulak run ...` in examples and onboarding material.

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
@@ -169,7 +170,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -186,7 +187,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 func TestParseRunArgsSetsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", false, false, []string{tmpDir})
+	f, err := parseRunArgs("", false, false, 0, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -211,7 +212,7 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("staging", false, true, []string{tmpFile})
+	f, err := parseRunArgs("staging", false, true, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -232,7 +233,7 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 func TestParseRunArgsSequentialDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", true, false, []string{tmpDir})
+	f, err := parseRunArgs("", true, false, 0, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -245,9 +246,28 @@ func TestParseRunArgsSequentialDir(t *testing.T) {
 	}
 }
 
+// TestParseRunArgsTimeoutPlumbed verifies the --timeout flag value lands on
+// runner.Flags so the runner can resolve it. Precedence/fallback is asserted
+// in runner.TestResolveBaseTimeout.
+func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	want := 5 * time.Minute
+	f, err := parseRunArgs("", false, false, want, []string{tmpFile})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.Timeout != want {
+		t.Errorf("Timeout = %v, want %v", f.Timeout, want)
+	}
+}
+
 // TestParseRunArgsBadPath verifies that a nonexistent path returns an error.
 func TestParseRunArgsBadPath(t *testing.T) {
-	_, err := parseRunArgs("", false, false, []string{"/nonexistent/path.yaml"})
+	_, err := parseRunArgs("", false, false, 0, []string{"/nonexistent/path.yaml"})
 	if err == nil {
 		t.Fatal("expected an error for nonexistent path")
 	}
@@ -261,7 +281,7 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/runner"
 )
@@ -20,6 +21,7 @@ type AllFlags struct {
 	Debug    bool
 	Dir      string
 	Dirseq   string
+	Timeout  time.Duration
 }
 
 // ParseFlagsSubcmds dispatches subcommands and root flags.
@@ -71,6 +73,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 					Debug:    flagDebug,
 					Dir:      flagDir,
 					Dirseq:   flagDirseq,
+					Timeout:  flagTimeout,
 				})
 				if err != nil {
 					return nil, err
@@ -92,8 +95,9 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	})
 
 	return &AllFlags{
-		Env:    flagEnv,
-		EnvSet: envSet,
-		Debug:  flagDebug,
+		Env:     flagEnv,
+		EnvSet:  envSet,
+		Debug:   flagDebug,
+		Timeout: flagTimeout,
 	}, nil
 }
