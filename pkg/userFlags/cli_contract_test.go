@@ -228,6 +228,22 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 	}
 }
 
+// TestParseRunArgsQuietPlumbed verifies quiet=true lands on runner.Flags.
+func TestParseRunArgsQuietPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs("", false, false, true, 0, []string{tmpFile})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.Quiet {
+		t.Error("Quiet should be true when quiet arg is true")
+	}
+}
+
 // TestParseRunArgsSequentialDir verifies sequential=true on a directory
 // routes to Dirseq instead of Dir.
 func TestParseRunArgsSequentialDir(t *testing.T) {
