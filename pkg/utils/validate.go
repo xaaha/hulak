@@ -10,7 +10,7 @@ import (
 // JSON keys, and stay well under filesystem path limits.
 const MaxEnvNameLen = 64
 
-// envNamePattern matches valid hulak environment names: ASCII letters, digits,
+// envNamePattern matches valid hulak secretsironment names: ASCII letters, digits,
 // underscore, and hyphen. No spaces, no dots, no slashes, no shell metacharacters.
 var envNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 

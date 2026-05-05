@@ -1,4 +1,4 @@
-// Contains command factories and handlers for hulak env import-key and export-key.
+// Contains command factories and handlers for hulak secrets import-key and export-key.
 package userflags
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// newEnvImportKeyCmd returns the command struct for `hulak env import-key`.
+// newEnvImportKeyCmd returns the command struct for `hulak secrets import-key`.
 func newEnvImportKeyCmd() *command {
 	fs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
 	importKeyStdin := fs.Bool("stdin", false, "Read key from stdin")
@@ -29,15 +29,15 @@ func newEnvImportKeyCmd() *command {
 		},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env import-key ~/backup-identity.txt",
+				Command:     "hulak secrets import-key ~/backup-identity.txt",
 				Description: "Import from a backup file",
 			},
 			{
-				Command:     "hulak env import-key ~/backup.txt --force",
+				Command:     "hulak secrets import-key ~/backup.txt --force",
 				Description: "Overwrite existing identity",
 			},
 			{
-				Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak env import-key --stdin",
+				Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak secrets import-key --stdin",
 				Description: "Import from stdin (password manager pipe)",
 			},
 		},
@@ -45,7 +45,7 @@ func newEnvImportKeyCmd() *command {
 	}
 }
 
-// runImportKey handles `hulak env import-key [path] [--stdin] [--force]`.
+// runImportKey handles `hulak secrets import-key [path] [--stdin] [--force]`.
 func runImportKey(args []string, useStdin, force bool) error {
 	if useStdin && len(args) > 0 {
 		return errors.New("cannot use both --stdin and a positional path — pick one")
@@ -86,7 +86,7 @@ func runImportKey(args []string, useStdin, force bool) error {
 	return nil
 }
 
-// newEnvExportKeyCmd returns the command struct for `hulak env export-key`.
+// newEnvExportKeyCmd returns the command struct for `hulak secrets export-key`.
 func newEnvExportKeyCmd() *command {
 	fs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
 	var outVal string
@@ -101,11 +101,11 @@ func newEnvExportKeyCmd() *command {
 		Flags:   fs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env export-key",
+				Command:     "hulak secrets export-key",
 				Description: "Print the private key (with security warning on stderr)",
 			},
 			{
-				Command:     "hulak env export-key --out ~/backup-identity.txt",
+				Command:     "hulak secrets export-key --out ~/backup-identity.txt",
 				Description: "Save to a file with 0600 permissions",
 			},
 		},
@@ -113,7 +113,7 @@ func newEnvExportKeyCmd() *command {
 	}
 }
 
-// runExportKey handles `hulak env export-key [--out path]`.
+// runExportKey handles `hulak secrets export-key [--out path]`.
 func runExportKey(args []string, outPath string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

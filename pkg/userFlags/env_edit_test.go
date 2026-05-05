@@ -1,4 +1,4 @@
-// Contains tests for hulak env edit handler.
+// Contains tests for hulak secrets edit handler.
 package userflags
 
 import (

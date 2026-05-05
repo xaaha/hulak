@@ -1,4 +1,4 @@
-// Contains command factories and handlers for hulak env add-recipient, remove-recipient, and list-recipients.
+// Contains command factories and handlers for hulak secrets add-recipient, remove-recipient, and list-recipients.
 package userflags
 
 import (
@@ -34,15 +34,15 @@ func newEnvAddRecipientCmd() *command {
 		Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env add-recipient age1ql3z...",
+				Command:     "hulak secrets add-recipient age1ql3z...",
 				Description: "Add a teammate's public key",
 			},
 			{
-				Command:     "hulak env add-recipient age1ql3z... --name Alice",
+				Command:     "hulak secrets add-recipient age1ql3z... --name Alice",
 				Description: "Add with a label",
 			},
 			{
-				Command:     "cat keys.txt | hulak env add-recipient --stdin --name Team",
+				Command:     "cat keys.txt | hulak secrets add-recipient --stdin --name Team",
 				Description: "Add multiple keys from stdin",
 			},
 		},
@@ -85,7 +85,7 @@ func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
 	return []string{args[0]}, nil
 }
 
-// runAddRecipient handles `hulak env add-recipient <public-key> [--name n] [--stdin]`.
+// runAddRecipient handles `hulak secrets add-recipient <public-key> [--name n] [--stdin]`.
 func runAddRecipient(args []string, name string, useStdin bool) error {
 	pubKeys, err := resolveRecipientKeys(args, useStdin)
 	if err != nil {
@@ -166,11 +166,11 @@ func newEnvRemoveRecipientCmd() *command {
 		},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env remove-recipient age1ql3z...",
+				Command:     "hulak secrets remove-recipient age1ql3z...",
 				Description: "Remove by public key",
 			},
 			{
-				Command:     "hulak env remove-recipient Alice",
+				Command:     "hulak secrets remove-recipient Alice",
 				Description: "Remove by name label",
 			},
 		},
@@ -178,7 +178,7 @@ func newEnvRemoveRecipientCmd() *command {
 	}
 }
 
-// runRemoveRecipient handles `hulak env remove-recipient <key-or-name>`.
+// runRemoveRecipient handles `hulak secrets remove-recipient <key-or-name>`.
 func runRemoveRecipient(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: public-key or name label")
@@ -249,7 +249,7 @@ func newEnvListRecipientsCmd() *command {
 		Long:  "Show all age public keys that can decrypt the vault, with labels.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env list-recipients",
+				Command:     "hulak secrets list-recipients",
 				Description: "Show all recipients with names and key prefixes",
 			},
 		},
@@ -257,7 +257,7 @@ func newEnvListRecipientsCmd() *command {
 	}
 }
 
-// runListRecipients handles `hulak env list-recipients`.
+// runListRecipients handles `hulak secrets list-recipients`.
 func runListRecipients(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

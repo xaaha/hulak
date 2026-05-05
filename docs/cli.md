@@ -34,7 +34,7 @@ Use these help entry points when you want the current CLI surface from the binar
 hulak help
 hulak run --help
 hulak gql --help
-hulak env --help
+hulak secrets --help
 ```
 
 For command-specific help, prefer `hulak <command> --help`.
@@ -49,7 +49,7 @@ For command-specific help, prefer `hulak <command> --help`.
 | `migrate` | Convert Postman exports to Hulak files       | `hulak migrate collection.json`       |
 | `doctor`  | Check project health                         | `hulak doctor`                        |
 | `gql`     | Open the GraphQL explorer                    | `hulak gql .`                         |
-| `env`     | Inspect the environment-secrets command tree | `hulak env --help`                    |
+| `secrets` | Inspect the environment-secrets command tree | `hulak secrets --help`                |
 | `help`    | Show top-level help                          | `hulak help`                          |
 
 ## Core Behaviors
@@ -67,9 +67,9 @@ Running `hulak` with no file or directory target opens the interactive picker.
 When `--env` is omitted, behavior depends on the command:
 
 - **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.
-- **`hulak env edit`**: always opens the picker — no default. Pass `--env <name>` (including for new envs you want to create).
-- **`hulak env set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
-- **`hulak env list`**: takes no `--env` (it lists envs themselves).
+- **`hulak secrets edit`**: always opens the picker — no default. Pass `--env <name>` (including for new envs you want to create).
+- **`hulak secrets set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
+- **`hulak secrets list`**: takes no `--env` (it lists envs themselves).
 
 All commands above accept `--env` / `--environment` to bypass any picker or default explicitly.
 
@@ -166,17 +166,17 @@ Supported flags:
 
 Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
 
-### `env`
+### `secrets`
 
-The `env` command tree manages secrets in the encrypted vault (`.hulak/store.age`). See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
+The `secrets` command tree manages secrets in the encrypted vault (`.hulak/store.age`). See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
 
 ```bash
-hulak env --help
-hulak env set API_KEY value --env prod
-hulak env list
-hulak env keys --env prod --show
-hulak env get DB_URL --env staging        # raw to stdout — $(...) safe
-hulak env edit                            # picks env interactively, no --env default
+hulak secrets --help
+hulak secrets set API_KEY value --env prod
+hulak secrets list
+hulak secrets keys --env prod --show
+hulak secrets get DB_URL --env staging        # raw to stdout — $(...) safe
+hulak secrets edit                            # picks env interactively, no --env default
 ```
 
 | Subcommand                | Notes                                                                                         |

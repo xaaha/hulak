@@ -1,4 +1,4 @@
-// Contains tests for hulak env set, get, and delete handlers.
+// Contains tests for hulak secrets set, get, and delete handlers.
 package userflags
 
 import (

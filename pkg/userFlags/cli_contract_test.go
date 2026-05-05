@@ -15,7 +15,7 @@ import (
 func TestSubCommandsExist(t *testing.T) {
 	root := subCommands()
 
-	expected := []string{"run", "version", "init", "migrate", "doctor", "gql", "env", "help"}
+	expected := []string{"run", "version", "init", "migrate", "doctor", "gql", "secrets", "help"}
 	for _, name := range expected {
 		if root.findSub(name) == nil {
 			t.Errorf("expected subcommand %q to exist", name)
@@ -27,7 +27,7 @@ func TestSubCommandsExist(t *testing.T) {
 func TestGQLAliases(t *testing.T) {
 	root := subCommands()
 
-	for _, alias := range []string{"gql", "graphql", "GraphQL"} {
+	for _, alias := range []string{"gql", "graphql"} {
 		if root.findSub(alias) == nil {
 			t.Errorf("expected gql alias %q to resolve", alias)
 		}
@@ -313,7 +313,7 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 // TestEnvSubCommandsExist verifies every expected env subcommand is registered.
 func TestEnvSubCommandsExist(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -333,7 +333,7 @@ func TestEnvSubCommandsExist(t *testing.T) {
 // TestEnvAliases verifies that all env subcommand aliases resolve correctly.
 func TestEnvAliases(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -365,7 +365,7 @@ func TestEnvAliases(t *testing.T) {
 // so a duplicate would silently shadow whichever command is later in the slice.
 func TestEnvSubcommandAliasesUnique(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -387,7 +387,7 @@ func TestEnvSubcommandAliasesUnique(t *testing.T) {
 // specific environment have an --env flag in their FlagSet.
 func TestEnvSubCommandsHaveFlags(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -415,7 +415,7 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 // accepting --env also accept --environment.
 func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -442,7 +442,7 @@ func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 // that are part of the CLI contract don't get accidentally removed.
 func TestEnvSubCommandSpecificFlags(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -479,7 +479,7 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 // non-nil Run handler so dispatch doesn't silently fall through to help.
 func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	root := subCommands()
-	envCmd := root.findSub("env")
+	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
 	}
@@ -491,15 +491,20 @@ func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	}
 }
 
-// TestEnvFlagDoesNotConflictWithEnvSubcommand verifies that the -env global
-// flag and the env subcommand coexist. The flag is prefixed with "-" so the
+// TestEnvFlagDoesNotConflictWithSecretsSubcommand verifies that the -env global
+// flag and the secrets subcommand coexist. The flag is prefixed with "-" so the
 // router dispatches them to different paths.
-func TestEnvFlagDoesNotConflictWithEnvSubcommand(t *testing.T) {
+func TestEnvFlagDoesNotConflictWithSecretsSubcommand(t *testing.T) {
 	root := subCommands()
 
-	// "env" (no dash) should resolve as a subcommand
-	if root.findSub("env") == nil {
-		t.Error("expected 'env' to resolve as a subcommand")
+	// "secrets" should resolve as a subcommand
+	if root.findSub("secrets") == nil {
+		t.Error("expected 'secrets' to resolve as a subcommand")
+	}
+
+	// "env" should NOT resolve as a subcommand (no longer aliased)
+	if root.findSub("env") != nil {
+		t.Error("'env' should not resolve as a subcommand — alias was removed")
 	}
 
 	// "-env" should NOT resolve as a subcommand (it's a flag)

@@ -16,7 +16,7 @@ const LockFile = ".lock"
 
 // WithStoreLock acquires an exclusive OS-level file lock on .hulak/.lock,
 // invokes fn, and releases the lock when fn returns. Use this around any
-// read-modify-write of the encrypted store so concurrent `hulak env set`
+// read-modify-write of the encrypted store so concurrent `hulak secrets set`
 // calls cannot lose each other's edits.
 //
 // Reads do not need this lock: WriteStore renames atomically, so readers

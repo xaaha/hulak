@@ -72,7 +72,7 @@ hulak init
 #   Identity file: ~/.config/hulak/identity.txt
 # ⚠ Back up the identity file — losing it means losing access to the vault.
 
-hulak env set API_KEY --env prod
+hulak secrets set API_KEY --env prod
 # Enter value for API_KEY: ▊
 # ✓ Set API_KEY in prod
 
@@ -85,7 +85,7 @@ hulak run requests/create_user.yaml --env prod
 ### Migrate an existing classic project
 
 ```bash
-hulak migrate env
+hulak secrets migrate
 # ✓ Migrated global.env → store.age[global] (3 keys)
 # ✓ Migrated prod.env → store.age[prod] (5 keys)
 # ⚠ Save this recovery key somewhere safe (you won't see it again):
@@ -101,7 +101,7 @@ The single biggest pitfall is losing your private key. Two ways to protect again
 ### 1. Export to a password manager
 
 ```bash
-hulak env export-key
+hulak secrets export-key
 # AGE-SECRET-KEY-1QF...
 # (paste into 1Password / Bitwarden / etc.)
 ```
@@ -113,7 +113,7 @@ A second recipient (a backup keypair you keep on a USB stick, or a teammate) mea
 To restore on a new machine:
 
 ```bash
-hulak env import-key ~/Downloads/identity-backup.txt
+hulak secrets import-key ~/Downloads/identity-backup.txt
 # ✓ Identity imported to ~/.config/hulak/identity.txt
 ```
 
@@ -129,7 +129,7 @@ hulak init
 # Shows their public key in the output:
 #   Public key: age1bob...
 
-hulak env list-recipients
+hulak secrets list-recipients
 # Shows their own key
 ```
 
@@ -137,7 +137,7 @@ The new member sends their **public key** (`age1bob...`) to an existing team mem
 
 ```bash
 # === Existing team member ===
-hulak env add-recipient age1bob... --name Bob
+hulak secrets add-recipient age1bob... --name Bob
 # ✓ Added recipient age1bob...
 
 git add .hulak/recipients.txt .hulak/store.age
@@ -146,13 +146,13 @@ git push
 
 # === New member ===
 git pull
-hulak env list   # ✓ works — Bob's identity can decrypt
+hulak secrets list   # ✓ works — Bob's identity can decrypt
 ```
 
 ### Leaving a team
 
 ```bash
-hulak env remove-recipient Alice
+hulak secrets remove-recipient Alice
 # ✓ Removed recipient
 # ⚠ Note: Alice can still decrypt copies of store.age from before this point.
 #   Rotate upstream secrets if compromise is suspected.
@@ -168,9 +168,9 @@ Removing a recipient prevents them from decrypting **future** versions of `store
 
 To truly revoke access:
 
-1. `hulak env remove-recipient <pubkey>`
+1. `hulak secrets remove-recipient <pubkey>`
 2. Rotate every secret the leaver could have read (API keys, DB passwords, OAuth client secrets, etc.) on the upstream service
-3. `hulak env set <KEY> <new-value>` for each rotated secret
+3. `hulak secrets set <KEY> <new-value>` for each rotated secret
 4. Commit and push
 
 This is a fundamental property of asymmetric encryption — true of age, GPG, SOPS, git-crypt, and every similar tool. There is no scheme that can un-show plaintext.
@@ -180,36 +180,36 @@ This is a fundamental property of asymmetric encryption — true of age, GPG, SO
 You cannot remove yourself if you are the only recipient — that would brick the store.
 
 ```bash
-hulak env remove-recipient age1ql3z...
+hulak secrets remove-recipient age1ql3z...
 # error: refusing to remove the last recipient — the store would become
 # unrecoverable. Add another recipient first, or delete .hulak/store.age manually
 ```
 
 ## Commands
 
-| Command                                              | Purpose                                                |
-| ---------------------------------------------------- | ------------------------------------------------------ |
-| `hulak init`                                         | Generate keypair, write `recipients.txt`               |
-| `hulak env set KEY [VALUE] [--env name] [--stdin]`   | Set a secret (interactive prompt if no value)          |
-| `hulak env get KEY [--env name]`                     | Print a value to stdout (raw, scriptable)              |
-| `hulak env list`                                     | List environment names                                 |
-| `hulak env keys [--env name] [--show] [--search p]`  | List keys, masked by default; substring/glob filter    |
-| `hulak env delete KEY [--env name]`                  | Remove a key                                           |
-| `hulak env edit [--env name]`                        | Open `$EDITOR` on the env (TUI picker if no `--env`)   |
-| `hulak env export-key [--out path]`                  | Print or save your private key                         |
-| `hulak env import-key path [--force]`                | Restore an identity from a file                        |
-| `hulak env add-recipient KEY [--name n] [--stdin]`   | Authorize a new public key (or many via stdin)         |
-| `hulak env remove-recipient <key-or-name>`           | Revoke by public key or name label                     |
-| `hulak env list-recipients`                          | Show all authorized public keys                        |
-| `hulak env rotate` (aliases: `sync`, `reencrypt`)    | Re-encrypt to the current recipient set                |
-| `hulak env rotate-key`                               | Generate a new identity, re-encrypt                    |
-| `hulak migrate env`                                  | Convert `env/*.env` to `store.age`                     |
+| Command                                                  | Purpose                                                |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| `hulak init`                                             | Generate keypair, write `recipients.txt`               |
+| `hulak secrets set KEY [VALUE] [--env name] [--stdin]`   | Set a secret (interactive prompt if no value)          |
+| `hulak secrets get KEY [--env name]`                     | Print a value to stdout (raw, scriptable)              |
+| `hulak secrets list`                                     | List environment names                                 |
+| `hulak secrets keys [--env name] [--show] [--search p]`  | List keys, masked by default; substring/glob filter    |
+| `hulak secrets delete KEY [--env name]`                  | Remove a key                                           |
+| `hulak secrets edit [--env name]`                        | Open `$EDITOR` on the env (TUI picker if no `--env`)   |
+| `hulak secrets export-key [--out path]`                  | Print or save your private key                         |
+| `hulak secrets import-key path [--force]`                | Restore an identity from a file                        |
+| `hulak secrets add-recipient KEY [--name n] [--stdin]`   | Authorize a new public key (or many via stdin)         |
+| `hulak secrets remove-recipient <key-or-name>`           | Revoke by public key or name label                     |
+| `hulak secrets list-recipients`                          | Show all authorized public keys                        |
+| `hulak secrets rotate` (aliases: `sync`, `reencrypt`)    | Re-encrypt to the current recipient set                |
+| `hulak secrets rotate-key`                               | Generate a new identity, re-encrypt                    |
+| `hulak secrets migrate`                                  | Convert `env/*.env` to `store.age`                     |
 
 > [!Tip]
 > Need a snapshot of `store.age`? Just `cp .hulak/store.age my-backup.age`. The file is already encrypted — copy it anywhere. To restore, copy it back. No dedicated subcommand needed.
 
 > [!Note]
-> `hulak env edit` opens an interactive picker when `--env` is omitted — the same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
+> `hulak secrets edit` opens an interactive picker when `--env` is omitted — the same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
 
 ## Merge conflicts on `recipients.txt` and `store.age`
 
@@ -225,12 +225,12 @@ After merging the text side cleanly, regenerate `store.age` to match the merged 
 ```bash
 # Resolve recipients.txt manually so it's the union you want
 git checkout --theirs .hulak/store.age   # pick one ciphertext to start from
-hulak env rotate                          # re-encrypt to the current (merged) recipients.txt
+hulak secrets rotate                     # re-encrypt to the current (merged) recipients.txt
 git add .hulak/store.age .hulak/recipients.txt
 git commit
 ```
 
-`hulak env rotate` re-encrypts the store to the current `recipients.txt` without changing keys — exactly what you need after a merge.
+`hulak secrets rotate` re-encrypts the store to the current `recipients.txt` without changing keys — exactly what you need after a merge.
 
 > [!Tip]
 > For frequent recipient churn (large teams), consider squashing multiple `add-recipient` / `remove-recipient` commits into one to reduce merge surface area.
@@ -284,11 +284,11 @@ Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leake
 1. **Generate a new identity.** On a clean machine: `hulak init` (this creates a fresh keypair).
 2. **Add the new key as a recipient before removing the old one.** From any machine that still has access:
    ```bash
-   hulak env add-recipient <new-public-key> --name "you-rotated-YYYY-MM-DD"
+   hulak secrets add-recipient <new-public-key> --name "you-rotated-YYYY-MM-DD"
    ```
 3. **Remove the compromised key.**
    ```bash
-   hulak env remove-recipient <old-public-key>
+   hulak secrets remove-recipient <old-public-key>
    ```
 4. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets — anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the removal; the only way to invalidate that data is to make it useless by changing the upstream values.
 5. **Force teammates to pull.** They need the re-encrypted `store.age` so their next decrypt uses the new recipient list.
@@ -311,8 +311,8 @@ Yes. `store.age` is an encrypted blob; without a private key in the recipient li
 **What if I lose my private key?**
 If you have no backup and no second recipient, the data is gone. Mitigations:
 
-- `hulak env export-key` → save in a password manager
-- `hulak env add-recipient <backup-key>` → second recipient as redundancy
+- `hulak secrets export-key` → save in a password manager
+- `hulak secrets add-recipient <backup-key>` → second recipient as redundancy
 - `cp .hulak/store.age my-backup.age` → snapshot the encrypted store (still needs a key to decrypt)
 
 **Can I have both `env/` and `store.age`?**

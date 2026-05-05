@@ -1,4 +1,4 @@
-// Contains command factories and handlers for hulak env list and keys.
+// Contains command factories and handlers for hulak secrets list and keys.
 package userflags
 
 import (
@@ -17,7 +17,7 @@ import (
 // maskedValue is what `keys` prints in place of secret values when --show is off.
 const maskedValue = "••••"
 
-// newEnvListCmd returns the command struct for `hulak env list`.
+// newEnvListCmd returns the command struct for `hulak secrets list`.
 func newEnvListCmd() *command {
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
 
@@ -25,18 +25,18 @@ func newEnvListCmd() *command {
 		Name:    "list",
 		Aliases: []string{"ls", "l"},
 		Short:   "List environment names",
-		Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak env keys --env <name>` to list keys within an environment.",
+		Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak secrets keys --env <name>` to list keys within an environment.",
 		Flags:   listFs,
 		Examples: []*utils.CommandHelp{
-			{Command: "hulak env list", Description: "List all environment names"},
-			{Command: "hulak env ls", Description: "Same as list (alias)"},
+			{Command: "hulak secrets list", Description: "List all environment names"},
+			{Command: "hulak secrets ls", Description: "Same as list (alias)"},
 		},
 		Run: runEnvList,
 	}
 }
 
-// runEnvList handles `hulak env list`. Prints environment names — one per line,
-// sorted, no decoration — so output is friendly to `for env in $(hulak env list)`.
+// runEnvList handles `hulak secrets list`. Prints environment names — one per line,
+// sorted, no decoration — so output is friendly to `for env in $(hulak secrets list)`.
 func runEnvList(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
@@ -60,7 +60,7 @@ func runEnvList(args []string) error {
 	return utils.PrintTable(os.Stdout, utils.StdoutHeaders([]string{"ENVIRONMENT"}), rows, 0)
 }
 
-// newEnvKeysCmd returns the command struct for `hulak env keys`.
+// newEnvKeysCmd returns the command struct for `hulak secrets keys`.
 func newEnvKeysCmd() *command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
 	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
@@ -79,16 +79,16 @@ func newEnvKeysCmd() *command {
 		Flags:   keysFs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env keys --env prod",
+				Command:     "hulak secrets keys --env prod",
 				Description: "List keys in prod with values masked",
 			},
-			{Command: "hulak env keys --env prod --show", Description: "Reveal actual values"},
+			{Command: "hulak secrets keys --env prod --show", Description: "Reveal actual values"},
 			{
-				Command:     "hulak env keys --env prod --search \"API*\"",
+				Command:     "hulak secrets keys --env prod --search \"API*\"",
 				Description: "Filter keys by glob pattern",
 			},
 			{
-				Command:     "hulak env keys --env staging --search api",
+				Command:     "hulak secrets keys --env staging --search api",
 				Description: "Filter by case-insensitive substring",
 			},
 		},
@@ -98,7 +98,7 @@ func newEnvKeysCmd() *command {
 	}
 }
 
-// runEnvKeys handles `hulak env keys`. Lists keys within an environment.
+// runEnvKeys handles `hulak secrets keys`. Lists keys within an environment.
 //
 // Values are masked (••••) unless --show is set. --search filters keys by
 // glob pattern (when the pattern contains '*', '?', or '[') or by

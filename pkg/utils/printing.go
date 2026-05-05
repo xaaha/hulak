@@ -35,7 +35,7 @@ func PrintWarning(msg string) {
 
 // Stderr-routed printers: use these for diagnostics, status, warnings, and
 // errors during commands whose stdout must stay clean. Stdout is reserved
-// for actual program output (e.g. `hulak env get` captured via $(...) must
+// for actual program output (e.g. `hulak secrets get` captured via $(...) must
 // return only the value). Each function colors ONLY the leading prefix —
 // the message body stays plain text so it remains readable when redirected
 // to a non-color terminal or a log file.
