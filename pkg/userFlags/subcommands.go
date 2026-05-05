@@ -399,31 +399,32 @@ func parseRunArgs(
 
 func newEnvCmd() *command {
 	envCmd := &command{
-		Name:  "env",
-		Short: "Manage encrypted environment secrets",
+		Name:    "secrets",
+		Aliases: []string{"env"},
+		Short:   "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
 			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
 			"The default environment is \"global\" unless --env is specified.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env list",
-				Description: "List environment names defined in the vault",
+				Command:     "hulak secrets list",
+				Description: "List secretsironment names defined in the vault",
 			},
 			{
-				Command:     "hulak env set API_KEY sk-123 --env prod",
-				Description: "Set a secret in the prod environment",
+				Command:     "hulak secrets set API_KEY sk-123 --secrets prod",
+				Description: "Set a secret in the prod secretsironment",
 			},
 			{
-				Command:     "hulak env get API_KEY --env staging",
-				Description: "Get a secret from the staging environment",
+				Command:     "hulak secrets get API_KEY --secrets staging",
+				Description: "Get a secret from the staging secretsironment",
 			},
 			{
-				Command:     "hulak env keys --env prod",
-				Description: "List keys in the prod environment (values masked)",
+				Command:     "hulak secrets keys --secrets prod",
+				Description: "List keys in the prod secretsironment (values masked)",
 			},
 			{
-				Command:     "hulak env delete OLD_KEY",
-				Description: "Delete a key from the default environment",
+				Command:     "hulak secrets delete OLD_KEY",
+				Description: "Delete a key from the default secretsironment",
 			},
 		},
 	}
