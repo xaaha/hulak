@@ -310,7 +310,7 @@ func newRunCmd() *command {
 		&timeout,
 		"timeout",
 		0,
-		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+		"Per-request timeout, e.g. 5m or 90s (default 60s)",
 	)
 
 	runCmd := &command{

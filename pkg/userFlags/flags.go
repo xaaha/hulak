@@ -63,7 +63,7 @@ func init() {
 		&flagTimeout,
 		"timeout",
 		0,
-		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+		"Per-request timeout, e.g. 5m or 90s (default 60s)",
 	)
 
 	flag.BoolVar(&flagVersion, "v", false, "Print the version")
