@@ -170,7 +170,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, 0, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, false, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 func TestParseRunArgsSetsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", false, false, 0, []string{tmpDir})
+	f, err := parseRunArgs("", false, false, false, 0, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("staging", false, true, 0, []string{tmpFile})
+	f, err := parseRunArgs("staging", false, true, false, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 func TestParseRunArgsSequentialDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", true, false, 0, []string{tmpDir})
+	f, err := parseRunArgs("", true, false, false, 0, []string{tmpDir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
 	}
 
 	want := 5 * time.Minute
-	f, err := parseRunArgs("", false, false, want, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, false, want, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
 
 // TestParseRunArgsBadPath verifies that a nonexistent path returns an error.
 func TestParseRunArgsBadPath(t *testing.T) {
-	_, err := parseRunArgs("", false, false, 0, []string{"/nonexistent/path.yaml"})
+	_, err := parseRunArgs("", false, false, false, 0, []string{"/nonexistent/path.yaml"})
 	if err == nil {
 		t.Fatal("expected an error for nonexistent path")
 	}
@@ -281,7 +281,7 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, 0, []string{tmpFile})
+	f, err := parseRunArgs("", false, false, false, 0, []string{tmpFile})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
