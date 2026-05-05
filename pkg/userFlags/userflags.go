@@ -71,6 +71,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 					FilePath: flagFP,
 					File:     flagF,
 					Debug:    flagDebug,
+					Quiet:    flagQuiet,
 					Dir:      flagDir,
 					Dirseq:   flagDirseq,
 					Timeout:  flagTimeout,
