@@ -322,7 +322,7 @@ func IsRunFailure(err error) bool {
 // Only invoked for multi-file runs — single-file outcome is already obvious
 // from the per-file outcome line.
 func printRunSummary(outcomes []outcome, total time.Duration) {
-	headers := []string{"FILE", "RESULT", "STATUS", "DURATION", "ERROR"}
+	headers := []string{"FILE", "RESULT", "STATUS", "DURATION"}
 	var rows [][]string
 
 	succeeded := 0
@@ -347,7 +347,9 @@ func printRunSummary(outcomes []outcome, total time.Duration) {
 			errMsg,
 		})
 	}
-
+	if failed > 0 {
+		headers = append(headers, "ERROR")
+	}
 	fmt.Fprintln(os.Stderr)
 	_ = utils.PrintTable(os.Stderr, headers, rows, 0)
 	fmt.Fprintln(os.Stderr)
