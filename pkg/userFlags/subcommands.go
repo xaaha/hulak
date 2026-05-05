@@ -299,15 +299,18 @@ func newRunCmd() *command {
 	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
 	var sequential bool
 	var debug bool
+	var quiet bool
 	var timeout time.Duration
 	fs.BoolVar(&sequential, "sequential", false, "Run directory files sequentially")
 	fs.BoolVar(&sequential, "seq", false, "Run directory files sequentially")
 	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
+	fs.BoolVar(&quiet, "quiet", false, "Suppress the end-of-run summary table")
+	fs.BoolVar(&quiet, "q", false, "Suppress the end-of-run summary table")
 	fs.DurationVar(
 		&timeout,
 		"timeout",
 		0,
-		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+		"Per-request timeout, e.g. 5m or 90s (default 60s)",
 	)
 
 	runCmd := &command{
@@ -343,7 +346,7 @@ func newRunCmd() *command {
 			return nil
 		}
 
-		f, err := parseRunArgs(*envFlagVal, sequential, debug, timeout, args)
+		f, err := parseRunArgs(*envFlagVal, sequential, debug, quiet, timeout, args)
 		if err != nil {
 			return err
 		}
@@ -361,7 +364,7 @@ func newRunCmd() *command {
 // The path routes to FilePath (file), Dir (concurrent), or Dirseq (sequential).
 func parseRunArgs(
 	envFlagVal string,
-	sequential, debug bool,
+	sequential, debug, quiet bool,
 	timeout time.Duration,
 	args []string,
 ) (*runner.Flags, error) {
@@ -372,7 +375,7 @@ func parseRunArgs(
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
-	f := &runner.Flags{Debug: debug, Timeout: timeout}
+	f := &runner.Flags{Debug: debug, Quiet: quiet, Timeout: timeout}
 
 	if envFlagVal != "" {
 		f.Env = envFlagVal

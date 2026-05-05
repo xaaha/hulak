@@ -10,6 +10,13 @@ Set Theme "Dracula"
 Type "# 20 API requests. One command. Let's go."
 Enter
 Sleep 1s
-Type "time hulak -dir assets/demo/"
+Type "hulak -dir assets/demo/"
 Enter
-Sleep 5s
+Sleep 2s
+
+Type "# You can also run with -q flag to quiet the output"
+Enter
+Sleep 1s
+Type "hulak -dir assets/demo/ -q"
+Enter
+Sleep 3s

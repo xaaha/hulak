@@ -27,6 +27,7 @@ var (
 	// In the above case, the files in the shallowest directories will be processed before deeper ones.
 	flagDirseq  string
 	flagDebug   bool
+	flagQuiet   bool
 	flagTimeout time.Duration
 
 	flagVersion bool
@@ -51,6 +52,9 @@ func init() {
 
 	flag.BoolVar(&flagDebug, "debug", false, "Enable debug mode for full request/response details")
 
+	flag.BoolVar(&flagQuiet, "quiet", false, "Suppress the end-of-run summary table")
+	flag.BoolVar(&flagQuiet, "q", false, "Suppress the end-of-run summary table")
+
 	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 
 	flag.StringVar(&flagDirseq, "dirseq", "", "Directory path to run in alphabetical order")
@@ -59,7 +63,7 @@ func init() {
 		&flagTimeout,
 		"timeout",
 		0,
-		"Per-request timeout, e.g. 5m or 90s (overrides $HULAK_TIMEOUT; default 60s)",
+		"Per-request timeout, e.g. 5m or 90s (default 60s)",
 	)
 
 	flag.BoolVar(&flagVersion, "v", false, "Print the version")

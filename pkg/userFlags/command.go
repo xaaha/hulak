@@ -20,6 +20,8 @@ var flagAliases = map[string]string{
 	"environment": "env",
 	"version":     "v",
 	"help":        "h",
+	"quiet":       "q",
+	"sequential":  "seq",
 }
 
 // hiddenFlags are omitted from help output entirely (utility flags
@@ -247,7 +249,7 @@ func printFlags(fs *flag.FlagSet) {
 
 		fmt.Println(label)
 		usage := f.Usage
-		if f.DefValue != "" && f.DefValue != "false" {
+		if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" && f.DefValue != "0s" {
 			usage += fmt.Sprintf(" (default %q)", f.DefValue)
 		}
 		fmt.Printf("    \t%s\n", usage)

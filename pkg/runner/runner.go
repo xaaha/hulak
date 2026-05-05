@@ -40,6 +40,8 @@ type Flags struct {
 	// "fall back to HULAK_TIMEOUT, then the 60s default". A YAML `timeout:`
 	// field on the request file wins over this flag.
 	Timeout time.Duration
+	// Quiet suppresses the end-of-run summary table for multi-file runs.
+	Quiet bool
 }
 
 // DefaultTimeout is the per-request timeout used when no override is set
@@ -100,9 +102,9 @@ func Execute(f *Flags) error {
 	return handleAPIRequests(
 		envMap,
 		f.Debug,
+		f.Quiet,
 		append(fileList, concurrentDir...),
 		sequentialDir,
-		f.FilePath,
 		baseTimeout,
 	)
 }
@@ -122,7 +124,7 @@ func ExecuteSingleFile(
 	if err != nil {
 		return err
 	}
-	return handleAPIRequests(envMap, debug, []string{filePath}, nil, filePath, baseTimeout)
+	return handleAPIRequests(envMap, debug, false, []string{filePath}, nil, baseTimeout)
 }
 
 // resolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
@@ -227,9 +229,9 @@ type outcome struct {
 func handleAPIRequests(
 	secrets map[string]any,
 	debug bool,
+	quiet bool,
 	concurrentFiles []string,
 	sequentialFiles []string,
-	fp string,
 	baseTimeout time.Duration,
 ) error {
 	totalFiles := len(concurrentFiles) + len(sequentialFiles)
@@ -249,7 +251,7 @@ func handleAPIRequests(
 		}
 		outcomes = append(
 			outcomes,
-			runTasks(concurrentFiles, secrets, debug, fp, multiFile, baseTimeout)...)
+			runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
 	}
 	if len(sequentialFiles) > 0 {
 		utils.PrintInfoStderr(
@@ -267,7 +269,7 @@ func handleAPIRequests(
 		return nil
 	}
 
-	if multiFile {
+	if multiFile && !quiet {
 		printRunSummary(outcomes, time.Since(overallStart))
 	}
 
@@ -316,26 +318,44 @@ func IsRunFailure(err error) bool {
 	return errors.As(err, &rf)
 }
 
-// printRunSummary prints "✓ N succeeded, ✗ M failed in T" plus a list of
-// failed file paths. Only invoked for multi-file runs — single-file outcome
-// is already obvious from the per-file outcome line.
+// printRunSummary prints a table of all outcomes followed by a totals line.
+// Only invoked for multi-file runs — single-file outcome is already obvious
+// from the per-file outcome line.
 func printRunSummary(outcomes []outcome, total time.Duration) {
+	headers := []string{"FILE", "RESULT", "STATUS", "DURATION"}
+	var rows [][]string
+
 	succeeded := 0
-	var failed []outcome
+	failed := 0
 	for _, o := range outcomes {
+		result := utils.Green + utils.CheckMark + utils.ColorReset
+		name := utils.Blue + filepath.Base(o.path) + utils.ColorReset
+		errMsg := ""
 		if o.ok {
 			succeeded++
 		} else {
-			failed = append(failed, o)
+			failed++
+			result = utils.Red + utils.CrossMark + utils.ColorReset
+			headline, _ := splitErrorForOutcome(o.err)
+			errMsg = headline
 		}
+		rows = append(rows, []string{
+			name,
+			result,
+			o.status,
+			formatDuration(o.duration),
+			errMsg,
+		})
 	}
-
+	if failed > 0 {
+		headers = append(headers, "ERROR")
+	}
+	fmt.Fprintln(os.Stderr)
+	_ = utils.PrintTable(os.Stderr, headers, rows, 0)
+	fmt.Fprintln(os.Stderr)
 	utils.PrintInfoStderr(fmt.Sprintf(
-		"%d succeeded, %d failed in %s", succeeded, len(failed), formatDuration(total),
+		"%d succeeded, %d failed in %s", succeeded, failed, formatDuration(total),
 	))
-	for _, f := range failed {
-		utils.PrintInfoStderr("  ✗ " + filepath.Base(f.path))
-	}
 }
 
 // formatDuration renders a duration tightly: 142ms, 1.2s, 1m23s.
@@ -428,8 +448,8 @@ func splitErrorForOutcome(err error) (headline, hint string) {
 var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // runTasks manages the go tasks with a limited worker pool. Returns one
-// outcome per file in the order they finished. multiFile gates whether the
-// per-file outcome line is printed (skipped for single-file runs).
+// outcome per file in the order they finished. Per-file outcome lines are
+// not printed here — the summary table handles concurrent results.
 //
 // baseTimeout is the per-request timeout when a file has no YAML `timeout:`
 // override. processTask resolves the YAML override internally (single
@@ -439,16 +459,9 @@ func runTasks(
 	filePathList []string,
 	secretsMap map[string]any,
 	debug bool,
-	fp string,
-	multiFile bool,
 	baseTimeout time.Duration,
 ) []outcome {
 	maxWorkers := utils.GetWorkers(nil)
-	maxRetries := 3
-
-	if fp != "" {
-		maxRetries = 1
-	}
 
 	var wg sync.WaitGroup
 	taskChan := make(chan string, len(filePathList))
@@ -465,27 +478,8 @@ func runTasks(
 			defer wg.Done()
 
 			for path := range taskChan {
-				var final outcome
-
-				for attempt := 0; attempt < maxRetries; attempt++ {
-					if attempt > 0 {
-						backoffDuration := time.Duration(1<<(attempt-1)) * time.Second
-						utils.PrintWarningStderr(fmt.Sprintf("Retrying %s (attempt %d/%d) after %v",
-							filepath.Base(path), attempt+1, maxRetries, backoffDuration))
-						time.Sleep(backoffDuration)
-					}
-
-					final = processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
-
-					if final.ok || !isRetryable(final.err) {
-						break
-					}
-				}
-
-				// Single-file mode: response body prints to stdout already, so
-				// suppress the success outcome line on success. Failures still
-				// surface — a silent error must not look like success.
-				if multiFile || !final.ok {
+				final := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+				if !final.ok {
 					printOutcome(final)
 				}
 				resultChan <- final
@@ -502,26 +496,6 @@ func runTasks(
 	return outcomes
 }
 
-// configError marks an error that came from parsing/validating the YAML
-// config (not from the network). The retry loop checks for this type and
-// fails fast — retrying a malformed file or missing env var won't help and
-// just delays the user seeing the real problem.
-type configError struct{ err error }
-
-func (e *configError) Error() string { return e.err.Error() }
-func (e *configError) Unwrap() error { return e.err }
-
-// isRetryable reports whether the runner should retry after this error.
-// Network/transport errors and timeouts are retryable; config errors and
-// unsupported-kind errors are not.
-func isRetryable(err error) bool {
-	if err == nil {
-		return false
-	}
-	var cfgErr *configError
-	return !errors.As(err, &cfgErr)
-}
-
 // processTask handles a single task and returns a structured outcome.
 // Wall-clock duration is measured around the dispatched call so it reflects
 // the actual API latency (plus YAML parse time, which is small).
@@ -530,11 +504,16 @@ func isRetryable(err error) bool {
 // on the parsed config wins over base. The context created here flows into
 // the HTTP client so the request is truly cancelled on deadline — no leaked
 // goroutines.
-func processTask(path string, secretsMap map[string]any, debug bool, baseTimeout time.Duration) outcome {
+func processTask(
+	path string,
+	secretsMap map[string]any,
+	debug bool,
+	baseTimeout time.Duration,
+) outcome {
 	start := time.Now()
 	config, err := yamlparser.ParseConfig(path, secretsMap)
 	if err != nil {
-		return outcome{path: path, ok: false, duration: time.Since(start), err: &configError{err}}
+		return outcome{path: path, ok: false, duration: time.Since(start), err: err}
 	}
 
 	// Resolve per-file timeout: YAML wins over base.
@@ -563,7 +542,7 @@ func processTask(path string, secretsMap map[string]any, debug bool, baseTimeout
 			path:     path,
 			ok:       false,
 			duration: time.Since(start),
-			err:      &configError{fmt.Errorf("unsupported kind in file: %s", path)},
+			err:      fmt.Errorf("unsupported kind in file: %s", path),
 		}
 	}
 }
