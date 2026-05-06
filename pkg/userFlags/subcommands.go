@@ -65,6 +65,7 @@ func subCommands() *command {
 		newDoctorCmd(),
 		newGQLCmd(),
 		newEnvCmd(),
+		newGenDocsCmd(),
 		newHelpCmd(root),
 	}
 
