@@ -245,14 +245,14 @@ func ReadStoreFrom(path string, identity age.Identity) (*Store, error) {
 
 // maybeWarnStoreSize prints a one-time stderr warning if the decrypted store
 // exceeds MaxStoreSizeWarnBytes. Stderr (not stdout) so callers like
-// `hulak env get` captured via $(...) stay clean.
+// `hulak secrets get` captured via $(...) stay clean.
 func maybeWarnStoreSize(size int) {
 	if size <= MaxStoreSizeWarnBytes {
 		return
 	}
 	storeSizeWarnOnce.Do(func() {
 		utils.PrintWarningStderr(fmt.Sprintf(
-			"decrypted store is %.1f MB — large stores can slow `hulak env` operations; consider {{getFile \"path\"}} for big blobs",
+			"decrypted store is %.1f MB — large stores can slow `hulak secrets` operations; consider {{getFile \"path\"}} for big blobs",
 			float64(size)/(1<<20),
 		))
 	})
@@ -268,7 +268,7 @@ func WriteStore(store *Store, recipients ...age.Recipient) error {
 
 	// Encoder with SetEscapeHTML(false) keeps &, <, > literal in values
 	// (e.g. URLs with query params) instead of escaping to \u003c etc.
-	// Indented for readability in hulak env edit.
+	// Indented for readability in hulak secrets edit.
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)

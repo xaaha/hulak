@@ -1,4 +1,4 @@
-// Contains command factories and handlers for hulak env backup and hulak env restore.
+// Contains command factories and handlers for hulak secrets backup and hulak secrets restore.
 package userflags
 
 import (
@@ -38,20 +38,20 @@ func newEnvBackupCmd() *command {
 		Short: "Create a backup of the encrypted store",
 		Long: "Copy store.age to a timestamped backup file after validating decryptability.\n\n" +
 			"Default location: .hulak/backups/store.age.bak.<timestamp>\n" +
-			"Use --out/-o for a custom path. Use 'hulak env backup list' to see existing backups.",
+			"Use --out/-o for a custom path. Use 'hulak secrets backup list' to see existing backups.",
 		Flags: fs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env backup",
+				Command:     "hulak secrets backup",
 				Description: "Create a timestamped backup of encrypted store.age",
 			},
 			{
-				Command:     "hulak env backup -o ~/backups/my.age",
+				Command:     "hulak secrets backup -o ~/backups/my.age",
 				Description: "Backup to a custom path",
 			},
-			{Command: "hulak env backup list", Description: "List existing backups"},
+			{Command: "hulak secrets backup list", Description: "List existing backups"},
 			{
-				Command:     "hulak env backup --out existing.age --force",
+				Command:     "hulak secrets backup --out existing.age --force",
 				Description: "Overwrite an existing backup file",
 			},
 		},
@@ -72,8 +72,8 @@ func newEnvBackupListCmd() *command {
 		Short:   "List existing backups",
 		Long:    "Show all backup files in .hulak/backups/ with timestamps.",
 		Examples: []*utils.CommandHelp{
-			{Command: "hulak env backup list", Description: "List all backups"},
-			{Command: "hulak env backup ls", Description: "Same as list (alias)"},
+			{Command: "hulak secrets backup list", Description: "List all backups"},
+			{Command: "hulak secrets backup ls", Description: "Same as list (alias)"},
 		},
 		Run: func(args []string) error {
 			if len(args) > 0 {
@@ -242,16 +242,16 @@ func newEnvRestoreCmd() *command {
 			{Name: "path", Desc: "Path to backup file (default: latest from .hulak/backups/)"},
 		},
 		Examples: []*utils.CommandHelp{
-			{Command: "hulak env restore", Description: "Restore the latest backup"},
+			{Command: "hulak secrets restore", Description: "Restore the latest backup"},
 			{
-				Command:     "hulak env restore .hulak/backups/store.age.bak.2026-05-01T14-30-00",
+				Command:     "hulak secrets restore .hulak/backups/store.age.bak.2026-05-01T14-30-00",
 				Description: "Restore a specific backup",
 			},
 			{
-				Command:     "hulak env restore ~/backups/my.age",
+				Command:     "hulak secrets restore ~/backups/my.age",
 				Description: "Restore from an external backup",
 			},
-			{Command: "hulak env restore --force", Description: "Skip confirmation prompt"},
+			{Command: "hulak secrets restore --force", Description: "Skip confirmation prompt"},
 		},
 		Run: func(args []string) error {
 			if len(args) > 1 {

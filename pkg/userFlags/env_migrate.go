@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak env migrate.
+// Contains command factory and handler for hulak secrets migrate.
 package userflags
 
 import (
@@ -23,7 +23,7 @@ func newEnvMigrateCmd() *command {
 			"The env/ directory is NOT deleted — remove it manually after verifying the migration.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env migrate",
+				Command:     "hulak secrets migrate",
 				Description: "Migrate all env/*.env files to the vault",
 			},
 		},

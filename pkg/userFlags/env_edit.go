@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak env edit.
+// Contains command factory and handler for hulak secrets edit.
 package userflags
 
 import (
@@ -17,12 +17,12 @@ import (
 )
 
 // envPicker is the function called to interactively pick an environment when
-// the user omits --env on `hulak env edit`. Indirected as a package variable
+// the user omits --env on `hulak secrets edit`. Indirected as a package variable
 // so tests can stub it out — calling the real selector would open a TUI on
 // /dev/tty and wait for keypress, hanging non-interactive test runs.
 var envPicker = envselect.RunEnvSelector
 
-// newEnvEditCmd returns the command struct for `hulak env edit`.
+// newEnvEditCmd returns the command struct for `hulak secrets edit`.
 func newEnvEditCmd() *command {
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
 	editEnv := registerEnvFlag(editFs, "", "Environment to edit (omit to pick interactively)")
@@ -34,23 +34,23 @@ func newEnvEditCmd() *command {
 		Flags: editFs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env edit",
+				Command:     "hulak secrets edit",
 				Description: "Pick an environment from the TUI, then edit",
 			},
 			{
-				Command:     "hulak env edit --env prod",
+				Command:     "hulak secrets edit --env prod",
 				Description: "Edit prod directly (skip the picker)",
 			},
 			{
-				Command:     "hulak env edit --env new_one",
+				Command:     "hulak secrets edit --env new_one",
 				Description: "Create a brand-new environment by name",
 			},
 			{
-				Command:     "EDITOR=nvim hulak env edit --env staging",
+				Command:     "EDITOR=nvim hulak secrets edit --env staging",
 				Description: "Use a specific editor",
 			},
 			{
-				Command:     "EDITOR=\"zed --wait\" hulak env edit --env staging",
+				Command:     "EDITOR=\"zed --wait\" hulak secrets edit --env staging",
 				Description: "GUI editors need a wait flag so hulak waits until you save (zed --wait, code -w)",
 			},
 		},
@@ -58,7 +58,7 @@ func newEnvEditCmd() *command {
 	}
 }
 
-// runEnvEdit handles `hulak env edit`. Decrypts the named environment to a
+// runEnvEdit handles `hulak secrets edit`. Decrypts the named environment to a
 // temporary 0600 JSON file, opens it in $EDITOR (or vi), then validates and
 // writes the result back. The saved JSON REPLACES the environment wholesale —
 // keys removed in the editor are removed from the store. Other environments in
@@ -67,7 +67,7 @@ func newEnvEditCmd() *command {
 // When envName is empty, the user is prompted via the env picker TUI — the
 // same flow as `hulak run`. Edit deliberately does NOT default to "global":
 // editing is destructive enough that we want explicit selection. To create or
-// edit a brand-new env, pass it explicitly: `hulak env edit --env staging`.
+// edit a brand-new env, pass it explicitly: `hulak secrets edit --env staging`.
 //
 // The whole read/edit/validate/write cycle is wrapped in WithStoreLock so an
 // edit cannot race with a parallel set/delete.

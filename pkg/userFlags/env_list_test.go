@@ -1,4 +1,4 @@
-// Contains tests for hulak env list and keys handlers.
+// Contains tests for hulak secrets list and keys handlers.
 package userflags
 
 import (

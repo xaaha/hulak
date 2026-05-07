@@ -19,6 +19,24 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: go test ./... -timeout 60s
+  docs-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Regenerate docs
+        run: go generate ./pkg/userFlags/...
+      - name: Check content drift
+        run: |
+          # Compare content, ignoring whitespace-only differences
+          # so editor auto-formatting doesn't cause false failures.
+          if ! git diff --ignore-all-space --ignore-blank-lines --exit-code -- man/hulak.1 docs/cli.md; then
+            echo ""
+            echo "::error::Docs are out of date. Run 'hulak gendocs' and commit the result."
+            exit 1
+          fi
   lint:
     runs-on: ubuntu-latest
     steps:

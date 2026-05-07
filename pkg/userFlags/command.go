@@ -33,9 +33,10 @@ var hiddenFlags = map[string]bool{
 // command represents a CLI command with optional subcommands and flags
 type command struct {
 	Name        string                    // primary name (e.g. "gql")
-	Aliases     []string                  // alternative names (e.g. "graphql", "GraphQL")
+	Aliases     []string                  // alternative names (e.g. "graphql")
 	Short       string                    // one-line description for parent's help listing
 	Long        string                    // detailed help shown with --help
+	Hidden      bool                      // omit from help listings (still callable)
 	Examples    []*utils.CommandHelp      // usage examples (printed via WriteCommandHelp)
 	Flags       *flag.FlagSet             // scoped flags for this command
 	Args        []argDef                  // positional arg descriptions (for help only)
@@ -148,6 +149,9 @@ func (cmd *command) printHelp() {
 		utils.PrintWarning("COMMANDS")
 		var entries []*utils.CommandHelp
 		for _, sub := range cmd.SubCommands {
+			if sub.Hidden {
+				continue
+			}
 			name := sub.Name
 			if len(sub.Aliases) > 0 {
 				name += " (" + strings.Join(sub.Aliases, ", ") + ")"

@@ -19,7 +19,7 @@ const DefaultTablePadding = 2
 // blobs don't wrap or wreck the terminal; loose enough that typical URLs
 // and IDs print in full.
 //
-// Users who need the full value should run `hulak env get KEY` — the table
+// Users who need the full value should run `hulak secrets get KEY` — the table
 // view is for scanning, the get command is for reading.
 const DefaultTableMaxCellWidth = 60
 
@@ -156,7 +156,7 @@ func PrintTable(out io.Writer, headers []string, rows [][]string, maxCellWidth i
 
 // StdoutHeaders returns headers when stdout is a TTY, nil when piped.
 // Hiding headers under pipe redirection keeps scripts like
-// `for env in $(hulak env list)` clean — the same convention as kubectl / mise.
+// `for env in $(hulak secrets list)` clean — the same convention as kubectl / mise.
 func StdoutHeaders(headers []string) []string {
 	if term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // G115 fd is small non-neg
 		return headers

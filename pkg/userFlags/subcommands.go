@@ -65,6 +65,7 @@ func subCommands() *command {
 		newDoctorCmd(),
 		newGQLCmd(),
 		newEnvCmd(),
+		newGenDocsCmd(),
 		newHelpCmd(root),
 	}
 
@@ -246,7 +247,7 @@ func newGQLCmd() *command {
 
 	gqlCmd := &command{
 		Name:    "gql",
-		Aliases: []string{"graphql", "GraphQL"},
+		Aliases: []string{"graphql"},
 		Short:   "Open the GraphQL explorer",
 		Long:    "Launch an interactive TUI to browse and run GraphQL operations\ndefined in your .yml/.yaml files.",
 		Examples: []*utils.CommandHelp{
@@ -399,30 +400,30 @@ func parseRunArgs(
 
 func newEnvCmd() *command {
 	envCmd := &command{
-		Name:  "env",
+		Name:  "secrets",
 		Short: "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
 			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
 			"The default environment is \"global\" unless --env is specified.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env list",
+				Command:     "hulak secrets list",
 				Description: "List environment names defined in the vault",
 			},
 			{
-				Command:     "hulak env set API_KEY sk-123 --env prod",
+				Command:     "hulak secrets set API_KEY sk-123 --env prod",
 				Description: "Set a secret in the prod environment",
 			},
 			{
-				Command:     "hulak env get API_KEY --env staging",
+				Command:     "hulak secrets get API_KEY --env staging",
 				Description: "Get a secret from the staging environment",
 			},
 			{
-				Command:     "hulak env keys --env prod",
+				Command:     "hulak secrets keys --env prod",
 				Description: "List keys in the prod environment (values masked)",
 			},
 			{
-				Command:     "hulak env delete OLD_KEY",
+				Command:     "hulak secrets delete OLD_KEY",
 				Description: "Delete a key from the default environment",
 			},
 		},
@@ -457,8 +458,8 @@ func newHelpCmd(root *command) *command {
 		Long:  "Print the top-level hulak help.\n\nFor help on a specific command, use `hulak <command> --help` instead.",
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak help", Description: "Show top-level help"},
-			{Command: "hulak env --help", Description: "Show help for a specific command"},
-			{Command: "hulak env keys --help", Description: "Show help for a nested subcommand"},
+			{Command: "hulak secrets --help", Description: "Show help for a specific command"},
+			{Command: "hulak secrets keys --help", Description: "Show help for a nested subcommand"},
 		},
 		Run: func(_ []string) error {
 			root.printHelp()

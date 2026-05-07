@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak env rotate-key.
+// Contains command factory and handler for hulak secrets rotate-key.
 package userflags
 
 import (
@@ -24,7 +24,7 @@ func newEnvRotateKeyCmd() *command {
 			"Distinct from 'rotate' (which re-encrypts without changing keys).",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak env rotate-key",
+				Command:     "hulak secrets rotate-key",
 				Description: "Rotate your identity and re-encrypt the store",
 			},
 		},
@@ -42,7 +42,7 @@ type rotationState struct {
 	recovering     bool
 }
 
-// runRotateKey handles `hulak env rotate-key`.
+// runRotateKey handles `hulak secrets rotate-key`.
 // Generates a new age keypair, swaps it in recipients.txt, re-encrypts the
 // store, and backs up the old private key to identity.txt.old.
 func runRotateKey(args []string) error {
@@ -53,7 +53,7 @@ func runRotateKey(args []string) error {
 	if os.Getenv(utils.MasterKey) != "" {
 		return fmt.Errorf(
 			"rotate-key cannot run while %s is set — "+
-				"run 'hulak env import-key' to move your key to disk first",
+				"run 'hulak secrets import-key' to move your key to disk first",
 			utils.MasterKey,
 		)
 	}
