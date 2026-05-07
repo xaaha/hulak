@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // newGenDocsCmd returns a hidden subcommand that regenerates man/hulak.1
@@ -76,7 +75,10 @@ func findRepoRoot() (string, error) {
 // generateManPage writes the hulak(1) man page in roff format.
 func generateManPage(w io.Writer) {
 	root := subCommands()
-	date := time.Now().Format("January 2006")
+	// Use a fixed epoch so CI regeneration doesn't produce a diff
+	// just because the calendar month rolled over. Bump this when
+	// cutting a release if you want the man page date to advance.
+	date := "May 2026"
 
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
 
