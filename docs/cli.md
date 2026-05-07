@@ -41,16 +41,16 @@ For command-specific help, prefer `hulak <command> --help`.
 
 ## Command Index
 
-| Command   | Purpose                                     | Example                         |
-| --------- | ------------------------------------------- | ------------------------------- |
-| `run`     | Run API request file(s) or directory        | `hulak run path/to/file.yaml`   |
-| `version` | Print hulak version                         | `hulak version`                 |
-| `init`    | Initialize a hulak project                  | `hulak init`                    |
+| Command   | Purpose                                      | Example                               |
+| --------- | -------------------------------------------- | ------------------------------------- |
+| `run` | Run API request file(s) or directory | `hulak run path/to/file.yaml` |
+| `version` | Print hulak version | `hulak version` |
+| `init` | Initialize a hulak project | `hulak init` |
 | `migrate` | Migrate Postman collections to hulak format | `hulak migrate collection.json` |
-| `doctor`  | Check project health                        | `hulak doctor`                  |
-| `gql`     | Open the GraphQL explorer                   | `hulak gql .`                   |
-| `secrets` | Manage encrypted environment secrets        | `hulak secrets list`            |
-| `help`    | Show help for hulak                         | `hulak help`                    |
+| `doctor` | Check project health | `hulak doctor` |
+| `gql` | Open the GraphQL explorer | `hulak gql .` |
+| `secrets` | Manage encrypted environment secrets | `hulak secrets list` |
+| `help` | Show help for hulak | `hulak help` |
 
 ## Core Behaviors
 
@@ -91,13 +91,13 @@ hulak run path/to/dir/ --sequential
 
 Supported flags:
 
-| Flag                     | Meaning                                           |
-| ------------------------ | ------------------------------------------------- |
-| `--debug`                | Enable debug mode                                 |
-| `--env`, `--environment` | Environment to use                                |
-| `--q`, `--quiet`         | Suppress the end-of-run summary table             |
-| `--seq`, `--sequential`  | Run directory files sequentially                  |
-| `--timeout`              | Per-request timeout, e.g. 5m or 90s (default 60s) |
+| Flag | Meaning |
+| ---- | ------- |
+| `--debug` | Enable debug mode |
+| `--env`, `--environment` | Environment to use |
+| `--q`, `--quiet` | Suppress the end-of-run summary table |
+| `--seq`, `--sequential` | Run directory files sequentially |
+| `--timeout` | Per-request timeout, e.g. 5m or 90s (default 60s) |
 
 Notes:
 
@@ -134,8 +134,8 @@ hulak init classic --help
 
 Supported flags:
 
-| Flag    | Meaning                                                        |
-| ------- | -------------------------------------------------------------- |
+| Flag | Meaning |
+| ---- | ------- |
 | `--env` | Create specific environment files instead of the default setup |
 
 Notes:
@@ -178,8 +178,8 @@ hulak gql -env staging .
 
 Supported flags:
 
-| Flag                     | Meaning                                         |
-| ------------------------ | ----------------------------------------------- |
+| Flag | Meaning |
+| ---- | ------- |
 | `--env`, `--environment` | Environment to use (skips interactive selector) |
 
 Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
@@ -199,24 +199,24 @@ hulak secrets keys --env prod
 hulak secrets delete OLD_KEY
 ```
 
-| Subcommand                       | Notes                                           |
-| -------------------------------- | ----------------------------------------------- |
-| `set` (`add`)                    | Set a key-value pair                            |
-| `get` (`g`, `show`, `view`)      | Get a value by key                              |
-| `list` (`ls`, `l`)               | List environment names                          |
-| `keys` (`key`)                   | List keys in an environment                     |
-| `delete` (`rm`, `remove`, `del`) | Delete a key                                    |
-| `edit`                           | Edit secrets interactively                      |
-| `import-key` (`import-identity`) | Import an age identity (private key)            |
-| `export-key` (`export-identity`) | Export the age identity (private key)           |
-| `add-recipient`                  | Add a recipient for shared vault access         |
-| `remove-recipient`               | Remove a recipient                              |
-| `list-recipients`                | List all recipients                             |
-| `rotate` (`sync`, `reencrypt`)   | Re-encrypt the store to current recipients      |
-| `rotate-key` (`rotate-identity`) | Rotate your age identity (keypair)              |
-| `migrate`                        | Migrate env/\*.env files to the encrypted vault |
-| `backup`                         | Create a backup of the encrypted store          |
-| `restore`                        | Restore the encrypted store from a backup       |
+| Subcommand | Notes |
+| ---------- | ----- |
+| `set` (`add`) | Set a key-value pair |
+| `get` (`g`, `show`, `view`) | Get a value by key |
+| `list` (`ls`, `l`) | List environment names |
+| `keys` (`key`) | List keys in an environment |
+| `delete` (`rm`, `remove`, `del`) | Delete a key |
+| `edit` | Edit secrets interactively |
+| `import-key` (`import-identity`) | Import an age identity (private key) |
+| `export-key` (`export-identity`) | Export the age identity (private key) |
+| `add-recipient` | Add a recipient for shared vault access |
+| `remove-recipient` | Remove a recipient |
+| `list-recipients` | List all recipients |
+| `rotate` (`sync`, `reencrypt`) | Re-encrypt the store to current recipients |
+| `rotate-key` (`rotate-identity`) | Rotate your age identity (keypair) |
+| `migrate` | Migrate env/*.env files to the encrypted vault |
+| `backup` | Create a backup of the encrypted store |
+| `restore` | Restore the encrypted store from a backup |
 
 **GUI editors** for `edit`: pass the wait flag in `$EDITOR` so hulak blocks until you save. e.g. `EDITOR="zed --wait"` or `EDITOR="code -w"`. Without it, the editor returns immediately and the file is read back unchanged.
 

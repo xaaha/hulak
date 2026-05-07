@@ -187,23 +187,7 @@ hulak secrets remove-recipient age1ql3z...
 
 ## Commands
 
-| Command                                                  | Purpose                                                |
-| -------------------------------------------------------- | ------------------------------------------------------ |
-| `hulak init`                                             | Generate keypair, write `recipients.txt`               |
-| `hulak secrets set KEY [VALUE] [--env name] [--stdin]`   | Set a secret (interactive prompt if no value)          |
-| `hulak secrets get KEY [--env name]`                     | Print a value to stdout (raw, scriptable)              |
-| `hulak secrets list`                                     | List environment names                                 |
-| `hulak secrets keys [--env name] [--show] [--search p]`  | List keys, masked by default; substring/glob filter    |
-| `hulak secrets delete KEY [--env name]`                  | Remove a key                                           |
-| `hulak secrets edit [--env name]`                        | Open `$EDITOR` on the env (TUI picker if no `--env`)   |
-| `hulak secrets export-key [--out path]`                  | Print or save your private key                         |
-| `hulak secrets import-key path [--force]`                | Restore an identity from a file                        |
-| `hulak secrets add-recipient KEY [--name n] [--stdin]`   | Authorize a new public key (or many via stdin)         |
-| `hulak secrets remove-recipient <key-or-name>`           | Revoke by public key or name label                     |
-| `hulak secrets list-recipients`                          | Show all authorized public keys                        |
-| `hulak secrets rotate` (aliases: `sync`, `reencrypt`)    | Re-encrypt to the current recipient set                |
-| `hulak secrets rotate-key`                               | Generate a new identity, re-encrypt                    |
-| `hulak secrets migrate`                                  | Convert `env/*.env` to `store.age`                     |
+For the full command reference — flags, aliases, and examples — see the [`secrets` section in cli.md](./cli.md#secrets).
 
 > [!Tip]
 > Need a snapshot of `store.age`? Just `cp .hulak/store.age my-backup.age`. The file is already encrypted — copy it anywhere. To restore, copy it back. No dedicated subcommand needed.
