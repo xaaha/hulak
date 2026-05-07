@@ -94,7 +94,7 @@ func generateManPage(w io.Writer) {
 	p(".B hulak")
 	p(".br")
 	for _, sub := range root.SubCommands {
-		if sub.Name == "gendocs" {
+		if sub.Hidden {
 			continue
 		}
 		synopsisLine := manSynopsis(sub, "hulak")
@@ -135,7 +135,7 @@ func generateManPage(w io.Writer) {
 	// COMMANDS
 	p(".SH COMMANDS")
 	for _, sub := range root.SubCommands {
-		if sub.Name == "gendocs" {
+		if sub.Hidden {
 			continue
 		}
 		p(".TP")
@@ -191,7 +191,7 @@ func generateManPage(w io.Writer) {
 	// EXAMPLES
 	p(".SH EXAMPLES")
 	for _, sub := range root.SubCommands {
-		if sub.Name == "gendocs" || len(sub.Examples) == 0 {
+		if sub.Hidden || len(sub.Examples) == 0 {
 			continue
 		}
 		p("%s:", sub.Name)
@@ -342,7 +342,7 @@ func generateCLIMarkdown(w io.Writer) {
 	p("| Command   | Purpose                                      | Example                               |")
 	p("| --------- | -------------------------------------------- | ------------------------------------- |")
 	for _, sub := range root.SubCommands {
-		if sub.Name == "gendocs" {
+		if sub.Hidden {
 			continue
 		}
 		example := ""
@@ -380,7 +380,7 @@ func generateCLIMarkdown(w io.Writer) {
 	p("## Commands")
 	p("")
 	for _, sub := range root.SubCommands {
-		if sub.Name == "gendocs" {
+		if sub.Hidden {
 			continue
 		}
 		mdWriteCommand(w, sub)
