@@ -33,7 +33,7 @@ var hiddenFlags = map[string]bool{
 // command represents a CLI command with optional subcommands and flags
 type command struct {
 	Name        string                    // primary name (e.g. "gql")
-	Aliases     []string                  // alternative names (e.g. "graphql", "GraphQL")
+	Aliases     []string                  // alternative names (e.g. "graphql")
 	Short       string                    // one-line description for parent's help listing
 	Long        string                    // detailed help shown with --help
 	Hidden      bool                      // omit from help listings (still callable)
