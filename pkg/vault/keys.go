@@ -176,7 +176,7 @@ func ResolveIdentity() (*age.X25519Identity, error) {
 func parseMasterKey(raw string) (*age.X25519Identity, error) {
 	identity, err := age.ParseX25519Identity(raw)
 	if err != nil {
-		if strings.HasPrefix(raw, "age1") {
+		if strings.HasPrefix(raw, AgePrefix) {
 			return nil, fmt.Errorf(
 				"%s contains what looks like a public key (age1...), not a private key. "+
 					"Private keys start with AGE-SECRET-KEY-",
