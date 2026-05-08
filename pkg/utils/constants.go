@@ -44,6 +44,13 @@ const (
 	MasterKey = "HULAK_MASTER_KEY"
 )
 
+// SSH identity support
+const (
+	SSHIdentityEnvVar = "HULAK_SSH_IDENTITY"
+	SSHKeyDir         = ".ssh"
+	SSHKeyFile        = "id_ed25519"
+)
+
 // Editor is the fallback editor used when $EDITOR is unset. POSIX guarantees
 // `vi`, so this works in bare/minimal environments (Alpine, distroless, etc.)
 // where vim/nano may not be installed. Users who prefer something else should
