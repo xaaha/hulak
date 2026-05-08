@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+
+	"golang.org/x/term"
 )
 
 // ColorError Creates an error message that optionally includes an additional error.
@@ -142,6 +144,23 @@ func ConfirmAction(prompt string) (bool, error) {
 	}
 	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 	return answer == "y" || answer == "yes", nil
+}
+
+// PromptSecret prints prompt to stderr and reads input with no echo.
+// Requires stdin to be a terminal — returns an error if piped.
+// Prints a trailing newline to stderr after input (ReadPassword swallows it).
+func PromptSecret(prompt string) (string, error) {
+	stdinFd := int(os.Stdin.Fd()) //nolint:gosec // G115 fd is small non-neg
+	if !term.IsTerminal(stdinFd) {
+		return "", fmt.Errorf("stdin is not a terminal — cannot prompt for secret input")
+	}
+	fmt.Fprint(os.Stderr, prompt)
+	bytes, err := term.ReadPassword(stdinFd)
+	fmt.Fprintln(os.Stderr) // newline after hidden input
+	if err != nil {
+		return "", fmt.Errorf("failed to read input: %w", err)
+	}
+	return string(bytes), nil
 }
 
 // HelpfulError formats a multi-line error with a title, a section heading, and a
