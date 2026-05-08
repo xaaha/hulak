@@ -219,7 +219,7 @@ func TestAddRecipientEntry(t *testing.T) {
 		key2, _ := GenerateKeyPair()
 
 		existing := []RecipientEntry{{Key: key1.Recipient.String(), Name: "Alice"}}
-		got, err := AddRecipientEntry(existing, key2.Recipient.String(), "Bob")
+		got, err := AddRecipientEntry(existing, key2.Recipient.String(), "Bob", false)
 		if err != nil {
 			t.Fatalf("error: %v", err)
 		}
@@ -231,14 +231,14 @@ func TestAddRecipientEntry(t *testing.T) {
 	t.Run("rejects duplicate key", func(t *testing.T) {
 		key1, _ := GenerateKeyPair()
 		existing := []RecipientEntry{{Key: key1.Recipient.String(), Name: "Alice"}}
-		_, err := AddRecipientEntry(existing, key1.Recipient.String(), "Alice Again")
+		_, err := AddRecipientEntry(existing, key1.Recipient.String(), "Alice Again", false)
 		if err == nil {
 			t.Fatal("expected duplicate error")
 		}
 	})
 
 	t.Run("rejects malformed key", func(t *testing.T) {
-		_, err := AddRecipientEntry(nil, "not-a-valid-key", "Bad")
+		_, err := AddRecipientEntry(nil, "not-a-valid-key", "Bad", false)
 		if err == nil {
 			t.Fatal("expected parse error")
 		}
@@ -246,7 +246,7 @@ func TestAddRecipientEntry(t *testing.T) {
 
 	t.Run("no name produces empty Name field", func(t *testing.T) {
 		key1, _ := GenerateKeyPair()
-		got, err := AddRecipientEntry(nil, key1.Recipient.String(), "")
+		got, err := AddRecipientEntry(nil, key1.Recipient.String(), "", false)
 		if err != nil {
 			t.Fatalf("error: %v", err)
 		}

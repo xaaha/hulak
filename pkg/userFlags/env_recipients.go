@@ -109,7 +109,7 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 
 		// Add each key
 		for _, pubKey := range pubKeys {
-			entries, err = vault.AddRecipientEntry(entries, pubKey, name)
+			entries, err = vault.AddRecipientEntry(entries, pubKey, name, false)
 			if err != nil {
 				return err
 			}
