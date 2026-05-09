@@ -302,6 +302,7 @@ func newRunCmd() *command {
 	var debug bool
 	var quiet bool
 	var timeout time.Duration
+	var sshIdentity string
 	fs.BoolVar(&sequential, "sequential", false, "Run directory files sequentially")
 	fs.BoolVar(&sequential, "seq", false, "Run directory files sequentially")
 	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
@@ -313,6 +314,7 @@ func newRunCmd() *command {
 		0,
 		"Per-request timeout, e.g. 5m or 90s (default 60s)",
 	)
+	fs.StringVar(&sshIdentity, "ssh-identity", "", "Path to SSH private key for vault decryption")
 
 	runCmd := &command{
 		Name:  "run",
@@ -334,6 +336,10 @@ func newRunCmd() *command {
 				Command:     "hulak run path/to/dir/ --sequential",
 				Description: "Run directory files sequentially",
 			},
+			{
+				Command:     "hulak run path/to/file.yaml --ssh-identity ~/.ssh/work_ed25519",
+				Description: "Use a specific SSH key for vault decryption",
+			},
 		},
 		Flags: fs,
 		Args: []argDef{
@@ -347,7 +353,7 @@ func newRunCmd() *command {
 			return nil
 		}
 
-		f, err := parseRunArgs(*envFlagVal, sequential, debug, quiet, timeout, args)
+		f, err := parseRunArgs(*envFlagVal, sequential, debug, quiet, timeout, sshIdentity, args)
 		if err != nil {
 			return err
 		}
@@ -367,6 +373,7 @@ func parseRunArgs(
 	envFlagVal string,
 	sequential, debug, quiet bool,
 	timeout time.Duration,
+	sshIdentity string,
 	args []string,
 ) (*runner.Flags, error) {
 	path := args[0]
@@ -376,7 +383,7 @@ func parseRunArgs(
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
 	}
 
-	f := &runner.Flags{Debug: debug, Quiet: quiet, Timeout: timeout}
+	f := &runner.Flags{Debug: debug, Quiet: quiet, Timeout: timeout, SSHIdentity: sshIdentity}
 
 	if envFlagVal != "" {
 		f.Env = envFlagVal
