@@ -10,17 +10,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/xaaha/hulak/pkg/httpclient"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// HTTPClient interface allows mocking HTTP calls in tests
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-// DefaultClient is the production HTTP client
-var DefaultClient HTTPClient = &http.Client{}
+// DefaultClient is the production HTTP client.
+// Uses httpclient.New() for shared redirect policy and TLS defaults.
+var DefaultClient httpclient.HTTPClient = httpclient.New()
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
@@ -34,7 +31,7 @@ func StandardCallWithClient(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
-	client HTTPClient,
+	client httpclient.HTTPClient,
 ) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
 		apiInfo.Headers = map[string]string{}
