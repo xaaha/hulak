@@ -83,5 +83,5 @@ func DefaultSSHIdentityPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, utils.SSHKeyDir, utils.SSHKeyFile)
+	return filepath.Join(home, sshKeyDir, sshKeyFile)
 }
