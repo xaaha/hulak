@@ -48,13 +48,17 @@ Hulak uses [age](https://age-encryption.org/) — a modern, file-based encryptio
 age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
 
 # Bob (added 2026-03-20)
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBobsPublicKeyHere
+
+# Carol (added 2026-04-01)
 age1yr5tpz76yxqeg5ktrp7g2wgkxfmq9rmef0gxhvsky2pyv6lsf8msgmd00n
 ```
 
-- **One age public key per line.**
+- **One public key per line** — both `age1...` and `ssh-ed25519` formats are supported.
 - **`#` comments are supported.** Use them to label keys (name, date added, role).
 - **Blank lines are ignored.**
-- Same format as the `-R` flag in the `age` CLI — tooling-compatible.
+- `ssh-rsa` keys are accepted with `--allow-rsa` but ed25519 is recommended.
+- `ecdsa` keys are not supported (age limitation).
 
 > [!Tip]
 > Add a comment above each key with the person's name and the date you added them. Future-you will thank present-you when someone asks "wait, who is `age1ql3z...`?".
@@ -94,6 +98,27 @@ hulak secrets migrate
 
 The legacy `env/` directory is left in place. Vault takes priority while both exist. Delete `env/` once you're confident.
 
+## Identity
+
+Hulak needs a private key to decrypt `store.age`. It checks these locations in order:
+
+| Priority | Source | When to use |
+|----------|--------|-------------|
+| 1 | `HULAK_MASTER_KEY` env var | CI/CD pipelines |
+| 2 | `~/.config/hulak/identity.txt` | Default — dedicated age keypair |
+| 3 | `HULAK_SSH_IDENTITY` env var | Point at a specific SSH key |
+| 4 | `~/.ssh/id_ed25519` | Auto-detected if no age identity exists |
+
+If you use SSH for git, hulak can reuse your existing SSH key — no separate keypair needed. Just make sure your SSH public key is added as a recipient (via `--github` or directly).
+
+```bash
+# Use a specific SSH key for this run
+hulak run requests/get-user.yaml --ssh-identity ~/.ssh/work_ed25519
+
+# Or set it for the session
+export HULAK_SSH_IDENTITY=~/.ssh/work_ed25519
+```
+
 ## Identity backup
 
 The single biggest pitfall is losing your private key. Two ways to protect against it:
@@ -121,16 +146,41 @@ hulak secrets import-key ~/Downloads/identity-backup.txt
 
 A single `store.age` can be encrypted to many recipients. Each teammate has their own private key; any of them can decrypt the shared file.
 
-### Joining a team
+### Joining a team (with GitHub — recommended)
+
+If the new member uses SSH for git, they already have keys published on GitHub. No key exchange needed:
+
+```bash
+# === Existing team member ===
+hulak secrets add-recipient --github alice --name Alice
+# ✓ Fetched 2 ssh-ed25519 keys from https://github.com/alice.keys
+# ✓ Added 2 recipients
+
+git add .hulak/recipients.txt .hulak/store.age
+git commit -m "add Alice as recipient"
+git push
+
+# === New member (Alice) ===
+git pull
+hulak secrets get API_KEY --env prod
+# Just works — her ~/.ssh/id_ed25519 matches one of the recipients
+```
+
+This also works with self-hosted GitLab, Forgejo, or any server that publishes keys at `/<username>.keys`:
+
+```bash
+hulak secrets add-recipient --github alice --keyserver https://gitlab.company.com --name Alice
+```
+
+### Joining a team (with age keys)
+
+If the new member prefers a dedicated age keypair:
 
 ```bash
 # === New member's machine ===
 hulak init
 # Shows their public key in the output:
 #   Public key: age1bob...
-
-hulak secrets list-recipients
-# Shows their own key
 ```
 
 The new member sends their **public key** (`age1bob...`) to an existing team member via Slack, email, or a PR. **Public keys are not secret.** Never share the private key from `~/.config/hulak/identity.txt`.
@@ -138,7 +188,7 @@ The new member sends their **public key** (`age1bob...`) to an existing team mem
 ```bash
 # === Existing team member ===
 hulak secrets add-recipient age1bob... --name Bob
-# ✓ Added recipient age1bob...
+# ✓ Added 1 recipient
 
 git add .hulak/recipients.txt .hulak/store.age
 git commit -m "add Bob as recipient"
@@ -305,5 +355,5 @@ Yes, during migration. Vault takes priority. After verifying everything works, d
 **How big can a single value be?**
 Functionally, anything. Practically, hulak warns at 64 KB and recommends `{{getFile "path"}}` for large blobs (certs, JSON fixtures) — those are read from disk on demand instead of decrypted on every invocation.
 
-**Does this work with hardware security keys / SSH keys?**
-Not yet. age supports SSH ed25519 keys natively, which would let `~/.ssh/id_ed25519` double as a hulak identity. Tracked in [#170](https://github.com/xaaha/hulak/issues/170).
+**Does this work with SSH keys?**
+Yes. Both `ssh-ed25519` public keys (as recipients) and `~/.ssh/id_ed25519` private keys (as identities) are supported. See [Identity](#identity) and [Team sharing](#team-sharing) above. Use `--github <username>` to add teammates directly from their GitHub SSH keys.

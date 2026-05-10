@@ -42,6 +42,9 @@ type Flags struct {
 	Timeout time.Duration
 	// Quiet suppresses the end-of-run summary table for multi-file runs.
 	Quiet bool
+	// SSHIdentity overrides the SSH key path for vault decryption.
+	// Propagated via HULAK_SSH_IDENTITY for the duration of this execution.
+	SSHIdentity string
 }
 
 // DefaultTimeout is the per-request timeout used when no override is set
@@ -57,6 +60,13 @@ const HulakTimeoutEnv = "HULAK_TIMEOUT"
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
+	// If --ssh-identity is set and the env var isn't already set by the shell,
+	// propagate it so ResolveIdentity picks it up for vault decryption.
+	if f.SSHIdentity != "" && os.Getenv(utils.SSHIdentityEnvVar) == "" {
+		os.Setenv(utils.SSHIdentityEnvVar, f.SSHIdentity)
+		defer os.Unsetenv(utils.SSHIdentityEnvVar)
+	}
+
 	// Resolve the flag/env layer of the timeout chain up front so a malformed
 	// HULAK_TIMEOUT fails fast before any request work begins.
 	baseTimeout, err := resolveBaseTimeout(f.Timeout)
