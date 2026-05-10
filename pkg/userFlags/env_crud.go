@@ -10,8 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/term"
-
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -144,31 +142,8 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 		return args[1], nil
 
 	default:
-		return promptSecretValue(key)
+		return utils.PromptSecret(fmt.Sprintf("Enter value for %s: ", key))
 	}
-}
-
-// promptSecretValue reads a value from the terminal with no echo, no shell
-// history. The prompt and trailing newline go to stderr so a misuse like
-// `FOO=$(hulak secrets set BAR)` never captures them into the variable.
-func promptSecretValue(key string) (string, error) {
-	stdinFd := int(os.Stdin.Fd()) //nolint:gosec // G115 fd is small non-neg
-	// ensure intput is coming from terminal
-	if !term.IsTerminal(stdinFd) {
-		return "", errors.New(
-			"no value provided and stdin is not a terminal — pass VALUE positionally or use --stdin",
-		)
-	}
-	//nolint:gosec // G705 TTY prompt, no taint sink
-	fmt.Fprintf(os.Stderr, "Enter value for %s: ", key)
-	// read input without echo
-	bytes, err := term.ReadPassword(stdinFd)
-	// newline to stderr
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return "", fmt.Errorf("failed to read input: %w", err)
-	}
-	return string(bytes), nil
 }
 
 // newEnvGetCmd returns the command struct for `hulak secrets get`.

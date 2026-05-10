@@ -324,7 +324,7 @@ func TestRunRestore_ReencryptsToCurrentRecipients(t *testing.T) {
 
 	// Add a second recipient
 	newKey, _ := vault.GenerateKeyPair()
-	if err := runAddRecipient([]string{newKey.Recipient.String()}, "teammate", false); err != nil {
+	if err := runAddRecipient([]string{newKey.Recipient.String()}, "teammate", false, "", "", false); err != nil {
 		t.Fatalf("add recipient: %v", err)
 	}
 

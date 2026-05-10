@@ -88,7 +88,8 @@ func TestRunRotateKey(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if newIdentity.String() == oldID.String() {
+		newX25519 := newIdentity.(*age.X25519Identity)
+		if newX25519.String() == oldID.String() {
 			t.Error("identity should have changed")
 		}
 
@@ -125,7 +126,7 @@ func TestRunRotateKey(t *testing.T) {
 		if strings.Contains(content, oldID.Recipient().String()) {
 			t.Error("old public key should not be in recipients.txt")
 		}
-		if !strings.Contains(content, newIdentity.Recipient().String()) {
+		if !strings.Contains(content, newX25519.Recipient().String()) {
 			t.Error("new public key should be in recipients.txt")
 		}
 	})
@@ -224,13 +225,14 @@ func TestRunRotateKey(t *testing.T) {
 
 		// Second rotation
 		midID, _ := vault.ResolveIdentity()
+		midX25519 := midID.(*age.X25519Identity)
 		if err := runRotateKey(nil); err != nil {
 			t.Fatalf("second rotation error: %v", err)
 		}
 
 		// Now .old should have the mid identity, not firstID
 		old2, _ := vault.LoadIdentityOld()
-		if old2.String() != midID.String() {
+		if old2.String() != midX25519.String() {
 			t.Error("second .old should be mid identity, not first")
 		}
 	})

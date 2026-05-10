@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 )
 
-// MockHTTPClient implements HTTPClient interface for testing
+// MockHTTPClient implements httpclient.HTTPClient interface for testing
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }

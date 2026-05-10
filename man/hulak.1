@@ -6,7 +6,7 @@ hulak \- file-based API client for the terminal
 .SH SYNOPSIS
 .B hulak
 .br
-.B hulak run [\-\-debug] [\-\-env] [\-\-q] [\-\-seq] [\-\-timeout] <path>
+.B hulak run [\-\-debug] [\-\-env] [\-\-q] [\-\-seq] [\-\-ssh-identity] [\-\-timeout] <path>
 .br
 .B hulak version
 .br
@@ -89,6 +89,9 @@ Suppress the end\-of\-run summary table
 .B \-\-seq, \-\-sequential
 Run directory files sequentially
 .TP
+.B \-\-ssh-identity <string>
+Path to SSH private key for vault decryption
+.TP
 .B \-\-timeout <duration>
 Per\-request timeout, e\&.g\&. 5m or 90s (default 60s)
 
@@ -161,6 +164,9 @@ hulak run path/to/dir/
 .RE
 .RS
 hulak run path/to/dir/ \-\-sequential
+.RE
+.RS
+hulak run path/to/file\&.yaml \-\-ssh\-identity ~/\&.ssh/work_ed25519
 .RE
 .PP
 version:

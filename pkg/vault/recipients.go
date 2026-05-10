@@ -31,7 +31,8 @@ func RecipientsFilePath() (string, error) {
 	return filepath.Join(markerPath, utils.RecipientsFile), nil
 }
 
-// LoadRecipients reads .hulak/recipients.txt via age.ParseRecipients.
+// LoadRecipients reads .hulak/recipients.txt and returns age.Recipient values.
+// Supports both age (age1...) and SSH (ssh-ed25519, ssh-rsa) key formats.
 // Returns error if the file is missing or contains zero recipients.
 func LoadRecipients() ([]age.Recipient, error) {
 	path, err := RecipientsFilePath()
@@ -44,16 +45,12 @@ func LoadRecipients() ([]age.Recipient, error) {
 		return nil, fmt.Errorf("failed to read recipients file: %w", err)
 	}
 
-	recipients, err := age.ParseRecipients(bytes.NewReader(data))
+	entries, err := ParseRecipientsFileContent(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse recipients: %w", err)
+		return nil, err
 	}
 
-	if len(recipients) == 0 {
-		return nil, fmt.Errorf("recipients file contains no valid recipients")
-	}
-
-	return recipients, nil
+	return RecipientsFromEntries(entries)
 }
 
 // ParseRecipientsFileContent reads raw bytes and returns structured entries
@@ -123,9 +120,10 @@ func SaveRecipients(entries []RecipientEntry) error {
 
 // AddRecipientEntry validates the new key, checks for duplicates, and returns
 // the updated entry list. Does not write to disk — caller does that.
-func AddRecipientEntry(entries []RecipientEntry, pubKey, name string) ([]RecipientEntry, error) {
-	if _, err := age.ParseX25519Recipient(pubKey); err != nil {
-		return nil, fmt.Errorf("invalid age public key: %w", err)
+// Set allowRSA to true to accept ssh-rsa keys.
+func AddRecipientEntry(entries []RecipientEntry, pubKey, name string, allowRSA bool) ([]RecipientEntry, error) {
+	if _, _, err := ParseRecipientKey(pubKey, allowRSA); err != nil {
+		return nil, err
 	}
 
 	for _, e := range entries {
@@ -212,12 +210,14 @@ func SwapRecipientKey(
 }
 
 // RecipientsFromEntries converts RecipientEntry slice to age.Recipient slice.
+// Accepts all key types already present in recipients.txt (including ssh-rsa),
+// since they were validated at add time.
 func RecipientsFromEntries(entries []RecipientEntry) ([]age.Recipient, error) {
 	recipients := make([]age.Recipient, len(entries))
 	for i, e := range entries {
-		r, err := age.ParseX25519Recipient(e.Key)
+		r, _, err := ParseRecipientKey(e.Key, true)
 		if err != nil {
-			return nil, fmt.Errorf("invalid key in recipients: %w", err)
+			return nil, fmt.Errorf("invalid key in recipients.txt line %d: %w", i+1, err)
 		}
 		recipients[i] = r
 	}

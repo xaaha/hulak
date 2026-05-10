@@ -327,8 +327,9 @@ func TestResolveIdentity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveIdentity() error: %v", err)
 		}
-		if got.String() != envID.String() {
-			t.Errorf("got %q, want env var identity %q", got.String(), envID.String())
+		x25519 := got.(*age.X25519Identity)
+		if x25519.String() != envID.String() {
+			t.Errorf("got %q, want env var identity %q", x25519.String(), envID.String())
 		}
 	})
 
@@ -345,8 +346,9 @@ func TestResolveIdentity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveIdentity() error: %v", err)
 		}
-		if got.String() != fileID.String() {
-			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		x25519 := got.(*age.X25519Identity)
+		if x25519.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", x25519.String(), fileID.String())
 		}
 	})
 
@@ -363,8 +365,9 @@ func TestResolveIdentity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveIdentity() error: %v", err)
 		}
-		if got.String() != fileID.String() {
-			t.Errorf("got %q, want file identity %q", got.String(), fileID.String())
+		x25519 := got.(*age.X25519Identity)
+		if x25519.String() != fileID.String() {
+			t.Errorf("got %q, want file identity %q", x25519.String(), fileID.String())
 		}
 	})
 
@@ -377,8 +380,9 @@ func TestResolveIdentity(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResolveIdentity() error: %v", err)
 		}
-		if got.String() != envID.String() {
-			t.Errorf("got %q, want %q", got.String(), envID.String())
+		x25519 := got.(*age.X25519Identity)
+		if x25519.String() != envID.String() {
+			t.Errorf("got %q, want %q", x25519.String(), envID.String())
 		}
 	})
 
@@ -412,9 +416,11 @@ func TestResolveIdentity(t *testing.T) {
 		}
 	})
 
-	t.Run("no env var and no file gives original error", func(t *testing.T) {
+	t.Run("no env var and no file gives helpful error", func(t *testing.T) {
 		setupConfigDir(t)
 		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir()) // empty home, no ~/.ssh/id_ed25519
 
 		_, err := ResolveIdentity()
 		if err == nil {
@@ -706,6 +712,109 @@ func TestLoadIdentityOld(t *testing.T) {
 		_, err := LoadIdentityOld()
 		if err == nil {
 			t.Error("LoadIdentityOld() should error when no .old file")
+		}
+	})
+}
+
+func TestResolveIdentitySSHFallback(t *testing.T) {
+	t.Run("falls back to HULAK_SSH_IDENTITY", func(t *testing.T) {
+		setupConfigDir(t) // no identity.txt
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+
+		dir := t.TempDir()
+		keyPath, _ := writeTestSSHKey(t, dir)
+		t.Setenv("HULAK_SSH_IDENTITY", keyPath)
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if got == nil {
+			t.Fatal("identity is nil")
+		}
+	})
+
+	t.Run("falls back to default SSH key", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+
+		home := t.TempDir()
+		sshDir := filepath.Join(home, ".ssh")
+		if err := os.MkdirAll(sshDir, 0o700); err != nil {
+			t.Fatalf("mkdir .ssh: %v", err)
+		}
+		writeTestSSHKey(t, sshDir)
+		t.Setenv("HOME", home)
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if got == nil {
+			t.Fatal("identity is nil")
+		}
+	})
+
+	t.Run("age identity.txt wins over SSH", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+
+		ageID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(ageID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		dir := t.TempDir()
+		keyPath, _ := writeTestSSHKey(t, dir)
+		t.Setenv("HULAK_SSH_IDENTITY", keyPath)
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		x25519, ok := got.(*age.X25519Identity)
+		if !ok {
+			t.Fatal("expected X25519Identity when identity.txt exists")
+		}
+		if x25519.String() != ageID.String() {
+			t.Error("should use age identity over SSH")
+		}
+	})
+
+	t.Run("HULAK_MASTER_KEY wins over everything", func(t *testing.T) {
+		setupConfigDir(t)
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.String())
+
+		dir := t.TempDir()
+		keyPath, _ := writeTestSSHKey(t, dir)
+		t.Setenv("HULAK_SSH_IDENTITY", keyPath)
+
+		got, err := ResolveIdentity()
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		x25519, ok := got.(*age.X25519Identity)
+		if !ok {
+			t.Fatal("expected X25519Identity from HULAK_MASTER_KEY")
+		}
+		if x25519.String() != envID.String() {
+			t.Error("HULAK_MASTER_KEY should win")
+		}
+	})
+
+	t.Run("no identity anywhere gives helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir()) // empty home, no ~/.ssh/id_ed25519
+
+		_, err := ResolveIdentity()
+		if err == nil {
+			t.Fatal("expected error")
 		}
 	})
 }

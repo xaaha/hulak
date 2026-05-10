@@ -159,24 +159,65 @@ func LoadIdentityOld() (*age.X25519Identity, error) {
 	return identity, nil
 }
 
-// ResolveIdentity returns the age identity to use for decryption.
-// Precedence: HULAK_MASTER_KEY env var → ~/.config/hulak/identity.txt.
-//
-// Wraps parse errors with user-friendly messages:
-//   - public key in env var → "this looks like a public key"
-//   - garbage in env var → hint at AGE-SECRET-KEY- format
-func ResolveIdentity() (*age.X25519Identity, error) {
+// ResolveIdentity returns the identity to use for decryption.
+// Precedence: HULAK_MASTER_KEY → identity.txt → HULAK_SSH_IDENTITY → ~/.ssh/id_ed25519.
+// Returns age.Identity (interface) — callers should not assume X25519.
+func ResolveIdentity() (age.Identity, error) {
+	// 1. HULAK_MASTER_KEY (highest precedence)
 	if raw := strings.TrimSpace(os.Getenv(utils.MasterKey)); raw != "" {
 		return parseMasterKey(raw)
 	}
-	return LoadIdentity()
+
+	// 2. identity.txt
+	if IdentityExists() {
+		return LoadIdentity()
+	}
+
+	// 3. HULAK_SSH_IDENTITY env var
+	if sshPath := strings.TrimSpace(os.Getenv(utils.SSHIdentityEnvVar)); sshPath != "" {
+		identity, err := LoadSSHIdentity(sshPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s is set but key could not be loaded: %w", utils.SSHIdentityEnvVar, err)
+		}
+		utils.PrintInfoStderr(fmt.Sprintf("Using SSH identity %s", sshPath))
+		return identity, nil
+	}
+
+	// 4. Default ~/.ssh/id_ed25519
+	defaultPath := DefaultSSHIdentityPath()
+	if defaultPath != "" && utils.FileExists(defaultPath) {
+		identity, err := LoadSSHIdentity(defaultPath)
+		if err == nil {
+			utils.PrintInfoStderr(fmt.Sprintf("Using SSH identity %s (no identity.txt found)", defaultPath))
+			return identity, nil
+		}
+		// Don't error on auto-fallback failure — fall through to helpful error
+	}
+
+	// 5. Nothing found
+	return nil, noIdentityError()
+}
+
+// noIdentityError returns a helpful error when no identity could be resolved.
+func noIdentityError() error {
+	return utils.HelpfulError(
+		"no identity found — cannot decrypt the vault",
+		"Set up an identity using one of these methods",
+		[]string{
+			"Run 'hulak init' to generate an age keypair",
+			"Import an existing key with 'hulak secrets import-key'",
+			fmt.Sprintf("Set %s to an AGE-SECRET-KEY- value (for CI)", utils.MasterKey),
+			fmt.Sprintf("Set %s to point at your SSH private key", utils.SSHIdentityEnvVar),
+			"Place an ed25519 SSH key at ~/.ssh/id_ed25519 (auto-detected)",
+		},
+	)
 }
 
 // parseMasterKey parses the HULAK_MASTER_KEY value with friendly errors.
 func parseMasterKey(raw string) (*age.X25519Identity, error) {
 	identity, err := age.ParseX25519Identity(raw)
 	if err != nil {
-		if strings.HasPrefix(raw, "age1") {
+		if strings.HasPrefix(raw, AgePrefix) {
 			return nil, fmt.Errorf(
 				"%s contains what looks like a public key (age1...), not a private key. "+
 					"Private keys start with AGE-SECRET-KEY-",

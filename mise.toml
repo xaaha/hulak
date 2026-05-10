@@ -83,6 +83,10 @@ go test ./pkg/... -timeout 30s
 echo "All checks passed!"      
 """
 
+[tasks.gendocs]
+description = "Regenerate docs/cli.md and man/hulak.1 from command tree"
+run = "go run . gendocs"
+
 [tasks.bench]
 description = "Run benchmarks"
 run = "go test -bench=. -benchmem ./... 2>&1 | grep '^Benchmark' | head -10"
