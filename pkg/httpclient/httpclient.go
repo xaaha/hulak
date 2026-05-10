@@ -24,7 +24,7 @@ type Client struct {
 
 // New returns a Client with sensible defaults:
 //   - No client-level timeout (use context for per-request deadlines)
-//   - Max 1 redirect, no HTTPS → HTTP downgrade
+//   - Redirects follow Go default (10), but HTTPS → HTTP downgrades are blocked
 //
 // Callers control timeout via context.WithTimeout on each request.
 func New() *Client {

@@ -62,8 +62,13 @@ const HulakTimeoutEnv = "HULAK_TIMEOUT"
 func Execute(f *Flags) error {
 	// If --ssh-identity is set and the env var isn't already set by the shell,
 	// propagate it so ResolveIdentity picks it up for vault decryption.
+	// Uses env var (same mechanism as HULAK_MASTER_KEY) rather than threading
+	// through 4 function signatures across 3 packages. Safe because Setenv
+	// runs before any goroutines launch and Unsetenv runs after all complete.
 	if f.SSHIdentity != "" && os.Getenv(utils.SSHIdentityEnvVar) == "" {
-		os.Setenv(utils.SSHIdentityEnvVar, f.SSHIdentity)
+		if err := os.Setenv(utils.SSHIdentityEnvVar, f.SSHIdentity); err != nil {
+			return fmt.Errorf("failed to set %s: %w", utils.SSHIdentityEnvVar, err)
+		}
 		defer os.Unsetenv(utils.SSHIdentityEnvVar)
 	}
 

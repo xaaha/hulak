@@ -119,7 +119,6 @@ func resolveRecipientKeys(
 
 	if useStdin {
 		data, err := io.ReadAll(os.Stdin)
-		// Read current entries
 		if err != nil {
 			return nil, fmt.Errorf("failed to read stdin: %w", err)
 		}

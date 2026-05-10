@@ -140,6 +140,28 @@ func TestFetchKeysFromURL(t *testing.T) {
 	})
 }
 
+func TestKeyserverFetchIntegration(t *testing.T) {
+	ed25519Key := testSSHEd25519PubKey(t)
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the URL path matches the keyserver pattern
+		if r.URL.Path != "/alice.keys" {
+			t.Errorf("unexpected path %q, want /alice.keys", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(ed25519Key + "\n"))
+	}))
+	defer ts.Close()
+
+	url := KeyserverKeysURL(ts.URL, "alice")
+	keys, err := FetchKeysFromURL(url, testClient(ts))
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Fatalf("expected 1 key, got %d", len(keys))
+	}
+}
+
 func TestFilterKeysByType(t *testing.T) {
 	ed25519Key := testSSHEd25519PubKey(t)
 	rsaKey := testSSHRSAPubKey(t)

@@ -94,6 +94,8 @@ func FetchKeysFromURL(url string, client *httpclient.Client) ([]string, error) {
 
 // FilterKeysByType categorizes SSH public key strings by type using
 // ClassifyKeyType. Keys are sorted into ed25519, RSA, and skipped buckets.
+// Note: sshEd25519/sshRSA constants must match the strings returned by
+// ClassifyKeyType (which derives them from the ssh library's key type field).
 func FilterKeysByType(keys []string) (ed25519Keys, rsaKeys, skippedKeys []string) {
 	for _, key := range keys {
 		switch ClassifyKeyType(key) {

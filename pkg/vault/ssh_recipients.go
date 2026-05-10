@@ -49,6 +49,13 @@ func ClassifyKeyType(key string) KeyType {
 func ParseRecipientKey(key string, allowRSA bool) (age.Recipient, KeyType, error) {
 	k := strings.TrimSpace(key)
 
+	// Sanity check: public keys are short. A line longer than this is not a
+	// valid key — reject early before handing to the ssh parser.
+	const maxKeyLen = 8 << 10 // 8 KiB — generous for RSA 4096; ed25519 is ~80 bytes
+	if len(k) > maxKeyLen {
+		return nil, "", fmt.Errorf("key too large (%d bytes, max %d)", len(k), maxKeyLen)
+	}
+
 	// Try age X25519 first
 	if strings.HasPrefix(k, AgePrefix) {
 		r, err := age.ParseX25519Recipient(k)
