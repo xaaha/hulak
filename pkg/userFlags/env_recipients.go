@@ -25,36 +25,70 @@ func newEnvAddRecipientCmd() *command {
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
 	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
+	addRecipientGitHub := addRecipientFs.String("github", "", "Fetch ed25519 keys from GitHub (username)")
+	addRecipientKeyserver := addRecipientFs.String("keyserver", "", "Base URL of keyserver (e.g. https://gitlab.com)")
+	addRecipientAllowRSA := addRecipientFs.Bool("allow-rsa", false, "Also accept ssh-rsa keys (lower security margin)")
 
 	return &command{
 		Name:  "add-recipient",
 		Short: "Add a recipient for shared vault access",
-		Long:  "Add an age public key as a recipient so another user can decrypt the vault.\n\nThe vault is re-encrypted to all current recipients plus the new one.\nUse --name to add a human-readable label.",
+		Long: "Add an age or SSH public key as a recipient so another user can decrypt the vault.\n\n" +
+			"The vault is re-encrypted to all current recipients plus the new one.\n" +
+			"Use --name to add a human-readable label.\n" +
+			"Use --github to fetch a user's SSH keys directly from GitHub.",
 		Flags: addRecipientFs,
-		Args:  []argDef{{Name: "public-key", Required: true, Desc: "Age public key to add"}},
+		Args:  []argDef{{Name: "public-key", Desc: "Age or SSH public key to add (not needed with --github)"}},
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets add-recipient age1ql3z...",
-				Description: "Add a teammate's public key",
+				Description: "Add a teammate's age public key",
 			},
 			{
-				Command:     "hulak secrets add-recipient age1ql3z... --name Alice",
-				Description: "Add with a label",
+				Command:     "hulak secrets add-recipient \"ssh-ed25519 AAAA...\" --name Alice",
+				Description: "Add an SSH ed25519 public key",
+			},
+			{
+				Command:     "hulak secrets add-recipient --github alice --name Alice",
+				Description: "Fetch and add Alice's ed25519 keys from GitHub",
+			},
+			{
+				Command:     "hulak secrets add-recipient --github alice --keyserver https://gitlab.com --name Alice",
+				Description: "Fetch from a self-hosted GitLab",
 			},
 			{
 				Command:     "cat keys.txt | hulak secrets add-recipient --stdin --name Team",
 				Description: "Add multiple keys from stdin",
 			},
 		},
-		Run: func(args []string) error { return runAddRecipient(args, *addRecipientName, *addRecipientStdin) },
+		Run: func(args []string) error {
+			return runAddRecipient(args, *addRecipientName, *addRecipientStdin, *addRecipientGitHub, *addRecipientKeyserver, *addRecipientAllowRSA)
+		},
 	}
 }
 
-// resolveRecipientKeys returns public keys to add. From --stdin (one per line,
-// blank lines and # comments ignored) or from positional arg. Error if both.
-func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
-	if useStdin && len(args) > 0 {
-		return nil, errors.New("cannot use both --stdin and a positional key — pick one")
+// resolveRecipientKeys returns public keys to add from --stdin, --github, or positional arg.
+func resolveRecipientKeys(args []string, useStdin bool, gitHubUser, keyserverURL string, allowRSA bool) ([]string, error) {
+	sources := 0
+	if useStdin {
+		sources++
+	}
+	if gitHubUser != "" {
+		sources++
+	}
+	if len(args) > 0 {
+		sources++
+	}
+	if sources > 1 {
+		return nil, errors.New("use exactly one of: positional key, --stdin, or --github")
+	}
+
+	if gitHubUser != "" {
+		baseURL := vault.GitHubKeysBase
+		if keyserverURL != "" {
+			baseURL = keyserverURL
+		}
+		url := vault.KeyserverKeysURL(baseURL, gitHubUser)
+		return fetchAndFilterKeys(url, allowRSA)
 	}
 
 	if useStdin {
@@ -77,7 +111,7 @@ func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
 	}
 
 	if len(args) == 0 {
-		return nil, errors.New("missing required argument: public-key")
+		return nil, errors.New("missing required argument: public-key (or use --github <username>)")
 	}
 	if len(args) > 1 {
 		return nil, fmt.Errorf("too many arguments: got %d, expected 1 (public-key)", len(args))
@@ -85,15 +119,53 @@ func resolveRecipientKeys(args []string, useStdin bool) ([]string, error) {
 	return []string{args[0]}, nil
 }
 
-// runAddRecipient handles `hulak secrets add-recipient <public-key> [--name n] [--stdin]`.
-func runAddRecipient(args []string, name string, useStdin bool) error {
-	pubKeys, err := resolveRecipientKeys(args, useStdin)
+// fetchAndFilterKeys fetches keys from a URL, filters by type, and returns
+// the keys to add. Prints warnings for skipped key types.
+func fetchAndFilterKeys(url string, allowRSA bool) ([]string, error) {
+	allKeys, err := vault.FetchKeysFromURL(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ed25519Keys, rsaKeys, skipped := vault.FilterKeysByType(allKeys)
+
+	var keys []string
+	keys = append(keys, ed25519Keys...)
+
+	if len(rsaKeys) > 0 {
+		if allowRSA {
+			utils.PrintWarningStderr(fmt.Sprintf(
+				"Including %d ssh-rsa key(s) (lower security margin)", len(rsaKeys),
+			))
+			keys = append(keys, rsaKeys...)
+		} else {
+			utils.PrintWarningStderr(fmt.Sprintf(
+				"Skipped %d ssh-rsa key(s) — use --allow-rsa to include them", len(rsaKeys),
+			))
+		}
+	}
+
+	if len(skipped) > 0 {
+		utils.PrintWarningStderr(fmt.Sprintf(
+			"Skipped %d unsupported key(s)", len(skipped),
+		))
+	}
+
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no ed25519 keys found — ask the user to upload an ed25519 SSH key")
+	}
+
+	return keys, nil
+}
+
+// runAddRecipient handles `hulak secrets add-recipient`.
+func runAddRecipient(args []string, name string, useStdin bool, gitHubUser, keyserverURL string, allowRSA bool) error {
+	pubKeys, err := resolveRecipientKeys(args, useStdin, gitHubUser, keyserverURL, allowRSA)
 	if err != nil {
 		return err
 	}
 
 	return vault.WithStoreLock(func() error {
-		// Read current entries
 		recipPath, err := vault.RecipientsFilePath()
 		if err != nil {
 			return err
@@ -107,12 +179,28 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 			return err
 		}
 
-		// Add each key
+		// Build recipient name with source info for GitHub fetches
+		recipientName := name
+		if gitHubUser != "" && name == "" {
+			recipientName = gitHubUser
+		}
+
+		added := 0
 		for _, pubKey := range pubKeys {
-			entries, err = vault.AddRecipientEntry(entries, pubKey, name, false)
-			if err != nil {
-				return err
+			newEntries, addErr := vault.AddRecipientEntry(entries, pubKey, recipientName, allowRSA)
+			if addErr != nil {
+				if strings.Contains(addErr.Error(), "already in recipients") {
+					continue // skip duplicates silently
+				}
+				return addErr
 			}
+			entries = newEntries
+			added++
+		}
+
+		if added == 0 {
+			utils.PrintWarningStderr("No new recipients added (all duplicates)")
+			return nil
 		}
 
 		// Re-encrypt store to all recipients including new ones
@@ -126,7 +214,7 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 		}
 
 		// Write store first (prefer store updated + stale recipients
-		//	over recipients updated + stale store)
+		// over recipients updated + stale store)
 		recipients, err := vault.RecipientsFromEntries(entries)
 		if err != nil {
 			return err
@@ -138,14 +226,10 @@ func runAddRecipient(args []string, name string, useStdin bool) error {
 			return err
 		}
 
-		if len(pubKeys) == 1 {
-			keyPrefix := pubKeys[0]
-			if len(keyPrefix) > EllipsisLength {
-				keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
-			}
-			utils.PrintSuccessStderr(fmt.Sprintf("Added recipient %s", keyPrefix))
+		if added == 1 {
+			utils.PrintSuccessStderr("Added 1 recipient")
 		} else {
-			utils.PrintSuccessStderr(fmt.Sprintf("Added %d recipients", len(pubKeys)))
+			utils.PrintSuccessStderr(fmt.Sprintf("Added %d recipients", added))
 		}
 		return nil
 	})
@@ -286,11 +370,12 @@ func runListRecipients(args []string) error {
 		if len(keyPrefix) > EllipsisLength {
 			keyPrefix = keyPrefix[:EllipsisLength] + utils.Ellipsis
 		}
-		rows[idx] = []string{name, keyPrefix}
+		kt := vault.ClassifyKeyType(entry.Key)
+		rows[idx] = []string{name, string(kt), keyPrefix}
 	}
 	return utils.PrintTable(
 		os.Stdout,
-		utils.StdoutHeaders([]string{"NAME", "KEY"}),
+		utils.StdoutHeaders([]string{"NAME", "TYPE", "KEY"}),
 		rows,
 		0,
 	)
