@@ -25,9 +25,21 @@ func newEnvAddRecipientCmd() *command {
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
 	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
-	addRecipientGitHub := addRecipientFs.String("github", "", "Fetch ed25519 keys from GitHub (username)")
-	addRecipientKeyserver := addRecipientFs.String("keyserver", "", "Base URL of keyserver (e.g. https://gitlab.com)")
-	addRecipientAllowRSA := addRecipientFs.Bool("allow-rsa", false, "Also accept ssh-rsa keys (lower security margin)")
+	addRecipientGitHub := addRecipientFs.String(
+		"github",
+		"",
+		"Fetch ed25519 keys from GitHub (username)",
+	)
+	addRecipientKeyserver := addRecipientFs.String(
+		"keyserver",
+		"",
+		"Base URL of keyserver (e.g. https://gitlab.com)",
+	)
+	addRecipientAllowRSA := addRecipientFs.Bool(
+		"allow-rsa",
+		false,
+		"Also accept ssh-rsa keys (lower security margin)",
+	)
 
 	return &command{
 		Name:  "add-recipient",
@@ -37,7 +49,9 @@ func newEnvAddRecipientCmd() *command {
 			"Use --name to add a human-readable label.\n" +
 			"Use --github to fetch a user's SSH keys directly from GitHub.",
 		Flags: addRecipientFs,
-		Args:  []argDef{{Name: "public-key", Desc: "Age or SSH public key to add (not needed with --github)"}},
+		Args: []argDef{
+			{Name: "public-key", Desc: "Age or SSH public key to add (not needed with --github)"},
+		},
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets add-recipient age1ql3z...",
@@ -61,13 +75,25 @@ func newEnvAddRecipientCmd() *command {
 			},
 		},
 		Run: func(args []string) error {
-			return runAddRecipient(args, *addRecipientName, *addRecipientStdin, *addRecipientGitHub, *addRecipientKeyserver, *addRecipientAllowRSA)
+			return runAddRecipient(
+				args,
+				*addRecipientName,
+				*addRecipientStdin,
+				*addRecipientGitHub,
+				*addRecipientKeyserver,
+				*addRecipientAllowRSA,
+			)
 		},
 	}
 }
 
 // resolveRecipientKeys returns public keys to add from --stdin, --github, or positional arg.
-func resolveRecipientKeys(args []string, useStdin bool, gitHubUser, keyserverURL string, allowRSA bool) ([]string, error) {
+func resolveRecipientKeys(
+	args []string,
+	useStdin bool,
+	gitHubUser, keyserverURL string,
+	allowRSA bool,
+) ([]string, error) {
 	sources := 0
 	if useStdin {
 		sources++
@@ -93,6 +119,7 @@ func resolveRecipientKeys(args []string, useStdin bool, gitHubUser, keyserverURL
 
 	if useStdin {
 		data, err := io.ReadAll(os.Stdin)
+		// Read current entries
 		if err != nil {
 			return nil, fmt.Errorf("failed to read stdin: %w", err)
 		}
@@ -159,7 +186,13 @@ func fetchAndFilterKeys(url string, allowRSA bool) ([]string, error) {
 }
 
 // runAddRecipient handles `hulak secrets add-recipient`.
-func runAddRecipient(args []string, name string, useStdin bool, gitHubUser, keyserverURL string, allowRSA bool) error {
+func runAddRecipient(
+	args []string,
+	name string,
+	useStdin bool,
+	gitHubUser, keyserverURL string,
+	allowRSA bool,
+) error {
 	pubKeys, err := resolveRecipientKeys(args, useStdin, gitHubUser, keyserverURL, allowRSA)
 	if err != nil {
 		return err
