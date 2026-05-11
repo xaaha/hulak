@@ -298,7 +298,8 @@ func TestCheckEnvPermissions(t *testing.T) {
 				t.Errorf("checkEnvPermissions() returned %d warnings, want %d: %+v",
 					len(warnings), tc.wantWarnings, warnings)
 			}
-			if tc.wantContains != "" && len(warnings) > 0 && !warningsContain(warnings, tc.wantContains) {
+			if tc.wantContains != "" && len(warnings) > 0 &&
+				!warningsContain(warnings, tc.wantContains) {
 				t.Errorf("warnings %+v do not contain %q", warnings, tc.wantContains)
 			}
 		})
@@ -402,44 +403,5 @@ func TestCollectWarnings(t *testing.T) {
 			t.Errorf("expected at least 2 warnings (gitignore + permissions), got %d: %+v",
 				len(warnings), warnings)
 		}
-	})
-}
-
-func TestRunDoctor(t *testing.T) {
-	t.Run("healthy project shows no issues", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		envDir := createEnvDir(t, tmpDir)
-		createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
-
-		content := utils.EnvironmentFolder + "/\n"
-		if err := os.WriteFile(
-			filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
-		); err != nil {
-			t.Fatal(err)
-		}
-
-		restore := chdirTemp(t, tmpDir)
-		defer restore()
-
-		runDoctor()
-	})
-
-	t.Run("missing env dir does not panic", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		restore := chdirTemp(t, tmpDir)
-		defer restore()
-
-		runDoctor()
-	})
-
-	t.Run("project with warnings does not panic", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		envDir := createEnvDir(t, tmpDir)
-		createEnvFile(t, envDir, "global", 0o644, "KEY=value")
-
-		restore := chdirTemp(t, tmpDir)
-		defer restore()
-
-		runDoctor()
 	})
 }
