@@ -211,7 +211,9 @@ func newMigrateCmd() *command {
 	return &command{
 		Name:  "migrate",
 		Short: "Migrate Postman collections to hulak format",
-		Long:  "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.",
+		Long: "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.\n\n" +
+			"Only Postman collections and environments are supported at this time.\n" +
+			"To migrate plaintext env/ files to the encrypted vault, use 'hulak secrets migrate' instead.",
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak migrate collection.json", Description: "Migrate a Postman collection"},
 			{
@@ -227,16 +229,31 @@ func newMigrateCmd() *command {
 }
 
 func newDoctorCmd() *command {
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	fixFlag := fs.Bool("fix", false, "Auto-repair safe issues (chmod, .gitignore)")
+	yesFlag := fs.Bool("yes", false, "Skip confirmation prompts (use with --fix)")
+	jsonFlag := fs.Bool("json", false, "Output findings as JSON to stdout")
+
 	return &command{
 		Name:  "doctor",
 		Short: "Check project health",
-		Long:  "Inspect your hulak project for common issues: missing .gitignore entries,\nloose file permissions on env files, and secrets leaked into git history.",
+		Long: "Inspect your hulak project for common issues.\n\n" +
+			"Vault backend: identity, store, recipients, and drift checks.\n" +
+			"Classic backend: .gitignore, file permissions, git history.",
+		Flags: fs,
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak doctor", Description: "Run all health checks"},
+			{Command: "hulak doctor --fix", Description: "Auto-repair safe issues"},
+			{Command: "hulak doctor --fix --yes", Description: "Auto-repair without prompts"},
+			{Command: "hulak doctor --json", Description: "Output findings as JSON"},
 		},
 		Run: func(_ []string) error {
-			runDoctor()
-			return nil
+			runDoctor(doctorOpts{
+				fix:     *fixFlag,
+				yes:     *yesFlag,
+				jsonOut: *jsonFlag,
+			})
+			return nil // runDoctor calls os.Exit
 		},
 	}
 }
