@@ -149,6 +149,9 @@ Notes:
 
 Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.
 
+Only Postman collections and environments are supported at this time.
+To migrate plaintext env/ files to the encrypted vault, use 'hulak secrets migrate' instead.
+
 ```bash
 hulak migrate collection.json
 hulak migrate env.json collection.json
@@ -156,12 +159,25 @@ hulak migrate env.json collection.json
 
 ### `doctor`
 
-Inspect your hulak project for common issues: missing .gitignore entries,
-loose file permissions on env files, and secrets leaked into git history.
+Inspect your hulak project for common issues.
+
+Vault backend: identity, store, recipients, and drift checks.
+Classic backend: .gitignore, file permissions, git history.
 
 ```bash
 hulak doctor
+hulak doctor --fix
+hulak doctor --fix --yes
+hulak doctor --json
 ```
+
+Supported flags:
+
+| Flag | Meaning |
+| ---- | ------- |
+| `--fix` | Auto-repair safe issues (chmod, .gitignore) |
+| `--json` | Output findings as JSON to stdout |
+| `--yes` | Skip confirmation prompts (use with --fix) |
 
 ### `gql`
 
