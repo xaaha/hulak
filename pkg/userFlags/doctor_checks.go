@@ -74,8 +74,11 @@ func checkIdentityMode() finding {
 	}
 }
 
-// checkIdentityNotInGit walks parents of identity file looking for .git/.
-// Follows symlinks. Check #3.
+// checkIdentityNotInGit verifies the identity file is not tracked by git.
+// Walks parents looking for .git/, then uses git ls-files to distinguish
+// "tracked" (sevError) from "in repo but untracked" (sevWarn). The latter
+// is common with dotfiles managers (yadm, stow) that place .git/ above
+// ~/.config but typically don't track the identity. Check #3.
 func checkIdentityNotInGit() finding {
 	path, err := vault.IdentityPath()
 	if err != nil || !utils.FileExists(path) {
@@ -92,15 +95,38 @@ func checkIdentityNotInGit() finding {
 		resolved = path
 	}
 
-	// Walk up from both original and resolved paths
-	for _, p := range uniquePaths(filepath.Dir(path), filepath.Dir(resolved)) {
-		if isInsideGitRepo(p) {
+	// Check both original and resolved paths (catches symlinked dotfiles)
+	type candidate struct {
+		dir  string // directory containing identity file
+		file string // full path to identity file
+	}
+	candidates := []candidate{{filepath.Dir(path), path}}
+	if resolved != path {
+		candidates = append(candidates, candidate{filepath.Dir(resolved), resolved})
+	}
+
+	for _, c := range candidates {
+		if !isInsideGitRepo(c.dir) {
+			continue
+		}
+
+		// .git/ found in a parent. Check whether the file is actually
+		// tracked — dotfiles managers commonly place .git/ above
+		// ~/.config but don't track the identity file.
+		if isFileGitTracked(c.dir, c.file) {
 			return finding{
 				check:    "identity-in-git",
 				severity: sevError,
-				message:  fmt.Sprintf("identity file is inside a git repository (%s)", p),
-				fix:      "move identity.txt outside any git-tracked directory",
+				message:  fmt.Sprintf("identity file is tracked by git (%s)", c.dir),
+				fix:      "remove from tracking with 'git rm --cached <path>' and add to .gitignore",
 			}
+		}
+
+		return finding{
+			check:    "identity-in-git",
+			severity: sevWarn,
+			message:  fmt.Sprintf("identity file is inside a git repository (%s) but not tracked", c.dir),
+			fix:      "verify identity.txt stays in .gitignore, or move it outside the repo",
 		}
 	}
 
@@ -126,12 +152,16 @@ func isInsideGitRepo(dir string) bool {
 	}
 }
 
-// uniquePaths deduplicates two directory paths.
-func uniquePaths(a, b string) []string {
-	if a == b {
-		return []string{a}
+// isFileGitTracked checks if filePath is tracked (committed or staged) by git.
+// dir should be within the git repo. Returns false if git is unavailable or
+// the path is not inside a valid git repository.
+func isFileGitTracked(dir, filePath string) bool {
+	if _, err := exec.LookPath("git"); err != nil {
+		return false
 	}
-	return []string{a, b}
+	cmd := exec.Command("git", "ls-files", "--error-unmatch", filePath)
+	cmd.Dir = dir
+	return cmd.Run() == nil
 }
 
 // checkIdentityLeakedInProject scans tracked files for AGE-SECRET-KEY- prefix.
@@ -662,6 +692,8 @@ func checkRecipientDrift() finding {
 // countStanzas counts lines starting with "->" in the age binary header
 // (before the "---" MAC line). Returns error if the file is armored or
 // doesn't look like a valid age binary file.
+// Note: hulak always writes the binary (non-armored) age format, so
+// rejecting armored files here is expected.
 func countStanzas(path string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {

@@ -167,30 +167,30 @@ func (r *doctorReport) printJSON() {
 
 // --- --fix flow ------------------------------------------------------------
 
+// runFixes applies auto-fixable findings. Findings were already printed by
+// printHuman, so this only shows the fix prompt and result.
 func (r *doctorReport) runFixes(autoYes bool) {
 	for i, f := range r.findings {
 		if f.auto == nil {
 			continue
 		}
-		printFinding(f)
 
 		if !autoYes {
-			ok, err := utils.ConfirmAction("  Fix? [Y/n] ")
+			ok, err := utils.ConfirmAction(fmt.Sprintf("  Fix %s (%s)? [Y/n] ", f.check, f.fix))
 			if err != nil || !ok {
 				continue
 			}
 		}
 
 		if err := f.auto(); err != nil {
-			utils.PrintErrorStderr(fmt.Sprintf("  failed: %v", err))
+			utils.PrintErrorStderr(fmt.Sprintf("  fix %s failed: %v", f.check, err))
 			continue
 		}
 
-		// re-check shows green on success
 		r.findings[i].severity = sevOk
 		r.findings[i].fix = ""
 		r.findings[i].auto = nil
-		utils.PrintSuccessStderr("  fixed")
+		utils.PrintSuccessStderr(fmt.Sprintf("  fixed: %s", f.check))
 	}
 }
 
@@ -202,18 +202,20 @@ type doctorOpts struct {
 	jsonOut bool
 }
 
-func runDoctor(opts doctorOpts) {
+// runDoctor runs all health checks and returns the exit code:
+// 0 = ok/info only, 1 = warnings, 2 = errors.
+func runDoctor(opts doctorOpts) int {
 	projectRoot, found := utils.FindProjectRoot()
 	storeType := vault.DetectStore()
 
 	if opts.fix && opts.jsonOut {
 		utils.PrintErrorStderr("--fix and --json are mutually exclusive")
-		os.Exit(1)
+		return 1
 	}
 
 	if !found || storeType == vault.StoreNone {
 		utils.PrintInfoStderr("Not a hulak project. Run 'hulak init' to start one.")
-		return
+		return 0
 	}
 
 	report := &doctorReport{project: projectRoot}
@@ -229,7 +231,7 @@ func runDoctor(opts doctorOpts) {
 
 	if opts.jsonOut {
 		report.printJSON()
-		os.Exit(report.exitCode())
+		return report.exitCode()
 	}
 
 	if opts.fix {
@@ -239,7 +241,7 @@ func runDoctor(opts doctorOpts) {
 		report.printHuman()
 	}
 
-	os.Exit(report.exitCode())
+	return report.exitCode()
 }
 
 // collectVaultFindings runs all vault-aware checks.
@@ -273,26 +275,39 @@ func collectVaultFindings() []finding {
 func collectClassicFindings(projectRoot string) []finding {
 	envPath := filepath.Join(projectRoot, utils.EnvironmentFolder)
 
-	// Print inventory header
 	printInventory(envPath)
 
-	// Run legacy checks and convert to findings
-	warnings := collectWarnings(envPath)
-
 	var findings []finding
-	if len(warnings) == 0 {
+	for _, w := range checkGitignore() {
+		findings = append(findings, finding{
+			check:    "classic-gitignore",
+			severity: sevWarn,
+			message:  w.message,
+			fix:      w.fix,
+		})
+	}
+	for _, w := range checkEnvPermissions(envPath) {
+		findings = append(findings, finding{
+			check:    "classic-permissions",
+			severity: sevWarn,
+			message:  w.message,
+			fix:      w.fix,
+		})
+	}
+	for _, w := range checkGitHistory() {
+		findings = append(findings, finding{
+			check:    "classic-git-history",
+			severity: sevWarn,
+			message:  w.message,
+			fix:      w.fix,
+		})
+	}
+
+	if len(findings) == 0 {
 		findings = append(findings, finding{
 			check:    "classic-health",
 			severity: sevOk,
 			message:  "classic backend looks healthy",
-		})
-	}
-	for _, w := range warnings {
-		findings = append(findings, finding{
-			check:    "classic-issue",
-			severity: sevWarn,
-			message:  w.message,
-			fix:      w.fix,
 		})
 	}
 

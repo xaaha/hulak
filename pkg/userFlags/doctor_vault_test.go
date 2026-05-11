@@ -1,8 +1,10 @@
 package userflags
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -165,10 +167,10 @@ func TestCheckIdentityNotInGit(t *testing.T) {
 		assertFindingSeverity(t, &f, "identity-in-git", sevOk)
 	})
 
-	t.Run("error when identity is inside git repo", func(t *testing.T) {
+	t.Run("warn when identity is inside git repo but not tracked", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create a git repo and put identity inside it
+		// Create a fake git repo dir and put identity inside it
 		gitDir := filepath.Join(tmpDir, "dotfiles")
 		if err := os.MkdirAll(filepath.Join(gitDir, ".git"), utils.DirPer); err != nil {
 			t.Fatal(err)
@@ -187,13 +189,48 @@ func TestCheckIdentityNotInGit(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", configDir)
 
 		f := checkIdentityNotInGit()
-		assertFindingSeverity(t, &f, "identity-in-git", sevError)
+		assertFindingSeverity(t, &f, "identity-in-git", sevWarn)
+		if !strings.Contains(f.message, "not tracked") {
+			t.Errorf("expected 'not tracked' in message, got: %s", f.message)
+		}
 	})
 
-	t.Run("error when identity is symlinked into git repo", func(t *testing.T) {
+	t.Run("error when identity is actually tracked by git", func(t *testing.T) {
+		if _, lookErr := exec.LookPath("git"); lookErr != nil {
+			t.Skip("git not available")
+		}
+
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, "dotfiles")
+		configDir := filepath.Join(repoDir, "config")
+		hulakConfigDir := filepath.Join(configDir, utils.ProjectName)
+		if err := os.MkdirAll(hulakConfigDir, utils.SecretDirPer); err != nil {
+			t.Fatal(err)
+		}
+		identityPath := filepath.Join(hulakConfigDir, utils.IdentityFile)
+		if err := os.WriteFile(identityPath, []byte("AGE-SECRET-KEY-test\n"), utils.SecretPer); err != nil {
+			t.Fatal(err)
+		}
+
+		// Init real git repo and track the identity file
+		restore := chdirTemp(t, repoDir)
+		gitInit(t)
+		gitAddCommit(t, "track identity")
+		restore()
+
+		t.Setenv("XDG_CONFIG_HOME", configDir)
+
+		f := checkIdentityNotInGit()
+		assertFindingSeverity(t, &f, "identity-in-git", sevError)
+		if !strings.Contains(f.message, "tracked by git") {
+			t.Errorf("expected 'tracked by git' in message, got: %s", f.message)
+		}
+	})
+
+	t.Run("warn when identity is symlinked into git repo but not tracked", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		// Create a git repo (simulates dotfiles repo)
+		// Create a fake git repo (simulates dotfiles repo)
 		dotfilesDir := filepath.Join(tmpDir, "dotfiles")
 		if err := os.MkdirAll(filepath.Join(dotfilesDir, ".git"), utils.DirPer); err != nil {
 			t.Fatal(err)
@@ -221,7 +258,7 @@ func TestCheckIdentityNotInGit(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "symlinked-config"))
 
 		f := checkIdentityNotInGit()
-		assertFindingSeverity(t, &f, "identity-in-git", sevError)
+		assertFindingSeverity(t, &f, "identity-in-git", sevWarn)
 	})
 }
 
@@ -749,4 +786,274 @@ func TestSeverityString(t *testing.T) {
 			t.Errorf("severity(%d).String() = %q, want %q", tc.s, got, tc.want)
 		}
 	}
+}
+
+// ── JSON output ─────────────────────────────────────────────────────────
+
+func TestPrintJSON(t *testing.T) {
+	r := &doctorReport{
+		project: "/test/project",
+		backend: "vault (.hulak/store.age)",
+		findings: []finding{
+			{check: "test-ok", severity: sevOk, message: "all good"},
+			{check: "test-warn", severity: sevWarn, message: "fixme", fix: "do X", auto: func() error { return nil }},
+			{check: "test-info", severity: sevInfo, message: "fyi"},
+		},
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	rp, wp, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = wp
+	r.printJSON()
+	wp.Close()
+	os.Stdout = oldStdout
+
+	var jr jsonReport
+	if err := json.NewDecoder(rp).Decode(&jr); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+
+	if jr.Project != "/test/project" {
+		t.Errorf("project: got %q", jr.Project)
+	}
+	if jr.Backend != "vault (.hulak/store.age)" {
+		t.Errorf("backend: got %q", jr.Backend)
+	}
+	if len(jr.Findings) != 3 {
+		t.Fatalf("findings: got %d, want 3", len(jr.Findings))
+	}
+
+	// Verify check IDs and severity strings
+	if jr.Findings[0].Check != "test-ok" || jr.Findings[0].Severity != "ok" {
+		t.Errorf("finding[0]: %+v", jr.Findings[0])
+	}
+	if jr.Findings[1].Check != "test-warn" || jr.Findings[1].Severity != "warn" {
+		t.Errorf("finding[1]: %+v", jr.Findings[1])
+	}
+	if !jr.Findings[1].AutoFixable {
+		t.Error("finding[1] should be auto_fixable")
+	}
+	if jr.Findings[2].Check != "test-info" || jr.Findings[2].Severity != "info" {
+		t.Errorf("finding[2]: %+v", jr.Findings[2])
+	}
+
+	// Summary
+	if jr.Summary.Ok != 1 || jr.Summary.Warn != 1 || jr.Summary.Info != 1 || jr.Summary.Error != 0 {
+		t.Errorf("summary: %+v", jr.Summary)
+	}
+}
+
+// ── runFixes ────────────────────────────────────────────────────────────
+
+func TestRunFixesWithFailure(t *testing.T) {
+	callCount := 0
+	r := &doctorReport{
+		findings: []finding{
+			{
+				check:    "will-fail",
+				severity: sevWarn,
+				message:  "bad perms",
+				fix:      "chmod 600",
+				auto:     func() error { return fmt.Errorf("permission denied") },
+			},
+			{
+				check:    "will-succeed",
+				severity: sevWarn,
+				message:  "other issue",
+				fix:      "fix it",
+				auto: func() error {
+					callCount++
+					return nil
+				},
+			},
+		},
+	}
+
+	// Run with --yes to skip prompts
+	r.runFixes(true)
+
+	// Failed fix should keep severity
+	if r.findings[0].severity != sevWarn {
+		t.Errorf("failed fix should keep sevWarn, got %v", r.findings[0].severity)
+	}
+	if r.findings[0].auto == nil {
+		t.Error("failed fix should keep auto func")
+	}
+
+	// Successful fix should upgrade to sevOk
+	if r.findings[1].severity != sevOk {
+		t.Errorf("successful fix should be sevOk, got %v", r.findings[1].severity)
+	}
+	if r.findings[1].auto != nil {
+		t.Error("successful fix should clear auto func")
+	}
+	if callCount != 1 {
+		t.Errorf("expected successful auto to be called once, got %d", callCount)
+	}
+}
+
+// ── runDoctor integration ───────────────────────────────────────────────
+
+func TestRunDoctor(t *testing.T) {
+	t.Run("not a hulak project returns 0", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		code := runDoctor(doctorOpts{})
+		if code != 0 {
+			t.Errorf("expected exit code 0 for non-project dir, got %d", code)
+		}
+	})
+
+	t.Run("healthy classic project returns 0", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
+
+		content := utils.EnvironmentFolder + "/\n"
+		if err := os.WriteFile(
+			filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
+		); err != nil {
+			t.Fatal(err)
+		}
+
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		code := runDoctor(doctorOpts{})
+		// Classic always has migrate-suggestion (info), so 0 is expected
+		if code != 0 {
+			t.Errorf("expected exit code 0 for healthy classic project, got %d", code)
+		}
+	})
+
+	t.Run("classic project with warnings returns 1", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		// Loose permissions → warning
+		createEnvFile(t, envDir, "global", 0o644, "KEY=value")
+
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		code := runDoctor(doctorOpts{})
+		if code != 1 {
+			t.Errorf("expected exit code 1 for classic project with warnings, got %d", code)
+		}
+	})
+
+	t.Run("fix and json are mutually exclusive", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		createEnvDir(t, tmpDir)
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		code := runDoctor(doctorOpts{fix: true, jsonOut: true})
+		if code != 1 {
+			t.Errorf("expected exit code 1 for --fix --json, got %d", code)
+		}
+	})
+
+	t.Run("json output is valid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envDir := createEnvDir(t, tmpDir)
+		createEnvFile(t, envDir, "global", utils.SecretPer, "KEY=value")
+		content := utils.EnvironmentFolder + "/\n"
+		if err := os.WriteFile(
+			filepath.Join(tmpDir, ".gitignore"), []byte(content), utils.FilePer,
+		); err != nil {
+			t.Fatal(err)
+		}
+
+		restore := chdirTemp(t, tmpDir)
+		defer restore()
+
+		// Capture stdout
+		oldStdout := os.Stdout
+		rp, wp, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.Stdout = wp
+		code := runDoctor(doctorOpts{jsonOut: true})
+		wp.Close()
+		os.Stdout = oldStdout
+
+		if code != 0 {
+			t.Errorf("expected exit code 0, got %d", code)
+		}
+
+		var jr jsonReport
+		if err := json.NewDecoder(rp).Decode(&jr); err != nil {
+			t.Fatalf("JSON output is not valid: %v", err)
+		}
+		if jr.Backend != "classic (env/)" {
+			t.Errorf("backend: got %q, want classic", jr.Backend)
+		}
+	})
+}
+
+// ── isFileGitTracked ────────────────────────────────────────────────────
+
+func TestIsFileGitTracked(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	t.Run("tracked file returns true", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "tracked.txt")
+		if err := os.WriteFile(filePath, []byte("data"), utils.FilePer); err != nil {
+			t.Fatal(err)
+		}
+
+		restore := chdirTemp(t, tmpDir)
+		gitInit(t)
+		gitAddCommit(t, "add file")
+		restore()
+
+		if !isFileGitTracked(tmpDir, filePath) {
+			t.Error("expected tracked file to return true")
+		}
+	})
+
+	t.Run("untracked file returns false", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a tracked file so git init has something to commit
+		if err := os.WriteFile(filepath.Join(tmpDir, "readme.txt"), []byte("hi"), utils.FilePer); err != nil {
+			t.Fatal(err)
+		}
+		restore := chdirTemp(t, tmpDir)
+		gitInit(t)
+		gitAddCommit(t, "initial")
+		restore()
+
+		// Now add an untracked file
+		untrackedPath := filepath.Join(tmpDir, "untracked.txt")
+		if err := os.WriteFile(untrackedPath, []byte("data"), utils.FilePer); err != nil {
+			t.Fatal(err)
+		}
+
+		if isFileGitTracked(tmpDir, untrackedPath) {
+			t.Error("expected untracked file to return false")
+		}
+	})
+
+	t.Run("non-git dir returns false", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file.txt")
+		if err := os.WriteFile(filePath, []byte("data"), utils.FilePer); err != nil {
+			t.Fatal(err)
+		}
+
+		if isFileGitTracked(tmpDir, filePath) {
+			t.Error("expected non-git dir to return false")
+		}
+	})
 }

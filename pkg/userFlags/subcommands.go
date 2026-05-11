@@ -244,12 +244,12 @@ func newDoctorCmd() *command {
 			{Command: "hulak doctor --json", Description: "Output findings as JSON"},
 		},
 		Run: func(_ []string) error {
-			runDoctor(doctorOpts{
+			os.Exit(runDoctor(doctorOpts{
 				fix:     *fixFlag,
 				yes:     *yesFlag,
 				jsonOut: *jsonFlag,
-			})
-			return nil // runDoctor calls os.Exit
+			}))
+			return nil // unreachable
 		},
 	}
 }
