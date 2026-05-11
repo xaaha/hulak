@@ -40,18 +40,17 @@ func (s severity) String() string {
 	}
 }
 
-// sevDisplay maps a severity to its terminal presentation.
+// sevDisplay maps a severity to its colored mark for table output.
 type sevDisplay struct {
 	color string
 	mark  string
-	label string // prefix for human output; empty for sevOk
 }
 
 var sevDisplays = [4]sevDisplay{
-	sevInfo:  {utils.Blue, utils.InfoMark, "info:"},
-	sevOk:    {utils.Green, utils.CheckMark, ""},
-	sevWarn:  {utils.Yellow, utils.WarningMark, "warning:"},
-	sevError: {utils.Red, utils.CrossMark, "error:"},
+	sevInfo:  {utils.Blue, utils.InfoMark},
+	sevOk:    {utils.Green, utils.CheckMark},
+	sevWarn:  {utils.Yellow, utils.WarningMark},
+	sevError: {utils.Red, utils.CrossMark},
 }
 
 // --- finding -----------------------------------------------------------------
@@ -125,24 +124,32 @@ func (r *doctorReport) printHuman() {
 	utils.PrintInfoStderr(fmt.Sprintf("Project: %s", r.project))
 	utils.PrintInfoStderr(fmt.Sprintf("Backend: %s\n", r.backend))
 
+	headers := []string{"RESULT", "MESSAGE"}
+	hasFix := false
 	for _, f := range r.findings {
-		printFinding(f)
+		if f.fix != "" {
+			hasFix = true
+			break
+		}
 	}
+	if hasFix {
+		headers = append(headers, "FIX")
+	}
+
+	rows := make([][]string, len(r.findings))
+	for i, f := range r.findings {
+		d := sevDisplays[f.severity]
+		row := []string{d.color + d.mark + utils.ColorReset, f.message}
+		if hasFix {
+			row = append(row, f.fix)
+		}
+		rows[i] = row
+	}
+
+	_ = utils.PrintTable(os.Stderr, headers, rows, 0)
 
 	s := r.summary()
 	utils.PrintInfoStderr(fmt.Sprintf("\n%d ok, %d warning, %d error", s.Ok, s.Warn, s.Error))
-}
-
-func printFinding(f finding) {
-	d := sevDisplays[f.severity]
-	if d.label != "" {
-		fmt.Fprintf(os.Stderr, "%s%s %s%s %s\n", d.color, d.mark, d.label, utils.ColorReset, f.message)
-	} else {
-		fmt.Fprintf(os.Stderr, "%s%s%s %s\n", d.color, d.mark, utils.ColorReset, f.message)
-	}
-	if f.fix != "" {
-		utils.PrintInfoStderr(fmt.Sprintf("  Fix: %s", f.fix))
-	}
 }
 
 // --- JSON output (stdout) ----------------------------------------------------
