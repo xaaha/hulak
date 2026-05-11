@@ -297,40 +297,6 @@ func TestCheckIdentityLeakedInProject(t *testing.T) {
 	})
 }
 
-// ── config dir check ───────────────────────────────────────────────────────
-
-func TestCheckConfigDirMode(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission checks not reliable on Windows")
-	}
-
-	t.Run("ok when 0700", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		configDir := setupDoctorVaultProject(t, tmpDir)
-		t.Setenv("XDG_CONFIG_HOME", configDir)
-
-		f := checkConfigDirMode()
-		assertFindingSeverity(t, &f, "config-dir-mode", sevOk)
-	})
-
-	t.Run("warn when 0755", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		configDir := setupDoctorVaultProject(t, tmpDir)
-		t.Setenv("XDG_CONFIG_HOME", configDir)
-
-		hulakConfigDir := filepath.Join(configDir, utils.ProjectName)
-		if err := os.Chmod(hulakConfigDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		f := checkConfigDirMode()
-		assertFindingSeverity(t, &f, "config-dir-mode", sevWarn)
-		if f.auto == nil {
-			t.Error("expected auto-fixable")
-		}
-	})
-}
-
 // ── store checks ───────────────────────────────────────────────────────────
 
 func TestCheckStoreMode(t *testing.T) {
@@ -480,40 +446,6 @@ func TestCheckRecipientsValid(t *testing.T) {
 
 		f := checkRecipientsValid()
 		assertFindingSeverity(t, &f, "recipients-valid", sevError)
-	})
-}
-
-func TestCheckRecipientsMode(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission checks not reliable on Windows")
-	}
-
-	t.Run("ok when 0644", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		setupDoctorVaultProject(t, tmpDir)
-		restore := chdirTemp(t, tmpDir)
-		defer restore()
-
-		f := checkRecipientsMode()
-		assertFindingSeverity(t, &f, "recipients-mode", sevOk)
-	})
-
-	t.Run("warn when 0600", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		setupDoctorVaultProject(t, tmpDir)
-		restore := chdirTemp(t, tmpDir)
-		defer restore()
-
-		recipientsPath := filepath.Join(tmpDir, utils.HiddenProjectName, utils.RecipientsFile)
-		if err := os.Chmod(recipientsPath, 0o600); err != nil {
-			t.Fatal(err)
-		}
-
-		f := checkRecipientsMode()
-		assertFindingSeverity(t, &f, "recipients-mode", sevWarn)
-		if f.auto == nil {
-			t.Error("expected auto-fixable")
-		}
 	})
 }
 
