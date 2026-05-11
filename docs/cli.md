@@ -125,13 +125,16 @@ By default, creates an encrypted vault (.hulak/store.age) plus an example 'apiOp
 Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/
 layout instead. Use -env to scaffold specific environments.
 
+Init generates an age keypair for encryption. After setup, you can use an SSH
+ed25519 key for vault operations by adding it as a recipient
+('hulak secrets add-recipient "ssh-ed25519 ..."') and setting HULAK_SSH_IDENTITY
+or passing --ssh-identity on commands like 'run'.
+
 ```bash
 hulak init
 hulak init -env staging prod
 hulak init classic
-hulak init plain
 hulak init classic -env staging prod
-hulak init classic --help
 ```
 
 Supported flags:

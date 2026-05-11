@@ -102,7 +102,11 @@ func newInitCmd() *command {
 			"Set up a new hulak project in the current directory.\n\n"+
 				"By default, creates an encrypted vault (.hulak/store.age) plus an example '%s'.\n"+
 				"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n"+
-				"layout instead. Use -env to scaffold specific environments.",
+				"layout instead. Use -env to scaffold specific environments.\n\n"+
+				"Init generates an age keypair for encryption. After setup, you can use an SSH\n"+
+				"ed25519 key for vault operations by adding it as a recipient\n"+
+				"('hulak secrets add-recipient \"ssh-ed25519 ...\"') and setting HULAK_SSH_IDENTITY\n"+
+				"or passing --ssh-identity on commands like 'run'.",
 			utils.APIOptions,
 		),
 		Examples: []*utils.CommandHelp{
@@ -113,19 +117,11 @@ func newInitCmd() *command {
 			},
 			{
 				Command:     "hulak init classic",
-				Description: "Use the plaintext env/ layout (global.env + example file)",
-			},
-			{
-				Command:     "hulak init plain",
-				Description: "Same as 'classic' (alias — see also: 'no-vault')",
+				Description: "Use the plaintext env/ layout (aliases: plain, no-vault)",
 			},
 			{
 				Command:     "hulak init classic -env staging prod",
 				Description: "Plaintext layout with extra environments scaffolded",
-			},
-			{
-				Command:     "hulak init classic --help",
-				Description: "Show full help for the classic subcommand",
 			},
 		},
 		Flags: fs,
