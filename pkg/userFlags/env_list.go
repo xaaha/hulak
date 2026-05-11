@@ -41,6 +41,9 @@ func runEnvList(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 
 	identity, err := vault.ResolveIdentity()
 	if err != nil {
@@ -106,6 +109,9 @@ func newEnvKeysCmd() *command {
 func runEnvKeys(args []string, envName, search string, show bool) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+	if err := requireVaultProject(); err != nil {
+		return err
 	}
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err

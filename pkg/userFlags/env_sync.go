@@ -37,6 +37,9 @@ func runSync(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 
 	return vault.WithStoreLock(func() error {
 		identity, err := vault.ResolveIdentity()

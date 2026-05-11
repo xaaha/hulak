@@ -72,6 +72,9 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 	}
 	key := args[0]
 
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}
@@ -190,6 +193,9 @@ func runEnvGet(args []string, envName string) error {
 	}
 	key := args[0]
 
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}
@@ -278,6 +284,9 @@ func runEnvDelete(args []string, envName string) error {
 	}
 	key := args[0]
 
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}

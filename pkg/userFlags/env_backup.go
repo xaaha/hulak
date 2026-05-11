@@ -86,6 +86,10 @@ func newEnvBackupListCmd() *command {
 
 // runBackup creates a backup of store.age.
 func runBackup(outPath string, force bool) error {
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+
 	identity, err := vault.ResolveIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to load identity: %w", err)
@@ -170,6 +174,10 @@ func resolveBackupDest(outPath string, force bool) (string, error) {
 
 // runBackupList prints existing backups from .hulak/backups/.
 func runBackupList() error {
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+
 	backupsDir, err := vault.BackupsDir()
 	if err != nil {
 		return err
@@ -271,6 +279,10 @@ func newEnvRestoreCmd() *command {
 
 // runRestore restores store.age from a backup.
 func runRestore(backupPath string, force bool) error {
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+
 	resolvedPath, err := resolveRestorePath(backupPath)
 	if err != nil {
 		return err

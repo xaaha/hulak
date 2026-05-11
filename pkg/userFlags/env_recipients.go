@@ -192,6 +192,10 @@ func runAddRecipient(
 	gitHubUser, keyserverURL string,
 	allowRSA bool,
 ) error {
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+
 	pubKeys, err := resolveRecipientKeys(args, useStdin, gitHubUser, keyserverURL, allowRSA)
 	if err != nil {
 		return err
@@ -304,6 +308,10 @@ func runRemoveRecipient(args []string) error {
 	}
 	query := args[0]
 
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+
 	return vault.WithStoreLock(func() error {
 		recipPath, err := vault.RecipientsFilePath()
 		if err != nil {
@@ -377,6 +385,9 @@ func newEnvListRecipientsCmd() *command {
 func runListRecipients(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
+	}
+	if err := requireVaultProject(); err != nil {
+		return err
 	}
 
 	recipPath, err := vault.RecipientsFilePath()
