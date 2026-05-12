@@ -49,20 +49,21 @@ func runEnvMigrate() error {
 	// warning when a brand-new identity is generated.
 	wasFresh := !vault.IdentityExists()
 
-	ageKey, store, err := bootstrapVault(cwd)
+	// only migrate to hulak vault
+	result, err := bootstrapVault(cwd, "")
 	if err != nil {
 		return err
 	}
 
-	if err := migrateEnvFiles(envDir, store); err != nil {
+	if err := migrateEnvFiles(envDir, result.store); err != nil {
 		return err
 	}
 
-	if err := vault.WriteStoreToRecipients(store); err != nil {
+	if err := vault.WriteStoreToRecipients(result.store); err != nil {
 		return err
 	}
 
-	return printMigrateSummary(wasFresh, ageKey)
+	return printMigrateSummary(wasFresh, result)
 }
 
 // requireDirectory checks that path exists and is a directory.
@@ -80,33 +81,95 @@ func requireDirectory(path string) error {
 	return nil
 }
 
+// bootstrapResult holds the output of bootstrapVault for both age and SSH flows.
+type bootstrapResult struct {
+	recipientKey string       // public key written to recipients.txt
+	identityDesc string       // human-readable identity location
+	store        *vault.Store // current store (empty if first run)
+	isSSH        bool         // true when vault was bootstrapped with SSH
+}
+
 // bootstrapVault ensures .hulak/, identity, and recipients exist,
-// then returns the keypair and the current store (empty if first run).
-func bootstrapVault(projectRoot string) (vault.AgeKey, *vault.Store, error) {
+// then returns the bootstrap result with the current store.
+//
+// When sshIdentityPath is empty, the age keypair flow runs (EnsureKeypair).
+// When sshIdentityPath is set, the SSH flow runs: no identity.txt is created,
+// and the SSH public key is written to recipients.txt instead.
+func bootstrapVault(projectRoot, sshIdentityPath string) (*bootstrapResult, error) {
 	hulakDir := filepath.Join(projectRoot, utils.HiddenProjectName)
 	if err := os.MkdirAll(hulakDir, utils.DirPer); err != nil {
-		return vault.AgeKey{}, nil, fmt.Errorf(
-			"could not create %s/: %w",
-			utils.HiddenProjectName,
-			err,
-		)
+		return nil, fmt.Errorf("could not create %s/: %w", utils.HiddenProjectName, err)
 	}
 
+	if sshIdentityPath != "" {
+		return bootstrapSSH(sshIdentityPath)
+	}
+	return bootstrapAge()
+}
+
+// bootstrapAge is the default flow: generate or load an age keypair.
+func bootstrapAge() (*bootstrapResult, error) {
 	ageKey, err := vault.EnsureKeypair()
 	if err != nil {
-		return vault.AgeKey{}, nil, err
+		return nil, err
 	}
 
-	if err := ensureRecipientsFile(ageKey); err != nil {
-		return vault.AgeKey{}, nil, err
+	if err := ensureRecipientsFile(ageKey.Recipient.String(), "owner"); err != nil {
+		return nil, err
 	}
 
 	store, err := vault.ReadStore(ageKey.Identity)
 	if err != nil {
-		return vault.AgeKey{}, nil, err
+		return nil, err
 	}
 
-	return ageKey, store, nil
+	identityPath, _ := vault.IdentityPath()
+	return &bootstrapResult{
+		recipientKey: ageKey.Recipient.String(),
+		identityDesc: identityPath,
+		store:        store,
+	}, nil
+}
+
+// bootstrapSSH uses an existing SSH private key instead of generating an age keypair.
+func bootstrapSSH(sshIdentityPath string) (*bootstrapResult, error) {
+	// Reject if an age identity already exists — ambiguous ownership.
+	if vault.IdentityExists() {
+		idPath, _ := vault.IdentityPath()
+		return nil, fmt.Errorf(
+			"an age identity already exists at %s\n\n"+
+				"Remove it first to use SSH, or init without --ssh-identity",
+			idPath,
+		)
+	}
+
+	// Verify the SSH key loads.
+	identity, err := vault.LoadSSHIdentity(sshIdentityPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Derive the public key for recipients.txt.
+	pubKey, err := vault.DeriveSSHPublicKey(sshIdentityPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ensureRecipientsFile(pubKey, "owner"); err != nil {
+		return nil, err
+	}
+
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bootstrapResult{
+		recipientKey: pubKey,
+		identityDesc: sshIdentityPath,
+		store:        store,
+		isSSH:        true,
+	}, nil
 }
 
 // migrateEnvFiles reads each *.env file in envDir and merges its
@@ -194,14 +257,10 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 
 // printMigrateSummary shows identity details on first-time setup
 // and reminds the user that env/ is untouched.
-func printMigrateSummary(wasFresh bool, ageKey vault.AgeKey) error {
+func printMigrateSummary(wasFresh bool, result *bootstrapResult) error {
 	if wasFresh {
-		identityPath, err := vault.IdentityPath()
-		if err != nil {
-			return fmt.Errorf("could not resolve identity path: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "\n  Identity file: %s\n", identityPath)
-		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
+		fmt.Fprintf(os.Stderr, "\n  Identity file: %s\n", result.identityDesc)
+		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", result.recipientKey)
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)

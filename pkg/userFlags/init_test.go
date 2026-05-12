@@ -129,7 +129,7 @@ func TestInitClassicProject_AllowsEmptyHulakDir(t *testing.T) {
 func TestInitVaultProject_FreshSetup(t *testing.T) {
 	dir := vaultTestSetup(t)
 
-	if err := InitVaultProject(nil); err != nil {
+	if err := InitVaultProject(nil, ""); err != nil {
 		t.Fatalf("InitVaultProject: %v", err)
 	}
 
@@ -166,7 +166,7 @@ func TestInitVaultProject_FreshSetup(t *testing.T) {
 func TestInitVaultProject_Idempotent(t *testing.T) {
 	dir := vaultTestSetup(t)
 
-	if err := InitVaultProject(nil); err != nil {
+	if err := InitVaultProject(nil, ""); err != nil {
 		t.Fatalf("first InitVaultProject: %v", err)
 	}
 
@@ -201,7 +201,7 @@ func TestInitVaultProject_Idempotent(t *testing.T) {
 	}
 
 	// Second init: must not regenerate identity, must not lose the FOO key.
-	if err := InitVaultProject(nil); err != nil {
+	if err := InitVaultProject(nil, ""); err != nil {
 		t.Fatalf("second InitVaultProject: %v", err)
 	}
 
@@ -233,7 +233,7 @@ func TestInitVaultProject_Idempotent(t *testing.T) {
 func TestInitVaultProject_WithExtraEnvs(t *testing.T) {
 	vaultTestSetup(t)
 
-	if err := InitVaultProject([]string{"staging", "prod"}); err != nil {
+	if err := InitVaultProject([]string{"staging", "prod"}, ""); err != nil {
 		t.Fatalf("InitVaultProject: %v", err)
 	}
 
@@ -273,7 +273,7 @@ func TestInitVaultProject_LegacyEnvNudge(t *testing.T) {
 		t.Fatalf("mkdir env/: %v", err)
 	}
 
-	if err := InitVaultProject(nil); err != nil {
+	if err := InitVaultProject(nil, ""); err != nil {
 		t.Fatalf("expected nil err on legacy nudge path, got: %v", err)
 	}
 
@@ -291,7 +291,7 @@ func TestInitVaultProject_LegacyEnvNudge(t *testing.T) {
 func TestInitVaultProject_RejectsInvalidEnvName(t *testing.T) {
 	dir := vaultTestSetup(t)
 
-	err := InitVaultProject([]string{"good_name", "bad name!"})
+	err := InitVaultProject([]string{"good_name", "bad name!"}, "")
 	if err == nil {
 		t.Fatal("expected error for invalid env name, got nil")
 	}
@@ -311,7 +311,7 @@ func TestInitVaultProject_RejectsInvalidEnvName(t *testing.T) {
 func TestInitVaultProject_DedupesGlobal(t *testing.T) {
 	vaultTestSetup(t)
 
-	if err := InitVaultProject([]string{"Global", "GLOBAL"}); err != nil {
+	if err := InitVaultProject([]string{"Global", "GLOBAL"}, ""); err != nil {
 		t.Fatalf("InitVaultProject: %v", err)
 	}
 

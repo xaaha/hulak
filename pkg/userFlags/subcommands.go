@@ -138,7 +138,7 @@ func newInitCmd() *command {
 					envNames = args
 				}
 			}
-			return InitVaultProject(envNames)
+			return InitVaultProject(envNames, "")
 		},
 	}
 }

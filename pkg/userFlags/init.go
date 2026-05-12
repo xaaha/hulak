@@ -75,7 +75,7 @@ func InitClassicProject() error {
 //   - On first-run identity creation, prints the public key and identity path
 //     to stderr so the user knows what to back up. Subsequent runs do not
 //     repeat this — the identity file already exists at a known location.
-func InitVaultProject(envNames []string) error {
+func InitVaultProject(envNames []string, sshIdentityPath string) error {
 	// Validate input BEFORE touching the filesystem so a typo'd env name
 	// can't leave a half-initialised .hulak/ behind.
 	for _, name := range envNames {
@@ -103,14 +103,14 @@ func InitVaultProject(envNames []string) error {
 
 	wasFresh := !vault.IdentityExists()
 
-	ageKey, store, err := bootstrapVault(cwd)
+	result, err := bootstrapVault(cwd, sshIdentityPath)
 	if err != nil {
 		return err
 	}
 
-	added := ensureStoreSections(store, envNames)
+	added := ensureStoreSections(result.store, envNames)
 
-	if err := vault.WriteStoreToRecipients(store); err != nil {
+	if err := vault.WriteStoreToRecipients(result.store); err != nil {
 		return err
 	}
 
@@ -118,28 +118,28 @@ func InitVaultProject(envNames []string) error {
 		return err
 	}
 
-	if wasFresh {
-		// EnsureKeypair just succeeded, which proves UserConfigDir resolves;
-		// IdentityPath uses the same call, so failure here is unreachable in
-		// practice — surface it as an error rather than papering over it.
-		identityPath, err := vault.IdentityPath()
-		if err != nil {
-			return fmt.Errorf("could not resolve identity path: %w", err)
-		}
+	if wasFresh || result.isSSH {
 		utils.PrintSuccessStderr(
 			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 		)
-		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", ageKey.Recipient)
+		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", result.recipientKey)
 		fmt.Fprintf(
 			os.Stderr,
 			"  Recipients:    %s/%s\n",
 			utils.HiddenProjectName,
 			utils.RecipientsFile,
 		)
-		fmt.Fprintf(os.Stderr, "  Identity file: %s\n", identityPath)
-		utils.PrintWarningStderr(
-			"Back up the identity file — losing it means losing access to the vault.",
-		)
+		if result.isSSH {
+			fmt.Fprintf(os.Stderr, "  SSH identity:  %s\n", result.identityDesc)
+			utils.PrintWarningStderr(
+				"Your SSH private key is your vault identity — protect it.",
+			)
+		} else {
+			fmt.Fprintf(os.Stderr, "  Identity file: %s\n", result.identityDesc)
+			utils.PrintWarningStderr(
+				"Back up the identity file — losing it means losing access to the vault.",
+			)
+		}
 	} else {
 		utils.PrintSuccessStderr(
 			fmt.Sprintf("Vault ready at %s/", utils.HiddenProjectName),
@@ -179,10 +179,10 @@ func ensureStoreSections(store *vault.Store, names []string) []string {
 	return added
 }
 
-// ensureRecipientsFile creates .hulak/recipients.txt with the user's own
-// public key if the file doesn't already exist. Idempotent — re-running
-// init on an existing project is a no-op.
-func ensureRecipientsFile(ageKey vault.AgeKey) error {
+// ensureRecipientsFile creates .hulak/recipients.txt with the given public
+// key if the file doesn't already exist. Accepts both age (age1...) and SSH
+// (ssh-ed25519 ...) public keys. Idempotent — re-running init is a no-op.
+func ensureRecipientsFile(pubKey, name string) error {
 	path, err := vault.RecipientsFilePath()
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func ensureRecipientsFile(ageKey vault.AgeKey) error {
 		return nil
 	}
 	return vault.SaveRecipients([]vault.RecipientEntry{
-		{Key: ageKey.Recipient.String(), Name: vault.FormatRecipientName("owner")},
+		{Key: pubKey, Name: vault.FormatRecipientName(name)},
 	})
 }
 
