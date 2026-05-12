@@ -404,3 +404,69 @@ func TestSwapRecipientKey(t *testing.T) {
 		}
 	})
 }
+
+func TestAddRecipientAndReencrypt(t *testing.T) {
+	projectDir := setupHulakProject(t)
+	cfgDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfgDir)
+
+	// Bootstrap: generate key, write recipients + store
+	key1, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	if err := SaveRecipients([]RecipientEntry{
+		{Key: key1.Recipient.String(), Name: "owner"},
+	}); err != nil {
+		t.Fatalf("SaveRecipients: %v", err)
+	}
+	store := &Store{Envs: map[string]Env{"global": {"KEY": "val"}}}
+	if err := WriteStore(store, key1.Recipient); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	t.Run("adds new recipient and re-encrypts", func(t *testing.T) {
+		key2, _ := GenerateKeyPair()
+		added, err := AddRecipientAndReencrypt(key2.Recipient.String(), "teammate", key1.Identity)
+		if err != nil {
+			t.Fatalf("AddRecipientAndReencrypt: %v", err)
+		}
+		if !added {
+			t.Fatal("expected added=true")
+		}
+
+		// New key can decrypt
+		got, err := ReadStore(key2.Identity)
+		if err != nil {
+			t.Fatalf("ReadStore with new key: %v", err)
+		}
+		if got.GetEnv("global")["KEY"] != "val" {
+			t.Error("store data lost after re-encryption")
+		}
+
+		// Old key still works
+		if _, err := ReadStore(key1.Identity); err != nil {
+			t.Fatalf("ReadStore with original key: %v", err)
+		}
+
+		// Verify recipients.txt has both
+		recipPath := filepath.Join(projectDir, utils.HiddenProjectName, utils.RecipientsFile)
+		data, err := os.ReadFile(recipPath)
+		if err != nil {
+			t.Fatalf("read recipients: %v", err)
+		}
+		if !strings.Contains(string(data), key2.Recipient.String()) {
+			t.Error("new key missing from recipients.txt")
+		}
+	})
+
+	t.Run("returns false for duplicate", func(t *testing.T) {
+		added, err := AddRecipientAndReencrypt(key1.Recipient.String(), "owner", key1.Identity)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if added {
+			t.Error("expected added=false for duplicate")
+		}
+	})
+}

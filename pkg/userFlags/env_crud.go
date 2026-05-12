@@ -93,22 +93,18 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 
 	// acquire lock
 	return vault.WithStoreLock(func() error {
-		// load identity
-		ageKey, err := vault.EnsureKeypair()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
-			return fmt.Errorf("failed to load keypair: %w", err)
+			return fmt.Errorf("failed to load identity: %w", err)
 		}
 
-		// read
-		store, err := vault.ReadStore(ageKey.Identity)
+		store, err := vault.ReadStore(identity)
 		if err != nil {
 			return err
 		}
 
-		// modify in memory
 		store.SetKey(envName, key, value)
 
-		// write  (atomic .tmp+rename)
 		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}

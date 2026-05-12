@@ -118,6 +118,13 @@ func runExportKey(args []string, outPath string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
+	if !vault.IdentityExists() {
+		return fmt.Errorf(
+			"no age identity found — this vault may use SSH keys instead\n\n" +
+				"export-key only works with age identities (identity.txt)\n" +
+				"SSH keys are managed with ssh-keygen and your system's key management",
+		)
+	}
 
 	key, err := vault.ExportKey()
 	if err != nil {

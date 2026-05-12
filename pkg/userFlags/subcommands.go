@@ -14,6 +14,7 @@ import (
 	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // registerEnvFlag adds both --env and --environment aliases to a FlagSet,
@@ -94,23 +95,39 @@ func newInitCmd() *command {
 		false,
 		"Create specific environment files instead of the default setup",
 	)
+	sshFlag := fs.Bool(
+		"ssh",
+		false,
+		"Use SSH ed25519 key (~/.ssh/id_ed25519) instead of generating an age keypair",
+	)
+	sshIdentityFlag := fs.String(
+		"ssh-identity",
+		"",
+		"Path to SSH private key (implies --ssh; overrides the default path)",
+	)
 
 	return &command{
 		Name:  "init",
 		Short: "Initialize a hulak project",
 		Long: fmt.Sprintf(
 			"Set up a new hulak project in the current directory.\n\n"+
-				"By default, creates an encrypted vault (.hulak/store.age) plus an example '%s'.\n"+
+				"By default, creates an encrypted vault (.hulak/store.age) with an age keypair\n"+
+				"plus an example '%s'. Use --ssh to bootstrap with your default SSH ed25519 key\n"+
+				"(~/.ssh/id_ed25519), or --ssh-identity <path> for a custom key.\n\n"+
 				"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n"+
-				"layout instead. Use -env to scaffold specific environments.\n\n"+
-				"Init generates an age keypair for encryption. After setup, you can use an SSH\n"+
-				"ed25519 key for vault operations by adding it as a recipient\n"+
-				"('hulak secrets add-recipient \"ssh-ed25519 ...\"') and setting HULAK_SSH_IDENTITY\n"+
-				"or passing --ssh-identity on commands like 'run'.",
+				"layout instead. Use -env to scaffold specific environments.",
 			utils.APIOptions,
 		),
 		Examples: []*utils.CommandHelp{
-			{Command: "hulak init", Description: "Default setup (encrypted vault + example file)"},
+			{Command: "hulak init", Description: "Default setup (encrypted vault + age keypair)"},
+			{
+				Command:     "hulak init --ssh",
+				Description: "Use ~/.ssh/id_ed25519 instead of generating an age keypair",
+			},
+			{
+				Command:     "hulak init --ssh-identity ~/.ssh/work_ed25519",
+				Description: "Use a custom SSH key",
+			},
 			{
 				Command:     "hulak init -env staging prod",
 				Description: "Scaffold staging and prod environments alongside global",
@@ -118,10 +135,6 @@ func newInitCmd() *command {
 			{
 				Command:     "hulak init classic",
 				Description: "Use the plaintext env/ layout (aliases: plain, no-vault)",
-			},
-			{
-				Command:     "hulak init classic -env staging prod",
-				Description: "Plaintext layout with extra environments scaffolded",
 			},
 		},
 		Flags: fs,
@@ -138,7 +151,16 @@ func newInitCmd() *command {
 					envNames = args
 				}
 			}
-			return InitVaultProject(envNames)
+
+			sshPath := *sshIdentityFlag
+			if sshPath == "" && *sshFlag {
+				sshPath = vault.DefaultSSHIdentityPath()
+				if sshPath == "" {
+					return fmt.Errorf("could not determine home directory for default SSH key path")
+				}
+			}
+
+			return InitVaultProject(envNames, sshPath)
 		},
 	}
 }

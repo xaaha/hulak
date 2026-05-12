@@ -292,3 +292,26 @@ func TestRunRotateKeyRecovery(t *testing.T) {
 		}
 	})
 }
+
+func TestRunRotateKey_BlocksSSHOnlyVault(t *testing.T) {
+	// Set up a vault project without identity.txt (SSH-only)
+	dir := vaultTestSetup(t)
+
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, _ := writeTestSSHKey(t, sshDir)
+
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("SSH init: %v", err)
+	}
+
+	err := runRotateKey(nil)
+	if err == nil {
+		t.Fatal("expected error for SSH-only vault")
+	}
+	if !strings.Contains(err.Error(), "age identity") {
+		t.Errorf("expected age identity error, got: %v", err)
+	}
+}
