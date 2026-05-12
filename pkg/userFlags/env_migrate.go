@@ -143,14 +143,8 @@ func bootstrapSSH(sshIdentityPath string) (*bootstrapResult, error) {
 		)
 	}
 
-	// Verify the SSH key loads.
-	identity, err := vault.LoadSSHIdentity(sshIdentityPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Derive the public key for recipients.txt.
-	pubKey, err := vault.DeriveSSHPublicKey(sshIdentityPath)
+	// Load identity and derive public key in one read.
+	identity, pubKey, err := vault.LoadSSHIdentityWithPubKey(sshIdentityPath)
 	if err != nil {
 		return nil, err
 	}
