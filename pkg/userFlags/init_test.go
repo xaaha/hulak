@@ -416,6 +416,8 @@ func TestInitVaultProject_SSHIdentity_Idempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	keyPath, _ := writeTestSSHKey(t, sshDir)
+	// Ensure ResolveIdentity finds the test SSH key on CI (no ~/.ssh/id_ed25519)
+	t.Setenv(utils.SSHIdentityEnvVar, keyPath)
 
 	if err := InitVaultProject(nil, keyPath); err != nil {
 		t.Fatalf("first init: %v", err)
