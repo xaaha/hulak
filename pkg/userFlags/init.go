@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"filippo.io/age"
+
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -26,12 +28,8 @@ var embeddedFiles embed.FS
 // the right signal: a partially-failed vault init can leave an empty .hulak/
 // behind, and that shouldn't lock the user out of the classic path.
 func InitClassicProject() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("could not determine current directory: %w", err)
-	}
-	storePath := filepath.Join(cwd, utils.HiddenProjectName, utils.StoreFile)
-	if utils.FileExists(storePath) {
+	storePath, _ := vault.StorePath()
+	if storePath != "" && utils.FileExists(storePath) {
 		return fmt.Errorf(
 			"refusing to create plaintext env/ layout: %s exists "+
 				"(this project is using the encrypted vault) — "+
@@ -101,11 +99,24 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 		return nil
 	}
 
-	// Detect first-time setup: for age, identity.txt absence is the signal;
-	// for SSH, store.age absence is the signal (no identity.txt ever created).
-	storePath := filepath.Join(cwd, utils.HiddenProjectName, utils.StoreFile)
-	wasFresh := !utils.FileExists(storePath)
+	storePath, _ := vault.StorePath()
+	vaultExists := storePath != "" && utils.FileExists(storePath)
 
+	// Existing vault → try to add the requested identity type as a recipient.
+	if vaultExists {
+		added, err := maybeAddIdentity(sshIdentityPath)
+		if err != nil {
+			return err
+		}
+		if !added {
+			utils.PrintSuccessStderr(
+				fmt.Sprintf("Vault ready at %s/", utils.HiddenProjectName),
+			)
+		}
+		return ensureStoreSectionsAndExample(envNames)
+	}
+
+	// Fresh vault — bootstrap from scratch.
 	result, err := bootstrapVault(cwd, sshIdentityPath)
 	if err != nil {
 		return err
@@ -121,35 +132,187 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 		return err
 	}
 
-	if wasFresh {
-		utils.PrintSuccessStderr(
-			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
+	printInitSummary(result)
+	printAddedEnvs(added)
+	return nil
+}
+
+// maybeAddIdentity checks if the requested identity type is missing from the
+// vault and adds it as a recipient. Returns true if a new identity was added.
+//
+//   - sshIdentityPath set → add SSH pub key if not already in recipients
+//   - sshIdentityPath empty + no identity.txt → generate age key, add as recipient
+//   - otherwise → nothing to add
+func maybeAddIdentity(sshIdentityPath string) (bool, error) {
+	if sshIdentityPath != "" {
+		return maybeAddSSHIdentity(sshIdentityPath)
+	}
+	if !vault.IdentityExists() {
+		return maybeAddAgeIdentity()
+	}
+	return false, nil
+}
+
+// maybeAddSSHIdentity adds an SSH public key as a recipient if not already present.
+func maybeAddSSHIdentity(sshIdentityPath string) (bool, error) {
+	_, pubKey, err := vault.LoadSSHIdentityWithPubKey(sshIdentityPath)
+	if err != nil {
+		return false, err
+	}
+
+	return addRecipientIfMissing(pubKey, utils.Username(), func() {
+		utils.PrintSuccessStderr("Added SSH identity as recipient")
+		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", sshIdentityPath))
+		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", pubKey))
+	})
+}
+
+// maybeAddAgeIdentity generates a fresh age keypair, writes it to identity.txt,
+// and adds the public key as a recipient. Resolves identity BEFORE writing the
+// new key — the existing SSH identity is needed to decrypt the store for
+// re-encryption. Uses GenerateKeyPair + SetIdentity directly (not EnsureKeypair)
+// because EnsureKeypair refuses when store.age exists.
+func maybeAddAgeIdentity() (bool, error) {
+	// Resolve current identity (SSH) BEFORE creating identity.txt.
+	// Once identity.txt exists, ResolveIdentity returns the new age key
+	// which can't decrypt the SSH-encrypted store.
+	currentIdentity, err := vault.ResolveIdentity()
+	if err != nil {
+		return false, fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	ageKey, err := vault.GenerateKeyPair()
+	if err != nil {
+		return false, fmt.Errorf("failed to generate age keypair: %w", err)
+	}
+
+	if err := vault.SetIdentity(ageKey.Identity.String()); err != nil {
+		return false, fmt.Errorf("failed to write identity: %w", err)
+	}
+
+	pubKey := ageKey.Recipient.String()
+	identityPath, _ := vault.IdentityPath()
+
+	return addRecipientIfMissingWithIdentity(pubKey, utils.Username(), currentIdentity, func() {
+		utils.PrintSuccessStderr("Added age identity as recipient")
+		utils.PrintInfoStderr(fmt.Sprintf("  Identity file: %s", identityPath))
+		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", pubKey))
+		utils.PrintWarningStderr(
+			"Back up the identity file — losing it means losing access to the vault.",
 		)
-		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", result.recipientKey)
-		fmt.Fprintf(
-			os.Stderr,
-			"  Recipients:    %s/%s\n",
-			utils.HiddenProjectName,
-			utils.RecipientsFile,
-		)
-		if result.isSSH {
-			fmt.Fprintf(os.Stderr, "  SSH identity:  %s\n", result.identityDesc)
-			utils.PrintWarningStderr(
-				"Your SSH private key is your vault identity — protect it.",
-			)
-		} else {
-			fmt.Fprintf(os.Stderr, "  Identity file: %s\n", result.identityDesc)
-			utils.PrintWarningStderr(
-				"Back up the identity file — losing it means losing access to the vault.",
-			)
+	})
+}
+
+// addRecipientIfMissing reads recipients.txt, adds pubKey if missing,
+// re-encrypts the store, and calls onAdded for output. Returns true if added.
+// Uses ResolveIdentity for decryption.
+func addRecipientIfMissing(pubKey, name string, onAdded func()) (bool, error) {
+	identity, err := vault.ResolveIdentity()
+	if err != nil {
+		return false, fmt.Errorf("failed to load identity: %w", err)
+	}
+	return addRecipientIfMissingWithIdentity(pubKey, name, identity, onAdded)
+}
+
+// addRecipientIfMissingWithIdentity is the core add-recipient-if-missing logic.
+// Takes an explicit identity for decryption so callers can control which key
+// decrypts the store (important when adding a new identity type).
+func addRecipientIfMissingWithIdentity(pubKey, name string, identity age.Identity, onAdded func()) (bool, error) {
+	recipPath, err := vault.RecipientsFilePath()
+	if err != nil {
+		return false, err
+	}
+	data, err := os.ReadFile(recipPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read recipients: %w", err)
+	}
+	entries, err := vault.ParseRecipientsFileContent(data)
+	if err != nil {
+		return false, err
+	}
+
+	newEntries, err := vault.AddRecipientEntry(entries, pubKey, name, true)
+	if err != nil {
+		if strings.Contains(err.Error(), "already in recipients") {
+			return false, nil // already there
 		}
+		return false, err
+	}
+
+	// Re-encrypt store to all recipients including the new one.
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return false, err
+	}
+
+	recipients, err := vault.RecipientsFromEntries(newEntries)
+	if err != nil {
+		return false, err
+	}
+	if err := vault.WriteStore(store, recipients...); err != nil {
+		return false, err
+	}
+	if err := vault.SaveRecipients(newEntries); err != nil {
+		return false, err
+	}
+
+	onAdded()
+	return true, nil
+}
+
+// ensureStoreSectionsAndExample handles env section creation and API options
+// for the "vault already exists" path.
+func ensureStoreSectionsAndExample(envNames []string) error {
+	if len(envNames) == 0 {
+		return nil
+	}
+
+	identity, err := vault.ResolveIdentity()
+	if err != nil {
+		return fmt.Errorf("failed to load identity: %w", err)
+	}
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		return err
+	}
+
+	added := ensureStoreSections(store, envNames)
+	if len(added) > 0 {
+		if err := vault.WriteStoreToRecipients(store); err != nil {
+			return err
+		}
+	}
+
+	if _, err := writeAPIOptionsExample(); err != nil {
+		return err
+	}
+
+	printAddedEnvs(added)
+	return nil
+}
+
+// printInitSummary prints the post-bootstrap summary for fresh vault creation.
+func printInitSummary(result *bootstrapResult) {
+	utils.PrintSuccessStderr(
+		fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
+	)
+	utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
+	utils.PrintInfoStderr(fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile))
+	if result.isSSH {
+		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", result.identityDesc))
+		utils.PrintWarningStderr(
+			"Your SSH private key is your vault identity — protect it.",
+		)
 	} else {
-		utils.PrintSuccessStderr(
-			fmt.Sprintf("Vault ready at %s/", utils.HiddenProjectName),
+		utils.PrintInfoStderr(fmt.Sprintf("  Identity file: %s", result.identityDesc))
+		utils.PrintWarningStderr(
+			"Back up the identity file — losing it means losing access to the vault.",
 		)
 	}
-	// Don't report "global" — it's the implicit default and showing it on
-	// every fresh init reads as noise. Only mention explicit extras.
+}
+
+// printAddedEnvs reports explicitly-requested env sections (excludes "global").
+func printAddedEnvs(added []string) {
 	var extras []string
 	for _, name := range added {
 		if name != utils.DefaultEnvVal {
@@ -159,7 +322,6 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 	if len(extras) > 0 {
 		utils.PrintInfoStderr("Added envs: " + strings.Join(extras, ", "))
 	}
-	return nil
 }
 
 // ensureStoreSections makes sure every env in `names` (plus the default
