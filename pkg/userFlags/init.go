@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"filippo.io/age"
-
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -154,17 +152,29 @@ func maybeAddIdentity(sshIdentityPath string) (bool, error) {
 }
 
 // maybeAddSSHIdentity adds an SSH public key as a recipient if not already present.
+// Uses ResolveIdentity for decryption (the existing age or SSH key), not the
+// new SSH key being added — the store may not be encrypted to it yet.
 func maybeAddSSHIdentity(sshIdentityPath string) (bool, error) {
-	_, pubKey, err := vault.LoadSSHIdentityWithPubKey(sshIdentityPath)
+	pubKey, err := vault.DeriveSSHPublicKey(sshIdentityPath)
 	if err != nil {
 		return false, err
 	}
 
-	return addRecipientIfMissing(pubKey, utils.Username(), func() {
+	currentIdentity, err := vault.ResolveIdentity()
+	if err != nil {
+		return false, fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username(), currentIdentity)
+	if err != nil {
+		return false, err
+	}
+	if added {
 		utils.PrintSuccessStderr("Added SSH identity as recipient")
 		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", sshIdentityPath))
 		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", pubKey))
-	})
+	}
+	return added, nil
 }
 
 // maybeAddAgeIdentity generates a fresh age keypair, writes it to identity.txt,
@@ -193,71 +203,19 @@ func maybeAddAgeIdentity() (bool, error) {
 	pubKey := ageKey.Recipient.String()
 	identityPath, _ := vault.IdentityPath()
 
-	return addRecipientIfMissingWithIdentity(pubKey, utils.Username(), currentIdentity, func() {
+	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username(), currentIdentity)
+	if err != nil {
+		return false, err
+	}
+	if added {
 		utils.PrintSuccessStderr("Added age identity as recipient")
 		utils.PrintInfoStderr(fmt.Sprintf("  Identity file: %s", identityPath))
 		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", pubKey))
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)
-	})
-}
-
-// addRecipientIfMissing reads recipients.txt, adds pubKey if missing,
-// re-encrypts the store, and calls onAdded for output. Returns true if added.
-// Uses ResolveIdentity for decryption.
-func addRecipientIfMissing(pubKey, name string, onAdded func()) (bool, error) {
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return false, fmt.Errorf("failed to load identity: %w", err)
 	}
-	return addRecipientIfMissingWithIdentity(pubKey, name, identity, onAdded)
-}
-
-// addRecipientIfMissingWithIdentity is the core add-recipient-if-missing logic.
-// Takes an explicit identity for decryption so callers can control which key
-// decrypts the store (important when adding a new identity type).
-func addRecipientIfMissingWithIdentity(pubKey, name string, identity age.Identity, onAdded func()) (bool, error) {
-	recipPath, err := vault.RecipientsFilePath()
-	if err != nil {
-		return false, err
-	}
-	data, err := os.ReadFile(recipPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to read recipients: %w", err)
-	}
-	entries, err := vault.ParseRecipientsFileContent(data)
-	if err != nil {
-		return false, err
-	}
-
-	newEntries, err := vault.AddRecipientEntry(entries, pubKey, name, true)
-	if err != nil {
-		if strings.Contains(err.Error(), "already in recipients") {
-			return false, nil // already there
-		}
-		return false, err
-	}
-
-	// Re-encrypt store to all recipients including the new one.
-	store, err := vault.ReadStore(identity)
-	if err != nil {
-		return false, err
-	}
-
-	recipients, err := vault.RecipientsFromEntries(newEntries)
-	if err != nil {
-		return false, err
-	}
-	if err := vault.WriteStore(store, recipients...); err != nil {
-		return false, err
-	}
-	if err := vault.SaveRecipients(newEntries); err != nil {
-		return false, err
-	}
-
-	onAdded()
-	return true, nil
+	return added, nil
 }
 
 // ensureStoreSectionsAndExample handles env section creation and API options
