@@ -129,24 +129,25 @@ func checkIdentityNotInGit() finding {
 	return okFinding("identity-in-git", "identity file is not git-tracked")
 }
 
-// checkIdentityLeakedInProject scans tracked files for AGE-SECRET-KEY- prefix.
+// checkIdentityLeakedInProject scans tracked files for private key markers
+// (AGE-SECRET-KEY- and -----BEGIN OPENSSH PRIVATE KEY-----).
 func checkIdentityLeakedInProject() finding {
 	projectRoot, ok := utils.FindProjectRoot()
 	if !ok {
 		return skipFinding("identity-leaked-in-project", "no project root found (skipping leak scan)")
 	}
 
-	leaked := scanForSecretKey(projectRoot)
+	leaked := scanForPrivateKey(projectRoot)
 	if len(leaked) > 0 {
 		return finding{
 			check:    "identity-leaked-in-project",
 			severity: sevError,
-			message:  fmt.Sprintf("AGE-SECRET-KEY- found in project file(s): %s", strings.Join(leaked, ", ")),
-			fix:      "remove the secret key and run 'hulak secrets rotate-key'",
+			message:  fmt.Sprintf("private key found in project file(s): %s", strings.Join(leaked, ", ")),
+			fix:      "remove the private key and rotate credentials",
 		}
 	}
 
-	return okFinding("identity-leaked-in-project", "no secret keys found in project files")
+	return okFinding("identity-leaked-in-project", "no private keys found in project files")
 }
 
 // checkStoreMode verifies store.age is mode 0600. Auto-fixable.
@@ -501,9 +502,10 @@ func isFileGitTracked(dir, filePath string) bool {
 	return cmd.Run() == nil
 }
 
-// scanForSecretKey walks the project looking for files containing AGE-SECRET-KEY-.
+// scanForPrivateKey walks the project looking for files containing private key
+// markers (AGE-SECRET-KEY- or -----BEGIN OPENSSH PRIVATE KEY-----).
 // Skips files > 1 MiB and the identity file itself.
-func scanForSecretKey(root string) []string {
+func scanForPrivateKey(root string) []string {
 	files := trackedFiles(root)
 	if files == nil {
 		files = walkTextFiles(root)
@@ -525,7 +527,7 @@ func scanForSecretKey(root string) []string {
 		if identityPath != "" && abs == identityPath {
 			continue
 		}
-		if containsSecretKeyPrefix(path) {
+		if containsPrivateKeyMarker(path) {
 			rel, err := filepath.Rel(root, path)
 			if err != nil {
 				rel = path
@@ -577,8 +579,9 @@ func walkTextFiles(root string) []string {
 	return files
 }
 
-// containsSecretKeyPrefix checks if a file contains the AGE-SECRET-KEY- prefix.
-func containsSecretKeyPrefix(path string) bool {
+// containsPrivateKeyMarker checks if a file contains a private key marker
+// (AGE-SECRET-KEY- or -----BEGIN OPENSSH PRIVATE KEY-----).
+func containsPrivateKeyMarker(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
 		return false
@@ -587,7 +590,9 @@ func containsSecretKeyPrefix(path string) bool {
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "AGE-SECRET-KEY-") {
+		line := scanner.Text()
+		if strings.Contains(line, "AGE-SECRET-KEY-") ||
+			strings.Contains(line, "-----BEGIN OPENSSH PRIVATE KEY-----") {
 			return true
 		}
 	}
