@@ -427,7 +427,7 @@ func TestInitVaultProject_SSHIdentity_Idempotent(t *testing.T) {
 	}
 }
 
-func TestInitVaultProject_SSHIdentity_RejectsWhenAgeExists(t *testing.T) {
+func TestInitVaultProject_AgeInitThenAddSSH(t *testing.T) {
 	dir := vaultTestSetup(t)
 
 	// First init with age
@@ -435,19 +435,87 @@ func TestInitVaultProject_SSHIdentity_RejectsWhenAgeExists(t *testing.T) {
 		t.Fatalf("age init: %v", err)
 	}
 
-	// Try SSH init — should error because identity.txt exists
+	// Second init with SSH — should add SSH as a recipient
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, expectedPub := writeTestSSHKey(t, sshDir)
+
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("SSH additive init: %v", err)
+	}
+
+	// recipients.txt should have both age and SSH keys
+	recipientsPath := filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile)
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("read recipients.txt: %v", err)
+	}
+	if !strings.Contains(string(data), "age1") {
+		t.Error("recipients.txt should still contain age key")
+	}
+	if !strings.Contains(string(data), expectedPub) {
+		t.Error("recipients.txt should now contain SSH key")
+	}
+
+	// Store should decrypt with SSH identity
+	sshIdentity, err := vault.LoadSSHIdentity(keyPath)
+	if err != nil {
+		t.Fatalf("LoadSSHIdentity: %v", err)
+	}
+	if _, err := vault.ReadStore(sshIdentity); err != nil {
+		t.Fatalf("store should decrypt with SSH: %v", err)
+	}
+}
+
+func TestInitVaultProject_SSHInitThenAddAge(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	// First init with SSH
 	sshDir := filepath.Join(dir, ".ssh")
 	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
 		t.Fatal(err)
 	}
 	keyPath, _ := writeTestSSHKey(t, sshDir)
 
-	err := InitVaultProject(nil, keyPath)
-	if err == nil {
-		t.Fatal("expected error when age identity exists")
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("SSH init: %v", err)
 	}
-	if !strings.Contains(err.Error(), "age identity already exists") {
-		t.Errorf("unexpected error: %v", err)
+
+	// Point ResolveIdentity at the test SSH key so it can decrypt for re-encryption
+	t.Setenv(utils.SSHIdentityEnvVar, keyPath)
+
+	// Second init without flags — should generate age key and add as recipient
+	if err := InitVaultProject(nil, ""); err != nil {
+		t.Fatalf("age additive init: %v", err)
+	}
+
+	// identity.txt should now exist
+	if !vault.IdentityExists() {
+		t.Error("identity.txt should exist after age additive init")
+	}
+
+	// recipients.txt should have both SSH and age keys
+	recipientsPath := filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile)
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("read recipients.txt: %v", err)
+	}
+	if !strings.Contains(string(data), "ssh-ed25519") {
+		t.Error("recipients.txt should still contain SSH key")
+	}
+	if !strings.Contains(string(data), "age1") {
+		t.Error("recipients.txt should now contain age key")
+	}
+
+	// Store should decrypt with age identity
+	ageIdentity, err := vault.LoadIdentity()
+	if err != nil {
+		t.Fatalf("LoadIdentity: %v", err)
+	}
+	if _, err := vault.ReadStore(ageIdentity); err != nil {
+		t.Fatalf("store should decrypt with age: %v", err)
 	}
 }
 
