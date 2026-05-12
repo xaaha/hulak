@@ -125,13 +125,16 @@ By default, creates an encrypted vault (.hulak/store.age) plus an example 'apiOp
 Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/
 layout instead. Use -env to scaffold specific environments.
 
+Init generates an age keypair for encryption. After setup, you can use an SSH
+ed25519 key for vault operations by adding it as a recipient
+('hulak secrets add-recipient "ssh-ed25519 ..."') and setting HULAK_SSH_IDENTITY
+or passing --ssh-identity on commands like 'run'.
+
 ```bash
 hulak init
 hulak init -env staging prod
 hulak init classic
-hulak init plain
 hulak init classic -env staging prod
-hulak init classic --help
 ```
 
 Supported flags:
@@ -149,6 +152,9 @@ Notes:
 
 Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.
 
+Only Postman collections and environments are supported at this time.
+To migrate plaintext env/ files to the encrypted vault, use 'hulak secrets migrate' instead.
+
 ```bash
 hulak migrate collection.json
 hulak migrate env.json collection.json
@@ -156,12 +162,25 @@ hulak migrate env.json collection.json
 
 ### `doctor`
 
-Inspect your hulak project for common issues: missing .gitignore entries,
-loose file permissions on env files, and secrets leaked into git history.
+Inspect your hulak project for common issues.
+
+Vault backend: identity, store, recipients, and drift checks.
+Classic backend: .gitignore, file permissions, git history.
 
 ```bash
 hulak doctor
+hulak doctor --fix
+hulak doctor --fix --yes
+hulak doctor --json
 ```
+
+Supported flags:
+
+| Flag | Meaning |
+| ---- | ------- |
+| `--fix` | Auto-repair safe issues (chmod, .gitignore) |
+| `--json` | Output findings as JSON to stdout |
+| `--yes` | Skip confirmation prompts (use with --fix) |
 
 ### `gql`
 

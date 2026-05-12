@@ -75,6 +75,9 @@ func runEnvEdit(args []string, envName string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
 
 	if envName == "" {
 		picked, err := envPicker()

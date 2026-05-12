@@ -14,7 +14,7 @@ hulak \- file-based API client for the terminal
 .br
 .B hulak migrate <files>
 .br
-.B hulak doctor
+.B hulak doctor [\-\-fix] [\-\-json] [\-\-yes]
 .br
 .B hulak gql [\-\-env] <path>
 .br
@@ -187,13 +187,7 @@ hulak init \-env staging prod
 hulak init classic
 .RE
 .RS
-hulak init plain
-.RE
-.RS
 hulak init classic \-env staging prod
-.RE
-.RS
-hulak init classic \-\-help
 .RE
 .PP
 migrate:
@@ -209,6 +203,15 @@ doctor:
 .PP
 .RS
 hulak doctor
+.RE
+.RS
+hulak doctor \-\-fix
+.RE
+.RS
+hulak doctor \-\-fix \-\-yes
+.RE
+.RS
+hulak doctor \-\-json
 .RE
 .PP
 gql:

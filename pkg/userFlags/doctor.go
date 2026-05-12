@@ -2,108 +2,344 @@ package userflags
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 )
 
-type warning struct {
-	message string
-	fix     string
+// --- severity ----------------------------------------------------------------
+
+// severity ranks a doctor finding from informational to blocking.
+type severity int
+
+const (
+	sevInfo  severity = iota // context-only, does not affect exit code
+	sevOk                    // check passed
+	sevWarn                  // potential problem
+	sevError                 // must fix before vault is usable
+)
+
+func (s severity) String() string {
+	switch s {
+	case sevInfo:
+		return "info"
+	case sevOk:
+		return "ok"
+	case sevWarn:
+		return "warn"
+	case sevError:
+		return "error"
+	default:
+		return "unknown"
+	}
 }
 
-func runDoctor() {
-	envPath, err := utils.CreatePath(utils.EnvironmentFolder)
-	if err != nil {
-		utils.PrintWarning(fmt.Sprintf(
-			"%s/ could not be resolved", utils.EnvironmentFolder,
-		))
-		return
-	}
+// sevDisplay maps a severity to its colored mark for table output.
+type sevDisplay struct {
+	color string
+	mark  string
+}
 
-	info, statErr := os.Stat(envPath)
-	if statErr != nil || !info.IsDir() {
-		utils.PrintWarning(fmt.Sprintf(
-			"%s/ directory not found. Create it:\n    hulak init", utils.EnvironmentFolder,
-		))
-		return
-	}
+var sevDisplays = [4]sevDisplay{
+	sevInfo:  {utils.Blue, utils.InfoMark},
+	sevOk:    {utils.Green, utils.CheckMark},
+	sevWarn:  {utils.Yellow, utils.WarningMark},
+	sevError: {utils.Red, utils.CrossMark},
+}
 
-	printInventory(envPath)
+// --- finding -----------------------------------------------------------------
 
-	warnings := collectWarnings(envPath)
-	if len(warnings) == 0 {
-		utils.PrintGreen(fmt.Sprintf("  %s No issues found", utils.CheckMark))
-		return
-	}
-	for _, w := range warnings {
-		msg := fmt.Sprintf("  %s %s", utils.CrossMark, w.message)
-		if w.fix != "" {
-			msg += "\n    " + w.fix
+// finding is a single doctor check result.
+type finding struct {
+	check    string       // stable ID, e.g. "identity-mode"
+	severity severity     // one of sevInfo / sevOk / sevWarn / sevError
+	message  string       // human-readable description
+	fix      string       // remediation advice (always informational)
+	auto     func() error // non-nil iff --fix can safely repair this
+}
+
+func skipFinding(check, reason string) finding {
+	return finding{check: check, severity: sevInfo, message: reason}
+}
+
+func okFinding(check, msg string) finding {
+	return finding{check: check, severity: sevOk, message: msg}
+}
+
+// --- report ------------------------------------------------------------------
+
+// doctorReport collects all findings for a single run.
+type doctorReport struct {
+	project  string
+	backend  string
+	findings []finding
+}
+
+// summary counts findings by severity.
+type summary struct {
+	Ok    int `json:"ok"`
+	Warn  int `json:"warn"`
+	Error int `json:"error"`
+	Info  int `json:"info"`
+}
+
+func (r *doctorReport) summary() summary {
+	var s summary
+	for _, f := range r.findings {
+		switch f.severity {
+		case sevInfo:
+			s.Info++
+		case sevOk:
+			s.Ok++
+		case sevWarn:
+			s.Warn++
+		case sevError:
+			s.Error++
 		}
-		utils.PrintWarning(msg)
 	}
+	return s
 }
 
-func printInventory(envPath string) {
-	entries, err := os.ReadDir(envPath)
-	if err != nil {
-		return
+// exitCode returns 0 for ok/info-only, 1 for warnings, 2 for errors.
+func (r *doctorReport) exitCode() int {
+	s := r.summary()
+	if s.Error > 0 {
+		return 2
+	}
+	if s.Warn > 0 {
+		return 1
+	}
+	return 0
+}
+
+// --- human output (stderr) ---------------------------------------------------
+
+func (r *doctorReport) printHuman() {
+	utils.PrintInfoStderr(fmt.Sprintf("Project: %s", r.project))
+	utils.PrintInfoStderr(fmt.Sprintf("Backend: %s\n", r.backend))
+
+	headers := []string{"RESULT", "MESSAGE"}
+	hasFix := false
+	for _, f := range r.findings {
+		if f.fix != "" {
+			hasFix = true
+			break
+		}
+	}
+	if hasFix {
+		headers = append(headers, "FIX")
 	}
 
-	fmt.Println(utils.EnvironmentFolder + "/")
-	for _, e := range entries {
-		if e.IsDir() {
+	rows := make([][]string, len(r.findings))
+	for i, f := range r.findings {
+		d := sevDisplays[f.severity]
+		row := []string{d.color + d.mark + utils.ColorReset, f.message}
+		if hasFix {
+			row = append(row, f.fix)
+		}
+		rows[i] = row
+	}
+
+	_ = utils.PrintTable(os.Stderr, headers, rows, 0)
+
+	s := r.summary()
+	utils.PrintInfoStderr(fmt.Sprintf("\n%d ok, %d warning, %d error", s.Ok, s.Warn, s.Error))
+}
+
+// --- JSON output (stdout) ----------------------------------------------------
+
+type jsonFinding struct {
+	Check       string `json:"check"`
+	Severity    string `json:"severity"`
+	Message     string `json:"message"`
+	Fix         string `json:"fix,omitempty"`
+	AutoFixable bool   `json:"auto_fixable"`
+}
+
+type jsonReport struct {
+	Project  string        `json:"project"`
+	Backend  string        `json:"backend"`
+	Findings []jsonFinding `json:"findings"`
+	Summary  summary       `json:"summary"`
+}
+
+func (r *doctorReport) printJSON() {
+	jf := make([]jsonFinding, len(r.findings))
+	for i, f := range r.findings {
+		jf[i] = jsonFinding{
+			Check:       f.check,
+			Severity:    f.severity.String(),
+			Message:     f.message,
+			Fix:         f.fix,
+			AutoFixable: f.auto != nil,
+		}
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(jsonReport{
+		Project:  r.project,
+		Backend:  r.backend,
+		Findings: jf,
+		Summary:  r.summary(),
+	})
+}
+
+// --- --fix flow --------------------------------------------------------------
+
+// runFixes applies auto-fixable findings. Findings were already printed by
+// printHuman, so this only shows the fix prompt and result.
+func (r *doctorReport) runFixes(autoYes bool) {
+	for i, f := range r.findings {
+		if f.auto == nil {
 			continue
 		}
-		fmt.Println("  " + e.Name())
+
+		if !autoYes {
+			ok, err := utils.ConfirmAction(fmt.Sprintf("  Fix %s (%s)? [Y/n] ", f.check, f.fix))
+			if err != nil || !ok {
+				continue
+			}
+		}
+
+		if err := f.auto(); err != nil {
+			utils.PrintErrorStderr(fmt.Sprintf("  fix %s failed: %v", f.check, err))
+			continue
+		}
+
+		r.findings[i].severity = sevOk
+		r.findings[i].fix = ""
+		r.findings[i].auto = nil
+		utils.PrintSuccessStderr(fmt.Sprintf("  fixed: %s", f.check))
 	}
-	fmt.Println()
 }
 
-func collectWarnings(envPath string) []warning {
-	var warnings []warning
-	warnings = append(warnings, checkGitignore()...)
-	warnings = append(warnings, checkEnvPermissions(envPath)...)
-	warnings = append(warnings, checkGitHistory()...)
-	return warnings
+// --- orchestrator ------------------------------------------------------------
+
+type doctorOpts struct {
+	fix     bool
+	yes     bool
+	jsonOut bool
 }
 
-func checkGitignore() []warning {
+// runDoctor runs all health checks and returns the exit code:
+// 0 = ok/info only, 1 = warnings, 2 = errors.
+func runDoctor(opts doctorOpts) int {
+	projectRoot, found := utils.FindProjectRoot()
+	storeType := vault.DetectStore()
+
+	if opts.fix && opts.jsonOut {
+		utils.PrintErrorStderr("--fix and --json are mutually exclusive")
+		return 1
+	}
+
+	if !found || storeType == vault.StoreNone {
+		utils.PrintInfoStderr("Not a hulak project. Run 'hulak init' to start one.")
+		return 0
+	}
+
+	report := &doctorReport{project: projectRoot}
+
+	switch storeType {
+	case vault.StoreAge:
+		report.backend = "vault (.hulak/store.age)"
+		report.findings = collectVaultFindings()
+	case vault.StoreClassic:
+		report.backend = "classic (env/)"
+		report.findings = collectClassicFindings(projectRoot)
+	}
+
+	if opts.jsonOut {
+		report.printJSON()
+		return report.exitCode()
+	}
+
+	if opts.fix {
+		report.printHuman()
+		report.runFixes(opts.yes)
+	} else {
+		report.printHuman()
+	}
+
+	return report.exitCode()
+}
+
+// collectVaultFindings runs all vault-aware checks.
+func collectVaultFindings() []finding {
+	return []finding{
+		// Identity chain
+		checkIdentityPresent(),
+		checkIdentityMode(),
+		checkIdentityNotInGit(),
+		checkIdentityLeakedInProject(),
+		// Store
+		checkStoreMode(),
+		checkStoreEncrypted(),
+		checkStoreDecrypts(),
+		// Recipients
+		checkRecipientsExist(),
+		checkRecipientsValid(),
+		checkRecipientsCommitted(),
+		// Drift + misc
+		checkRecipientDrift(),
+		checkStoreNotGitignored(),
+		checkLegacyKeyPub(),
+		checkDualBackend(),
+		checkDualIdentity(),
+		checkStoreSize(),
+	}
+}
+
+// collectClassicFindings runs classic-backend checks and suggests migration.
+func collectClassicFindings(projectRoot string) []finding {
+	envPath := filepath.Join(projectRoot, utils.EnvironmentFolder)
+	printInventory(envPath)
+
+	var findings []finding
+	findings = append(findings, checkGitignore()...)
+	findings = append(findings, checkEnvPermissions(envPath)...)
+	findings = append(findings, checkGitHistory()...)
+
+	if len(findings) == 0 {
+		findings = append(findings, okFinding("classic-health", "classic backend looks healthy"))
+	}
+
+	findings = append(findings, finding{
+		check:    "migrate-suggestion",
+		severity: sevInfo,
+		message:  "consider migrating to the encrypted vault with 'hulak secrets migrate'",
+	})
+
+	return findings
+}
+
+// --- classic checks ----------------------------------------------------------
+
+func checkGitignore() []finding {
+	notIgnored := finding{
+		check:    "classic-gitignore",
+		severity: sevWarn,
+		message:  fmt.Sprintf("%s/ is not gitignored — secrets may be committed", utils.EnvironmentFolder),
+		fix:      fmt.Sprintf("echo \"%s/\" >> .gitignore", utils.EnvironmentFolder),
+	}
+
 	gitignorePath, err := utils.CreatePath(".gitignore")
-	if err != nil {
-		return []warning{{
-			message: fmt.Sprintf(
-				"%s/ is not gitignored — secrets may be committed",
-				utils.EnvironmentFolder,
-			),
-			fix: fmt.Sprintf(
-				"echo \"%s/\" >> .gitignore",
-				utils.EnvironmentFolder,
-			),
-		}}
-	}
-
-	if !utils.FileExists(gitignorePath) {
-		return []warning{{
-			message: fmt.Sprintf(
-				"%s/ is not gitignored — secrets may be committed",
-				utils.EnvironmentFolder,
-			),
-			fix: fmt.Sprintf(
-				"echo \"%s/\" >> .gitignore",
-				utils.EnvironmentFolder,
-			),
-		}}
+	if err != nil || !utils.FileExists(gitignorePath) {
+		return []finding{notIgnored}
 	}
 
 	file, err := os.Open(gitignorePath)
 	if err != nil {
-		return []warning{{
-			message: "could not read .gitignore",
+		return []finding{{
+			check:    "classic-gitignore",
+			severity: sevWarn,
+			message:  "could not read .gitignore",
 		}}
 	}
 	defer file.Close()
@@ -117,25 +353,16 @@ func checkGitignore() []warning {
 		}
 	}
 
-	return []warning{{
-		message: fmt.Sprintf(
-			"%s/ is not gitignored — secrets may be committed",
-			utils.EnvironmentFolder,
-		),
-		fix: fmt.Sprintf(
-			"echo \"%s/\" >> .gitignore",
-			utils.EnvironmentFolder,
-		),
-	}}
+	return []finding{notIgnored}
 }
 
-func checkEnvPermissions(envPath string) []warning {
+func checkEnvPermissions(envPath string) []finding {
 	entries, err := os.ReadDir(envPath)
 	if err != nil {
 		return nil
 	}
 
-	var warnings []warning
+	var findings []finding
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), utils.DefaultEnvFileSuffix) {
 			continue
@@ -145,7 +372,9 @@ func checkEnvPermissions(envPath string) []warning {
 			continue
 		}
 		if info.Mode().Perm()&0o077 != 0 {
-			warnings = append(warnings, warning{
+			findings = append(findings, finding{
+				check:    "classic-permissions",
+				severity: sevWarn,
 				message: fmt.Sprintf(
 					"%s has loose permissions (%o)",
 					e.Name(), info.Mode().Perm(),
@@ -157,10 +386,10 @@ func checkEnvPermissions(envPath string) []warning {
 			})
 		}
 	}
-	return warnings
+	return findings
 }
 
-func checkGitHistory() []warning {
+func checkGitHistory() []finding {
 	if _, err := exec.LookPath("git"); err != nil {
 		return nil
 	}
@@ -190,11 +419,29 @@ func checkGitHistory() []warning {
 		return nil
 	}
 
-	return []warning{{
+	return []finding{{
+		check:    "classic-git-history",
+		severity: sevWarn,
 		message: fmt.Sprintf(
 			"%s files found in git history: %s",
 			utils.DefaultEnvFileSuffix, strings.Join(files, ", "),
 		),
 		fix: "consider removing with git filter-repo or BFG Repo-Cleaner",
 	}}
+}
+
+func printInventory(envPath string) {
+	entries, err := os.ReadDir(envPath)
+	if err != nil {
+		return
+	}
+
+	utils.PrintInfoStderr(utils.EnvironmentFolder + "/")
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		utils.PrintInfoStderr("  " + e.Name())
+	}
+	utils.PrintInfoStderr("")
 }

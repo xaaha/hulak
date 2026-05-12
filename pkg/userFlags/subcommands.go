@@ -102,7 +102,11 @@ func newInitCmd() *command {
 			"Set up a new hulak project in the current directory.\n\n"+
 				"By default, creates an encrypted vault (.hulak/store.age) plus an example '%s'.\n"+
 				"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n"+
-				"layout instead. Use -env to scaffold specific environments.",
+				"layout instead. Use -env to scaffold specific environments.\n\n"+
+				"Init generates an age keypair for encryption. After setup, you can use an SSH\n"+
+				"ed25519 key for vault operations by adding it as a recipient\n"+
+				"('hulak secrets add-recipient \"ssh-ed25519 ...\"') and setting HULAK_SSH_IDENTITY\n"+
+				"or passing --ssh-identity on commands like 'run'.",
 			utils.APIOptions,
 		),
 		Examples: []*utils.CommandHelp{
@@ -113,19 +117,11 @@ func newInitCmd() *command {
 			},
 			{
 				Command:     "hulak init classic",
-				Description: "Use the plaintext env/ layout (global.env + example file)",
-			},
-			{
-				Command:     "hulak init plain",
-				Description: "Same as 'classic' (alias — see also: 'no-vault')",
+				Description: "Use the plaintext env/ layout (aliases: plain, no-vault)",
 			},
 			{
 				Command:     "hulak init classic -env staging prod",
 				Description: "Plaintext layout with extra environments scaffolded",
-			},
-			{
-				Command:     "hulak init classic --help",
-				Description: "Show full help for the classic subcommand",
 			},
 		},
 		Flags: fs,
@@ -211,7 +207,9 @@ func newMigrateCmd() *command {
 	return &command{
 		Name:  "migrate",
 		Short: "Migrate Postman collections to hulak format",
-		Long:  "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.",
+		Long: "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.\n\n" +
+			"Only Postman collections and environments are supported at this time.\n" +
+			"To migrate plaintext env/ files to the encrypted vault, use 'hulak secrets migrate' instead.",
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak migrate collection.json", Description: "Migrate a Postman collection"},
 			{
@@ -227,16 +225,31 @@ func newMigrateCmd() *command {
 }
 
 func newDoctorCmd() *command {
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	fixFlag := fs.Bool("fix", false, "Auto-repair safe issues (chmod, .gitignore)")
+	yesFlag := fs.Bool("yes", false, "Skip confirmation prompts (use with --fix)")
+	jsonFlag := fs.Bool("json", false, "Output findings as JSON to stdout")
+
 	return &command{
 		Name:  "doctor",
 		Short: "Check project health",
-		Long:  "Inspect your hulak project for common issues: missing .gitignore entries,\nloose file permissions on env files, and secrets leaked into git history.",
+		Long: "Inspect your hulak project for common issues.\n\n" +
+			"Vault backend: identity, store, recipients, and drift checks.\n" +
+			"Classic backend: .gitignore, file permissions, git history.",
+		Flags: fs,
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak doctor", Description: "Run all health checks"},
+			{Command: "hulak doctor --fix", Description: "Auto-repair safe issues"},
+			{Command: "hulak doctor --fix --yes", Description: "Auto-repair without prompts"},
+			{Command: "hulak doctor --json", Description: "Output findings as JSON"},
 		},
 		Run: func(_ []string) error {
-			runDoctor()
-			return nil
+			os.Exit(runDoctor(doctorOpts{
+				fix:     *fixFlag,
+				yes:     *yesFlag,
+				jsonOut: *jsonFlag,
+			}))
+			return nil // unreachable
 		},
 	}
 }

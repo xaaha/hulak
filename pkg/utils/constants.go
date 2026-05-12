@@ -96,8 +96,10 @@ const (
 
 // tick mark and x for success and failure
 const (
-	CheckMark           = "\u2714"  // tick
-	CrossMark           = "\u2716"  // x
+	CheckMark           = "\u2714"  // ✔
+	CrossMark           = "\u2716"  // ✖
+	WarningMark         = "\u26a0"  // ⚠
+	InfoMark            = "\u2139"  // ℹ
 	ChevronRight        = "\uf054 " // >
 	ChevronRightCircled = "\uf138"
 	ChevronDownCircled  = "\uf13a"
