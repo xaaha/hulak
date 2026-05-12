@@ -53,6 +53,18 @@ func runRotateKey(args []string) error {
 		return err
 	}
 
+	if !vault.IdentityExists() {
+		return fmt.Errorf(
+			"rotate-key requires an age identity (identity.txt)\n\n" +
+				"This vault uses SSH keys. To rotate:\n" +
+				"  1. Generate new SSH key: ssh-keygen -t ed25519\n" +
+				"  2. Add new key: hulak secrets add-recipient \"$(cat ~/.ssh/new_key.pub)\"\n" +
+				"  3. Re-encrypt: hulak secrets sync\n" +
+				"  4. Remove old key: hulak secrets remove-recipient \"ssh-ed25519 <old>\"\n" +
+				"  5. Verify: hulak doctor",
+		)
+	}
+
 	if os.Getenv(utils.MasterKey) != "" {
 		return fmt.Errorf(
 			"rotate-key cannot run while %s is set — "+
