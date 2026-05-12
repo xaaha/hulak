@@ -10,7 +10,7 @@ hulak \- file-based API client for the terminal
 .br
 .B hulak version
 .br
-.B hulak init [\-\-env] [envNames] <subcommand> [options]
+.B hulak init [\-\-env] [\-\-ssh] [\-\-ssh-identity] [envNames] <subcommand> [options]
 .br
 .B hulak migrate <files>
 .br
@@ -181,13 +181,16 @@ init:
 hulak init
 .RE
 .RS
+hulak init \-\-ssh
+.RE
+.RS
+hulak init \-\-ssh\-identity ~/\&.ssh/work_ed25519
+.RE
+.RS
 hulak init \-env staging prod
 .RE
 .RS
 hulak init classic
-.RE
-.RS
-hulak init classic \-env staging prod
 .RE
 .PP
 migrate:
