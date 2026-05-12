@@ -92,11 +92,11 @@ func runEnvEdit(args []string, envName string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		ageKey, err := vault.EnsureKeypair()
+		identity, err := vault.ResolveIdentity()
 		if err != nil {
-			return fmt.Errorf("failed to load keypair: %w", err)
+			return fmt.Errorf("failed to load identity: %w", err)
 		}
-		store, err := vault.ReadStore(ageKey.Identity)
+		store, err := vault.ReadStore(identity)
 		if err != nil {
 			return err
 		}
