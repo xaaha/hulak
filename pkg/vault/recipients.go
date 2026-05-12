@@ -138,6 +138,51 @@ func AddRecipientEntry(entries []RecipientEntry, pubKey, name string, allowRSA b
 	}), nil
 }
 
+// AddRecipientAndReencrypt adds a public key to recipients.txt (if not already
+// present) and re-encrypts the store to all recipients. Uses the provided
+// identity for decryption. Returns true if a new recipient was added.
+// This is the shared core for `init` additive flow and `add-recipient`.
+func AddRecipientAndReencrypt(pubKey, name string, identity age.Identity) (bool, error) {
+	recipPath, err := RecipientsFilePath()
+	if err != nil {
+		return false, err
+	}
+	data, err := os.ReadFile(recipPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read recipients: %w", err)
+	}
+	entries, err := ParseRecipientsFileContent(data)
+	if err != nil {
+		return false, err
+	}
+
+	newEntries, err := AddRecipientEntry(entries, pubKey, name, true)
+	if err != nil {
+		if strings.Contains(err.Error(), "already in recipients") {
+			return false, nil
+		}
+		return false, err
+	}
+
+	store, err := ReadStore(identity)
+	if err != nil {
+		return false, err
+	}
+
+	recipients, err := RecipientsFromEntries(newEntries)
+	if err != nil {
+		return false, err
+	}
+	if err := WriteStore(store, recipients...); err != nil {
+		return false, err
+	}
+	if err := SaveRecipients(newEntries); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // RemoveRecipientEntry removes entries matching query (by full key string or
 // by name substring). Returns error if removing would leave zero recipients.
 // Returns the original list unchanged if no match found.
