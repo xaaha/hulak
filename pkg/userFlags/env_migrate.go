@@ -114,7 +114,7 @@ func bootstrapAge() (*bootstrapResult, error) {
 		return nil, err
 	}
 
-	if err := ensureRecipientsFile(ageKey.Recipient.String(), "owner"); err != nil {
+	if err := ensureRecipientsFile(ageKey.Recipient.String(), utils.Username()); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +155,7 @@ func bootstrapSSH(sshIdentityPath string) (*bootstrapResult, error) {
 		return nil, err
 	}
 
-	if err := ensureRecipientsFile(pubKey, "owner"); err != nil {
+	if err := ensureRecipientsFile(pubKey, utils.Username()); err != nil {
 		return nil, err
 	}
 

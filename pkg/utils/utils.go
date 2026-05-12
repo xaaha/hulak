@@ -11,6 +11,18 @@ import (
 	"strings"
 )
 
+// Username returns the current OS username from environment variables.
+// Falls back to "owner" if neither USER (Unix) nor USERNAME (Windows) is set.
+func Username() string {
+	if u := os.Getenv("USER"); u != "" {
+		return u
+	}
+	if u := os.Getenv("USERNAME"); u != "" {
+		return u
+	}
+	return "owner"
+}
+
 // CreatePath creates and returns file or directory path by joining the project root with provided filePath.
 // It walks up from the current directory to find the hulak project root (env/ directory).
 // If no project root is found, it falls back to the current working directory.
