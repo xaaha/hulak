@@ -121,20 +121,19 @@ hulak version
 
 Set up a new hulak project in the current directory.
 
-By default, creates an encrypted vault (.hulak/store.age) plus an example 'apiOptions.hk.yaml'.
+By default, creates an encrypted vault (.hulak/store.age) with an age keypair
+plus an example 'apiOptions.hk.yaml'. Use --ssh to bootstrap with your default SSH ed25519 key
+(~/.ssh/id_ed25519), or --ssh-identity <path> for a custom key.
+
 Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/
 layout instead. Use -env to scaffold specific environments.
 
-Init generates an age keypair for encryption. After setup, you can use an SSH
-ed25519 key for vault operations by adding it as a recipient
-('hulak secrets add-recipient "ssh-ed25519 ..."') and setting HULAK_SSH_IDENTITY
-or passing --ssh-identity on commands like 'run'.
-
 ```bash
 hulak init
+hulak init --ssh
+hulak init --ssh-identity ~/.ssh/work_ed25519
 hulak init -env staging prod
 hulak init classic
-hulak init classic -env staging prod
 ```
 
 Supported flags:
@@ -142,6 +141,8 @@ Supported flags:
 | Flag | Meaning |
 | ---- | ------- |
 | `--env` | Create specific environment files instead of the default setup |
+| `--ssh` | Use SSH ed25519 key (~/.ssh/id_ed25519) instead of generating an age keypair |
+| `--ssh-identity` | Path to SSH private key (implies --ssh; overrides the default path) |
 
 Notes:
 
