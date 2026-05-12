@@ -253,8 +253,8 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 // and reminds the user that env/ is untouched.
 func printMigrateSummary(wasFresh bool, result *bootstrapResult) error {
 	if wasFresh {
-		fmt.Fprintf(os.Stderr, "\n  Identity file: %s\n", result.identityDesc)
-		fmt.Fprintf(os.Stderr, "  Public key:    %s\n", result.recipientKey)
+		utils.PrintInfoStderr(fmt.Sprintf("\n  Identity file: %s", result.identityDesc))
+		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)
