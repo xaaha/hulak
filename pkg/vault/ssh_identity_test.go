@@ -36,6 +36,40 @@ func writeTestSSHKey(t *testing.T, dir string) (keyPath string, pubKeyStr string
 	return keyPath, pubKeyStr
 }
 
+func TestDeriveSSHPublicKey(t *testing.T) {
+	t.Run("derives matching public key from ed25519 private key", func(t *testing.T) {
+		dir := t.TempDir()
+		keyPath, expectedPub := writeTestSSHKey(t, dir)
+
+		got, err := DeriveSSHPublicKey(keyPath)
+		if err != nil {
+			t.Fatalf("DeriveSSHPublicKey() error: %v", err)
+		}
+		if got != expectedPub {
+			t.Errorf("DeriveSSHPublicKey() = %q, want %q", got, expectedPub)
+		}
+	})
+
+	t.Run("errors on missing file", func(t *testing.T) {
+		_, err := DeriveSSHPublicKey("/tmp/nonexistent_key_12345")
+		if err == nil {
+			t.Fatal("DeriveSSHPublicKey() should error on missing file")
+		}
+	})
+
+	t.Run("errors on non-SSH content", func(t *testing.T) {
+		dir := t.TempDir()
+		junkPath := filepath.Join(dir, "junk")
+		if err := os.WriteFile(junkPath, []byte("not a key"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := DeriveSSHPublicKey(junkPath)
+		if err == nil {
+			t.Fatal("DeriveSSHPublicKey() should error on non-SSH content")
+		}
+	})
+}
+
 func TestLoadSSHIdentity(t *testing.T) {
 	t.Run("loads unencrypted ed25519 key", func(t *testing.T) {
 		dir := t.TempDir()

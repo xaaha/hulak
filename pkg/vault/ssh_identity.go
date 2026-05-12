@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"filippo.io/age"
 	"filippo.io/age/agessh"
@@ -73,6 +74,50 @@ func readPassphrase(keyPath string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read passphrase: %w", err)
 	}
 	return []byte(pass), nil
+}
+
+// DeriveSSHPublicKey reads an SSH private key at path and returns the
+// corresponding public key in authorized_keys format (e.g. "ssh-ed25519 AAAA...").
+// For passphrase-protected keys in OpenSSH format, the public key is extracted
+// from the embedded public key without requiring the passphrase.
+func DeriveSSHPublicKey(path string) (string, error) {
+	pemBytes, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read SSH key %s: %w", path, err)
+	}
+
+	// Try unencrypted first.
+	rawKey, err := ssh.ParseRawPrivateKey(pemBytes)
+	if err == nil {
+		return marshalPublicKey(rawKey)
+	}
+
+	// Passphrase-protected: OpenSSH format embeds the public key.
+	var passErr *ssh.PassphraseMissingError
+	if errors.As(err, &passErr) && passErr.PublicKey != nil {
+		return formatAuthorizedKey(passErr.PublicKey), nil
+	}
+
+	return "", fmt.Errorf(
+		"failed to parse SSH key %s: %w\n"+
+			"Expected an OpenSSH-formatted private key (ssh-keygen generates this by default)",
+		path, err,
+	)
+}
+
+// marshalPublicKey extracts and marshals the public key from a parsed SSH private key.
+func marshalPublicKey(rawKey any) (string, error) {
+	signer, err := ssh.NewSignerFromKey(rawKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer from key: %w", err)
+	}
+	return formatAuthorizedKey(signer.PublicKey()), nil
+}
+
+// formatAuthorizedKey returns the authorized_keys representation of an SSH
+// public key with the trailing newline stripped.
+func formatAuthorizedKey(pub ssh.PublicKey) string {
+	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 }
 
 // DefaultSSHIdentityPath returns the default SSH private key path
