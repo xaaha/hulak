@@ -2,13 +2,17 @@ package userflags
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
+	"golang.org/x/crypto/ssh"
 )
 
 // vaultTestSetup chdirs into a fresh project root and points
@@ -324,5 +328,154 @@ func TestInitVaultProject_DedupesGlobal(t *testing.T) {
 	}
 	if store.GetEnv(utils.DefaultEnvVal) == nil {
 		t.Errorf("expected canonical %q section", utils.DefaultEnvVal)
+	}
+}
+
+// ── SSH identity init tests ─────────────────────────────────────────────────
+
+// writeTestSSHKey generates an unencrypted ed25519 SSH private key in dir,
+// returns the file path and the public key in authorized_keys format.
+func writeTestSSHKey(t *testing.T, dir string) (keyPath, pubKey string) {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("ed25519.GenerateKey: %v", err)
+	}
+	pemBlock, err := ssh.MarshalPrivateKey(priv, "")
+	if err != nil {
+		t.Fatalf("MarshalPrivateKey: %v", err)
+	}
+	keyPath = filepath.Join(dir, "id_ed25519")
+	if err := os.WriteFile(keyPath, pem.EncodeToMemory(pemBlock), utils.SecretPer); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatalf("NewPublicKey: %v", err)
+	}
+	pubKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub)))
+	return keyPath, pubKey
+}
+
+func TestInitVaultProject_SSHIdentity_FreshSetup(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, expectedPub := writeTestSSHKey(t, sshDir)
+
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("InitVaultProject SSH: %v", err)
+	}
+
+	// .hulak/store.age exists
+	storePath := filepath.Join(dir, utils.HiddenProjectName, utils.StoreFile)
+	if !utils.FileExists(storePath) {
+		t.Error("store.age not created")
+	}
+
+	// recipients.txt has SSH key, not age key
+	recipientsPath := filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile)
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("read recipients.txt: %v", err)
+	}
+	if !strings.Contains(string(data), expectedPub) {
+		t.Errorf("recipients.txt should contain SSH pub key, got: %s", data)
+	}
+	if strings.Contains(string(data), "age1") {
+		t.Error("recipients.txt should not contain an age key")
+	}
+
+	// identity.txt should NOT exist
+	if vault.IdentityExists() {
+		t.Error("identity.txt should not exist for SSH init")
+	}
+
+	// Store decrypts with SSH identity
+	identity, err := vault.LoadSSHIdentity(keyPath)
+	if err != nil {
+		t.Fatalf("LoadSSHIdentity: %v", err)
+	}
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		t.Fatalf("ReadStore: %v", err)
+	}
+	if store.GetEnv(utils.DefaultEnvVal) == nil {
+		t.Error("expected global section in store")
+	}
+}
+
+func TestInitVaultProject_SSHIdentity_Idempotent(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, _ := writeTestSSHKey(t, sshDir)
+
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("first init: %v", err)
+	}
+
+	// Second init should not error
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("second init: %v", err)
+	}
+}
+
+func TestInitVaultProject_SSHIdentity_RejectsWhenAgeExists(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	// First init with age
+	if err := InitVaultProject(nil, ""); err != nil {
+		t.Fatalf("age init: %v", err)
+	}
+
+	// Try SSH init — should error because identity.txt exists
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, _ := writeTestSSHKey(t, sshDir)
+
+	err := InitVaultProject(nil, keyPath)
+	if err == nil {
+		t.Fatal("expected error when age identity exists")
+	}
+	if !strings.Contains(err.Error(), "age identity already exists") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestInitVaultProject_SSHIdentity_WithEnvNames(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, _ := writeTestSSHKey(t, sshDir)
+
+	if err := InitVaultProject([]string{"staging", "prod"}, keyPath); err != nil {
+		t.Fatalf("SSH init with envs: %v", err)
+	}
+
+	identity, err := vault.LoadSSHIdentity(keyPath)
+	if err != nil {
+		t.Fatalf("LoadSSHIdentity: %v", err)
+	}
+	store, err := vault.ReadStore(identity)
+	if err != nil {
+		t.Fatalf("ReadStore: %v", err)
+	}
+
+	for _, env := range []string{"global", "staging", "prod"} {
+		if store.GetEnv(env) == nil {
+			t.Errorf("expected %q section in store", env)
+		}
 	}
 }
