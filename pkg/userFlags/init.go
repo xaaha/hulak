@@ -101,7 +101,10 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 		return nil
 	}
 
-	wasFresh := !vault.IdentityExists()
+	// Detect first-time setup: for age, identity.txt absence is the signal;
+	// for SSH, store.age absence is the signal (no identity.txt ever created).
+	storePath := filepath.Join(cwd, utils.HiddenProjectName, utils.StoreFile)
+	wasFresh := !utils.FileExists(storePath)
 
 	result, err := bootstrapVault(cwd, sshIdentityPath)
 	if err != nil {
@@ -118,7 +121,7 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 		return err
 	}
 
-	if wasFresh || result.isSSH {
+	if wasFresh {
 		utils.PrintSuccessStderr(
 			fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 		)

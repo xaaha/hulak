@@ -6,19 +6,18 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-// Username returns the current OS username from environment variables.
-// Falls back to "owner" if neither USER (Unix) nor USERNAME (Windows) is set.
+// Username returns the current OS username. Uses os/user.Current() which
+// works in containers and cron where env vars may be stripped.
+// Falls back to "owner" if the username cannot be determined.
 func Username() string {
-	if u := os.Getenv("USER"); u != "" {
-		return u
-	}
-	if u := os.Getenv("USERNAME"); u != "" {
-		return u
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return u.Username
 	}
 	return "owner"
 }

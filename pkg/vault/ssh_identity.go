@@ -29,24 +29,7 @@ func LoadSSHIdentity(path string) (age.Identity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read SSH key %s: %w", path, err)
 	}
-
-	// Try parsing as an unencrypted key first.
-	identity, err := agessh.ParseIdentity(pemBytes)
-	if err == nil {
-		return identity, nil
-	}
-
-	// Check whether the key is passphrase-protected.
-	if identity, encErr := tryPassphraseProtectedKey(pemBytes, path); encErr == nil {
-		return identity, nil
-	}
-
-	// Neither unencrypted parse nor encrypted detection succeeded.
-	return nil, fmt.Errorf(
-		"failed to parse SSH key %s: %w\n"+
-			"Expected an OpenSSH-formatted private key (ssh-keygen generates this by default)",
-		path, err,
-	)
+	return loadSSHIdentityFromBytes(pemBytes, path)
 }
 
 // tryPassphraseProtectedKey detects if pemBytes is a passphrase-protected SSH key
@@ -76,6 +59,29 @@ func readPassphrase(keyPath string) ([]byte, error) {
 	return []byte(pass), nil
 }
 
+// LoadSSHIdentityWithPubKey reads an SSH private key file once and returns both
+// the age.Identity (for decryption) and the public key in authorized_keys
+// format (for recipients.txt). Use this instead of calling LoadSSHIdentity +
+// DeriveSSHPublicKey separately to avoid double file reads.
+func LoadSSHIdentityWithPubKey(path string) (age.Identity, string, error) {
+	pemBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read SSH key %s: %w", path, err)
+	}
+
+	identity, err := loadSSHIdentityFromBytes(pemBytes, path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	pubKey, err := derivePublicKeyFromBytes(pemBytes, path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return identity, pubKey, nil
+}
+
 // DeriveSSHPublicKey reads an SSH private key at path and returns the
 // corresponding public key in authorized_keys format (e.g. "ssh-ed25519 AAAA...").
 // For passphrase-protected keys in OpenSSH format, the public key is extracted
@@ -85,7 +91,11 @@ func DeriveSSHPublicKey(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read SSH key %s: %w", path, err)
 	}
+	return derivePublicKeyFromBytes(pemBytes, path)
+}
 
+// derivePublicKeyFromBytes extracts the public key from raw SSH private key bytes.
+func derivePublicKeyFromBytes(pemBytes []byte, path string) (string, error) {
 	// Try unencrypted first.
 	rawKey, err := ssh.ParseRawPrivateKey(pemBytes)
 	if err == nil {
@@ -99,6 +109,24 @@ func DeriveSSHPublicKey(path string) (string, error) {
 	}
 
 	return "", fmt.Errorf(
+		"failed to parse SSH key %s: %w\n"+
+			"Expected an OpenSSH-formatted private key (ssh-keygen generates this by default)",
+		path, err,
+	)
+}
+
+// loadSSHIdentityFromBytes parses an SSH private key from raw bytes.
+func loadSSHIdentityFromBytes(pemBytes []byte, path string) (age.Identity, error) {
+	identity, err := agessh.ParseIdentity(pemBytes)
+	if err == nil {
+		return identity, nil
+	}
+
+	if identity, encErr := tryPassphraseProtectedKey(pemBytes, path); encErr == nil {
+		return identity, nil
+	}
+
+	return nil, fmt.Errorf(
 		"failed to parse SSH key %s: %w\n"+
 			"Expected an OpenSSH-formatted private key (ssh-keygen generates this by default)",
 		path, err,

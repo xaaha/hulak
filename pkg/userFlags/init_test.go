@@ -479,3 +479,38 @@ func TestInitVaultProject_SSHIdentity_WithEnvNames(t *testing.T) {
 		}
 	}
 }
+
+// TestInitVaultProject_SSHFlag_UsesDefaultPath tests the --ssh flag path
+// where DefaultSSHIdentityPath is resolved automatically.
+func TestInitVaultProject_SSHFlag_UsesDefaultPath(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	// Place the key at the default SSH path (~/.ssh/id_ed25519)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	sshDir := filepath.Join(home, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	_, expectedPub := writeTestSSHKey(t, sshDir)
+
+	// Simulate what newInitCmd does when --ssh is set: resolve default path
+	sshPath := vault.DefaultSSHIdentityPath()
+	if sshPath == "" {
+		t.Fatal("DefaultSSHIdentityPath returned empty")
+	}
+
+	if err := InitVaultProject(nil, sshPath); err != nil {
+		t.Fatalf("InitVaultProject with default SSH path: %v", err)
+	}
+
+	// Verify recipients.txt has the SSH key
+	recipientsPath := filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile)
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("read recipients.txt: %v", err)
+	}
+	if !strings.Contains(string(data), expectedPub) {
+		t.Errorf("recipients.txt should contain SSH pub key from default path, got: %s", data)
+	}
+}
