@@ -263,6 +263,10 @@ func addRecipientIfMissingWithIdentity(pubKey, name string, identity age.Identit
 // ensureStoreSectionsAndExample handles env section creation and API options
 // for the "vault already exists" path.
 func ensureStoreSectionsAndExample(envNames []string) error {
+	if _, err := writeAPIOptionsExample(); err != nil {
+		return err
+	}
+
 	if len(envNames) == 0 {
 		return nil
 	}
@@ -281,10 +285,6 @@ func ensureStoreSectionsAndExample(envNames []string) error {
 		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
 		}
-	}
-
-	if _, err := writeAPIOptionsExample(); err != nil {
-		return err
 	}
 
 	printAddedEnvs(added)

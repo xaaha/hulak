@@ -582,3 +582,42 @@ func TestInitVaultProject_SSHFlag_UsesDefaultPath(t *testing.T) {
 		t.Errorf("recipients.txt should contain SSH pub key from default path, got: %s", data)
 	}
 }
+
+func TestInitVaultProject_ThirdRunIdempotent(t *testing.T) {
+	dir := vaultTestSetup(t)
+
+	// 1st: init with age
+	if err := InitVaultProject(nil, ""); err != nil {
+		t.Fatalf("age init: %v", err)
+	}
+
+	// 2nd: add SSH
+	sshDir := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(sshDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	keyPath, _ := writeTestSSHKey(t, sshDir)
+	if err := InitVaultProject(nil, keyPath); err != nil {
+		t.Fatalf("SSH additive init: %v", err)
+	}
+
+	// Snapshot recipients after both identities added
+	recipientsPath := filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile)
+	before, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 3rd: run again (no flags) — should be "Vault ready", no changes
+	if err := InitVaultProject(nil, ""); err != nil {
+		t.Fatalf("3rd init: %v", err)
+	}
+
+	after, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Error("recipients.txt changed on 3rd run — should be idempotent")
+	}
+}
