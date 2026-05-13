@@ -1,7 +1,11 @@
-# Environment Secrets
+# Environment Secrets (Classic Mode)
 
-> [!Note]
-> This page documents the legacy `env/` backend. For new projects, prefer the encrypted store — see [docs/store.md](./store.md). Hulak supports both; if `.hulak/store.age` exists, it takes priority over `env/`.
+> [!Important]
+> This page documents the **legacy plaintext `env/` backend**. For new projects, use the encrypted vault. See [docs/store.md](./store.md). Existing projects can convert with [docs/migrating-to-vault.md](./migrating-to-vault.md).
+>
+> If `.hulak/store.age` exists, hulak uses the vault and ignores `env/`.
+
+This page is here for projects that have not yet migrated, or that intentionally use plaintext (throwaway scripts, secrets managed entirely outside hulak).
 
 - Environment secrets files (for example `global.env`) live in the `env/` folder at the project root.
 - The `env/` setup is required only for requests that use environment template vars like `{{.key}}`.
