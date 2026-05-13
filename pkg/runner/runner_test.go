@@ -327,63 +327,69 @@ func TestSplitErrorForOutcome(t *testing.T) {
 		name         string
 		err          error
 		wantHeadline string
-		wantHint     string
+		wantDetail   string
 	}{
 		{
 			name:         "nil error returns empty",
 			err:          nil,
 			wantHeadline: "",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name:         "plain error has no hint",
+			name:         "single-line error has no detail",
 			err:          errors.New("something broke"),
 			wantHeadline: "something broke",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name: "env-key-missing hint is split off",
+			name: "multi-line missing-key remediation preserves detail",
 			err: errors.New(
-				`substituting "client_id": key "client_id" not found in environment "global". Add "client_id=<value>" to env/global.env`,
+				"key \"X\" not found in environment \"prod\".\n" +
+					"Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+					"For classic env/ mode, add X=<value> to env/prod.env.\n" +
+					"Or use a different environment with the -env flag",
 			),
-			wantHeadline: `substituting "client_id": key "client_id" not found in environment "global".`,
-			wantHint:     `Add "client_id=<value>" to env/global.env`,
+			wantHeadline: `key "X" not found in environment "prod".`,
+			wantDetail: "Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+				"For classic env/ mode, add X=<value> to env/prod.env.\n" +
+				"Or use a different environment with the -env flag",
 		},
 		{
-			name:         "marker requires opening quote — false-positive prose stays unsplit",
-			err:          errors.New("you must Add this header before retrying"),
-			wantHeadline: "you must Add this header before retrying",
-			wantHint:     "",
-		},
-		{
-			name:         "embedded newlines collapse to spaces",
-			err:          errors.New("line one\nline two\nline three"),
-			wantHeadline: "line one line two line three",
-			wantHint:     "",
+			name: "yaml decoder context arrows are kept readable",
+			err: errors.New(
+				"decoding foo.gql: [2:1] unexpected key name\n" +
+					"   1 | # comment\n" +
+					">  2 | query Bar(\n" +
+					"       ^\n" +
+					"   3 |   $x: Int!",
+			),
+			wantHeadline: "decoding foo.gql: [2:1] unexpected key name",
+			wantDetail: "   1 | # comment\n" +
+				">  2 | query Bar(\n" +
+				"       ^\n" +
+				"   3 |   $x: Int!",
 		},
 		{
 			name:         "ANSI escape codes are stripped",
 			err:          errors.New("\x1b[31mred error\x1b[0m happened"),
 			wantHeadline: "red error happened",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name: "ANSI + newline + hint together",
-			err: errors.New(
-				"\x1b[31mwrapped\x1b[0m:\nkey \"X\" not found in environment \"prod\". Add \"X=<value>\" to env/prod.env",
-			),
-			wantHeadline: `wrapped: key "X" not found in environment "prod".`,
-			wantHint:     `Add "X=<value>" to env/prod.env`,
+			name:         "tabs in detail normalize to two spaces",
+			err:          errors.New("headline\n\tindented one\n\tindented two"),
+			wantHeadline: "headline",
+			wantDetail:   "  indented one\n  indented two",
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			gotHL, gotHint := splitErrorForOutcome(tc.err)
+			gotHL, gotDetail := splitErrorForOutcome(tc.err)
 			if gotHL != tc.wantHeadline {
 				t.Errorf("headline = %q, want %q", gotHL, tc.wantHeadline)
 			}
-			if gotHint != tc.wantHint {
-				t.Errorf("hint = %q, want %q", gotHint, tc.wantHint)
+			if gotDetail != tc.wantDetail {
+				t.Errorf("detail = %q, want %q", gotDetail, tc.wantDetail)
 			}
 		})
 	}
