@@ -17,8 +17,6 @@
   <a href="#documentation">Documentation</a>
 </p>
 
-> **Coming in v0.4:** hulak also becomes a full secrets manager for your dev environment. `hulak secrets exec` runs commands with vault values loaded into the environment, direnv-style. A two-tier user and project vault lets personal and project secrets coexist.
-
 ---
 
 ### Run one request, a whole directory, or stay interactive
