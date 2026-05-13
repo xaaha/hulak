@@ -3,9 +3,12 @@
 </p>
 
 <h3 align="center">
-  A git-native API client for terminal users: no Electron, no login, no lag.<br/>
-  REST, GraphQL, OAuth, encrypted secrets.
+  Fast, file-based API client for the terminal.
 </h3>
+
+<p align="center">
+  REST, GraphQL, OAuth, encrypted secrets.
+</p>
 
 <p align="center">
   Define HTTP requests in YAML. Keep credentials in an age-encrypted vault
