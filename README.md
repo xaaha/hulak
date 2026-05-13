@@ -3,16 +3,11 @@
 </p>
 
 <h3 align="center">
-  Fast, file-based API client for the terminal.
+  Fast API client for the terminal. Lives in git.
 </h3>
 
 <p align="center">
-  REST, GraphQL, OAuth, encrypted secrets.
-</p>
-
-<p align="center">
-  YAML-defined requests.<br/>
-  Age-encrypted secrets, safe to commit and share.
+  REST &middot; GraphQL &middot; OAuth &middot; age-encrypted secrets.
 </p>
 
 <p align="center">
