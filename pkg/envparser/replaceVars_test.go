@@ -1,11 +1,31 @@
 package envparser
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
 	"testing"
 )
+
+// TestSubstituteVariablesWithJSONNumber guards against a regression where the
+// vault decoded numbers as json.Number (to preserve int/float distinction) but
+// prepareMap rejected the type with "unsupported type for key '...': json.Number".
+// Real projects hit this on every gql/run call when any numeric secret was set.
+func TestSubstituteVariablesWithJSONNumber(t *testing.T) {
+	secretsMap := map[string]any{
+		"application_id": json.Number("12345"),
+		"url":            "https://api.example.com/apps/{{.application_id}}",
+	}
+	got, err := SubstituteVariables("{{.url}}", secretsMap)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "https://api.example.com/apps/12345"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
 
 func TestHandleEnvVarValue(t *testing.T) {
 	testCases := []struct {
