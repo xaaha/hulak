@@ -11,9 +11,8 @@
 </p>
 
 <p align="center">
-  Define HTTP requests in YAML. Keep credentials in an age-encrypted vault
-  (<code>.hulak/store.age</code>) that is safe to commit. Share with teammates
-  via age or SSH keys.
+  YAML-defined requests.<br/>
+  Age-encrypted secrets, safe to commit and share.
 </p>
 
 <p align="center">
