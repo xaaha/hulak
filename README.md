@@ -3,9 +3,12 @@
 </p>
 
 <h3 align="center">
-  Fast, terminal-native API client with age-encrypted secrets in git.<br/>
-  REST, GraphQL, OAuth.
+  Git-native API client with encrypted secrets.
 </h3>
+
+<p align="center">
+  <sub>REST &middot; GraphQL &middot; OAuth</sub>
+</p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
