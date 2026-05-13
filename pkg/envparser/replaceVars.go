@@ -3,6 +3,7 @@ package envparser
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -106,7 +107,7 @@ func prepareMap(secretsMap map[string]any) (map[string]any, error) {
 				return nil, err
 			}
 			updatedMap[key] = changedValue
-		case bool, int, float64, nil:
+		case json.Number, bool, int, float64, nil:
 			updatedMap[key] = v
 		default:
 			return nil, fmt.Errorf("unsupported type for key '%s': %T", key, val)
