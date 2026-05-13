@@ -410,51 +410,47 @@ func printOutcome(o outcome) {
 	if o.status != "" {
 		bracket = o.status + ", " + dur
 	}
-	headline, hint := splitErrorForOutcome(o.err)
+	headline, detail := splitErrorForOutcome(o.err)
 	utils.PrintErrorStderr(fmt.Sprintf("%s [%s]: %s", name, bracket, headline))
-	if hint != "" {
-		// Two-space indent groups the hint visually under the failure line —
-		// matches the summary's `  ✗ X` indent so the eye reads them as one block.
-		fmt.Fprintf(os.Stderr, "  %s\n", hint)
+	if detail != "" {
+		// Two-space indent groups the detail block visually under the failure
+		// line. Matches the summary's `  ✗ X` indent so the eye reads them as
+		// one unit. Newlines in detail are preserved (YAML decoder context,
+		// remediation steps, etc.) so each gets its own indented line.
+		for line := range strings.SplitSeq(detail, "\n") {
+			fmt.Fprintf(os.Stderr, "  %s\n", line)
+		}
 	}
 }
 
-// splitErrorForOutcome flattens an error chain into one short headline plus
-// an optional hint extracted from the deepest error message. The headline is
-// the full wrapped chain with whitespace and ANSI codes normalized; the hint
-// is the trailing actionable sentence (e.g. "Run 'hulak secrets set ...'") pulled
-// onto its own line so the user's eye lands on it.
+// splitErrorForOutcome splits an error message into a one-line headline plus
+// an optional multi-line detail block. The headline is the first line of the
+// error (after ANSI stripping). The detail is everything after the first
+// newline, with newlines preserved so callers can print the block indented
+// under the headline.
 //
-// Why bother: errors here are wrapped 3-4 deep ("substituting ...:
-// substituting ...: key X not found in environment Y. Add ..."). Printing
-// the whole chain in one line is unreadable; printing only the leaf loses
-// the file/key context. We keep both, just present them tidily.
-func splitErrorForOutcome(err error) (headline, hint string) {
+// Why bother: wrapped errors (envparser missing-key with remediation steps,
+// YAML decoder errors with caret-arrow context, etc.) carry information on
+// multiple lines. Flattening to one line loses the context arrows; printing
+// the whole chain inline makes the outcome row unreadable. Splitting keeps
+// the row scannable and the detail discoverable.
+func splitErrorForOutcome(err error) (headline, detail string) {
 	if err == nil {
 		return "", ""
 	}
 	msg := err.Error()
-	// Collapse any embedded newlines a wrapper may have injected (legacy
-	// ColorError used to do this). Tabs collapse the same way so a stray
-	// indented line doesn't widen the rendered outcome.
-	msg = strings.ReplaceAll(msg, "\n", " ")
-	msg = strings.ReplaceAll(msg, "\t", " ")
-	// Trim any leftover ANSI escape codes from older wrappers.
 	msg = ansiInOutcome.ReplaceAllString(msg, "")
-	msg = strings.TrimSpace(msg)
+	msg = strings.TrimRight(msg, " \n\t")
 
-	// Heuristic split: pull a trailing actionable sentence onto its own line.
-	// Marker is intentionally narrow — `. Add "` (period + space + Add + space
-	// + open quote) only matches the env-key-missing error format from
-	// envparser.formatMissingKeyError, where the quote anchors it to a real
-	// hint rather than free-form prose like "you must Add this header...".
-	// New hint-bearing errors should either use this exact format or, better,
-	// surface a typed hintError that this function can read explicitly.
-	const marker = `. Add "`
-	if i := strings.LastIndex(msg, marker); i >= 0 {
-		return strings.TrimSpace(msg[:i+1]), strings.TrimSpace(msg[i+2:])
+	if first, rest, ok := strings.Cut(msg, "\n"); ok {
+		headline = strings.TrimSpace(first)
+		// Tabs widen unpredictably in terminals; normalize so the indented
+		// detail block lines up regardless of the source error formatting.
+		detail = strings.ReplaceAll(rest, "\t", "  ")
+		detail = strings.TrimRight(detail, " \n\t")
+		return headline, detail
 	}
-	return msg, ""
+	return strings.TrimSpace(msg), ""
 }
 
 // ansiInOutcome strips ANSI SGR escape sequences from error strings.
