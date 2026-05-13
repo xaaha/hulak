@@ -634,3 +634,51 @@ func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
 		t.Errorf("elapsed %v — YAML 100ms timeout did not override 10s base", elapsed)
 	}
 }
+
+func TestFirstNonEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b []string
+		want string
+	}{
+		{"a wins when non-empty", []string{"a", "x"}, []string{"b"}, "a"},
+		{"falls back to b when a is empty", nil, []string{"b"}, "b"},
+		{"falls back to b when a has zero length", []string{}, []string{"b"}, "b"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := firstNonEmpty(tc.a, tc.b); got != tc.want {
+				t.Errorf("firstNonEmpty = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
+	// End-to-end check: single-file fast path returns a populated outcome,
+	// including duration and ok flag, when the HTTP target succeeds. Spinner
+	// itself self-suppresses under non-TTY stderr (test harness), so this
+	// exercises only the wrapping + processTask call.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	tmp := filepath.Join(t.TempDir(), "ok.hk.yaml")
+	body := fmt.Sprintf("method: GET\nurl: %s", srv.URL)
+	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	o := runSingleWithSpinner(tmp, nil, false, 5*time.Second)
+	if !o.ok {
+		t.Errorf("expected ok outcome, got err=%v", o.err)
+	}
+	if o.path != tmp {
+		t.Errorf("path = %q, want %q", o.path, tmp)
+	}
+	if o.duration <= 0 {
+		t.Errorf("duration should be > 0, got %v", o.duration)
+	}
+}

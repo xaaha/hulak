@@ -17,6 +17,7 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -258,23 +259,36 @@ func handleAPIRequests(
 	overallStart := time.Now()
 	var outcomes []outcome
 
-	if len(concurrentFiles) > 0 {
-		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
-			utils.PrintInfoStderr(
-				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
-			)
+	switch {
+	case totalFiles == 1 && !quiet:
+		// Single-file fast path: wrap the request in a stderr spinner so the
+		// user has visible progress on slow APIs. The spinner self-suppresses
+		// when stderr is piped or redirected, so scripted callers still get
+		// a clean output stream. --quiet also bypasses the spinner via the
+		// case guard above.
+		outcomes = append(outcomes, runSingleWithSpinner(
+			firstNonEmpty(concurrentFiles, sequentialFiles),
+			secrets, debug, baseTimeout,
+		))
+	default:
+		if len(concurrentFiles) > 0 {
+			if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
+				utils.PrintInfoStderr(
+					fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
+				)
+			}
+			outcomes = append(
+				outcomes,
+				runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
 		}
-		outcomes = append(
-			outcomes,
-			runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
-	}
-	if len(sequentialFiles) > 0 {
-		utils.PrintInfoStderr(
-			fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)),
-		)
-		outcomes = append(
-			outcomes,
-			processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
+		if len(sequentialFiles) > 0 {
+			utils.PrintInfoStderr(
+				fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)),
+			)
+			outcomes = append(
+				outcomes,
+				processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
+		}
 	}
 
 	if totalFiles == 0 {
@@ -509,6 +523,39 @@ func runTasks(
 		outcomes = append(outcomes, o)
 	}
 	return outcomes
+}
+
+// runSingleWithSpinner wraps a single processTask call with a stderr spinner.
+// TTY detection lives in tui.RunWithSpinnerOnStderr — when stderr is not a
+// terminal (piped, redirected, CI) the wrapper falls through to the task
+// directly and emits nothing during the wait. Failures are printed via the
+// usual printOutcome path so the multi-line detail block surfaces.
+func runSingleWithSpinner(
+	path string,
+	secrets map[string]any,
+	debug bool,
+	baseTimeout time.Duration,
+) outcome {
+	msg := fmt.Sprintf("Running '%s'...", filepath.Base(path))
+	result, _ := tui.RunWithSpinnerOnStderr(msg, func() (any, error) {
+		return processTask(path, utils.CopyEnvMap(secrets), debug, baseTimeout), nil
+	})
+	o := result.(outcome)
+	if !o.ok {
+		printOutcome(o)
+	}
+	return o
+}
+
+// firstNonEmpty returns the first element of the first non-empty slice. The
+// single-file fast path uses this because the file might arrive via either
+// the concurrent list (the typical `hulak run foo.yaml` flow) or the
+// sequential list (`hulak run path/ --sequential` with a one-file directory).
+func firstNonEmpty(a, b []string) string {
+	if len(a) > 0 {
+		return a[0]
+	}
+	return b[0]
 }
 
 // processTask handles a single task and returns a structured outcome.
