@@ -49,16 +49,16 @@ url: "https://slow.example.com/big-export"
 timeout: 5m
 ```
 
-Accepts any [Go duration string](https://pkg.go.dev/time#ParseDuration): `30s`, `90s`, `5m`, `2m30s`, `1h`. Bare numbers (`60`) are rejected — always include the unit.
+Accepts any [Go duration string](https://pkg.go.dev/time#ParseDuration): `30s`, `90s`, `5m`, `2m30s`, `1h`. Bare numbers (`60`) are rejected. Always include the unit.
 
 #### Precedence
 
 When more than one source could time-out a request, Hulak picks the highest-precedence source that is set:
 
-1. **YAML `timeout:` field** — wins over everything else for this file.
-2. **`--timeout <duration>` flag** — fallback for files with no YAML override. Works on `hulak run`, `hulak -fp`, and `hulak -dir`.
-3. **`HULAK_TIMEOUT` env var** — same scope as the flag, scoped to the shell session. Useful for slow VPNs or one-off runs without retyping.
-4. **60-second default** — when nothing above is set.
+1. **YAML `timeout:` field**. Wins over everything else for this file.
+2. **`--timeout <duration>` flag**. Fallback for files with no YAML override. Works on `hulak run`, `hulak -fp`, and `hulak -dir`.
+3. **`HULAK_TIMEOUT` env var**. Same scope as the flag, scoped to the shell session. Useful for slow VPNs or one-off runs without retyping.
+4. **60-second default**. When nothing above is set.
 
 A non-zero value at any layer overrides every layer below it; an unset / zero layer falls through to the next.
 
@@ -84,7 +84,7 @@ hulak -dir ./requests --timeout 90s        # root-flag form, concurrent
 hulak -dirseq ./requests --timeout 90s     # root-flag form, sequential
 ```
 
-Files in concurrent mode (`-dir` / `hulak run <dir>`) each get their own resolved timeout independently — one slow file does not steal the budget from the next. Sequential mode (`-dirseq` / `--sequential`) applies the same per-file resolution one file at a time.
+Files in concurrent mode (`-dir` / `hulak run <dir>`) each get their own resolved timeout independently. One slow file does not steal the budget from the next. Sequential mode (`-dirseq` / `--sequential`) applies the same per-file resolution one file at a time.
 
 #### Errors
 
@@ -96,7 +96,7 @@ Hulak validates timeouts up front so a typo cannot silently fall back to the def
 
 > [!Note]
 >
-> 1. `timeout: 0s` and negative durations are rejected — there is no "no timeout" mode. Set a value high enough for the slowest request you expect.
+> 1. `timeout: 0s` and negative durations are rejected. There is no "no timeout" mode. Set a value high enough for the slowest request you expect.
 > 2. The timeout covers the whole request (connect + send + read). It is not a connect-only or read-only timeout.
 > 3. Each retry attempt uses the same timeout independently; the value is per-attempt, not a total budget across retries.
 
