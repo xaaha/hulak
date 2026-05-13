@@ -44,7 +44,12 @@ func formatMissingKeyError(keyName string) error {
 	}
 
 	return fmt.Errorf(
-		`key "%s" not found in environment "%s". Add "%s=<value>" to env/%s.env or use a different environment with -env flag`,
+		"key %q not found in environment %q.\n"+
+			"Run 'hulak secrets set %s <value> --env %s' to add it to the encrypted vault.\n"+
+			"For classic env/ mode, add %s=<value> to env/%s.env.\n"+
+			"Or use a different environment with the -env flag",
+		keyName,
+		env,
 		keyName,
 		env,
 		keyName,

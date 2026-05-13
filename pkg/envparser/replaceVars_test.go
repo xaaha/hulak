@@ -327,7 +327,8 @@ func TestFormatMissingKeyError(t *testing.T) {
 			expectedInMsg: []string{
 				`key "graphqlUrl" not found`,
 				`environment "global"`,
-				`Add "graphqlUrl=<value>" to env/global.env`,
+				`hulak secrets set graphqlUrl <value> --env global`,
+				`env/global.env`,
 			},
 		},
 		{
@@ -337,7 +338,8 @@ func TestFormatMissingKeyError(t *testing.T) {
 			expectedInMsg: []string{
 				`key "apiKey" not found`,
 				`environment "prod"`,
-				`Add "apiKey=<value>" to env/prod.env`,
+				`hulak secrets set apiKey <value> --env prod`,
+				`env/prod.env`,
 			},
 		},
 	}
@@ -431,7 +433,7 @@ func TestSubstituteVariablesWithImprovedErrors(t *testing.T) {
 			expectedErrParts: []string{
 				`key "missingKey" not found`,
 				`environment "global"`,
-				`Add "missingKey=<value>"`,
+				`hulak secrets set missingKey <value> --env global`,
 			},
 		},
 		{
@@ -442,7 +444,8 @@ func TestSubstituteVariablesWithImprovedErrors(t *testing.T) {
 			expectedErrParts: []string{
 				`key "endpoint" not found`,
 				`environment "prod"`,
-				`Add "endpoint=<value>" to env/prod.env`,
+				`hulak secrets set endpoint <value> --env prod`,
+				`env/prod.env`,
 			},
 		},
 	}
