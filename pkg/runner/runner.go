@@ -234,6 +234,10 @@ type outcome struct {
 	status   string        // HTTP status string, e.g. "200 OK"; empty for non-API kinds and pre-flight errors
 	duration time.Duration // wall-clock time for the request itself
 	err      error         // non-nil on failure
+	// respBytes holds the serialized response body for the caller to print
+	// after the spinner clears (single-file mode) or inline (multi-file mode).
+	// Empty for non-API kinds, pre-flight errors, and transport failures.
+	respBytes []byte
 }
 
 // handleAPIRequests processes API requests from pre-discovered file lists.
@@ -407,7 +411,7 @@ func formatDuration(d time.Duration) string {
 // flattened to a single line so the outcome list stays scannable; if the
 // underlying error has actionable detail (e.g. a hint), it gets printed on
 // a follow-up indented line so the cause is still discoverable.
-func printOutcome(o outcome) {
+func printOutcome(o *outcome) {
 	name := filepath.Base(o.path)
 	dur := formatDuration(o.duration)
 	if o.ok {
@@ -504,8 +508,11 @@ func runTasks(
 
 			for path := range taskChan {
 				final := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+				if final.respBytes != nil {
+					apicalls.PrintRespBytes(final.respBytes)
+				}
 				if !final.ok {
-					printOutcome(final)
+					printOutcome(&final)
 				}
 				resultChan <- final
 			}
@@ -537,8 +544,13 @@ func runSingleWithSpinner(
 		return processTask(path, utils.CopyEnvMap(secrets), debug, baseTimeout), nil
 	})
 	o := result.(outcome)
+	// Spinner has cleared by this point. Print the response now so it lands
+	// on a clean stderr line instead of overlapping with the spinner frame.
+	if o.respBytes != nil {
+		apicalls.PrintRespBytes(o.respBytes)
+	}
 	if !o.ok {
-		printOutcome(o)
+		printOutcome(&o)
 	}
 	return o
 }
@@ -587,13 +599,14 @@ func processTask(
 		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, debug)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case config.IsAPI() || config.IsGraphql():
-		status, err := apicalls.SendAndSaveAPIRequest(ctx, secretsMap, path, debug)
+		respBytes, status, err := apicalls.SendAndSaveAPIRequest(ctx, secretsMap, path, debug)
 		return outcome{
-			path:     path,
-			ok:       err == nil,
-			status:   status,
-			duration: time.Since(start),
-			err:      err,
+			path:      path,
+			ok:        err == nil,
+			status:    status,
+			duration:  time.Since(start),
+			err:       err,
+			respBytes: respBytes,
 		}
 	default:
 		return outcome{
@@ -623,8 +636,11 @@ func processFilesSequentially(
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
 		o := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+		if o.respBytes != nil {
+			apicalls.PrintRespBytes(o.respBytes)
+		}
 		if multiFile || !o.ok {
-			printOutcome(o)
+			printOutcome(&o)
 		}
 		outcomes = append(outcomes, o)
 	}

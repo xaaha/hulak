@@ -89,52 +89,67 @@ func StandardCallWithClient(
 // a per-file outcome line. On pre-flight failures (config parse, request
 // build) the status is empty. On transport failures (network down, DNS) the
 // status is also empty — the err carries the detail.
-func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path string, debug bool) (string, error) {
+func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path string, debug bool) ([]byte, string, error) {
 	apiConfig, _, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
 	)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	resp, err := StandardCall(ctx, apiInfo, debug)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	saveErr := PrintAndSaveFinalResp(resp, path)
+	respBytes, saveErr := SerializeAndSaveResp(resp, path)
 	status := ""
 	if resp.Response != nil {
 		status = resp.Response.Status
 	}
-	return status, saveErr
+	return respBytes, status, saveErr
 }
 
 // PrintAndSaveFinalResp prints the CustomResponse to stdout and saves it to
 // disk next to the request file. Returns an error if the disk write fails so
-// the caller can fail the task — a successful HTTP request with a missing
+// the caller can fail the task. A successful HTTP request with a missing
 // response file should not look like a success to the user.
 func PrintAndSaveFinalResp(resp CustomResponse, path string) error {
-	jsonData, err := json.MarshalIndent(resp, "", "  ")
-
-	var strBody string
-	if err == nil {
-		strBody = string(jsonData)
-		err = utils.PrintJSONColored(jsonData)
-		if err != nil {
-			utils.PrintErrorStderr(err.Error())
-		}
-	} else {
-		utils.PrintWarningStderr("serializing response: " + err.Error())
-		strBody = fmt.Sprintf("%+v", resp) // Fallback to raw struct
-		fmt.Println(strBody)
+	respBytes, saveErr := SerializeAndSaveResp(resp, path)
+	if respBytes != nil {
+		PrintRespBytes(respBytes)
 	}
+	return saveErr
+}
 
-	return evalAndWriteRes(strBody, resp.contentType, path)
+// SerializeAndSaveResp serializes the response, saves it to disk next to the
+// request file, and returns the serialized bytes. It does NOT print to
+// stdout. Use this when the caller needs to defer printing (e.g. when the
+// response will be printed after a stderr spinner clears).
+func SerializeAndSaveResp(resp CustomResponse, path string) ([]byte, error) {
+	jsonData, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		utils.PrintWarningStderr("serializing response: " + err.Error())
+		// Fallback so the disk write still has something useful.
+		strBody := fmt.Sprintf("%+v", resp)
+		return []byte(strBody), evalAndWriteRes(strBody, resp.contentType, path)
+	}
+	strBody := string(jsonData)
+	return jsonData, evalAndWriteRes(strBody, resp.contentType, path)
+}
+
+// PrintRespBytes prints serialized response JSON to stdout, colored when
+// terminal supports it. Plain print on color failure so the user still sees
+// the response body.
+func PrintRespBytes(b []byte) {
+	if err := utils.PrintJSONColored(b); err != nil {
+		utils.PrintErrorStderr(err.Error())
+		fmt.Println(string(b))
+	}
 }
