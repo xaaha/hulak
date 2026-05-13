@@ -33,11 +33,11 @@ my-project/
 
 ## How encryption works
 
-Hulak uses [age](https://age-encryption.org/) — a modern, file-based encryption tool with simple X25519 keys.
+Hulak uses [age](https://age-encryption.org/). A modern, file-based encryption tool with simple X25519 keys.
 
 - Each user generates an age **keypair** (one public key, one private key)
-- The **public key** can be shared freely — it only encrypts
-- The **private key** decrypts ciphertext encrypted to your public key — keep it secret
+- The **public key** can be shared freely. It only encrypts
+- The **private key** decrypts ciphertext encrypted to your public key. Keep it secret
 - A single `store.age` file can be encrypted to **multiple public keys** at once. Any one of the corresponding private keys can decrypt it. This is what makes team sharing possible.
 
 ## `recipients.txt` format
@@ -54,7 +54,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBobsPublicKeyHere
 age1yr5tpz76yxqeg5ktrp7g2wgkxfmq9rmef0gxhvsky2pyv6lsf8msgmd00n
 ```
 
-- **One public key per line** — both `age1...` and `ssh-ed25519` formats are supported.
+- **One public key per line**. Both `age1...` and `ssh-ed25519` formats are supported.
 - **`#` comments are supported.** Use them to label keys (name, date added, role).
 - **Blank lines are ignored.**
 - `ssh-rsa` keys are accepted with `--allow-rsa` but ed25519 is recommended.
@@ -98,6 +98,8 @@ hulak secrets migrate
 
 The legacy `env/` directory is left in place. Vault takes priority while both exist. Delete `env/` once you're confident.
 
+For the canonical step-by-step walkthrough, see [migrating-to-vault.md](./migrating-to-vault.md).
+
 ## Identity
 
 Hulak needs a private key to decrypt `store.age`. It checks these locations in order:
@@ -109,7 +111,7 @@ Hulak needs a private key to decrypt `store.age`. It checks these locations in o
 | 3 | `HULAK_SSH_IDENTITY` env var | Point at a specific SSH key |
 | 4 | `~/.ssh/id_ed25519` | Auto-detected if no age identity exists |
 
-If you use SSH for git, hulak can reuse your existing SSH key — no separate keypair needed. Just make sure your SSH public key is added as a recipient (via `--github` or directly).
+If you use SSH for git, hulak can reuse your existing SSH key. No separate keypair needed. Just make sure your SSH public key is added as a recipient (via `--github` or directly).
 
 ```bash
 # Use a specific SSH key for this run
@@ -146,7 +148,7 @@ hulak secrets import-key ~/Downloads/identity-backup.txt
 
 A single `store.age` can be encrypted to many recipients. Each teammate has their own private key; any of them can decrypt the shared file.
 
-### Joining a team (with GitHub — recommended)
+### Joining a team (with GitHub. Recommended)
 
 If the new member uses SSH for git, they already have keys published on GitHub. No key exchange needed:
 
@@ -214,7 +216,7 @@ git push
 
 ### Why rotation matters
 
-Removing a recipient prevents them from decrypting **future** versions of `store.age`. They can still decrypt any copy they already have — local clones, old git commits, backups they made.
+Removing a recipient prevents them from decrypting **future** versions of `store.age`. They can still decrypt any copy they already have. Local clones, old git commits, backups they made.
 
 To truly revoke access:
 
@@ -223,11 +225,11 @@ To truly revoke access:
 3. `hulak secrets set <KEY> <new-value>` for each rotated secret
 4. Commit and push
 
-This is a fundamental property of asymmetric encryption — true of age, GPG, SOPS, git-crypt, and every similar tool. There is no scheme that can un-show plaintext.
+This is a fundamental property of asymmetric encryption. True of age, GPG, SOPS, git-crypt, and every similar tool. There is no scheme that can un-show plaintext.
 
 ### Self-removal guard
 
-You cannot remove yourself if you are the only recipient — that would brick the store.
+You cannot remove yourself if you are the only recipient. That would brick the store.
 
 ```bash
 hulak secrets remove-recipient age1ql3z...
@@ -237,20 +239,20 @@ hulak secrets remove-recipient age1ql3z...
 
 ## Commands
 
-For the full command reference — flags, aliases, and examples — see the [`secrets` section in cli.md](./cli.md#secrets).
+For the full command reference. Flags, aliases, and examples. See the [`secrets` section in cli.md](./cli.md#secrets).
 
 > [!Tip]
-> Need a snapshot of `store.age`? Just `cp .hulak/store.age my-backup.age`. The file is already encrypted — copy it anywhere. To restore, copy it back. No dedicated subcommand needed.
+> Need a snapshot of `store.age`? Just `cp .hulak/store.age my-backup.age`. The file is already encrypted. Copy it anywhere. To restore, copy it back. No dedicated subcommand needed.
 
 > [!Note]
-> `hulak secrets edit` opens an interactive picker when `--env` is omitted — the same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
+> `hulak secrets edit` opens an interactive picker when `--env` is omitted. The same flow as `hulak run`. There is no silent "global" default for edit. Pass `--env <name>` (including for new envs you want to create).
 
 ## Merge conflicts on `recipients.txt` and `store.age`
 
 Two teammates may add or remove recipients on parallel branches. The merge behavior:
 
-- **`recipients.txt` is plain text.** Git merges it like any source file. If both branches added different recipients, you'll get a clean three-way merge. If both added a recipient at the same line, you'll get a textual conflict — resolve by keeping both lines.
-- **`store.age` is a binary blob.** Git can't merge it. Whichever branch's `store.age` you accept will be encrypted to **only that branch's recipient set** — the other branch's added recipient is silently dropped.
+- **`recipients.txt` is plain text.** Git merges it like any source file. If both branches added different recipients, you'll get a clean three-way merge. If both added a recipient at the same line, you'll get a textual conflict. Resolve by keeping both lines.
+- **`store.age` is a binary blob.** Git can't merge it. Whichever branch's `store.age` you accept will be encrypted to **only that branch's recipient set**. The other branch's added recipient is silently dropped.
 
 ### How to resolve
 
@@ -264,7 +266,7 @@ git add .hulak/store.age .hulak/recipients.txt
 git commit
 ```
 
-`hulak secrets rotate` re-encrypts the store to the current `recipients.txt` without changing keys — exactly what you need after a merge.
+`hulak secrets rotate` re-encrypts the store to the current `recipients.txt` without changing keys. Exactly what you need after a merge.
 
 > [!Tip]
 > For frequent recipient churn (large teams), consider squashing multiple `add-recipient` / `remove-recipient` commits into one to reduce merge surface area.
@@ -281,7 +283,7 @@ hulak run requests/create_user.yaml --env prod
 `HULAK_MASTER_KEY` takes precedence over `~/.config/hulak/identity.txt`. Store the value in your CI provider's secret manager (GitHub Actions secrets, GitLab CI variables, etc.).
 
 > [!Caution]
-> Environment variables are visible to other processes running as the same user. On Linux, `ps -e auxe` shows the env table for any process owned by you. In CI this is fine — the runner is single-tenant. On a shared workstation (e.g., a build server with multiple users sharing one account), prefer the file-based identity at `~/.config/hulak/identity.txt` instead of `HULAK_MASTER_KEY`.
+> Environment variables are visible to other processes running as the same user. On Linux, `ps -e auxe` shows the env table for any process owned by you. In CI this is fine. The runner is single-tenant. On a shared workstation (e.g., a build server with multiple users sharing one account), prefer the file-based identity at `~/.config/hulak/identity.txt` instead of `HULAK_MASTER_KEY`.
 
 ### CI templates
 
@@ -313,7 +315,7 @@ Mark `HULAK_MASTER_KEY` as a **masked** / **protected** variable in both systems
 
 ## If your identity is compromised
 
-Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leaked database password — assume the worst and rotate. Steps:
+Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leaked database password. Assume the worst and rotate. Steps:
 
 1. **Generate a new identity.** On a clean machine: `hulak init` (this creates a fresh keypair).
 2. **Add the new key as a recipient before removing the old one.** From any machine that still has access:
@@ -324,15 +326,21 @@ Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leake
    ```bash
    hulak secrets remove-recipient <old-public-key>
    ```
-4. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets — anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the removal; the only way to invalidate that data is to make it useless by changing the upstream values.
+4. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets. Anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the removal; the only way to invalidate that data is to make it useless by changing the upstream values.
 5. **Force teammates to pull.** They need the re-encrypted `store.age` so their next decrypt uses the new recipient list.
 6. **Audit history.** `git log -- .hulak/store.age` shows when ciphertexts changed; cross-reference with whatever you know about when the leak happened.
 
-This is the same playbook as SOPS, GPG, and git-crypt. Encryption can't un-show plaintext, but a fast rotation + upstream secret change is the standard mitigation.
+This is the same playbook as SOPS, GPG, and git-crypt. Encryption can't un-show plaintext, but a fast rotation plus upstream secret change is the standard mitigation.
+
+## See also
+
+- [Migrating from `env/` to the vault](./migrating-to-vault.md). Step-by-step walkthrough.
+- [Versioning your vault with git](./versioning.md). Commit workflow.
+- [Hulak vs SOPS, Bruno, and friends](./comparison.md). Positioning.
 
 ## Privacy
 
-hulak makes no network calls except for the HTTP requests you author in your `.hk.yaml` files — that's the whole product. There is no telemetry, no analytics, no version-check ping, no error reporting. The CLI runs entirely against local files and the requests you author. If you observe a network call from hulak outside of running your own request files, that's a bug — please file it.
+hulak makes no network calls except for the HTTP requests you author in your `.hk.yaml` files. That's the whole product. There is no telemetry, no analytics, no version-check ping, no error reporting. The CLI runs entirely against local files and the requests you author. If you observe a network call from hulak outside of running your own request files, that's a bug. Please file it.
 
 ## FAQ
 
@@ -353,7 +361,7 @@ If you have no backup and no second recipient, the data is gone. Mitigations:
 Yes, during migration. Vault takes priority. After verifying everything works, delete `env/`.
 
 **How big can a single value be?**
-Functionally, anything. Practically, hulak warns at 64 KB and recommends `{{getFile "path"}}` for large blobs (certs, JSON fixtures) — those are read from disk on demand instead of decrypted on every invocation.
+Functionally, anything. Practically, hulak warns at 64 KB and recommends `{{getFile "path"}}` for large blobs (certs, JSON fixtures). Those are read from disk on demand instead of decrypted on every invocation.
 
 **Does this work with SSH keys?**
 Yes. Both `ssh-ed25519` public keys (as recipients) and `~/.ssh/id_ed25519` private keys (as identities) are supported. See [Identity](#identity) and [Team sharing](#team-sharing) above. Use `--github <username>` to add teammates directly from their GitHub SSH keys.
