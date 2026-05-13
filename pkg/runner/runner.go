@@ -17,6 +17,7 @@ import (
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/features"
+	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -233,6 +234,10 @@ type outcome struct {
 	status   string        // HTTP status string, e.g. "200 OK"; empty for non-API kinds and pre-flight errors
 	duration time.Duration // wall-clock time for the request itself
 	err      error         // non-nil on failure
+	// respBytes holds the serialized response body for the caller to print
+	// after the spinner clears (single-file mode) or inline (multi-file mode).
+	// Empty for non-API kinds, pre-flight errors, and transport failures.
+	respBytes []byte
 }
 
 // handleAPIRequests processes API requests from pre-discovered file lists.
@@ -258,23 +263,36 @@ func handleAPIRequests(
 	overallStart := time.Now()
 	var outcomes []outcome
 
-	if len(concurrentFiles) > 0 {
-		if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
-			utils.PrintInfoStderr(
-				fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
-			)
+	switch {
+	case totalFiles == 1 && !quiet:
+		// Single-file fast path: wrap the request in a stderr spinner so the
+		// user has visible progress on slow APIs. The spinner self-suppresses
+		// when stderr is piped or redirected, so scripted callers still get
+		// a clean output stream. --quiet also bypasses the spinner via the
+		// case guard above.
+		outcomes = append(outcomes, runSingleWithSpinner(
+			firstNonEmpty(concurrentFiles, sequentialFiles),
+			secrets, debug, baseTimeout,
+		))
+	default:
+		if len(concurrentFiles) > 0 {
+			if len(concurrentFiles) > 1 || len(sequentialFiles) > 0 {
+				utils.PrintInfoStderr(
+					fmt.Sprintf("Processing %d files concurrently...", len(concurrentFiles)),
+				)
+			}
+			outcomes = append(
+				outcomes,
+				runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
 		}
-		outcomes = append(
-			outcomes,
-			runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
-	}
-	if len(sequentialFiles) > 0 {
-		utils.PrintInfoStderr(
-			fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)),
-		)
-		outcomes = append(
-			outcomes,
-			processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
+		if len(sequentialFiles) > 0 {
+			utils.PrintInfoStderr(
+				fmt.Sprintf("Processing %d files sequentially...", len(sequentialFiles)),
+			)
+			outcomes = append(
+				outcomes,
+				processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
+		}
 	}
 
 	if totalFiles == 0 {
@@ -393,7 +411,7 @@ func formatDuration(d time.Duration) string {
 // flattened to a single line so the outcome list stays scannable; if the
 // underlying error has actionable detail (e.g. a hint), it gets printed on
 // a follow-up indented line so the cause is still discoverable.
-func printOutcome(o outcome) {
+func printOutcome(o *outcome) {
 	name := filepath.Base(o.path)
 	dur := formatDuration(o.duration)
 	if o.ok {
@@ -410,51 +428,47 @@ func printOutcome(o outcome) {
 	if o.status != "" {
 		bracket = o.status + ", " + dur
 	}
-	headline, hint := splitErrorForOutcome(o.err)
+	headline, detail := splitErrorForOutcome(o.err)
 	utils.PrintErrorStderr(fmt.Sprintf("%s [%s]: %s", name, bracket, headline))
-	if hint != "" {
-		// Two-space indent groups the hint visually under the failure line —
-		// matches the summary's `  ✗ X` indent so the eye reads them as one block.
-		fmt.Fprintf(os.Stderr, "  %s\n", hint)
+	if detail != "" {
+		// Two-space indent groups the detail block visually under the failure
+		// line. Matches the summary's `  ✗ X` indent so the eye reads them as
+		// one unit. Newlines in detail are preserved (YAML decoder context,
+		// remediation steps, etc.) so each gets its own indented line.
+		for line := range strings.SplitSeq(detail, "\n") {
+			fmt.Fprintf(os.Stderr, "  %s\n", line)
+		}
 	}
 }
 
-// splitErrorForOutcome flattens an error chain into one short headline plus
-// an optional hint extracted from the deepest error message. The headline is
-// the full wrapped chain with whitespace and ANSI codes normalized; the hint
-// is the trailing actionable sentence (e.g. "Run 'hulak secrets set ...'") pulled
-// onto its own line so the user's eye lands on it.
+// splitErrorForOutcome splits an error message into a one-line headline plus
+// an optional multi-line detail block. The headline is the first line of the
+// error (after ANSI stripping). The detail is everything after the first
+// newline, with newlines preserved so callers can print the block indented
+// under the headline.
 //
-// Why bother: errors here are wrapped 3-4 deep ("substituting ...:
-// substituting ...: key X not found in environment Y. Add ..."). Printing
-// the whole chain in one line is unreadable; printing only the leaf loses
-// the file/key context. We keep both, just present them tidily.
-func splitErrorForOutcome(err error) (headline, hint string) {
+// Why bother: wrapped errors (envparser missing-key with remediation steps,
+// YAML decoder errors with caret-arrow context, etc.) carry information on
+// multiple lines. Flattening to one line loses the context arrows; printing
+// the whole chain inline makes the outcome row unreadable. Splitting keeps
+// the row scannable and the detail discoverable.
+func splitErrorForOutcome(err error) (headline, detail string) {
 	if err == nil {
 		return "", ""
 	}
 	msg := err.Error()
-	// Collapse any embedded newlines a wrapper may have injected (legacy
-	// ColorError used to do this). Tabs collapse the same way so a stray
-	// indented line doesn't widen the rendered outcome.
-	msg = strings.ReplaceAll(msg, "\n", " ")
-	msg = strings.ReplaceAll(msg, "\t", " ")
-	// Trim any leftover ANSI escape codes from older wrappers.
 	msg = ansiInOutcome.ReplaceAllString(msg, "")
-	msg = strings.TrimSpace(msg)
+	msg = strings.TrimRight(msg, " \n\t")
 
-	// Heuristic split: pull a trailing actionable sentence onto its own line.
-	// Marker is intentionally narrow — `. Add "` (period + space + Add + space
-	// + open quote) only matches the env-key-missing error format from
-	// envparser.formatMissingKeyError, where the quote anchors it to a real
-	// hint rather than free-form prose like "you must Add this header...".
-	// New hint-bearing errors should either use this exact format or, better,
-	// surface a typed hintError that this function can read explicitly.
-	const marker = `. Add "`
-	if i := strings.LastIndex(msg, marker); i >= 0 {
-		return strings.TrimSpace(msg[:i+1]), strings.TrimSpace(msg[i+2:])
+	if first, rest, ok := strings.Cut(msg, "\n"); ok {
+		headline = strings.TrimSpace(first)
+		// Tabs widen unpredictably in terminals; normalize so the indented
+		// detail block lines up regardless of the source error formatting.
+		detail = strings.ReplaceAll(rest, "\t", "  ")
+		detail = strings.TrimRight(detail, " \n\t")
+		return headline, detail
 	}
-	return msg, ""
+	return strings.TrimSpace(msg), ""
 }
 
 // ansiInOutcome strips ANSI SGR escape sequences from error strings.
@@ -494,8 +508,11 @@ func runTasks(
 
 			for path := range taskChan {
 				final := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+				if final.respBytes != nil {
+					apicalls.PrintRespBytes(final.respBytes)
+				}
 				if !final.ok {
-					printOutcome(final)
+					printOutcome(&final)
 				}
 				resultChan <- final
 			}
@@ -509,6 +526,51 @@ func runTasks(
 		outcomes = append(outcomes, o)
 	}
 	return outcomes
+}
+
+// runSingleWithSpinner wraps a single processTask call with a stderr spinner.
+// TTY detection lives in tui.RunWithSpinnerOnStderr — when stderr is not a
+// terminal (piped, redirected, CI) the wrapper falls through to the task
+// directly and emits nothing during the wait. Failures are printed via the
+// usual printOutcome path so the multi-line detail block surfaces.
+func runSingleWithSpinner(
+	path string,
+	secrets map[string]any,
+	debug bool,
+	baseTimeout time.Duration,
+) outcome {
+	msg := fmt.Sprintf("Running '%s'...", filepath.Base(path))
+	result, _ := tui.RunWithSpinnerOnStderr(msg, func() (any, error) {
+		return processTask(path, utils.CopyEnvMap(secrets), debug, baseTimeout), nil
+	})
+	o := result.(outcome)
+	// Spinner has cleared by this point. Print the response now so it lands
+	// on a clean stderr line instead of overlapping with the spinner frame.
+	if o.respBytes != nil {
+		apicalls.PrintRespBytes(o.respBytes)
+	}
+	if !o.ok {
+		printOutcome(&o)
+	}
+	return o
+}
+
+// firstNonEmpty returns the first element of the first non-empty slice. The
+// single-file fast path uses this because the file might arrive via either
+// the concurrent list (the typical `hulak run foo.yaml` flow) or the
+// sequential list (`hulak run path/ --sequential` with a one-file directory).
+//
+// Returns "" when both slices are empty. The current call site guards on
+// totalFiles == 1 so this branch is unreachable today, but the defensive
+// return keeps a future caller from index-out-of-range if that guard drifts.
+func firstNonEmpty(a, b []string) string {
+	if len(a) > 0 {
+		return a[0]
+	}
+	if len(b) > 0 {
+		return b[0]
+	}
+	return ""
 }
 
 // processTask handles a single task and returns a structured outcome.
@@ -544,13 +606,14 @@ func processTask(
 		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, debug)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case config.IsAPI() || config.IsGraphql():
-		status, err := apicalls.SendAndSaveAPIRequest(ctx, secretsMap, path, debug)
+		respBytes, status, err := apicalls.SendAndSaveAPIRequest(ctx, secretsMap, path, debug)
 		return outcome{
-			path:     path,
-			ok:       err == nil,
-			status:   status,
-			duration: time.Since(start),
-			err:      err,
+			path:      path,
+			ok:        err == nil,
+			status:    status,
+			duration:  time.Since(start),
+			err:       err,
+			respBytes: respBytes,
 		}
 	default:
 		return outcome{
@@ -580,8 +643,11 @@ func processFilesSequentially(
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
 		o := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+		if o.respBytes != nil {
+			apicalls.PrintRespBytes(o.respBytes)
+		}
 		if multiFile || !o.ok {
-			printOutcome(o)
+			printOutcome(&o)
 		}
 		outcomes = append(outcomes, o)
 	}

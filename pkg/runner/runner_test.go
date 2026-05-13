@@ -327,63 +327,69 @@ func TestSplitErrorForOutcome(t *testing.T) {
 		name         string
 		err          error
 		wantHeadline string
-		wantHint     string
+		wantDetail   string
 	}{
 		{
 			name:         "nil error returns empty",
 			err:          nil,
 			wantHeadline: "",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name:         "plain error has no hint",
+			name:         "single-line error has no detail",
 			err:          errors.New("something broke"),
 			wantHeadline: "something broke",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name: "env-key-missing hint is split off",
+			name: "multi-line missing-key remediation preserves detail",
 			err: errors.New(
-				`substituting "client_id": key "client_id" not found in environment "global". Add "client_id=<value>" to env/global.env`,
+				"key \"X\" not found in environment \"prod\".\n" +
+					"Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+					"For classic env/ mode, add X=<value> to env/prod.env.\n" +
+					"Or use a different environment with the -env flag",
 			),
-			wantHeadline: `substituting "client_id": key "client_id" not found in environment "global".`,
-			wantHint:     `Add "client_id=<value>" to env/global.env`,
+			wantHeadline: `key "X" not found in environment "prod".`,
+			wantDetail: "Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+				"For classic env/ mode, add X=<value> to env/prod.env.\n" +
+				"Or use a different environment with the -env flag",
 		},
 		{
-			name:         "marker requires opening quote — false-positive prose stays unsplit",
-			err:          errors.New("you must Add this header before retrying"),
-			wantHeadline: "you must Add this header before retrying",
-			wantHint:     "",
-		},
-		{
-			name:         "embedded newlines collapse to spaces",
-			err:          errors.New("line one\nline two\nline three"),
-			wantHeadline: "line one line two line three",
-			wantHint:     "",
+			name: "yaml decoder context arrows are kept readable",
+			err: errors.New(
+				"decoding foo.gql: [2:1] unexpected key name\n" +
+					"   1 | # comment\n" +
+					">  2 | query Bar(\n" +
+					"       ^\n" +
+					"   3 |   $x: Int!",
+			),
+			wantHeadline: "decoding foo.gql: [2:1] unexpected key name",
+			wantDetail: "   1 | # comment\n" +
+				">  2 | query Bar(\n" +
+				"       ^\n" +
+				"   3 |   $x: Int!",
 		},
 		{
 			name:         "ANSI escape codes are stripped",
 			err:          errors.New("\x1b[31mred error\x1b[0m happened"),
 			wantHeadline: "red error happened",
-			wantHint:     "",
+			wantDetail:   "",
 		},
 		{
-			name: "ANSI + newline + hint together",
-			err: errors.New(
-				"\x1b[31mwrapped\x1b[0m:\nkey \"X\" not found in environment \"prod\". Add \"X=<value>\" to env/prod.env",
-			),
-			wantHeadline: `wrapped: key "X" not found in environment "prod".`,
-			wantHint:     `Add "X=<value>" to env/prod.env`,
+			name:         "tabs in detail normalize to two spaces",
+			err:          errors.New("headline\n\tindented one\n\tindented two"),
+			wantHeadline: "headline",
+			wantDetail:   "  indented one\n  indented two",
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			gotHL, gotHint := splitErrorForOutcome(tc.err)
+			gotHL, gotDetail := splitErrorForOutcome(tc.err)
 			if gotHL != tc.wantHeadline {
 				t.Errorf("headline = %q, want %q", gotHL, tc.wantHeadline)
 			}
-			if gotHint != tc.wantHint {
-				t.Errorf("hint = %q, want %q", gotHint, tc.wantHint)
+			if gotDetail != tc.wantDetail {
+				t.Errorf("detail = %q, want %q", gotDetail, tc.wantDetail)
 			}
 		})
 	}
@@ -632,5 +638,55 @@ func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
 	}
 	if elapsed > 500*time.Millisecond {
 		t.Errorf("elapsed %v — YAML 100ms timeout did not override 10s base", elapsed)
+	}
+}
+
+func TestFirstNonEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b []string
+		want string
+	}{
+		{"a wins when non-empty", []string{"a", "x"}, []string{"b"}, "a"},
+		{"falls back to b when a is empty", nil, []string{"b"}, "b"},
+		{"falls back to b when a has zero length", []string{}, []string{"b"}, "b"},
+		{"returns empty when both are nil", nil, nil, ""},
+		{"returns empty when both have zero length", []string{}, []string{}, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := firstNonEmpty(tc.a, tc.b); got != tc.want {
+				t.Errorf("firstNonEmpty = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
+	// End-to-end check: single-file fast path returns a populated outcome,
+	// including duration and ok flag, when the HTTP target succeeds. Spinner
+	// itself self-suppresses under non-TTY stderr (test harness), so this
+	// exercises only the wrapping + processTask call.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	tmp := filepath.Join(t.TempDir(), "ok.hk.yaml")
+	body := fmt.Sprintf("method: GET\nurl: %s", srv.URL)
+	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	o := runSingleWithSpinner(tmp, nil, false, 5*time.Second)
+	if !o.ok {
+		t.Errorf("expected ok outcome, got err=%v", o.err)
+	}
+	if o.path != tmp {
+		t.Errorf("path = %q, want %q", o.path, tmp)
+	}
+	if o.duration <= 0 {
+		t.Errorf("duration should be > 0, got %v", o.duration)
 	}
 }
