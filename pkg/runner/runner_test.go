@@ -650,6 +650,8 @@ func TestFirstNonEmpty(t *testing.T) {
 		{"a wins when non-empty", []string{"a", "x"}, []string{"b"}, "a"},
 		{"falls back to b when a is empty", nil, []string{"b"}, "b"},
 		{"falls back to b when a has zero length", []string{}, []string{"b"}, "b"},
+		{"returns empty when both are nil", nil, nil, ""},
+		{"returns empty when both have zero length", []string{}, []string{}, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

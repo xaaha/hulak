@@ -164,7 +164,27 @@ func TestEnvItemsFromVault(t *testing.T) {
 }
 
 func TestNoEnvFilesError(t *testing.T) {
-	err := noEnvFilesError()
+	// Isolate cwd so vault.DetectStore doesn't find an ancestor .hulak/
+	// (which happens when the test runs inside a hulak project clone).
+	// Mirrors the setup in TestNoEnvFilesErrorVaultMode but without
+	// creating a store, so the classic branch is exercised.
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	err = noEnvFilesError()
 
 	if err == nil {
 		t.Fatal("expected error, got nil")

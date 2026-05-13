@@ -559,11 +559,18 @@ func runSingleWithSpinner(
 // single-file fast path uses this because the file might arrive via either
 // the concurrent list (the typical `hulak run foo.yaml` flow) or the
 // sequential list (`hulak run path/ --sequential` with a one-file directory).
+//
+// Returns "" when both slices are empty. The current call site guards on
+// totalFiles == 1 so this branch is unreachable today, but the defensive
+// return keeps a future caller from index-out-of-range if that guard drifts.
 func firstNonEmpty(a, b []string) string {
 	if len(a) > 0 {
 		return a[0]
 	}
-	return b[0]
+	if len(b) > 0 {
+		return b[0]
+	}
+	return ""
 }
 
 // processTask handles a single task and returns a structured outcome.
