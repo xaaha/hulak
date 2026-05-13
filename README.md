@@ -3,18 +3,17 @@
 </p>
 
 <h3 align="center">
-  API calls with simple YAML. No Electron. No login. No lag.
+  Git-native API client with encrypted secrets.
 </h3>
 
 <p align="center">
-  A file-based API client for your terminal. Define requests in YAML, run them instantly, and keep everything in git.
-  <br/>
-  REST, GraphQL, and OAuth 2.0 without GUI overhead.
+  <sub>REST &middot; GraphQL &middot; OAuth</sub>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#graphql-explorer">GraphQL Explorer</a> &bull;
+  <a href="#project-layout">Project Layout</a> &bull;
   <a href="#documentation">Documentation</a>
 </p>
 
@@ -28,13 +27,13 @@
 hulak run ./requests/
 ```
 
-Hulak runs request files directly from your project, supports concurrent directory execution, and falls back to an interactive picker when you simply run `hulak`.
+Hulak runs request files directly from your project. It supports concurrent directory execution. It falls back to an interactive picker when you simply run `hulak`.
 
 ### Dedicated GraphQL Explorer
 
 <img alt="GraphQL Explorer" src="./assets/gql.gif" width="720" />
 
-Browse schemas from multiple endpoints, search operations, build queries interactively, execute inline, and save generated files from the terminal.
+Browse schemas from multiple endpoints. Search operations. Build queries interactively. Execute inline. Save generated files from the terminal.
 
 ## Quick Start
 
@@ -47,47 +46,73 @@ brew install xaaha/tap/hulak
 Other install options:
 
 - `go install github.com/xaaha/hulak@latest`
-- build from source with `go build -o hulak`
+- Build from source with `go build -o hulak`
 
-### Initialize a project
-
-```bash
-mkdir my_apis && cd my_apis
-hulak init
-```
-
-If you want multiple environment files right away:
+### Path A. API client with encrypted secrets (default)
 
 ```bash
-hulak init -env staging prod
+mkdir my-apis && cd my-apis
+hulak init                                            # creates .hulak/store.age + identity
+hulak secrets set Url https://api.example.com/v1 --env prod
 ```
 
-Hulak creates an `env/` directory for secrets used by request files that reference template values like `{{.key}}`.
-
-### Create a request file
+Write a request file:
 
 ```yaml
 # test.hk.yaml
 method: Get
-url: https://jsonplaceholder.typicode.com/todos/1
+url: "{{.Url}}/health"
 ```
 
-### Run it
+Run it:
 
 ```bash
-hulak run test.hk.yaml
-
-# use a specific environment
-hulak run test.hk.yaml --env staging
-
-# run every request in a directory concurrently
-hulak run ./requests/
-
-# or open the interactive picker
-hulak
+hulak run test.hk.yaml --env prod
+hulak run ./requests/                                 # whole directory, concurrent
+hulak                                                 # interactive picker
 ```
 
-If the selected request does not use environment template values, Hulak runs it without requiring `env/` setup.
+See [docs/store.md](./docs/store.md) for the full encryption model.
+
+### Path B. Just the secrets store
+
+If you only want the vault piece, the same `init` command works. Skip writing `.hk.yaml` files:
+
+```bash
+mkdir my-secrets && cd my-secrets
+hulak init
+hulak secrets set DATABASE_URL postgres://... --env prod
+hulak secrets add-recipient --github alice --name Alice   # share with a teammate
+git add .hulak/ && git commit -m "add prod secrets"
+```
+
+### Migrating from an older `env/` setup?
+
+See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
+
+### Prefer plaintext `env/` files?
+
+```bash
+hulak init classic
+```
+
+Plaintext mode is fully supported for throwaway projects, or when secrets live entirely outside hulak. See [docs/environment.md](./docs/environment.md).
+
+## Project layout
+
+```text
+my-project/
+├── .hulak/
+│   ├── store.age          # encrypted secrets (safe to commit)
+│   └── recipients.txt     # public keys of recipients (safe to commit)
+├── requests/
+│   ├── create-user.hk.yaml
+│   └── get-user.hk.yaml
+└── (your project files)
+
+~/.config/hulak/
+└── identity.txt           # YOUR private key. NEVER commit. Mode 0600.
+```
 
 ## GraphQL Explorer
 
@@ -106,15 +131,18 @@ Read the full guide in [docs/graphql-explorer.md](./docs/graphql-explorer.md).
 Start here for the full reference:
 
 - [CLI Reference](./docs/cli.md)
+- [Encrypted Store](./docs/store.md). Encryption model, team sharing, CI.
+- [Migrating to the Vault](./docs/migrating-to-vault.md). From `env/` to `.hulak/`.
+- [Versioning Your Vault](./docs/versioning.md). Git workflow for secrets.
+- [Comparison](./docs/comparison.md). Hulak vs SOPS, Bruno, and friends.
 - [Request Body](./docs/body.md)
 - [Actions](./docs/actions.md)
-- [Environment Secrets](./docs/environment.md)
-- [Encrypted Store](./docs/store.md)
+- [Environment Secrets (classic mode)](./docs/environment.md)
 - [Response Files](./docs/response.md)
 - [GraphQL Explorer](./docs/graphql-explorer.md)
-- [Auth2.0](./docs/auth20.md)
+- [Auth 2.0](./docs/auth20.md)
 
-If you want the full list of commands, flags, and subcommands, use [docs/cli.md](./docs/cli.md) or run:
+For the live command surface, run:
 
 ```bash
 hulak help

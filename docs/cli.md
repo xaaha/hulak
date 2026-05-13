@@ -39,6 +39,9 @@ hulak secrets --help
 
 For command-specific help, prefer `hulak <command> --help`.
 
+> [!Tip]
+> This page documents the current command surface. For the most up to date flags and subcommands, run `hulak <command> --help`. That output is generated from the same source as the binary.
+
 ## Command Index
 
 | Command   | Purpose                                      | Example                               |
@@ -48,8 +51,8 @@ For command-specific help, prefer `hulak <command> --help`.
 | `init` | Initialize a hulak project | `hulak init` |
 | `migrate` | Migrate Postman collections to hulak format | `hulak migrate collection.json` |
 | `doctor` | Check project health | `hulak doctor` |
-| `gql` | Open the GraphQL explorer | `hulak gql .` |
-| `secrets` | Manage encrypted environment secrets | `hulak secrets list` |
+| `gql` (alias: `graphql`) | Open the GraphQL explorer | `hulak gql .` |
+| `secrets` (alias: `env`) | Manage encrypted environment secrets | `hulak secrets list` |
 | `help` | Show help for hulak | `hulak help` |
 
 ## Core Behaviors
@@ -67,7 +70,7 @@ Running `hulak` with no file or directory target opens the interactive picker.
 When `--env` is omitted, behavior depends on the command:
 
 - **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.
-- **`hulak secrets edit`**: always opens the picker — no default. Pass `--env <name>` (including for new envs you want to create).
+- **`hulak secrets edit`**: always opens the picker. There is no default. Pass `--env <name>` (including for new envs you want to create).
 - **`hulak secrets set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
 - **`hulak secrets list`**: takes no `--env` (it lists envs themselves).
 
@@ -146,7 +149,8 @@ Supported flags:
 
 Notes:
 
-- `hulak init` creates the default setup, including `env/global.env` and the example API options file.
+- `hulak init` creates the default setup. That means an encrypted vault at `.hulak/store.age`, an age keypair at `~/.config/hulak/identity.txt`, and the example API options file.
+- Run `hulak init classic` for the legacy plaintext `env/` layout.
 - On `init`, `-env` is a **boolean setup flag**, not an environment selector. It tells Hulak to create the named env files you pass after it.
 
 ### `migrate`
@@ -211,7 +215,13 @@ Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
 Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 
 Secrets are organized by environment (e.g. global, staging, prod).
-The default environment is "global" unless --env is specified. See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
+The default environment is "global" unless --env is specified.
+
+'env' is retained as an alias for backward compatibility with pre-0.3 docs. See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
+
+Aliases:
+
+- `env`
 
 ```bash
 hulak secrets list

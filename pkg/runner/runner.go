@@ -422,7 +422,7 @@ func printOutcome(o outcome) {
 // splitErrorForOutcome flattens an error chain into one short headline plus
 // an optional hint extracted from the deepest error message. The headline is
 // the full wrapped chain with whitespace and ANSI codes normalized; the hint
-// is the trailing actionable sentence (e.g. "Add ... to env/X.env") pulled
+// is the trailing actionable sentence (e.g. "Run 'hulak secrets set ...'") pulled
 // onto its own line so the user's eye lands on it.
 //
 // Why bother: errors here are wrapped 3-4 deep ("substituting ...:

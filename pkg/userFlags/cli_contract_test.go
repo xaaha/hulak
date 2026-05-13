@@ -493,7 +493,8 @@ func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 
 // TestEnvFlagDoesNotConflictWithSecretsSubcommand verifies that the -env global
 // flag and the secrets subcommand coexist. The flag is prefixed with "-" so the
-// router dispatches them to different paths.
+// router dispatches them to different paths. The "env" alias on the secrets
+// command is preserved per #201.
 func TestEnvFlagDoesNotConflictWithSecretsSubcommand(t *testing.T) {
 	root := subCommands()
 
@@ -502,14 +503,28 @@ func TestEnvFlagDoesNotConflictWithSecretsSubcommand(t *testing.T) {
 		t.Error("expected 'secrets' to resolve as a subcommand")
 	}
 
-	// "env" should NOT resolve as a subcommand (no longer aliased)
-	if root.findSub("env") != nil {
-		t.Error("'env' should not resolve as a subcommand — alias was removed")
+	// "env" should resolve as an alias of "secrets" (#201)
+	if root.findSub("env") == nil {
+		t.Error("expected 'env' to resolve as an alias of 'secrets'")
 	}
 
 	// "-env" should NOT resolve as a subcommand (it's a flag)
 	if root.findSub("-env") != nil {
 		t.Error("'-env' should not resolve as a subcommand")
+	}
+}
+
+// TestSecretsHasEnvAlias verifies that legacy `hulak env ...` invocations
+// resolve to the renamed `secrets` command. The alias was promised in #201
+// to keep older docs and muscle memory working.
+func TestSecretsHasEnvAlias(t *testing.T) {
+	root := subCommands()
+	envResolved := root.findSub("env")
+	if envResolved == nil {
+		t.Fatal("expected 'env' to resolve to 'secrets' command")
+	}
+	if envResolved != root.findSub("secrets") {
+		t.Fatal("'env' should resolve to the same command as 'secrets'")
 	}
 }
 

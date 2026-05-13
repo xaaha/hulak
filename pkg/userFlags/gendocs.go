@@ -337,6 +337,9 @@ func generateCLIMarkdown(w io.Writer) {
 	p("")
 	p("For command-specific help, prefer `hulak <command> --help`.")
 	p("")
+	p("> [!Tip]")
+	p("> This page documents the current command surface. For the most up to date flags and subcommands, run `hulak <command> --help`. That output is generated from the same source as the binary.")
+	p("")
 
 	// Command Index
 	p("## Command Index")
@@ -351,7 +354,11 @@ func generateCLIMarkdown(w io.Writer) {
 		if len(sub.Examples) > 0 {
 			example = sub.Examples[0].Command
 		}
-		p("| `%s` | %s | `%s` |", sub.Name, sub.Short, example)
+		nameCell := fmt.Sprintf("`%s`", sub.Name)
+		if len(sub.Aliases) > 0 {
+			nameCell = fmt.Sprintf("`%s` (alias: `%s`)", sub.Name, strings.Join(sub.Aliases, "`, `"))
+		}
+		p("| %s | %s | `%s` |", nameCell, sub.Short, example)
 	}
 	p("")
 
@@ -371,7 +378,7 @@ func generateCLIMarkdown(w io.Writer) {
 	p("When `--env` is omitted, behavior depends on the command:")
 	p("")
 	p("- **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.")
-	p("- **`hulak secrets edit`**: always opens the picker — no default. Pass `--env <name>` (including for new envs you want to create).")
+	p("- **`hulak secrets edit`**: always opens the picker. There is no default. Pass `--env <name>` (including for new envs you want to create).")
 	p("- **`hulak secrets set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.")
 	p("- **`hulak secrets list`**: takes no `--env` (it lists envs themselves).")
 	p("")
@@ -471,7 +478,8 @@ func mdWriteCommand(w io.Writer, cmd *command) {
 	case "init":
 		p("Notes:")
 		p("")
-		p("- `hulak init` creates the default setup, including `env/global.env` and the example API options file.")
+		p("- `hulak init` creates the default setup. That means an encrypted vault at `.hulak/store.age`, an age keypair at `~/.config/hulak/identity.txt`, and the example API options file.")
+		p("- Run `hulak init classic` for the legacy plaintext `env/` layout.")
 		p("- On `init`, `-env` is a **boolean setup flag**, not an environment selector. It tells Hulak to create the named env files you pass after it.")
 		p("")
 	case "gql":

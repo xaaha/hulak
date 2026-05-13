@@ -1,39 +1,37 @@
 # How to access variables?
 
-## 1. Acccessing secrets from `.env` file
+## 1. Accessing secrets from the vault
 
-Hulak uses go's templating to access variables from `.env` files. For example, to access a `Url` value use `"{{.Url}}"`
+Hulak resolves `{{.key}}` template values from the encrypted vault (`.hulak/store.age`). Set a secret once with `hulak secrets set`. Then reference it in your request files.
+
+```bash
+# Set once, per environment
+hulak secrets set Url https://example.com         --env prod
+hulak secrets set Url https://test.example.com    --env staging
+```
+
+Reference it in a request file:
 
 ```yaml
-#test.yaml
-Method: post
+# test.hk.yaml
+method: post
 url: "{{.Url}}"
 # other body items
 ```
 
-So, if `Url` is present in `prod.env` file as
-
-```env
-Url = https://example.com
-```
-
-and is present in `staging.env` file as
-
-```env
-Url = https://test.example.com
-```
-
-When running the `test.yaml` file, hulak picks up the `Url` value depending on the value of `-env` flag. For example,
+Pick the environment at run time:
 
 ```bash
-hulak -env prod -f test # picks up the value from `prod.env` file,
-hulak -env staging -f test # picks up the value from `staging.env` file
+hulak run test.hk.yaml --env prod      # uses prod Url
+hulak run test.hk.yaml --env staging   # uses staging Url
 ```
 
 > [!Note]
 >
-> - If the call is made with `-env prod`, then `Key` should be defined in either `global` or `prod` file. Similarly, if the call is made with `-env staging`, then the `Key` should be present in either `global` or `staging` file. If the `Key` is defined in both files, `global` is ignored.
-> - `Key` is case sensitive. So, `{{.Url}}` and `{{.url}}` are two different values.
+> - If the call is made with `--env prod`, then the key should be defined in either the `global` or the `prod` environment. The same rule applies to other environments. If the key is in both, `global` is ignored.
+> - Keys are case sensitive. So `{{.Url}}` and `{{.url}}` are two different values.
+
+> Using the classic plaintext `env/` backend? See [environment.md](./environment.md).
 
 ## 2. Using `getValueOf`
 
@@ -139,16 +137,15 @@ headers:
   Authorization: '{{basicAuth "admin" "secret123"}}'
 ```
 
-This produces `Basic YWRtaW46c2VjcmV0MTIz` — no manual base64 encoding needed.
+This produces `Basic YWRtaW46c2VjcmV0MTIz`. No manual base64 encoding needed.
 
 ### Using with environment variables
 
-Store credentials in your `.env` file and reference them with template vars:
+Store credentials in the vault and reference them with template vars:
 
-```env
-# env/prod.env
-apiUser = admin
-apiPassword = secret123
+```bash
+hulak secrets set apiUser admin       --env prod
+hulak secrets set apiPassword secret123 --env prod
 ```
 
 ```yaml
@@ -160,14 +157,16 @@ headers:
 ```
 
 ```bash
-hulak -env prod -f request
+hulak run request.hk.yaml --env prod
 ```
 
 This works the same as `curl -u admin:secret123 https://api.example.com/protected`.
 
+> Classic env/ users: put the keys in `env/prod.env` as `apiUser = admin` and `apiPassword = secret123` instead. See [environment.md](./environment.md).
+
 ## 4. Using `os`
 
-Reads an OS environment variable at template execution time. Takes a single argument — the variable name — and returns its value, or an empty string if unset.
+Reads an OS environment variable at template execution time. Takes a single argument, the variable name, and returns its value. Returns an empty string if unset.
 
 ```yaml
 # request.hk.yaml
@@ -182,7 +181,7 @@ export GITHUB_TOKEN=ghp_abc123
 hulak -f request
 ```
 
-This is useful for secrets that live in your shell environment (CI tokens, credentials injected by your platform) rather than in `.env` files or the vault store.
+This is useful for secrets that live in your shell environment. CI tokens or credentials injected by your platform are common examples. The vault store and `env/` files are the other two places hulak looks for values.
 
 ### Combining with store variables
 
@@ -194,6 +193,6 @@ url: '{{.BASE_URL}}/callback?token={{os "SESSION_TOKEN"}}'
 
 ### Behaviour notes
 
-- Variable names are **case sensitive** — `{{os "path"}}` and `{{os "PATH"}}` are different
+- Variable names are **case sensitive**. `{{os "path"}}` and `{{os "PATH"}}` are different
 - Returns an **empty string** if the variable is not set (no error)
-- Does **not** trigger env file loading — it reads directly from the OS environment
+- Does **not** trigger env file loading. It reads directly from the OS environment.
