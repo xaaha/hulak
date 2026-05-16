@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/main/assets/schema.json
+---
+# Example OAuth 2.0 web-application flow (GitHub).
+#
+# Before running, set the placeholders in your vault:
+#   hulak secrets set client_id <your-github-oauth-app-id>
+#   hulak secrets set client_secret <your-github-oauth-app-secret>
+#
+# Then run with: hulak -fp example-auth.hk.yaml
+# A browser window opens for authorization; the access token is saved
+# to example-auth_response.json.
+#
+# See docs/auth2.md for the full guide.
+kind: Auth
+method: POST
+url: https://github.com/login/oauth/authorize
+urlparams:
+  client_id: "{{.client_id}}"
+  scope: repo:user
+auth:
+  type: OAuth2.0
+  access_token_url: https://github.com/login/oauth/access_token
+headers:
+  Accept: application/json
+body:
+  urlencodedformdata:
+    client_id: "{{.client_id}}"
+    client_secret: "{{.client_secret}}"

@@ -1,0 +1,65 @@
+---
+# Hulak request file — reference of every available option.
+#
+# This file is a reference card, not a runnable request. Editor schema
+# validation is intentionally disabled (filename ends in .yaml, not .hk.yaml)
+# so you can uncomment alternative body types side-by-side without `oneOf`
+# errors. Copy fields into a new `<name>.hk.yaml` to make a real request.
+#
+# Kind: Gql # Could be "Gql, Auth, API". API is default and don't need to provide
+#
+# Supported Methods: GET POST PUT PATCH DELETE HEAD OPTIONS TRACE CONNECT
+#
+method: POST
+#
+# use key to access url stored in env folder {{.url}}
+#
+url: https://api.example.com/resource
+#
+# optional url params.
+# Url does not need trailing forward '/'
+#
+urlparams:
+  param1: value1
+  param2: value2
+headers:
+  Authorization: Bearer <token>
+  Accept: application/json
+  #
+  # Content-Type: multipart/form-data # not needed when body has formdata
+  # Content-Type: application/x-www-form-urlencoded not needed when body
+  # has urlencodedformdata
+  #
+body:
+  # Only one body type is allowed:
+  # # raw: string. Then user headers to define the raw string type
+  # # urlencodedformdata (key-value pair),
+  # # formdata (key-value pair),
+  # # graphql: needs query and variables(optional)
+  raw: |-
+    {
+    "id": "a3768761-70e7-451c-9208-caa9ff668a78",
+    "uuid": "b42e8805-7b39-42bc-99e1-653786e8b336"
+    }
+  # formdata:
+  #   key1: value1
+  #   key2: value2
+  # urlencodedformdata:
+  #   key3: value3
+  #   key4: value4
+  # graphql:
+  ##
+  ## It's hard to format graphql query within yaml.
+  ## It's recommended that you use getFile '{{getFile "collection/users.gql"}}'
+  ## where users.gql is a graphql file
+  ## query: '{{getFile "collection/users.gql"}}'
+  ##
+  #   query: |
+  #     query GetResource($id: ID!) {
+  #       resource(id: $id) {
+  #         name
+  #         description
+  #       }
+  #     }
+  #   variables:
+  #     id: "12345"
