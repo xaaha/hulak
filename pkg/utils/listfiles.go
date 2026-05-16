@@ -97,7 +97,7 @@ func isWantedFilePath(path string) bool {
 		strings.HasSuffix(name, YML) ||
 		strings.HasSuffix(name, JSON)
 
-	return hasSupportedExt && !strings.EqualFold(name, APIOptions)
+	return hasSupportedExt && !strings.EqualFold(name, OptionsReference)
 }
 
 func shouldSkipDir(dirName string, opts listFilesOptions) bool {
