@@ -42,39 +42,6 @@ func readVaultStore(t *testing.T) *vault.Store {
 	return store
 }
 
-// TestInitClassicProject_PreservesUserCustomizedAPIOptions verifies that
-// re-running `hulak init classic` does NOT overwrite a user-edited
-// apiOptions.hk.yaml. Init is designed to be safe to re-run; clobbering
-// customizations would defeat that property.
-func TestInitClassicProject_PreservesUserCustomizedAPIOptions(t *testing.T) {
-	dir := t.TempDir()
-	t.Cleanup(chdirTemp(t, dir))
-
-	// First init: creates the example file.
-	if err := InitClassicProject(); err != nil {
-		t.Fatalf("first InitClassicProject: %v", err)
-	}
-
-	apiPath := filepath.Join(dir, utils.APIOptions)
-	custom := []byte("# user has edited this file\nkind: API\nfoo: bar\n")
-	if err := os.WriteFile(apiPath, custom, utils.FilePer); err != nil {
-		t.Fatalf("simulate user edit: %v", err)
-	}
-
-	// Second init: must not clobber the custom content.
-	if err := InitClassicProject(); err != nil {
-		t.Fatalf("second InitClassicProject: %v", err)
-	}
-
-	got, err := os.ReadFile(apiPath)
-	if err != nil {
-		t.Fatalf("read after re-init: %v", err)
-	}
-	if !bytes.Equal(got, custom) {
-		t.Errorf("re-init overwrote customized %s", utils.APIOptions)
-	}
-}
-
 // TestInitClassicProject_RefusesWhenVaultExists verifies that running classic
 // init in a directory with an initialized vault (store.age present) refuses
 // with an error, preventing two parallel sources of truth for env values.
@@ -128,8 +95,9 @@ func TestInitClassicProject_AllowsEmptyHulakDir(t *testing.T) {
 
 // TestInitVaultProject_FreshSetup verifies the happy path: empty directory
 // gets .hulak/store.age, .hulak/recipients.txt, an identity file under the
-// test XDG dir, an apiOptions example, and a decryptable store containing
-// only the implicit "global" section.
+// test XDG dir, and a decryptable store containing only the implicit
+// "global" section. Init does NOT scaffold any example files — that's
+// `hulak example <type>`'s job.
 func TestInitVaultProject_FreshSetup(t *testing.T) {
 	dir := vaultTestSetup(t)
 
@@ -141,12 +109,17 @@ func TestInitVaultProject_FreshSetup(t *testing.T) {
 	wantFiles := []string{
 		filepath.Join(dir, utils.HiddenProjectName, utils.StoreFile),
 		filepath.Join(dir, utils.HiddenProjectName, utils.RecipientsFile),
-		filepath.Join(dir, utils.APIOptions),
 	}
 	for _, f := range wantFiles {
 		if !utils.FileExists(f) {
 			t.Errorf("expected %s to exist", f)
 		}
+	}
+
+	// Init must NOT scaffold the options reference or any example files —
+	// those are opt-in via `hulak example`.
+	if utils.FileExists(filepath.Join(dir, utils.OptionsReference)) {
+		t.Errorf("init should not create %s — that's hulak example's job", utils.OptionsReference)
 	}
 
 	// Identity must land in XDG_CONFIG_HOME/hulak (not the user's real config)
@@ -165,10 +138,10 @@ func TestInitVaultProject_FreshSetup(t *testing.T) {
 }
 
 // TestInitVaultProject_Idempotent verifies that re-running init on an already
-// initialized vault does not regenerate the identity, does not overwrite
-// existing store contents, and does not clobber a customized apiOptions.
+// initialized vault does not regenerate the identity and does not overwrite
+// existing store contents.
 func TestInitVaultProject_Idempotent(t *testing.T) {
-	dir := vaultTestSetup(t)
+	vaultTestSetup(t)
 
 	if err := InitVaultProject(nil, ""); err != nil {
 		t.Fatalf("first InitVaultProject: %v", err)
@@ -181,13 +154,6 @@ func TestInitVaultProject_Idempotent(t *testing.T) {
 	identityBefore, err := os.ReadFile(identityPath)
 	if err != nil {
 		t.Fatalf("read identity: %v", err)
-	}
-
-	// Customize apiOptions to verify it survives re-init.
-	apiPath := filepath.Join(dir, utils.APIOptions)
-	custom := []byte("# custom edits\nkind: API\n")
-	if err := os.WriteFile(apiPath, custom, utils.FilePer); err != nil {
-		t.Fatalf("simulate user edit: %v", err)
 	}
 
 	// Set a value in the vault, so we can also verify the store wasn't reset.
@@ -215,14 +181,6 @@ func TestInitVaultProject_Idempotent(t *testing.T) {
 	}
 	if !bytes.Equal(identityBefore, identityAfter) {
 		t.Error("identity file changed across re-init — must be idempotent")
-	}
-
-	got, err := os.ReadFile(apiPath)
-	if err != nil {
-		t.Fatalf("re-read apiOptions: %v", err)
-	}
-	if !bytes.Equal(got, custom) {
-		t.Error("re-init clobbered customized apiOptions.hk.yaml")
 	}
 
 	storeAfter := readVaultStore(t)
