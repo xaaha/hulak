@@ -23,7 +23,7 @@ const (
 // newEnvAddRecipientCmd returns the "add-recipient" command with its flag set.
 func newEnvAddRecipientCmd() *command {
 	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
-	addRecipientName := addRecipientFs.String("name", "", "Human-readable label for the recipient")
+	addRecipientName := registerNameFlag(addRecipientFs, "Human-readable label for the recipient (defaults to OS username)")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
 	addRecipientGitHub := addRecipientFs.String(
 		"github",
@@ -215,11 +215,9 @@ func runAddRecipient(
 			return err
 		}
 
-		// Build recipient name with source info for GitHub fetches
-		recipientName := name
-		if gitHubUser != "" && name == "" {
-			recipientName = gitHubUser
-		}
+		// User-supplied label wins; otherwise fall back to the GitHub username
+		// when the keys came from a github fetch.
+		recipientName := resolveRecipientName(name, gitHubUser)
 
 		added := 0
 		for _, pubKey := range pubKeys {
@@ -240,11 +238,7 @@ func runAddRecipient(
 		}
 
 		// Re-encrypt store to all recipients including new ones
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}
@@ -338,11 +332,7 @@ func runRemoveRecipient(args []string) error {
 		}
 
 		// Re-encrypt to remaining recipients
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}

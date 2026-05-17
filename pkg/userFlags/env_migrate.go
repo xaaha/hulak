@@ -118,7 +118,7 @@ func bootstrapAge() (*bootstrapResult, error) {
 		return nil, err
 	}
 
-	store, err := vault.ReadStore(ageKey.Identity)
+	store, err := vault.DecryptStore(ageKey.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func bootstrapSSH(sshIdentityPath string) (*bootstrapResult, error) {
 		return nil, err
 	}
 
-	store, err := vault.ReadStore(identity)
+	store, err := vault.DecryptStore(identity)
 	if err != nil {
 		return nil, err
 	}

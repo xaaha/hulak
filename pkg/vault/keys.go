@@ -11,7 +11,10 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Contains everythig about public and private keys (identity)
+// Contains on-disk identity file CRUD: path resolution, load/save/delete of
+// identity.txt, plus the .old backup machinery used by rotate-key for crash
+// recovery. The multi-source probe (env vars, SSH fallbacks, precedence
+// rules) lives in identity_resolve.go; import/export lives in identity_import.go.
 
 // IdentityPath returns the absolute path to the user's age identity file
 // under the platform config dir (~/.config/hulak/identity.txt on Linux,
@@ -76,41 +79,13 @@ func SetIdentity(privateKey string) error {
 	return os.WriteFile(identityFilePath, []byte(privateKey+"\n"), utils.SecretPer)
 }
 
-// VerifyKeypair parses the raw private and public key strings, and verifies
-// that the private key derives the same public key. Returns the parsed AgeKey.
-func VerifyKeypair(rawPrivateKey, rawPublicKey string) (AgeKey, error) {
-	identity, err := age.ParseX25519Identity(strings.TrimSpace(rawPrivateKey))
-	if err != nil {
-		return AgeKey{}, fmt.Errorf("failed to parse identity: %w", err)
-	}
-
-	recipient, err := age.ParseX25519Recipient(strings.TrimSpace(rawPublicKey))
-	if err != nil {
-		return AgeKey{}, fmt.Errorf("failed to parse public key: %w", err)
-	}
-
-	derived := identity.Recipient()
-	if derived.String() != recipient.String() {
-		return AgeKey{}, fmt.Errorf("keypair mismatch: identity does not match public key")
-	}
-
-	return AgeKey{
-		Recipient: recipient,
-		Identity:  identity,
-	}, nil
-}
-
 // DeleteIdentity removes the identity file from the global config directory.
 func DeleteIdentity() error {
 	identityFilePath, err := IdentityPath()
 	if err != nil {
 		return err
 	}
-	err = os.Remove(identityFilePath)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(identityFilePath)
 }
 
 // IdentityOldPath returns the path to the backup identity file
@@ -157,169 +132,4 @@ func LoadIdentityOld() (*age.X25519Identity, error) {
 		return nil, fmt.Errorf("failed to parse backup identity: %w", err)
 	}
 	return identity, nil
-}
-
-// ResolveIdentity returns the identity to use for decryption.
-// Precedence: HULAK_MASTER_KEY → identity.txt → HULAK_SSH_IDENTITY → ~/.ssh/id_ed25519.
-// Returns age.Identity (interface) — callers should not assume X25519.
-func ResolveIdentity() (age.Identity, error) {
-	// 1. HULAK_MASTER_KEY (highest precedence)
-	if raw := strings.TrimSpace(os.Getenv(utils.MasterKey)); raw != "" {
-		return parseMasterKey(raw)
-	}
-
-	// 2. identity.txt
-	if IdentityExists() {
-		return LoadIdentity()
-	}
-
-	// 3. HULAK_SSH_IDENTITY env var
-	if sshPath := strings.TrimSpace(os.Getenv(utils.SSHIdentityEnvVar)); sshPath != "" {
-		identity, err := LoadSSHIdentity(sshPath)
-		if err != nil {
-			return nil, fmt.Errorf("%s is set but key could not be loaded: %w", utils.SSHIdentityEnvVar, err)
-		}
-		utils.PrintInfoStderr(fmt.Sprintf("Using SSH identity %s", sshPath))
-		return identity, nil
-	}
-
-	// 4. Default ~/.ssh/id_ed25519
-	defaultPath := DefaultSSHIdentityPath()
-	if defaultPath != "" && utils.FileExists(defaultPath) {
-		identity, err := LoadSSHIdentity(defaultPath)
-		if err == nil {
-			utils.PrintInfoStderr(fmt.Sprintf("Using SSH identity %s (no identity.txt found)", defaultPath))
-			return identity, nil
-		}
-		// Don't error on auto-fallback failure — fall through to helpful error
-	}
-
-	// 5. Nothing found
-	return nil, noIdentityError()
-}
-
-// noIdentityError returns a helpful error when no identity could be resolved.
-func noIdentityError() error {
-	return utils.HelpfulError(
-		"no identity found — cannot decrypt the vault",
-		"Set up an identity using one of these methods",
-		[]string{
-			"Run 'hulak init' to generate an age keypair",
-			"Import an existing key with 'hulak secrets import-key'",
-			fmt.Sprintf("Set %s to an AGE-SECRET-KEY- value (for CI)", utils.MasterKey),
-			fmt.Sprintf("Set %s to point at your SSH private key", utils.SSHIdentityEnvVar),
-			"Place an ed25519 SSH key at ~/.ssh/id_ed25519 (auto-detected)",
-		},
-	)
-}
-
-// parseMasterKey parses the HULAK_MASTER_KEY value with friendly errors.
-func parseMasterKey(raw string) (*age.X25519Identity, error) {
-	identity, err := age.ParseX25519Identity(raw)
-	if err != nil {
-		if strings.HasPrefix(raw, AgePrefix) {
-			return nil, fmt.Errorf(
-				"%s contains what looks like a public key (age1...), not a private key. "+
-					"Private keys start with AGE-SECRET-KEY-",
-				utils.MasterKey,
-			)
-		}
-		return nil, fmt.Errorf(
-			"%s is set but could not be parsed as an age private key: %w\n"+
-				"Expected format: AGE-SECRET-KEY-1... ",
-			utils.MasterKey, err,
-		)
-	}
-	return identity, nil
-}
-
-// WrapDecryptError checks if HULAK_MASTER_KEY is set and the error looks like
-// an age "no identity matched" failure. If so, wraps it with actionable hints.
-// Otherwise returns the original error unchanged.
-func WrapDecryptError(err error) error {
-	if os.Getenv(utils.MasterKey) == "" {
-		return err
-	}
-	if !strings.Contains(err.Error(), "no identity matched") {
-		return err
-	}
-	return fmt.Errorf(
-		"failed to decrypt store: %s is set but does not match any recipient in this project.\n"+
-			"Common causes:\n"+
-			"  - This key is for a different project\n"+
-			"  - You were removed as a recipient\n"+
-			"  - Stale whitespace or quotes from copy-paste",
-		utils.MasterKey,
-	)
-}
-
-// ExportKey reads the identity file and returns the raw private key string.
-// Returns a friendly error pointing to `hulak init` if no identity exists.
-func ExportKey() (string, error) {
-	raw, err := GetIdentity()
-	if err != nil {
-		return "", fmt.Errorf(
-			"no identity file found — run 'hulak init' to create one: %w", err,
-		)
-	}
-	return strings.TrimSpace(raw), nil
-}
-
-// ImportKey validates the raw key material, normalizes whitespace, and writes
-// it to the identity file atomically (tmp + rename). Refuses to overwrite an
-// existing identity unless force is true.
-//
-// The raw input may be multi-line (e.g. age-keygen output with comments).
-// Only the first non-empty, non-comment line is used as the key.
-//
-// Refuses to run if HULAK_MASTER_KEY is set — importing while the env var
-// shadows the on-disk identity makes the import dead-on-arrival.
-func ImportKey(raw string, force bool) error {
-	if os.Getenv(utils.MasterKey) != "" {
-		return fmt.Errorf(
-			"%s is set — unset it before importing an identity, "+
-				"otherwise the env var shadows the on-disk file",
-			utils.MasterKey,
-		)
-	}
-
-	key := extractKeyLine(raw)
-	if key == "" {
-		return fmt.Errorf("no age private key found in input")
-	}
-
-	if _, err := age.ParseX25519Identity(key); err != nil {
-		return fmt.Errorf("invalid age private key: %w", err)
-	}
-
-	identityPath, err := IdentityPath()
-	if err != nil {
-		return err
-	}
-
-	if !force && utils.FileExists(identityPath) {
-		return fmt.Errorf(
-			"identity already exists at %s — use --force to overwrite", identityPath,
-		)
-	}
-
-	return utils.AtomicWriteFile(
-		identityPath,
-		[]byte(key+"\n"),
-		utils.SecretPer,
-		utils.SecretDirPer,
-	)
-}
-
-// extractKeyLine returns the first non-empty, non-comment line from raw input.
-// Handles age-keygen output where comments (# lines) precede the key.
-func extractKeyLine(raw string) string {
-	for line := range strings.SplitSeq(raw, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		return line
-	}
-	return ""
 }

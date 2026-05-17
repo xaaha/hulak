@@ -269,7 +269,7 @@ func TestReadStoreWriteStoreRoundTrip(t *testing.T) {
 	}
 
 	// Read it back
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore() error: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestRoundTripNonASCIIAndHTMLChars(t *testing.T) {
 		t.Fatalf("WriteStore error: %v", err)
 	}
 
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore error: %v", err)
 	}
@@ -353,7 +353,7 @@ func TestWriteStoreNoHTMLEscaping(t *testing.T) {
 	}
 
 	// Read back and verify HTML chars survived un-escaped.
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore error: %v", err)
 	}
@@ -383,7 +383,7 @@ func TestReadStorePreservesNumberTypes(t *testing.T) {
 		t.Fatalf("WriteStore() error: %v", err)
 	}
 
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore() error: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestReadStoreNonexistentReturnsEmpty(t *testing.T) {
 	setupHulakProject(t)
 	id, _ := age.GenerateX25519Identity()
 
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore() on missing file error: %v", err)
 	}
@@ -438,9 +438,132 @@ func TestReadStoreWrongIdentity(t *testing.T) {
 		t.Fatalf("WriteStore() error: %v", err)
 	}
 
-	_, err := ReadStore(id2)
+	_, err := DecryptStore(id2)
 	if err == nil {
 		t.Error("ReadStore() with wrong identity should return error")
+	}
+}
+
+// TestReadStore_StaleIdentityFallsBackToSSH is the canonical integration
+// test for the #222 onboarding fix. Scenario:
+//
+//   - A teammate has been added to a vault via their GitHub SSH key
+//     (so SSH ed25519 is a recipient of store.age)
+//   - The teammate's machine has a STALE identity.txt from another project
+//     (an age key that is NOT a recipient of this vault)
+//   - Pre-#222: ResolveIdentity short-circuits at identity.txt, never tries
+//     SSH → decryption fails with a confusing error
+//   - Post-#222: ResolveIdentityFor probes each source against the ciphertext,
+//     falls through identity.txt → SSH, decrypts cleanly
+//
+// This exercises the full read path: ReadStore → ResolveIdentityFor →
+// gatherIdentitySources → DecryptText, plus the announcement diagnostic.
+func TestReadStore_StaleIdentityFallsBackToSSH(t *testing.T) {
+	projectDir := setupHulakProject(t)
+
+	// Isolate config dir
+	cfgDir := t.TempDir()
+	cfgDir, _ = filepath.EvalSymlinks(cfgDir)
+	t.Setenv("XDG_CONFIG_HOME", cfgDir)
+	t.Setenv("HULAK_MASTER_KEY", "")
+	t.Setenv("HOME", t.TempDir()) // empty home, no auto ~/.ssh/id_ed25519
+
+	// 1. SSH key is the only recipient of the vault
+	sshDir := t.TempDir()
+	sshKeyPath, _ := writeTestSSHKey(t, sshDir)
+	t.Setenv("HULAK_SSH_IDENTITY", sshKeyPath)
+
+	sshPub, err := DeriveSSHPublicKey(sshKeyPath)
+	if err != nil {
+		t.Fatalf("DeriveSSHPublicKey: %v", err)
+	}
+	sshRecipient, _, err := ParseRecipientKey(sshPub, false)
+	if err != nil {
+		t.Fatalf("ParseRecipientKey: %v", err)
+	}
+
+	if err := SaveRecipients([]RecipientEntry{
+		{Key: sshPub, Name: "alice-ssh"},
+	}); err != nil {
+		t.Fatalf("SaveRecipients: %v", err)
+	}
+
+	// 2. Write a vault encrypted to SSH only
+	store := &Store{Envs: map[string]Env{
+		"global": {"DATABASE_URL": "postgres://example"},
+	}}
+	if err := WriteStore(store, sshRecipient); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	// 3. Plant a STALE identity.txt (age key that is NOT a recipient)
+	staleID, _ := age.GenerateX25519Identity()
+	if err := SetIdentity(staleID.String()); err != nil {
+		t.Fatalf("SetIdentity (stale): %v", err)
+	}
+
+	// 4. Read via the auto-resolve path
+	got, err := ReadStore()
+	if err != nil {
+		t.Fatalf(
+			"ReadStore should succeed by falling through stale identity.txt to SSH: %v",
+			err,
+		)
+	}
+
+	// 5. Verify decryption succeeded with the right plaintext
+	if got.GetEnv("global")["DATABASE_URL"] != "postgres://example" {
+		t.Errorf("decrypted store data mismatch: %+v", got.GetEnv("global"))
+	}
+
+	// 6. Sanity: project dir was used
+	if projectDir == "" {
+		t.Error("project dir should be set")
+	}
+}
+
+// TestReadStore_EnumeratesTriedSources verifies that when no available
+// identity decrypts the store, the error lists every source that was tried —
+// the diagnostic the review specifically called out as missing.
+func TestReadStore_EnumeratesTriedSources(t *testing.T) {
+	setupHulakProject(t)
+	cfgDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfgDir)
+	t.Setenv("HULAK_MASTER_KEY", "")
+	t.Setenv("HULAK_SSH_IDENTITY", "")
+	t.Setenv("HOME", t.TempDir())
+
+	// Encrypt vault to a stranger key
+	stranger, _ := age.GenerateX25519Identity()
+	if err := SaveRecipients([]RecipientEntry{
+		{Key: stranger.Recipient().String(), Name: "stranger"},
+	}); err != nil {
+		t.Fatalf("SaveRecipients: %v", err)
+	}
+	store := &Store{Envs: map[string]Env{"global": {"K": "v"}}}
+	if err := WriteStore(store, stranger.Recipient()); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	// Plant a useless identity.txt (not a recipient)
+	useless, _ := age.GenerateX25519Identity()
+	if err := SetIdentity(useless.String()); err != nil {
+		t.Fatalf("SetIdentity: %v", err)
+	}
+
+	_, err := ReadStore()
+	if err == nil {
+		t.Fatal("expected error when no identity decrypts")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "Tried:") {
+		t.Errorf("error should enumerate tried sources: %v", err)
+	}
+	if !strings.Contains(msg, "identity.txt") {
+		t.Errorf("error should mention identity.txt was tried: %v", err)
+	}
+	if !strings.Contains(msg, "add-recipient") {
+		t.Errorf("error should suggest 'add-recipient' remediation: %v", err)
 	}
 }
 
@@ -600,7 +723,7 @@ func TestReadStoreLegacyWithoutVersion(t *testing.T) {
 		t.Fatalf("write legacy: %v", err)
 	}
 
-	got, err := ReadStore(id)
+	got, err := DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore() legacy error: %v", err)
 	}
@@ -630,7 +753,7 @@ func TestReadStoreFutureVersionRejected(t *testing.T) {
 		t.Fatalf("write future: %v", err)
 	}
 
-	_, err = ReadStore(id)
+	_, err = DecryptStore(id)
 	if err == nil {
 		t.Fatal("ReadStore() with future version should error")
 	}
@@ -679,10 +802,10 @@ func TestReadStoreSizeWarning_LargeTriggersOnce(t *testing.T) {
 	storeSizeWarnOnce = sync.Once{}
 
 	out := captureStderr(t, func() {
-		if _, err := ReadStore(id); err != nil {
+		if _, err := DecryptStore(id); err != nil {
 			t.Fatalf("ReadStore #1: %v", err)
 		}
-		if _, err := ReadStore(id); err != nil {
+		if _, err := DecryptStore(id); err != nil {
 			t.Fatalf("ReadStore #2: %v", err)
 		}
 	})
@@ -707,7 +830,7 @@ func TestReadStoreSizeWarning_SmallNoWarning(t *testing.T) {
 	storeSizeWarnOnce = sync.Once{}
 
 	out := captureStderr(t, func() {
-		if _, err := ReadStore(id); err != nil {
+		if _, err := DecryptStore(id); err != nil {
 			t.Fatalf("ReadStore: %v", err)
 		}
 	})
@@ -735,9 +858,13 @@ func TestWriteStoreAtomicCleanup(t *testing.T) {
 }
 
 func TestReadStoreFrom(t *testing.T) {
+	cfg := setupConfigDir(t)
 	id, err := age.GenerateX25519Identity()
 	if err != nil {
 		t.Fatalf("generate identity: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg, "identity.txt"), []byte(id.String()+"\n"), 0o600); err != nil {
+		t.Fatalf("write identity: %v", err)
 	}
 
 	store := &Store{Envs: map[string]Env{
@@ -757,9 +884,9 @@ func TestReadStoreFrom(t *testing.T) {
 		t.Fatalf("write backup: %v", err)
 	}
 
-	got, err := ReadStoreFrom(backupPath, id)
+	got, err := ReadStore(backupPath)
 	if err != nil {
-		t.Fatalf("ReadStoreFrom: %v", err)
+		t.Fatalf("ReadStore(backup): %v", err)
 	}
 	if v, ok := got.GetEnv("global")["SECRET"].(string); !ok || v != "hello" {
 		t.Errorf("got SECRET=%v, want %q", got.GetEnv("global")["SECRET"], "hello")
@@ -767,16 +894,21 @@ func TestReadStoreFrom(t *testing.T) {
 }
 
 func TestReadStoreFrom_MissingFile(t *testing.T) {
-	id, _ := age.GenerateX25519Identity()
-	_, err := ReadStoreFrom("/nonexistent/path.age", id)
+	setupConfigDir(t)
+	_, err := ReadStore("/nonexistent/path.age")
 	if err == nil {
 		t.Fatal("expected error for missing file")
 	}
 }
 
 func TestReadStoreFrom_WrongIdentity(t *testing.T) {
+	cfg := setupConfigDir(t)
 	id1, _ := age.GenerateX25519Identity()
 	id2, _ := age.GenerateX25519Identity()
+	// Only id2 is configured locally — won't decrypt cipher encrypted to id1.
+	if err := os.WriteFile(filepath.Join(cfg, "identity.txt"), []byte(id2.String()+"\n"), 0o600); err != nil {
+		t.Fatalf("write identity: %v", err)
+	}
 
 	store := &Store{Envs: map[string]Env{"global": {"K": "V"}}}
 	jsonData, _ := json.Marshal(store)
@@ -787,8 +919,8 @@ func TestReadStoreFrom_WrongIdentity(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	_, err := ReadStoreFrom(path, id2)
+	_, err := ReadStore(path)
 	if err == nil {
-		t.Fatal("expected error when decrypting with wrong identity")
+		t.Fatal("expected error when no configured identity decrypts")
 	}
 }

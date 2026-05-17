@@ -12,68 +12,6 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func TestVerifyKeypair(t *testing.T) {
-	id, err := age.GenerateX25519Identity()
-	if err != nil {
-		t.Fatalf("failed to generate identity: %v", err)
-	}
-
-	privKey := id.String()
-	pubKey := id.Recipient().String()
-
-	t.Run("valid matching pair", func(t *testing.T) {
-		got, err := VerifyKeypair(privKey, pubKey)
-		if err != nil {
-			t.Fatalf("VerifyKeypair() error: %v", err)
-		}
-		if got.Identity.String() != privKey {
-			t.Errorf("Identity = %q, want %q", got.Identity.String(), privKey)
-		}
-		if got.Recipient.String() != pubKey {
-			t.Errorf("Recipient = %q, want %q", got.Recipient.String(), pubKey)
-		}
-	})
-
-	t.Run("valid pair with whitespace", func(t *testing.T) {
-		_, err := VerifyKeypair(privKey+"\n", "  "+pubKey+"\n")
-		if err != nil {
-			t.Errorf("VerifyKeypair() should trim whitespace, got error: %v", err)
-		}
-	})
-
-	t.Run("mismatched pair", func(t *testing.T) {
-		id2, _ := age.GenerateX25519Identity()
-		_, err := VerifyKeypair(privKey, id2.Recipient().String())
-		if err == nil {
-			t.Error("VerifyKeypair() with mismatched keys should return error")
-		}
-		if !strings.Contains(err.Error(), "mismatch") {
-			t.Errorf("error = %q, want it to contain 'mismatch'", err.Error())
-		}
-	})
-
-	t.Run("invalid private key", func(t *testing.T) {
-		_, err := VerifyKeypair("not-a-key", pubKey)
-		if err == nil {
-			t.Error("VerifyKeypair() with invalid private key should return error")
-		}
-	})
-
-	t.Run("invalid public key", func(t *testing.T) {
-		_, err := VerifyKeypair(privKey, "not-a-key")
-		if err == nil {
-			t.Error("VerifyKeypair() with invalid public key should return error")
-		}
-	})
-
-	t.Run("empty strings", func(t *testing.T) {
-		_, err := VerifyKeypair("", "")
-		if err == nil {
-			t.Error("VerifyKeypair() with empty strings should return error")
-		}
-	})
-}
-
 // setupConfigDir creates a temp config directory and sets XDG_CONFIG_HOME
 // so that UserConfigDir() returns a path inside it. Returns the hulak config dir path.
 func setupConfigDir(t *testing.T) string {
@@ -432,9 +370,269 @@ func TestResolveIdentity(t *testing.T) {
 	})
 }
 
+func TestHasAnyIdentity(t *testing.T) {
+	t.Run("true when identity.txt exists", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		if !HasAnyIdentity() {
+			t.Error("expected HasAnyIdentity() = true when identity.txt exists")
+		}
+	})
+
+	t.Run("true when HULAK_MASTER_KEY is set", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+		envID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", envID.String())
+
+		if !HasAnyIdentity() {
+			t.Error("expected HasAnyIdentity() = true when HULAK_MASTER_KEY set")
+		}
+	})
+
+	t.Run("false when no source available", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		if HasAnyIdentity() {
+			t.Error("expected HasAnyIdentity() = false with no sources")
+		}
+	})
+}
+
+func TestResolveIdentityFor(t *testing.T) {
+	t.Run("identity.txt decrypts → returns it and skips SSH", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		fileID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(fileID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		ct, err := EncryptText([]byte("hello"), fileID.Recipient())
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		got, err := ResolveIdentityFor(ct)
+		if err != nil {
+			t.Fatalf("ResolveIdentityFor: %v", err)
+		}
+		if got.(*age.X25519Identity).String() != fileID.String() {
+			t.Errorf("got wrong identity — expected identity.txt to match")
+		}
+	})
+
+	t.Run("stale identity.txt falls through to SSH (the canonical fix)", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		// Write a STALE age identity (not a recipient of the test ciphertext)
+		staleID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(staleID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		// Generate an SSH key, encrypt the ciphertext to its pubkey
+		sshDir := t.TempDir()
+		sshKeyPath, _ := writeTestSSHKey(t, sshDir)
+		t.Setenv("HULAK_SSH_IDENTITY", sshKeyPath)
+
+		// Build SSH recipient from the key
+		sshIdentity, err := LoadSSHIdentity(sshKeyPath)
+		if err != nil {
+			t.Fatalf("LoadSSHIdentity: %v", err)
+		}
+		sshRecipient, err := sshRecipientFromIdentity(t, sshKeyPath)
+		if err != nil {
+			t.Fatalf("derive ssh recipient: %v", err)
+		}
+
+		ct, err := EncryptText([]byte("hello"), sshRecipient)
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		// Pre-#222: identity.txt would short-circuit. Post: SSH decrypts.
+		got, err := ResolveIdentityFor(ct)
+		if err != nil {
+			t.Fatalf("ResolveIdentityFor should fall through to SSH: %v", err)
+		}
+
+		// Verify by attempting decryption with what we got
+		plaintext, err := DecryptText(ct, got)
+		if err != nil {
+			t.Fatalf("returned identity should decrypt: %v", err)
+		}
+		if string(plaintext) != "hello" {
+			t.Errorf("decrypted to %q, want %q", plaintext, "hello")
+		}
+
+		// Sanity check: the SSH identity we loaded matches the returned one
+		// (compare via successful decrypt; age.Identity is an interface)
+		_ = sshIdentity
+	})
+
+	t.Run("enumerates tried sources when none decrypt", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		// Write stale identity.txt
+		staleID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(staleID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		// Encrypt to a key that's NOT in any of our sources
+		strangerID, _ := age.GenerateX25519Identity()
+		ct, err := EncryptText([]byte("hello"), strangerID.Recipient())
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		_, err = ResolveIdentityFor(ct)
+		if err == nil {
+			t.Fatal("expected error when no identity decrypts")
+		}
+		if !strings.Contains(err.Error(), "Tried:") {
+			t.Errorf("error should list tried sources: %v", err)
+		}
+		if !strings.Contains(err.Error(), "identity.txt") {
+			t.Errorf("error should mention identity.txt: %v", err)
+		}
+	})
+
+	t.Run("HULAK_MASTER_KEY strict: hard fails on wrong value", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		// Real recipient (would decrypt if probed)
+		realID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(realID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+		ct, err := EncryptText([]byte("hello"), realID.Recipient())
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		// Master key is a DIFFERENT (wrong) identity. Should fail hard,
+		// not fall through to identity.txt even though that would work.
+		wrongID, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", wrongID.String())
+
+		_, err = ResolveIdentityFor(ct)
+		if err == nil {
+			t.Fatal("expected hard failure when HULAK_MASTER_KEY is set but wrong")
+		}
+	})
+
+	t.Run("HULAK_MASTER_KEY succeeds when correct", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		id, _ := age.GenerateX25519Identity()
+		t.Setenv("HULAK_MASTER_KEY", id.String())
+
+		ct, err := EncryptText([]byte("hello"), id.Recipient())
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		got, err := ResolveIdentityFor(ct)
+		if err != nil {
+			t.Fatalf("ResolveIdentityFor: %v", err)
+		}
+		if got.(*age.X25519Identity).String() != id.String() {
+			t.Error("returned identity should match master key")
+		}
+	})
+
+	t.Run("broken HULAK_SSH_IDENTITY appears in tried list", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		// Point HULAK_SSH_IDENTITY at a non-existent path
+		t.Setenv("HULAK_SSH_IDENTITY", "/does/not/exist/id_ed25519")
+
+		// Plant an unrelated identity.txt so we have something to probe
+		staleID, _ := age.GenerateX25519Identity()
+		if err := SetIdentity(staleID.String()); err != nil {
+			t.Fatalf("SetIdentity: %v", err)
+		}
+
+		// Encrypt to a stranger so no source succeeds
+		stranger, _ := age.GenerateX25519Identity()
+		ct, err := EncryptText([]byte("hello"), stranger.Recipient())
+		if err != nil {
+			t.Fatalf("EncryptText: %v", err)
+		}
+
+		_, err = ResolveIdentityFor(ct)
+		if err == nil {
+			t.Fatal("expected error when no identity decrypts")
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "HULAK_SSH_IDENTITY") {
+			t.Errorf("error should surface broken HULAK_SSH_IDENTITY: %v", err)
+		}
+		if !strings.Contains(msg, "load failed") {
+			t.Errorf("error should annotate the broken source as load-failed: %v", err)
+		}
+	})
+
+	t.Run("no identity sources → helpful error", func(t *testing.T) {
+		setupConfigDir(t)
+		t.Setenv("HULAK_MASTER_KEY", "")
+		t.Setenv("HULAK_SSH_IDENTITY", "")
+		t.Setenv("HOME", t.TempDir())
+
+		_, err := ResolveIdentityFor([]byte("not actually used"))
+		if err == nil {
+			t.Fatal("expected error when no identity available")
+		}
+		if !strings.Contains(err.Error(), "no identity found") {
+			t.Errorf("error should say 'no identity found': %v", err)
+		}
+	})
+}
+
+// sshRecipientFromIdentity extracts the SSH age.Recipient from a private key
+// path. Helper for tests that need to encrypt to an SSH identity.
+func sshRecipientFromIdentity(t *testing.T, keyPath string) (age.Recipient, error) {
+	t.Helper()
+	pubStr, err := DeriveSSHPublicKey(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	rec, _, err := ParseRecipientKey(pubStr, false)
+	return rec, err
+}
+
 func TestWrapDecryptError(t *testing.T) {
 	t.Run("wraps no-match when HULAK_MASTER_KEY set", func(t *testing.T) {
-		raw := errors.New("no identity matched any of the recipients")
+		raw := errors.New("identity did not match any of the recipients")
 		t.Setenv("HULAK_MASTER_KEY", "AGE-SECRET-KEY-fake")
 
 		got := WrapDecryptError(raw)
@@ -448,7 +646,7 @@ func TestWrapDecryptError(t *testing.T) {
 	})
 
 	t.Run("passes through when HULAK_MASTER_KEY unset", func(t *testing.T) {
-		raw := errors.New("no identity matched any of the recipients")
+		raw := errors.New("identity did not match any of the recipients")
 		t.Setenv("HULAK_MASTER_KEY", "")
 
 		got := WrapDecryptError(raw)

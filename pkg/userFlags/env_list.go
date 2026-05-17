@@ -45,12 +45,7 @@ func runEnvList(args []string) error {
 		return err
 	}
 
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
@@ -117,12 +112,7 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return err
 	}
 
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}

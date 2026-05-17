@@ -54,11 +54,7 @@ func noEnvFilesError() error {
 // "no envs configured" prompt instead of an alarming error.
 func envItems() ([]string, error) {
 	if vault.DetectStore() == vault.StoreAge {
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return nil, fmt.Errorf("vault: %w", err)
-		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return nil, fmt.Errorf("vault: reading store: %w", err)
 		}

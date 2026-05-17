@@ -35,10 +35,10 @@ func TestRunEnvList_PrintsSortedNames(t *testing.T) {
 func TestRunEnvList_EmptyStore(t *testing.T) {
 	setupVaultProject(t)
 
-	// Generate a keypair + empty store so LoadIdentity / ReadStore succeed.
+	// Generate a keypair + empty store so ReadStore succeeds.
 	if err := vault.WithStoreLock(func() error {
 		ageKey, _ := vault.EnsureKeypair()
-		store, _ := vault.ReadStore(ageKey.Identity)
+		store, _ := vault.ReadStore()
 		return vault.WriteStore(store, ageKey.Recipient)
 	}); err != nil {
 		t.Fatalf("seed empty: %v", err)

@@ -229,12 +229,7 @@ func resolveEnvRefs(m map[string]any) map[string]any {
 // loadSecretsFromVault decrypts the store and returns merged env vars.
 // Uses the same merge pattern as classic: global base + custom overlay.
 func loadSecretsFromVault(envName string) (map[string]any, error) {
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		return nil, err
 	}

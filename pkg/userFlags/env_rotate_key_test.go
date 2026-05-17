@@ -93,7 +93,7 @@ func TestRunRotateKey(t *testing.T) {
 			t.Error("identity should have changed")
 		}
 
-		store, err := vault.ReadStore(newIdentity)
+		store, err := vault.DecryptStore(newIdentity)
 		if err != nil {
 			t.Fatalf("new identity can't decrypt store: %v", err)
 		}
@@ -105,7 +105,7 @@ func TestRunRotateKey(t *testing.T) {
 		}
 
 		// Old identity cannot decrypt store
-		_, err = vault.ReadStore(oldID)
+		_, err = vault.DecryptStore(oldID)
 		if err == nil {
 			t.Error("old identity should NOT decrypt store after rotation")
 		}
@@ -142,7 +142,7 @@ func TestRunRotateKey(t *testing.T) {
 		}
 
 		// Teammate can still decrypt
-		store, err := vault.ReadStore(teammate)
+		store, err := vault.DecryptStore(teammate)
 		if err != nil {
 			t.Fatalf("teammate can't decrypt store after rotation: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestRunRotateKey(t *testing.T) {
 		}
 
 		// Old identity cannot decrypt
-		_, err = vault.ReadStore(oldID)
+		_, err = vault.DecryptStore(oldID)
 		if err == nil {
 			t.Error("old identity should NOT decrypt store")
 		}
@@ -201,8 +201,7 @@ func TestRunRotateKey(t *testing.T) {
 			t.Fatalf("runRotateKey error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.ReadStore()
 		prod := store.GetEnv("prod")
 
 		if prod["API_KEY"] != "sk-secret" {
@@ -260,9 +259,8 @@ func TestRunRotateKeyRecovery(t *testing.T) {
 			t.Fatalf("recovery rotation error: %v", err)
 		}
 
-		// After recovery: new identity decrypts store
-		finalIdentity, _ := vault.ResolveIdentity()
-		store, err := vault.ReadStore(finalIdentity)
+		// After recovery: vault decrypts via the auto-resolved new identity
+		store, err := vault.ReadStore()
 		if err != nil {
 			t.Fatalf("can't decrypt after recovery: %v", err)
 		}
@@ -271,7 +269,7 @@ func TestRunRotateKeyRecovery(t *testing.T) {
 		}
 
 		// Old identity no longer works
-		_, err = vault.ReadStore(oldID)
+		_, err = vault.DecryptStore(oldID)
 		if err == nil {
 			t.Error("old identity should not decrypt after recovery")
 		}

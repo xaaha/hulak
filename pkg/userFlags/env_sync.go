@@ -42,12 +42,7 @@ func runSync(args []string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}

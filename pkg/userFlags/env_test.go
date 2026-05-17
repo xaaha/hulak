@@ -52,11 +52,7 @@ func setupVaultProject(t *testing.T) string {
 // readStoredValue decrypts the store and returns the value at envName/key.
 func readStoredValue(t *testing.T, envName, key string) any {
 	t.Helper()
-	id, err := vault.LoadIdentity()
-	if err != nil {
-		t.Fatalf("LoadIdentity: %v", err)
-	}
-	store, err := vault.ReadStore(id)
+	store, err := vault.ReadStore()
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}

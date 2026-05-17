@@ -146,12 +146,7 @@ func maybeAddSSHIdentity(sshIdentityPath string) (bool, error) {
 		return false, err
 	}
 
-	currentIdentity, err := vault.ResolveIdentity()
-	if err != nil {
-		return false, fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username(), currentIdentity)
+	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username())
 	if err != nil {
 		return false, err
 	}
@@ -169,14 +164,10 @@ func maybeAddSSHIdentity(sshIdentityPath string) (bool, error) {
 // re-encryption. Uses GenerateKeyPair + SetIdentity directly (not EnsureKeypair)
 // because EnsureKeypair refuses when store.age exists.
 func maybeAddAgeIdentity() (bool, error) {
-	// Resolve current identity (SSH) BEFORE creating identity.txt.
-	// Once identity.txt exists, ResolveIdentity returns the new age key
-	// which can't decrypt the SSH-encrypted store.
-	currentIdentity, err := vault.ResolveIdentity()
-	if err != nil {
-		return false, fmt.Errorf("failed to load identity: %w", err)
-	}
-
+	// With ResolveIdentityFor's probing, the order of "write identity.txt"
+	// vs "decrypt with existing identity" doesn't matter: even if identity.txt
+	// exists with the new key (not yet a recipient), ResolveIdentityFor will
+	// fall through to SSH or whichever existing identity decrypts.
 	ageKey, err := vault.GenerateKeyPair()
 	if err != nil {
 		return false, fmt.Errorf("failed to generate age keypair: %w", err)
@@ -189,7 +180,7 @@ func maybeAddAgeIdentity() (bool, error) {
 	pubKey := ageKey.Recipient.String()
 	identityPath, _ := vault.IdentityPath()
 
-	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username(), currentIdentity)
+	added, err := vault.AddRecipientAndReencrypt(pubKey, utils.Username())
 	if err != nil {
 		return false, err
 	}
@@ -212,11 +203,7 @@ func ensureExtraEnvSections(envNames []string) error {
 		return nil
 	}
 
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
@@ -238,7 +225,9 @@ func printInitSummary(result *bootstrapResult) {
 		fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 	)
 	utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
-	utils.PrintInfoStderr(fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile))
+	utils.PrintInfoStderr(
+		fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile),
+	)
 	if result.isSSH {
 		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", result.identityDesc))
 		utils.PrintWarningStderr(
