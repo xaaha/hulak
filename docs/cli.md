@@ -280,7 +280,7 @@ hulak secrets delete OLD_KEY
 | `import-key` (`import-identity`) | Import an age identity (private key) |
 | `export-key` (`export-identity`) | Export the age identity (private key) |
 | `gen-identity` (`generate-identity`) | Generate a new age keypair without creating a vault |
-| `list-identity` (`ls-identity`, `identities`) | List identities that can decrypt the vault |
+| `list-identity` | List identities that can decrypt the vault |
 | `add-recipient` | Add a recipient for shared vault access |
 | `remove-recipient` | Remove a recipient |
 | `list-recipients` | List all recipients |
