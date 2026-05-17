@@ -238,12 +238,11 @@ func ReadStore(path ...string) (*Store, error) {
 	return decodeStore(plainText)
 }
 
-// DecryptStore reads store.age and decrypts it with the given identity (strict,
-// no probe). Use for identity-mutating commands that need a specific primary
-// identity — e.g. rotate-key (test current vs. old key) and migrate (decrypt
-// with a freshly-generated identity). For ordinary reads, use ReadStore.
+// DecryptStore reads .hulak/store.age and decrypts with the given identity
+// (no auto-resolve). Use when a specific identity is required — e.g. rotate-key
+// or migrate. For ordinary reads, use ReadStore.
 //
-// A missing store.age returns an empty Store, consistent with ReadStore.
+// A missing store.age returns an empty Store.
 func DecryptStore(identity age.Identity) (*Store, error) {
 	path, err := StorePath()
 	if err != nil {
