@@ -62,6 +62,7 @@ func subCommands() *command {
 		newRunCmd(),
 		newVersionCmd(),
 		newInitCmd(),
+		newExampleCmd(),
 		newMigrateCmd(),
 		newDoctorCmd(),
 		newGQLCmd(),
@@ -109,15 +110,13 @@ func newInitCmd() *command {
 	return &command{
 		Name:  "init",
 		Short: "Initialize a hulak project",
-		Long: fmt.Sprintf(
-			"Set up a new hulak project in the current directory.\n\n"+
-				"By default, creates an encrypted vault (.hulak/store.age) with an age keypair\n"+
-				"plus an example '%s'. Use --ssh to bootstrap with your default SSH ed25519 key\n"+
-				"(~/.ssh/id_ed25519), or --ssh-identity <path> for a custom key.\n\n"+
-				"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n"+
-				"layout instead. Use -env to scaffold specific environments.",
-			utils.APIOptions,
-		),
+		Long: "Set up a new hulak project in the current directory.\n\n" +
+			"By default, creates an encrypted vault (.hulak/store.age) with an age keypair.\n" +
+			"Use --ssh to bootstrap with your default SSH ed25519 key (~/.ssh/id_ed25519),\n" +
+			"or --ssh-identity <path> for a custom key.\n\n" +
+			"To scaffold an example request file, use 'hulak example <type>' after init.\n" +
+			"Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/\n" +
+			"layout instead. Use -env to scaffold specific environments.",
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak init", Description: "Default setup (encrypted vault + age keypair)"},
 			{
@@ -131,6 +130,10 @@ func newInitCmd() *command {
 			{
 				Command:     "hulak init -env staging prod",
 				Description: "Scaffold staging and prod environments alongside global",
+			},
+			{
+				Command:     "hulak example api",
+				Description: "Scaffold a runnable REST example after init",
 			},
 			{
 				Command:     "hulak init classic",
@@ -177,18 +180,15 @@ func newInitClassicCmd() *command {
 		Name:    "classic",
 		Aliases: []string{"plain", "no-vault"},
 		Short:   "Initialize with the plaintext env/ layout",
-		Long: fmt.Sprintf(
-			"Initialize a hulak project using the plaintext env/ layout.\n\n"+
-				"Creates an env/ directory with global.env, a .gitignore entry,\n"+
-				"and an example '%s' file. Use this when you don't want the\n"+
-				"encrypted vault — for example, in throwaway scripts or when\n"+
-				"secrets are managed entirely outside hulak.",
-			utils.APIOptions,
-		),
+		Long: "Initialize a hulak project using the plaintext env/ layout.\n\n" +
+			"Creates an env/ directory with global.env and a .gitignore entry.\n" +
+			"Use this when you don't want the encrypted vault — for example, in\n" +
+			"throwaway scripts or when secrets are managed entirely outside hulak.\n\n" +
+			"To scaffold an example request file, use 'hulak example <type>' after init.",
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak init classic",
-				Description: "Plaintext setup (global.env + example file)",
+				Description: "Plaintext setup (env/global.env + .gitignore)",
 			},
 			{Command: "hulak init plain", Description: "Same as classic (alias)"},
 			{Command: "hulak init no-vault", Description: "Same as classic (alias)"},
