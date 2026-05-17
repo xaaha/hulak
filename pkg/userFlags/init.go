@@ -225,7 +225,9 @@ func printInitSummary(result *bootstrapResult) {
 		fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 	)
 	utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
-	utils.PrintInfoStderr(fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile))
+	utils.PrintInfoStderr(
+		fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile),
+	)
 	if result.isSSH {
 		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", result.identityDesc))
 		utils.PrintWarningStderr(
