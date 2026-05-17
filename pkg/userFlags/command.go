@@ -161,6 +161,12 @@ func (cmd *command) printHelp() {
 				Description: sub.Short,
 			})
 		}
+		// Alphabetical so users can scan; registration order is meaningless
+		// to readers. Sort by primary name (everything before the first
+		// space, i.e. before the "(alias)" suffix).
+		slices.SortFunc(entries, func(a, b *utils.CommandHelp) int {
+			return strings.Compare(primaryName(a.Command), primaryName(b.Command))
+		})
 		_ = utils.WriteCommandHelp(entries)
 		fmt.Println()
 	}
@@ -264,4 +270,13 @@ func printFlags(fs *flag.FlagSet) {
 // isHelpArg returns true if the argument is a help request
 func isHelpArg(arg string) bool {
 	return arg == "help" || arg == "--help" || arg == "-h"
+}
+
+// primaryName strips the "(alias, alias)" suffix from a command label so
+// sort comparisons see only the canonical name.
+func primaryName(label string) string {
+	if i := strings.IndexByte(label, ' '); i >= 0 {
+		return label[:i]
+	}
+	return label
 }
