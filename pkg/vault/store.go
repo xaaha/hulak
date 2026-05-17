@@ -188,52 +188,12 @@ func BackupsDir() (string, error) {
 	return filepath.Join(markerPath, "backups"), nil
 }
 
-// ReadStore decrypts store.age and returns the Store.
-// Uses json.Decoder.UseNumber() to preserve int/float distinction.
-func ReadStore(identity age.Identity) (*Store, error) {
-	path, err := StorePath()
-	if err != nil {
-		return nil, err
-	}
-
-	cipherText, err := os.ReadFile(path)
-	if err != nil {
-		// empty store.age if it does not exist
-		if os.IsNotExist(err) {
-			return &Store{Envs: make(map[string]Env)}, nil
-		}
-		return nil, fmt.Errorf("failed to read store: %w", err)
-	}
-
-	plainText, err := DecryptText(cipherText, identity)
-	if err != nil {
-		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt store: %w", err))
-	}
-
+// decodeStore parses decrypted JSON plaintext into a Store. Uses UseNumber
+// to preserve int/float distinction (otherwise JSON numbers all become
+// float64, losing original type info for `secrets get` / serialization).
+// Also emits the size-warning side effect for large stores.
+func decodeStore(plainText []byte) (*Store, error) {
 	maybeWarnStoreSize(len(plainText))
-
-	store := &Store{}
-	if err := json.Unmarshal(plainText, store); err != nil {
-		return nil, err
-	}
-	return store, nil
-}
-
-// ReadStoreFrom decrypts an age-encrypted store file at the given path.
-// Unlike ReadStore, a missing file is an error (not an empty store).
-func ReadStoreFrom(path string, identity age.Identity) (*Store, error) {
-	cipherText, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read backup: %w", err)
-	}
-
-	plainText, err := DecryptText(cipherText, identity)
-	if err != nil {
-		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt backup: %w", err))
-	}
-
-	maybeWarnStoreSize(len(plainText))
-
 	dec := json.NewDecoder(bytes.NewReader(plainText))
 	dec.UseNumber()
 	store := &Store{}
@@ -241,6 +201,70 @@ func ReadStoreFrom(path string, identity age.Identity) (*Store, error) {
 		return nil, err
 	}
 	return store, nil
+}
+
+// ReadStore reads and decrypts a store file via the multi-source identity
+// probe in a single pass (no double-decrypt). Identity is auto-resolved from
+// HULAK_MASTER_KEY → identity.txt → SSH keys.
+//
+// Default form (no args) reads .hulak/store.age; a missing file returns an
+// empty Store so additive write flows work on a fresh project. With an
+// explicit path (e.g. a backup file), a missing file is an error.
+//
+// For identity-mutating commands that need a SPECIFIC identity (e.g. rotate-key
+// reading with the old key, migrate reading with a freshly-generated key),
+// use DecryptStore instead.
+func ReadStore(path ...string) (*Store, error) {
+	var storePath string
+	explicit := len(path) > 0
+	if explicit {
+		storePath = path[0]
+	} else {
+		p, err := StorePath()
+		if err != nil {
+			return nil, err
+		}
+		storePath = p
+	}
+
+	cipherText, err := os.ReadFile(storePath)
+	if err != nil {
+		if os.IsNotExist(err) && !explicit {
+			return &Store{Envs: make(map[string]Env)}, nil
+		}
+		return nil, fmt.Errorf("failed to read store: %w", err)
+	}
+
+	_, plainText, err := resolveAndDecrypt(cipherText)
+	if err != nil {
+		return nil, err
+	}
+	return decodeStore(plainText)
+}
+
+// DecryptStore reads store.age and decrypts it with the given identity (strict,
+// no probe). Use for identity-mutating commands that need a specific primary
+// identity — e.g. rotate-key (test current vs. old key) and migrate (decrypt
+// with a freshly-generated identity). For ordinary reads, use ReadStore.
+//
+// A missing store.age returns an empty Store, consistent with ReadStore.
+func DecryptStore(identity age.Identity) (*Store, error) {
+	path, err := StorePath()
+	if err != nil {
+		return nil, err
+	}
+	cipherText, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Store{Envs: make(map[string]Env)}, nil
+		}
+		return nil, fmt.Errorf("failed to read store: %w", err)
+	}
+	plainText, err := DecryptText(cipherText, identity)
+	if err != nil {
+		return nil, WrapDecryptError(fmt.Errorf("failed to decrypt store: %w", err))
+	}
+	return decodeStore(plainText)
 }
 
 // maybeWarnStoreSize prints a one-time stderr warning if the decrypted store
