@@ -18,9 +18,8 @@ import (
 // (marked with utils.Asterisk): it's what hulak would use for any read path.
 func newEnvListIdentityCmd() *command {
 	return &command{
-		Name:    "list-identity",
-		Aliases: []string{"ls-identity", "identities"},
-		Short:   "List identities that can decrypt the vault",
+		Name:  "list-identity",
+		Short: "List identities that can decrypt the vault",
 		Long: "Show every configured identity on this machine that can currently\n" +
 			"decrypt store.age. Probes each source in precedence order:\n\n" +
 			"  1. $HULAK_MASTER_KEY env var\n" +
