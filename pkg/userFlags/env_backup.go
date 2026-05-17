@@ -91,11 +91,6 @@ func runBackup(outPath string, force bool) error {
 		return err
 	}
 
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-
 	storePath, err := vault.StorePath()
 	if err != nil {
 		return err
@@ -109,8 +104,9 @@ func runBackup(outPath string, force bool) error {
 		return fmt.Errorf("failed to read store: %w", err)
 	}
 
-	// Validate: decrypt to prove the store is healthy. Discard the data.
-	if _, err := vault.DecryptText(cipherText, identity); err != nil {
+	// Validate: probe each identity to prove the store is healthy. Discard
+	// the resolved identity — we only care that decryption is possible.
+	if _, err := vault.ResolveIdentityFor(cipherText); err != nil {
 		return fmt.Errorf(
 			"store.age cannot be decrypted with current identity — refusing to back up a corrupt or inaccessible store: %w",
 			err,
@@ -299,12 +295,7 @@ func runRestore(backupPath string, force bool) error {
 	// Decrypt to validate identity + version + JSON structure.
 	// The age library handles format detection — non-age files
 	// produce a clear decrypt error without hardcoding the header.
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	store, err := vault.ReadStoreFrom(resolvedPath, identity)
+	store, err := vault.ReadStore(resolvedPath)
 	if err != nil {
 		return err
 	}

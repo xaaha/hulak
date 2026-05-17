@@ -56,7 +56,7 @@ func readStoredValue(t *testing.T, envName, key string) any {
 	if err != nil {
 		t.Fatalf("LoadIdentity: %v", err)
 	}
-	store, err := vault.ReadStore(id)
+	store, err := vault.DecryptStore(id)
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}

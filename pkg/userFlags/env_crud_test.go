@@ -138,7 +138,7 @@ func TestRunEnvGet_PrintsNonString(t *testing.T) {
 	// Seed non-string types via the store directly (CLI `set` always stores strings).
 	if err := vault.WithStoreLock(func() error {
 		ageKey, _ := vault.EnsureKeypair()
-		store, _ := vault.ReadStore(ageKey.Identity)
+		store, _ := vault.DecryptStore(ageKey.Identity)
 		store.SetKey("global", "PORT", json.Number("8000"))
 		store.SetKey("global", "ENABLED", true)
 		return vault.WriteStore(store, ageKey.Recipient)

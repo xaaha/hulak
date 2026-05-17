@@ -54,9 +54,9 @@ func checkFileMode(path string, mc modeCheck) finding {
 
 // --- vault checks ------------------------------------------------------------
 
-// checkIdentityPresent verifies that at least one identity source resolves.
+// checkIdentityPresent verifies that at least one identity source is available.
 func checkIdentityPresent() finding {
-	if _, err := vault.ResolveIdentity(); err != nil {
+	if !vault.HasAnyIdentity() {
 		return finding{
 			check:    "identity-present",
 			severity: sevError,
@@ -202,14 +202,13 @@ func checkStoreEncrypted() finding {
 	}
 }
 
-// checkStoreDecrypts tries to decrypt store.age with the current identity.
+// checkStoreDecrypts tries to decrypt store.age via the multi-source probe.
 func checkStoreDecrypts() finding {
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
+	if !vault.HasAnyIdentity() {
 		return skipFinding("store-decrypts", "no identity available (skipping decryption check)")
 	}
 
-	if _, err = vault.ReadStore(identity); err != nil {
+	if _, err := vault.ReadStore(); err != nil {
 		return finding{
 			check:    "store-decrypts",
 			severity: sevError,

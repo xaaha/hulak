@@ -176,7 +176,8 @@ func swapRecipients(oldKey, newKey string) ([]vault.RecipientEntry, int, error) 
 func extractRecipientName(entries []vault.RecipientEntry, key string) string {
 	for _, e := range entries {
 		if e.Key == key {
-			return vault.ParseRecipientName(e.Name)
+			name, _ := vault.ParseRecipientName(e.Name)
+			return name
 		}
 	}
 	return ""
@@ -240,7 +241,7 @@ func printRotationSummary(rs *rotationState) {
 // If that fails and an identity.txt.old exists, tries the backup (interrupted
 // rotation recovery). Returns the store, whether we're in recovery mode, and error.
 func decryptForRotation(currentIdentity *age.X25519Identity) (*vault.Store, bool, error) {
-	store, err := vault.ReadStore(currentIdentity)
+	store, err := vault.DecryptStore(currentIdentity)
 	if err == nil {
 		return store, false, nil
 	}
@@ -253,7 +254,7 @@ func decryptForRotation(currentIdentity *age.X25519Identity) (*vault.Store, bool
 		)
 	}
 
-	store, err = vault.ReadStore(oldIdentity)
+	store, err = vault.DecryptStore(oldIdentity)
 	if err != nil {
 		return nil, false, fmt.Errorf(
 			"cannot decrypt store with current or backup identity — both keys failed",

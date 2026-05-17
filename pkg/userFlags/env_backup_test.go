@@ -334,7 +334,7 @@ func TestRunRestore_ReencryptsToCurrentRecipients(t *testing.T) {
 	}
 
 	// The restored store should be decryptable by the new recipient
-	store, err := vault.ReadStore(newKey.Identity)
+	store, err := vault.DecryptStore(newKey.Identity)
 	if err != nil {
 		t.Fatalf("new recipient cannot decrypt restored store: %v", err)
 	}

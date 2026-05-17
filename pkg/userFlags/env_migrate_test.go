@@ -83,7 +83,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.DecryptStore(identity)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,7 +108,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		global := store.GetEnv("global")
 		if global["URL"] != "https://example.com" {
@@ -136,7 +136,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		prod := store.GetEnv("prod")
 		if prod["TOKEN"] != "from_store" {
@@ -157,7 +157,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		env := store.GetEnv("global")
 		if env["TOKEN"] != "$GITHUB_TOKEN" {
@@ -177,7 +177,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		envs := store.ListEnvs()
 		for _, name := range envs {
@@ -197,7 +197,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		staging := store.GetEnv("staging")
 		if staging == nil {
@@ -229,7 +229,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		staging := store.GetEnv("staging")
 		if staging == nil {
@@ -253,7 +253,7 @@ func TestRunEnvMigrate(t *testing.T) {
 		}
 
 		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.ReadStore(identity)
+		store, _ := vault.DecryptStore(identity)
 
 		env := store.GetEnv("global")
 		if env["NAME"] != "José" {

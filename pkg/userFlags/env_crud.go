@@ -93,12 +93,7 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 
 	// acquire lock
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}
@@ -196,12 +191,7 @@ func runEnvGet(args []string, envName string) error {
 		return err
 	}
 
-	identity, err := vault.ResolveIdentity()
-	if err != nil {
-		return fmt.Errorf("failed to load identity: %w", err)
-	}
-
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
@@ -288,12 +278,7 @@ func runEnvDelete(args []string, envName string) error {
 	}
 
 	return vault.WithStoreLock(func() error {
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}

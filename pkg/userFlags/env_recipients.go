@@ -240,11 +240,7 @@ func runAddRecipient(
 		}
 
 		// Re-encrypt store to all recipients including new ones
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}
@@ -338,11 +334,7 @@ func runRemoveRecipient(args []string) error {
 		}
 
 		// Re-encrypt to remaining recipients
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			return fmt.Errorf("failed to load identity: %w", err)
-		}
-		store, err := vault.ReadStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			return err
 		}
