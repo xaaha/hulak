@@ -121,7 +121,11 @@ func SaveRecipients(entries []RecipientEntry) error {
 // AddRecipientEntry validates the new key, checks for duplicates, and returns
 // the updated entry list. Does not write to disk — caller does that.
 // Set allowRSA to true to accept ssh-rsa keys.
-func AddRecipientEntry(entries []RecipientEntry, pubKey, name string, allowRSA bool) ([]RecipientEntry, error) {
+func AddRecipientEntry(
+	entries []RecipientEntry,
+	pubKey, name string,
+	allowRSA bool,
+) ([]RecipientEntry, error) {
 	if _, _, err := ParseRecipientKey(pubKey, allowRSA); err != nil {
 		return nil, err
 	}
@@ -139,10 +143,11 @@ func AddRecipientEntry(entries []RecipientEntry, pubKey, name string, allowRSA b
 }
 
 // AddRecipientAndReencrypt adds a public key to recipients.txt (if not already
-// present) and re-encrypts the store to all recipients. Uses the provided
-// identity for decryption. Returns true if a new recipient was added.
+// present) and re-encrypts the store to all recipients. Resolves the
+// decrypting identity internally via ResolveIdentityFor (probes each source
+// against the existing ciphertext). Returns true if a new recipient was added.
 // This is the shared core for `init` additive flow and `add-recipient`.
-func AddRecipientAndReencrypt(pubKey, name string, identity age.Identity) (bool, error) {
+func AddRecipientAndReencrypt(pubKey, name string) (bool, error) {
 	recipPath, err := RecipientsFilePath()
 	if err != nil {
 		return false, err
@@ -164,7 +169,7 @@ func AddRecipientAndReencrypt(pubKey, name string, identity age.Identity) (bool,
 		return false, err
 	}
 
-	store, err := ReadStore(identity)
+	store, err := ReadStore()
 	if err != nil {
 		return false, err
 	}
@@ -283,11 +288,13 @@ func FormatRecipientName(name string) string {
 	return fmt.Sprintf("%s%s%s)", name, recipientNameSuffix, today)
 }
 
-// ParseRecipientName strips the date suffix added by FormatRecipientName.
-// Returns the original name if no suffix is found.
-func ParseRecipientName(formatted string) string {
-	if idx := strings.Index(formatted, recipientNameSuffix); idx >= 0 {
-		return formatted[:idx]
+// ParseRecipientName splits "Alice (added 2026-03-15)" into ("Alice", "2026-03-15").
+// Inputs without the date suffix return (formatted, ""). Empty input returns ("", "").
+// Inverse of FormatRecipientName.
+func ParseRecipientName(formatted string) (name, added string) {
+	before, after, ok := strings.Cut(formatted, recipientNameSuffix)
+	if !ok {
+		return formatted, ""
 	}
-	return formatted
+	return before, strings.TrimSuffix(after, ")")
 }

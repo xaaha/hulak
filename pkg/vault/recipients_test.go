@@ -409,11 +409,17 @@ func TestAddRecipientAndReencrypt(t *testing.T) {
 	projectDir := setupHulakProject(t)
 	cfgDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", cfgDir)
+	t.Setenv("HULAK_MASTER_KEY", "")
+	t.Setenv("HULAK_SSH_IDENTITY", "")
+	t.Setenv("HOME", t.TempDir())
 
-	// Bootstrap: generate key, write recipients + store
+	// Bootstrap: generate key, write recipients + store, register as identity
 	key1, err := GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	if err := SetIdentity(key1.Identity.String()); err != nil {
+		t.Fatalf("SetIdentity: %v", err)
 	}
 	if err := SaveRecipients([]RecipientEntry{
 		{Key: key1.Recipient.String(), Name: "owner"},
@@ -427,7 +433,7 @@ func TestAddRecipientAndReencrypt(t *testing.T) {
 
 	t.Run("adds new recipient and re-encrypts", func(t *testing.T) {
 		key2, _ := GenerateKeyPair()
-		added, err := AddRecipientAndReencrypt(key2.Recipient.String(), "teammate", key1.Identity)
+		added, err := AddRecipientAndReencrypt(key2.Recipient.String(), "teammate")
 		if err != nil {
 			t.Fatalf("AddRecipientAndReencrypt: %v", err)
 		}
@@ -436,7 +442,7 @@ func TestAddRecipientAndReencrypt(t *testing.T) {
 		}
 
 		// New key can decrypt
-		got, err := ReadStore(key2.Identity)
+		got, err := DecryptStore(key2.Identity)
 		if err != nil {
 			t.Fatalf("ReadStore with new key: %v", err)
 		}
@@ -445,7 +451,7 @@ func TestAddRecipientAndReencrypt(t *testing.T) {
 		}
 
 		// Old key still works
-		if _, err := ReadStore(key1.Identity); err != nil {
+		if _, err := DecryptStore(key1.Identity); err != nil {
 			t.Fatalf("ReadStore with original key: %v", err)
 		}
 
@@ -461,7 +467,7 @@ func TestAddRecipientAndReencrypt(t *testing.T) {
 	})
 
 	t.Run("returns false for duplicate", func(t *testing.T) {
-		added, err := AddRecipientAndReencrypt(key1.Recipient.String(), "owner", key1.Identity)
+		added, err := AddRecipientAndReencrypt(key1.Recipient.String(), "owner")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
