@@ -82,7 +82,7 @@ func runGenIdentity(args []string) error {
 	utils.PrintInfoStderr(fmt.Sprintf("  hulak secrets add-recipient %s", pubKey))
 	utils.PrintInfoStderr("")
 	utils.PrintWarningStderr(
-		"Back up the identity file — losing it means losing access to the vault.",
+		"Back up the identity file. Losing it means losing access to the vault.",
 	)
 
 	// Pubkey on stdout so it can be piped or captured: $(hulak secrets gen-identity)
