@@ -2,6 +2,7 @@
 package userflags
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -12,41 +13,60 @@ import (
 //
 // Use case: a teammate joining an existing vault on a new machine needs an age
 // keypair without the side effects of `hulak init` (which creates a fresh
-// .hulak/ in cwd). This command creates just the global identity file and
-// prints the public key for an existing vault member to add as a recipient.
+// .hulak/ in cwd). Pass --name when you already have decrypt access (e.g.
+// via SSH) and want the new key auto-registered as a recipient.
 func newEnvGenIdentityCmd() *command {
+	fs := flag.NewFlagSet("env gen-identity", flag.ContinueOnError)
+	genIdentityName := registerNameFlag(
+		fs,
+		"Auto-register the new key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)",
+	)
+
 	return &command{
 		Name:    "gen-identity",
 		Aliases: []string{"generate-identity"},
 		Short:   "Generate a new age keypair without creating a vault",
 		Long: "Generate a fresh age keypair and write it to ~/.config/hulak/identity.txt.\n\n" +
 			"Unlike 'hulak init', this command does not create .hulak/ files in the\n" +
-			"current directory. Use it on a new machine joining an existing vault:\n" +
-			"run this, send the printed pubkey to a current member, and they add it\n" +
-			"with 'hulak secrets add-recipient'.\n\n" +
-			"To rotate an existing identity (compromised key), use 'hulak secrets\n" +
-			"rotate-key' instead — gen-identity refuses to overwrite identity.txt.\n\n" +
-			"Note: the same identity can be a recipient of multiple vaults — you\n" +
-			"don't need a separate keypair per project, just per machine.",
+			"current directory. Two common uses:\n\n" +
+			"  - New machine, no vault access yet: run without --name, send the\n" +
+			"    printed pubkey to a current vault member, and they add it with\n" +
+			"    'hulak secrets add-recipient'.\n\n" +
+			"  - Already have decrypt access (SSH, master key, another identity):\n" +
+			"    run with --name to auto-register the new key as a recipient in\n" +
+			"    one step. No teammate intervention needed.\n\n" +
+			"Refuses to overwrite an existing identity. To rotate, use 'hulak\n" +
+			"secrets rotate-key' instead.",
+		Flags: fs,
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets gen-identity",
-				Description: "Generate a keypair and print the public key to stdout",
+				Description: "Generate a keypair and print the public key (no auto-register)",
+			},
+			{
+				Command:     "hulak secrets gen-identity --name alice-laptop",
+				Description: "Generate + auto-register as a recipient (needs another working identity)",
 			},
 		},
-		Run: runGenIdentity,
+		Run: func(args []string) error {
+			return runGenIdentity(args, *genIdentityName)
+		},
 	}
 }
 
-// runGenIdentity handles `hulak secrets gen-identity`.
+// runGenIdentity handles `hulak secrets gen-identity [--name LABEL]`.
 //
 // Refuses if ~/.config/hulak/identity.txt already exists — overwriting it
 // silently would lose access to whatever vault that key was a recipient of.
-// For deliberate replacement, the user should run 'rotate-key' instead.
+//
+// With --name: registers the new pubkey as a recipient first (using whatever
+// identity currently decrypts the vault), then writes identity.txt. If the
+// recipient add fails, no identity is written — atomic-ish.
 //
 // On success: prints the new public key to stdout (so it can be piped or
-// captured) and the suggested add-recipient invocation to stderr.
-func runGenIdentity(args []string) error {
+// captured) and, when --name was not set, the suggested add-recipient
+// invocation to stderr.
+func runGenIdentity(args []string, name string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
@@ -70,17 +90,28 @@ func runGenIdentity(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate keypair: %w", err)
 	}
+	pubKey := key.Recipient.String()
+
+	if name != "" {
+		if err := requireVaultProject(); err != nil {
+			return fmt.Errorf("--name needs a vault project in cwd: %w", err)
+		}
+		if err := registerPubKeyAsRecipient(pubKey, name); err != nil {
+			return err
+		}
+	}
+
 	if err := vault.SetIdentity(key.Identity.String()); err != nil {
 		return fmt.Errorf("failed to write identity: %w", err)
 	}
 
-	pubKey := key.Recipient.String()
-
 	utils.PrintSuccessStderr(fmt.Sprintf("Identity written to %s", identityPath))
-	utils.PrintInfoStderr("")
-	utils.PrintInfoStderr("Send your public key to a vault member and have them run:")
-	utils.PrintInfoStderr(fmt.Sprintf("  hulak secrets add-recipient %s", pubKey))
-	utils.PrintInfoStderr("")
+	if name == "" {
+		utils.PrintInfoStderr("")
+		utils.PrintInfoStderr("Send your public key to a vault member and have them run:")
+		utils.PrintInfoStderr(fmt.Sprintf("  hulak secrets add-recipient %s", pubKey))
+		utils.PrintInfoStderr("")
+	}
 	utils.PrintWarningStderr(
 		"Back up the identity file. Losing it means losing access to the vault.",
 	)

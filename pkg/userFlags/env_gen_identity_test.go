@@ -34,7 +34,7 @@ func TestRunGenIdentity(t *testing.T) {
 	t.Run("creates identity.txt when absent", func(t *testing.T) {
 		configDir := setupGenIdentityTest(t)
 
-		if err := runGenIdentity(nil); err != nil {
+		if err := runGenIdentity(nil, ""); err != nil {
 			t.Fatalf("runGenIdentity: %v", err)
 		}
 
@@ -53,7 +53,7 @@ func TestRunGenIdentity(t *testing.T) {
 		setupGenIdentityTest(t)
 
 		// First run succeeds
-		if err := runGenIdentity(nil); err != nil {
+		if err := runGenIdentity(nil, ""); err != nil {
 			t.Fatalf("first runGenIdentity: %v", err)
 		}
 		first, err := vault.LoadIdentity()
@@ -62,7 +62,7 @@ func TestRunGenIdentity(t *testing.T) {
 		}
 
 		// Second run errors with helpful message
-		err = runGenIdentity(nil)
+		err = runGenIdentity(nil, "")
 		if err == nil {
 			t.Fatal("expected error when identity already exists")
 		}
@@ -86,7 +86,7 @@ func TestRunGenIdentity(t *testing.T) {
 	t.Run("rejects positional arguments", func(t *testing.T) {
 		setupGenIdentityTest(t)
 
-		err := runGenIdentity([]string{"unexpected"})
+		err := runGenIdentity([]string{"unexpected"}, "")
 		if err == nil {
 			t.Fatal("expected error for unexpected argument")
 		}
@@ -102,7 +102,7 @@ func TestRunGenIdentity(t *testing.T) {
 		_ = os.Chdir(cwd)
 		t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
-		if err := runGenIdentity(nil); err != nil {
+		if err := runGenIdentity(nil, ""); err != nil {
 			t.Fatalf("runGenIdentity: %v", err)
 		}
 
