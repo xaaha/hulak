@@ -102,14 +102,16 @@ For the canonical step-by-step walkthrough, see [migrating-to-vault.md](./migrat
 
 ## Identity
 
-Hulak needs a private key to decrypt `store.age`. It checks these locations in order:
+Hulak needs a private key to decrypt `store.age`. It checks these sources:
 
-| Priority | Source | When to use |
-|----------|--------|-------------|
-| 1 | `HULAK_MASTER_KEY` env var | CI/CD pipelines |
-| 2 | `~/.config/hulak/identity.txt` | Default — dedicated age keypair |
-| 3 | `HULAK_SSH_IDENTITY` env var | Point at a specific SSH key |
-| 4 | `~/.ssh/id_ed25519` | Auto-detected if no age identity exists |
+| Source | When to use |
+|--------|-------------|
+| `HULAK_MASTER_KEY` env var | CI/CD pipelines — **explicit override**, never falls back |
+| `~/.config/hulak/identity.txt` | Default — dedicated age keypair |
+| `HULAK_SSH_IDENTITY` env var | Point at a specific SSH key |
+| `~/.ssh/id_ed25519` | Auto-detected SSH key |
+
+For decryption, hulak tries **every** identity it finds (except when `HULAK_MASTER_KEY` is set — that one is strict and fails hard if wrong). This means a stale `identity.txt` from another project won't block decryption if your SSH key is also a recipient.
 
 If you use SSH for git, hulak can reuse your existing SSH key. No separate keypair needed. Just make sure your SSH public key is added as a recipient (via `--github` or directly).
 
@@ -176,14 +178,18 @@ hulak secrets add-recipient --github alice --keyserver https://gitlab.company.co
 
 ### Joining a team (with age keys)
 
-If the new member prefers a dedicated age keypair:
+If the new member prefers a dedicated age keypair (or is on a new machine and doesn't want `hulak init`'s vault-scaffolding side effects), use `gen-identity`:
 
 ```bash
 # === New member's machine ===
-hulak init
-# Shows their public key in the output:
-#   Public key: age1bob...
+hulak secrets gen-identity
+# ✓ Identity written to ~/.config/hulak/identity.txt
+# Send your public key to a vault member and have them run:
+#   hulak secrets add-recipient age1bob...
+# age1bob...   ← printed to stdout, pipe-friendly
 ```
+
+Unlike `hulak init`, `gen-identity` only creates the global identity file — no `.hulak/` files in the current directory, so cloning the repo later works without conflicts.
 
 The new member sends their **public key** (`age1bob...`) to an existing team member via Slack, email, or a PR. **Public keys are not secret.** Never share the private key from `~/.config/hulak/identity.txt`.
 
@@ -317,20 +323,33 @@ Mark `HULAK_MASTER_KEY` as a **masked** / **protected** variable in both systems
 
 Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leaked database password. Assume the worst and rotate. Steps:
 
-1. **Generate a new identity.** On a clean machine: `hulak init` (this creates a fresh keypair).
-2. **Add the new key as a recipient before removing the old one.** From any machine that still has access:
+1. **Rotate the keypair atomically.** From any machine that still has access:
    ```bash
-   hulak secrets add-recipient <new-public-key> --name "you-rotated-YYYY-MM-DD"
+   hulak secrets rotate-key
    ```
-3. **Remove the compromised key.**
-   ```bash
-   hulak secrets remove-recipient <old-public-key>
-   ```
-4. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets. Anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the removal; the only way to invalidate that data is to make it useless by changing the upstream values.
-5. **Force teammates to pull.** They need the re-encrypted `store.age` so their next decrypt uses the new recipient list.
-6. **Audit history.** `git log -- .hulak/store.age` shows when ciphertexts changed; cross-reference with whatever you know about when the leak happened.
+   This generates a fresh keypair, swaps it in `recipients.txt`, re-encrypts the store, and backs up the old key to `identity.txt.old` (in case you need to read past backups).
+2. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets. Anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the rotation; the only way to invalidate that data is to make it useless by changing the upstream values.
+3. **Force teammates to pull.** They need the re-encrypted `store.age` so their next decrypt uses the new recipient list.
+4. **Audit history.** `git log -- .hulak/store.age` shows when ciphertexts changed; cross-reference with whatever you know about when the leak happened.
 
 This is the same playbook as SOPS, GPG, and git-crypt. Encryption can't un-show plaintext, but a fast rotation plus upstream secret change is the standard mitigation.
+
+## Threat model: what hulak does and doesn't protect against
+
+| Threat | Defended? |
+|--------|-----------|
+| Secrets accidentally committed to a public repo | ✅ Encrypted at rest; ciphertext is useless without a recipient's private key |
+| Casual snooping (PR diffs, commit log) | ✅ Encrypted blob |
+| Compromised CI without explicit credentials | ✅ CI must have its own identity (via `HULAK_MASTER_KEY` or a recipient key) |
+| Stolen laptop with plaintext `identity.txt` | ❌ Mitigate with OS disk encryption; future: passphrase-protected identities |
+| Malicious local process reading env vars | ❌ OS-level isolation problem (same caveat as `aws-vault exec`, `direnv`) |
+| Insider with current access leaking secrets | ❌ Trust model assumes recipients are trustworthy |
+| Removed member with old git clone | ⚠️ They retain history; rotate secret **values** at source after removal |
+| Attacker with leaked key adds themselves as a recipient before you rotate | ⚠️ Mitigate with branch protection + CODEOWNERS on `.hulak/recipients.txt` so changes need review |
+
+**Key invariant**: editing `recipients.txt` does nothing on its own. To produce a `store.age` that a new key can decrypt, you have to re-encrypt — which requires an existing recipient's private key. A public repo with the ciphertext is useless to an attacker who never had a recipient key.
+
+**The git history caveat**: removing a recipient does not unleak past ciphertexts. Anyone who had a valid key at any point in history can still decrypt the snapshots they pulled. After removing a member, **rotate every secret value at the source** (DB password, API key, etc.) — that's the only way to invalidate already-read data.
 
 ## See also
 
