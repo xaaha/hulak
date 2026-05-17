@@ -203,17 +203,13 @@ func decodeStore(plainText []byte) (*Store, error) {
 	return store, nil
 }
 
-// ReadStore reads and decrypts a store file via the multi-source identity
-// probe in a single pass (no double-decrypt). Identity is auto-resolved from
-// HULAK_MASTER_KEY → identity.txt → SSH keys.
+// ReadStore reads and decrypts a store file. The decrypting identity is
+// auto-resolved from HULAK_MASTER_KEY, identity.txt, or an SSH key.
 //
-// Default form (no args) reads .hulak/store.age; a missing file returns an
-// empty Store so additive write flows work on a fresh project. With an
-// explicit path (e.g. a backup file), a missing file is an error.
+// No args reads .hulak/store.age; a missing file returns an empty Store.
+// With an explicit path (e.g. a backup), a missing file is an error.
 //
-// For identity-mutating commands that need a SPECIFIC identity (e.g. rotate-key
-// reading with the old key, migrate reading with a freshly-generated key),
-// use DecryptStore instead.
+// Use DecryptStore when you need to decrypt with a specific identity.
 func ReadStore(path ...string) (*Store, error) {
 	var storePath string
 	explicit := len(path) > 0
