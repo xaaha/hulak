@@ -483,6 +483,7 @@ func newEnvCmd() *command {
 		newEnvImportKeyCmd(),
 		newEnvExportKeyCmd(),
 		newEnvGenIdentityCmd(),
+		newEnvListIdentityCmd(),
 		newEnvAddRecipientCmd(),
 		newEnvRemoveRecipientCmd(),
 		newEnvListRecipientsCmd(),

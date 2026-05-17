@@ -32,9 +32,9 @@ func GenerateKeyPair() (AgeKey, error) {
 }
 
 // EncryptText encrypts plainText bytes for the given age recipients and returns the ciphertext.
-func EncryptText(plainText []byte, receipients ...age.Recipient) ([]byte, error) {
+func EncryptText(plainText []byte, recipients ...age.Recipient) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := Encrypt(bytes.NewReader(plainText), &buf, receipients...); err != nil {
+	if err := Encrypt(bytes.NewReader(plainText), &buf, recipients...); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
