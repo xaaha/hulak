@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -89,9 +90,10 @@ func runImportKey(args []string, useStdin, force bool) error {
 // newEnvExportKeyCmd returns the command struct for `hulak secrets export-key`.
 func newEnvExportKeyCmd() *command {
 	fs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
-	var outVal string
-	fs.StringVar(&outVal, "out", "", "Write key to file instead of stdout (mode 0600)")
-	fs.StringVar(&outVal, "o", "", "Write key to file instead of stdout (mode 0600)")
+	out := registerOutputFlag(
+		fs,
+		"Write key to file instead of stdout (mode 0600). Directory inputs append 'identity.txt'.",
+	)
 
 	return &command{
 		Name:    "export-key",
@@ -109,7 +111,7 @@ func newEnvExportKeyCmd() *command {
 				Description: "Save to a file with 0600 permissions",
 			},
 		},
-		Run: func(args []string) error { return runExportKey(args, outVal) },
+		Run: func(args []string) error { return runExportKey(args, *out) },
 	}
 }
 
@@ -132,16 +134,28 @@ func runExportKey(args []string, outPath string) error {
 	}
 
 	if outPath != "" {
-		if utils.FileExists(outPath) {
+		// Any-extension mode: user picks .txt, .pem, .key — whatever fits.
+		// Paths without an extension are treated as directories; "identity.txt"
+		// is appended.
+		dest, err := resolveOutputPath(outPath, "identity.txt")
+		if err != nil {
+			return err
+		}
+		if utils.FileExists(dest) {
 			return fmt.Errorf(
 				"file %q already exists — use a different path or remove it first",
-				outPath,
+				dest,
 			)
 		}
-		if err := os.WriteFile(outPath, []byte(key+"\n"), utils.SecretPer); err != nil {
-			return fmt.Errorf("failed to write key to %s: %w", outPath, err)
+		if parent := filepath.Dir(dest); parent != "." && parent != "" {
+			if err := os.MkdirAll(parent, utils.DirPer); err != nil {
+				return fmt.Errorf("creating parent dir for %q: %w", dest, err)
+			}
 		}
-		utils.PrintSuccessStderr(fmt.Sprintf("Key written to %s (mode 0600)", outPath))
+		if err := os.WriteFile(dest, []byte(key+"\n"), utils.SecretPer); err != nil {
+			return fmt.Errorf("failed to write key to %s: %w", dest, err)
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("Key written to %s (mode 0600)", dest))
 		return nil
 	}
 

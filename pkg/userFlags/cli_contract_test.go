@@ -157,6 +157,7 @@ func TestRunSubcommandHasRunHandler(t *testing.T) {
 	runCmd := root.findSub("run")
 	if runCmd == nil {
 		t.Fatal("expected run subcommand to exist")
+		return
 	}
 	if runCmd.Run == nil {
 		t.Error("run subcommand is missing a Run handler")
@@ -368,6 +369,7 @@ func TestEnvSubcommandAliasesUnique(t *testing.T) {
 	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
+		return
 	}
 
 	seen := map[string]string{} // identifier → owner name
@@ -482,6 +484,7 @@ func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	envCmd := root.findSub("secrets")
 	if envCmd == nil {
 		t.Fatal("expected env subcommand to exist")
+		return
 	}
 
 	for _, sub := range envCmd.SubCommands {

@@ -26,10 +26,11 @@ const (
 
 func newEnvBackupCmd() *command {
 	fs := flag.NewFlagSet("env backup", flag.ContinueOnError)
-	var outPath string
 	var force bool
-	fs.StringVar(&outPath, "out", "", "Custom output path for the backup file")
-	fs.StringVar(&outPath, "o", "", "Custom output path for the backup file")
+	out := registerOutputFlag(
+		fs,
+		"Custom output path for the backup file. Directory inputs append a timestamped name.",
+	)
 	fs.BoolVar(&force, "force", false, "Overwrite existing --out target")
 	fs.BoolVar(&force, "f", false, "Overwrite existing --out target")
 
@@ -60,7 +61,7 @@ func newEnvBackupCmd() *command {
 			if len(args) > 0 {
 				return fmt.Errorf("unexpected arguments: %v", args)
 			}
-			return runBackup(outPath, force)
+			return runBackup(*out, force)
 		},
 	}
 }
@@ -141,14 +142,21 @@ func runBackup(outPath string, force bool) error {
 }
 
 // resolveBackupDest determines the backup destination path.
-// For --out: uses the provided path, checking for existing file.
+// For --out: applies the shared output-path rules. Directory inputs (trailing
+// slash, existing dir, or no .age extension) get a fresh timestamped filename
+// appended; .age inputs are used verbatim.
 // For default: generates a timestamped path under .hulak/backups/ with collision handling.
 func resolveBackupDest(outPath string, force bool) (string, error) {
 	if outPath != "" {
-		if !force && utils.FileExists(outPath) {
-			return "", fmt.Errorf("file already exists: %s (use --force to overwrite)", outPath)
+		canonical := backupPrefix + time.Now().Format(backupTimestampFormat)
+		dest, err := resolveOutputPath(outPath, canonical, ".age")
+		if err != nil {
+			return "", err
 		}
-		return outPath, nil
+		if !force && utils.FileExists(dest) {
+			return "", fmt.Errorf("file already exists: %s (use --force to overwrite)", dest)
+		}
+		return dest, nil
 	}
 
 	backupsDir, err := vault.BackupsDir()

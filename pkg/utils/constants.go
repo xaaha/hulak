@@ -60,8 +60,11 @@ const (
 	JSON = ".json"
 )
 
-// example file with all options
-const APIOptions = "apiOptions.hk.yaml"
+// OptionsReference is the filename of the reference card scaffolded by
+// `hulak example options`. It lists every available request field with
+// comments but is not itself a runnable request — directory-mode runs and
+// the GraphQL explorer skip it on name match.
+const OptionsReference = "options.yaml"
 
 // response pattern for files saved
 const (

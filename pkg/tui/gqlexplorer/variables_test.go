@@ -24,6 +24,7 @@ func TestBuildVariablesStringScalarArgs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("user-123")
@@ -64,6 +65,7 @@ func TestBuildVariablesStringInputObjectArg(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].enabled = true
@@ -95,6 +97,7 @@ func TestBuildVariablesStringListArgFromRepeatedInputs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("11111111-1111-1111-1111-111111111111")
@@ -123,6 +126,7 @@ func TestBuildVariablesStringListArgAllowsNullItems(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("a")
@@ -154,6 +158,7 @@ func TestBuildVariablesStringListEnumArg(t *testing.T) {
 	df := buildDetailForm(op, nil, enums, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].dropdown.Selected = 1
@@ -191,6 +196,7 @@ func TestBuildVariablesStringListInputObjectArg(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].enabled = true
@@ -228,6 +234,7 @@ func TestBuildVariablesStringOmitsEmptyTextInputs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	if got := BuildVariablesString(op, df); got != "" {
@@ -247,6 +254,7 @@ func TestBuildVariablesStringSupportsNull(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].enabled = true
@@ -343,6 +351,7 @@ func TestBuildVariablesMapScalarArgs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("user-123")
@@ -392,6 +401,7 @@ func TestBuildVariablesMapInputObject(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].enabled = true
@@ -427,6 +437,7 @@ func TestBuildVariablesMapList(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("aaa")
@@ -459,6 +470,7 @@ func TestBuildVariablesMapNull(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	df.items[0].enabled = true
@@ -489,6 +501,7 @@ func TestBuildVariablesMapEmptyReturnsNil(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected detail form")
+		return
 	}
 
 	got := BuildVariablesMap(op, df)

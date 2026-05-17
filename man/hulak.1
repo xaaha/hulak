@@ -12,6 +12,8 @@ hulak \- file-based API client for the terminal
 .br
 .B hulak init [\-\-env] [\-\-ssh] [\-\-ssh-identity] [envNames] <subcommand> [options]
 .br
+.B hulak example [\-\-o] [\-\-out] [type]
+.br
 .B hulak migrate <files>
 .br
 .B hulak doctor [\-\-fix] [\-\-json] [\-\-yes]
@@ -59,6 +61,9 @@ Print hulak version
 .TP
 .B init
 Initialize a hulak project
+.TP
+.B example
+Scaffold an example request file
 .TP
 .B migrate
 Migrate Postman collections to hulak format
@@ -190,7 +195,40 @@ hulak init \-\-ssh\-identity ~/\&.ssh/work_ed25519
 hulak init \-env staging prod
 .RE
 .RS
+hulak example api
+.RE
+.RS
 hulak init classic
+.RE
+.PP
+example:
+.PP
+.RS
+hulak example api
+.RE
+.RS
+hulak example formdata
+.RE
+.RS
+hulak example urlencoded
+.RE
+.RS
+hulak example graphql
+.RE
+.RS
+hulak example auth
+.RE
+.RS
+hulak example options
+.RE
+.RS
+hulak example api \-o requests/
+.RE
+.RS
+hulak example api \-o requests/health\&.hk\&.yaml
+.RE
+.RS
+hulak example
 .RE
 .PP
 migrate:

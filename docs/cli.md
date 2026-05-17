@@ -49,6 +49,7 @@ For command-specific help, prefer `hulak <command> --help`.
 | `run` | Run API request file(s) or directory | `hulak run path/to/file.yaml` |
 | `version` | Print hulak version | `hulak version` |
 | `init` | Initialize a hulak project | `hulak init` |
+| `example` | Scaffold an example request file | `hulak example api` |
 | `migrate` | Migrate Postman collections to hulak format | `hulak migrate collection.json` |
 | `doctor` | Check project health | `hulak doctor` |
 | `gql` (alias: `graphql`) | Open the GraphQL explorer | `hulak gql .` |
@@ -124,10 +125,11 @@ hulak version
 
 Set up a new hulak project in the current directory.
 
-By default, creates an encrypted vault (.hulak/store.age) with an age keypair
-plus an example 'apiOptions.hk.yaml'. Use --ssh to bootstrap with your default SSH ed25519 key
-(~/.ssh/id_ed25519), or --ssh-identity <path> for a custom key.
+By default, creates an encrypted vault (.hulak/store.age) with an age keypair.
+Use --ssh to bootstrap with your default SSH ed25519 key (~/.ssh/id_ed25519),
+or --ssh-identity <path> for a custom key.
 
+To scaffold an example request file, use 'hulak example <type>' after init.
 Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/
 layout instead. Use -env to scaffold specific environments.
 
@@ -136,6 +138,7 @@ hulak init
 hulak init --ssh
 hulak init --ssh-identity ~/.ssh/work_ed25519
 hulak init -env staging prod
+hulak example api
 hulak init classic
 ```
 
@@ -152,6 +155,41 @@ Notes:
 - `hulak init` creates the default setup. That means an encrypted vault at `.hulak/store.age`, an age keypair at `~/.config/hulak/identity.txt`, and the example API options file.
 - Run `hulak init classic` for the legacy plaintext `env/` layout.
 - On `init`, `-env` is a **boolean setup flag**, not an environment selector. It tells Hulak to create the named env files you pass after it.
+
+### `example`
+
+Scaffold a starter request file into the current directory.
+
+Each type writes a self-contained, schema-valid file that runs against a
+public test API (jsonplaceholder, httpbin, trevorblades countries). The
+'options' type writes a reference card listing every available request
+field — it's not runnable on its own.
+
+Use -o/--out to write somewhere other than the current directory. Pass a
+directory to keep the canonical filename, or a full path to rename. Parent
+directories are created on demand.
+
+Idempotent: re-running for a path that already exists keeps the existing
+file untouched.
+
+```bash
+hulak example api
+hulak example formdata
+hulak example urlencoded
+hulak example graphql
+hulak example auth
+hulak example options
+hulak example api -o requests/
+hulak example api -o requests/health.hk.yaml
+hulak example
+```
+
+Supported flags:
+
+| Flag | Meaning |
+| ---- | ------- |
+| `--o` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
+| `--out` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
 
 ### `migrate`
 

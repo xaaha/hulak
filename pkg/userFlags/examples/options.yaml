@@ -1,9 +1,14 @@
 ---
-# Example API Call File with all available options
+# Hulak request file — reference of every available option.
+#
+# This file is a reference card, not a runnable request. Editor schema
+# validation is intentionally disabled (filename ends in .yaml, not .hk.yaml)
+# so you can uncomment alternative body types side-by-side without `oneOf`
+# errors. Copy fields into a new `<name>.hk.yaml` to make a real request.
+#
 # Kind: Gql # Could be "Gql, Auth, API". API is default and don't need to provide
 #
 # Supported Methods: GET POST PUT PATCH DELETE HEAD OPTIONS TRACE CONNECT
-#
 #
 method: POST
 #

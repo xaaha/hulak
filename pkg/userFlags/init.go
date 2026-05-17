@@ -3,7 +3,6 @@ package userflags
 
 import (
 	"bufio"
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,11 +13,8 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-//go:embed apiOptions.hk.yaml
-var embeddedFiles embed.FS
-
 // InitClassicProject sets up the plaintext env/ layout: env/ directory,
-// global.env, the apiOptions.hk.yaml example, and an env/ entry in .gitignore.
+// global.env, and an env/ entry in .gitignore.
 //
 // Refuses to run if .hulak/store.age is present — that's an initialized
 // encrypted vault and bolting a parallel plaintext layout next to it would
@@ -45,17 +41,12 @@ func InitClassicProject() error {
 		utils.PrintWarningStderr(fmt.Sprintf("could not update .gitignore: %v", err))
 	}
 
-	if _, err := writeAPIOptionsExample(); err != nil {
-		return err
-	}
-
 	utils.PrintSuccessStderr("Done")
 	return nil
 }
 
 // InitVaultProject sets up the encrypted vault layout: .hulak/store.age,
 // .hulak/recipients.txt, and the user's age identity at ~/.config/hulak/identity.txt.
-// Also writes the apiOptions.hk.yaml example.
 //
 // Behaviour notes:
 //   - If env/ exists but .hulak/ does not, returns nil after printing a one-line
@@ -63,8 +54,7 @@ func InitClassicProject() error {
 //     (vault) and `hulak init classic` (stay plaintext) rather than have hulak
 //     silently bolt a vault next to existing plaintext.
 //   - Idempotent: re-running on a project that already has .hulak/ does not
-//     regenerate the identity, does not overwrite the store, and does not
-//     clobber a customized apiOptions.hk.yaml.
+//     regenerate the identity and does not overwrite the store.
 //   - envNames seeds extra empty environment sections in the store (in
 //     addition to the always-present "global"). Each name is validated up
 //     front; an invalid name aborts before any I/O.
@@ -111,7 +101,7 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 				fmt.Sprintf("Vault ready at %s/", utils.HiddenProjectName),
 			)
 		}
-		return ensureStoreSectionsAndExample(envNames)
+		return ensureExtraEnvSections(envNames)
 	}
 
 	// Fresh vault — bootstrap from scratch.
@@ -123,10 +113,6 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 	added := ensureStoreSections(result.store, envNames)
 
 	if err := vault.WriteStoreToRecipients(result.store); err != nil {
-		return err
-	}
-
-	if _, err := writeAPIOptionsExample(); err != nil {
 		return err
 	}
 
@@ -218,13 +204,10 @@ func maybeAddAgeIdentity() (bool, error) {
 	return added, nil
 }
 
-// ensureStoreSectionsAndExample handles env section creation and API options
-// for the "vault already exists" path.
-func ensureStoreSectionsAndExample(envNames []string) error {
-	if _, err := writeAPIOptionsExample(); err != nil {
-		return err
-	}
-
+// ensureExtraEnvSections adds any requested env sections to an existing vault.
+// Called on the "vault already exists" path of InitVaultProject — re-running
+// init with -env adds new sections without disturbing the rest of the store.
+func ensureExtraEnvSections(envNames []string) error {
 	if len(envNames) == 0 {
 		return nil
 	}
@@ -316,35 +299,6 @@ func ensureRecipientsFile(pubKey, name string) error {
 	return vault.SaveRecipients([]vault.RecipientEntry{
 		{Key: pubKey, Name: vault.FormatRecipientName(name)},
 	})
-}
-
-// writeAPIOptionsExample writes the embedded apiOptions.hk.yaml to the project
-// root if absent. Returns whether the file was newly written. Skips with a
-// "kept existing" warning if the user has customized it — re-running init
-// must never clobber edited content.
-func writeAPIOptionsExample() (bool, error) {
-	root, err := utils.CreatePath(utils.APIOptions)
-	if err != nil {
-		return false, err
-	}
-	if utils.FileExists(root) {
-		utils.PrintWarningStderr(
-			fmt.Sprintf("Kept existing '%s' (delete it to regenerate)", utils.APIOptions),
-		)
-		return false, nil
-	}
-
-	content, err := embeddedFiles.ReadFile(utils.APIOptions)
-	if err != nil {
-		return false, err
-	}
-
-	if err := os.WriteFile(root, content, utils.FilePer); err != nil {
-		return false, fmt.Errorf("error on writing '%s' file: %w", utils.APIOptions, err)
-	}
-
-	utils.PrintSuccessStderr(fmt.Sprintf("Created '%s'", utils.APIOptions))
-	return true, nil
 }
 
 // ensureGitignoreEntry adds entry to .gitignore if not already present.
