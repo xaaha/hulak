@@ -77,6 +77,7 @@ func assertFindingSeverity(t *testing.T, f *finding, checkID string, expected se
 	t.Helper()
 	if f == nil {
 		t.Fatalf("finding %q not found", checkID)
+		return
 	}
 	if f.severity != expected {
 		t.Errorf("finding %q: got severity %v, want %v (message: %s)",

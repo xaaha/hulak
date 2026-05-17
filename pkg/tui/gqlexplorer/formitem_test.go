@@ -211,6 +211,7 @@ func TestBuildDetailFormFieldsAndArgs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("buildDetailForm returned nil")
+		return
 	}
 	if df.argCount != 1 {
 		t.Fatalf("expected 1 argument item, got %d", df.argCount)
@@ -253,6 +254,7 @@ func TestBuildDetailFormArgsOnly(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form for operation with args")
+		return
 	}
 	if df.argCount != 1 {
 		t.Fatalf("expected 1 argument item, got %d", df.argCount)
@@ -544,6 +546,7 @@ func TestBuildDetailFormExpandsInputObject(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 2 {
 		t.Fatalf("expected 2 expanded argument items (name + age), got %d", df.argCount)
@@ -597,6 +600,7 @@ func TestBuildDetailFormExpandsInputObjectWithScalarArgs(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 3 {
 		t.Fatalf("expected 3 arg items (2 expanded + 1 scalar), got %d", df.argCount)
@@ -643,6 +647,7 @@ func TestBuildDetailFormObjectFieldsStartUnchecked(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 
 	code := df.items[0]
@@ -887,6 +892,7 @@ func TestBuildDetailFormUnionReturnType(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, objectTypes, unionTypes, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form for union return type")
+		return
 	}
 	if df.argCount != 0 {
 		t.Fatalf("expected 0 args, got %d", df.argCount)
@@ -993,6 +999,7 @@ func TestBuildDetailFormInterfaceReturnType(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, objectTypes, nil, interfaceTypes)
 	if df == nil {
 		t.Fatal("expected non-nil form for interface return type")
+		return
 	}
 	if df.Len() != 3 {
 		t.Fatalf("expected 3 items (1 shared field + 2 fragments), got %d", df.Len())
@@ -1050,6 +1057,7 @@ func TestBuildDetailFormUnionWithArgs(t *testing.T) {
 	df := buildDetailForm(op, nil, enums, objectTypes, unionTypes, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 2 {
 		t.Fatalf("expected 2 args, got %d", df.argCount)
@@ -1167,6 +1175,7 @@ func TestOptionalInputTypeFieldsStartDisabled(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 4 {
 		t.Fatalf("expected 4 arg items, got %d", df.argCount)
@@ -1217,6 +1226,7 @@ func TestBuildDetailFormSetsArgName(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 3 {
 		t.Fatalf("expected 3 arg items (1 simple + 2 expanded), got %d", df.argCount)
@@ -1299,6 +1309,7 @@ func TestSpaceOnExpandedInputTypeTogglesOnlyTargetField(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil form")
+		return
 	}
 	if df.argCount != 3 {
 		t.Fatalf("expected 3 arg items, got %d", df.argCount)
@@ -1378,6 +1389,7 @@ func TestBuildDetailFormListArgStartsWithSingleInput(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 	if df.argCount != 1 {
 		t.Fatalf("expected 1 list input initially, got %d", df.argCount)
@@ -1399,6 +1411,7 @@ func TestBuildDetailFormListEnumStartsBlank(t *testing.T) {
 	df := buildDetailForm(op, nil, enums, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 	if df.items[0].kind != formItemDropdown {
 		t.Fatalf("expected dropdown list item, got %d", df.items[0].kind)
@@ -1426,6 +1439,7 @@ func TestBuildDetailFormListInputObjectStartsWithSingleGroup(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 	if df.argCount != 2 {
 		t.Fatalf("expected one input-object group with 2 rows, got %d", df.argCount)
@@ -1444,6 +1458,7 @@ func TestListArgAddsFollowUpInputAfterValueEntered(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("a")
@@ -1466,6 +1481,7 @@ func TestListArgRemovesExtraTrailingBlankInputs(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("a")
@@ -1494,6 +1510,7 @@ func TestListArgSpaceTogglesAllRows(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("a")
@@ -1526,6 +1543,7 @@ func TestListInputObjectAddsFollowUpGroupAfterValueEntered(t *testing.T) {
 	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	df.items[0].input.Model.SetValue("alice")
@@ -1566,6 +1584,7 @@ func TestDetailFormMouseClickFocusesTextInputAndEnablesArg(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	z := tui.NewMouseZone()
@@ -1613,6 +1632,7 @@ func TestDetailFormMouseClickTogglesExpandableField(t *testing.T) {
 	df := buildDetailForm(op, nil, nil, objectTypes, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	z := tui.NewMouseZone()
@@ -1656,6 +1676,7 @@ func TestDetailFormMouseClickExpandsAndSelectsDropdown(t *testing.T) {
 	df := buildDetailForm(op, nil, enums, nil, nil, nil)
 	if df == nil {
 		t.Fatal("expected non-nil detail form")
+		return
 	}
 
 	z := tui.NewMouseZone()
