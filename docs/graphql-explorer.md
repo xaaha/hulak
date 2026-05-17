@@ -117,7 +117,7 @@ A file is included only when all of these are true:
 - it has `kind: GraphQL` or `kind: graphql`
 - it has a non-empty `url`
 
-Directory mode ignores generated response files and `apiOptions.hk.yaml`.
+Directory mode ignores generated response files and `options.yaml` (the reference card scaffolded by `hulak example options`).
 
 This mode is the main discovery workflow. It is the fast way to answer:
 
