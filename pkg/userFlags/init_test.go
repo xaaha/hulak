@@ -31,11 +31,7 @@ func vaultTestSetup(t *testing.T) string {
 // current working directory. Tests use this to assert post-init state.
 func readVaultStore(t *testing.T) *vault.Store {
 	t.Helper()
-	identity, err := vault.LoadIdentity()
-	if err != nil {
-		t.Fatalf("LoadIdentity: %v", err)
-	}
-	store, err := vault.ReadStore(identity)
+	store, err := vault.ReadStore()
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}
@@ -161,7 +157,7 @@ func TestInitVaultProject_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadIdentity: %v", err)
 	}
-	store, err := vault.ReadStore(identity)
+	store, err := vault.DecryptStore(identity)
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}
@@ -357,7 +353,7 @@ func TestInitVaultProject_SSHIdentity_FreshSetup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadSSHIdentity: %v", err)
 	}
-	store, err := vault.ReadStore(identity)
+	store, err := vault.DecryptStore(identity)
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}
@@ -424,7 +420,7 @@ func TestInitVaultProject_AgeInitThenAddSSH(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadSSHIdentity: %v", err)
 	}
-	if _, err := vault.ReadStore(sshIdentity); err != nil {
+	if _, err := vault.DecryptStore(sshIdentity); err != nil {
 		t.Fatalf("store should decrypt with SSH: %v", err)
 	}
 }
@@ -474,7 +470,7 @@ func TestInitVaultProject_SSHInitThenAddAge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadIdentity: %v", err)
 	}
-	if _, err := vault.ReadStore(ageIdentity); err != nil {
+	if _, err := vault.DecryptStore(ageIdentity); err != nil {
 		t.Fatalf("store should decrypt with age: %v", err)
 	}
 }
@@ -496,7 +492,7 @@ func TestInitVaultProject_SSHIdentity_WithEnvNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadSSHIdentity: %v", err)
 	}
-	store, err := vault.ReadStore(identity)
+	store, err := vault.DecryptStore(identity)
 	if err != nil {
 		t.Fatalf("ReadStore: %v", err)
 	}

@@ -201,8 +201,7 @@ func TestRunRotateKey(t *testing.T) {
 			t.Fatalf("runRotateKey error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 		prod := store.GetEnv("prod")
 
 		if prod["API_KEY"] != "sk-secret" {
@@ -260,9 +259,8 @@ func TestRunRotateKeyRecovery(t *testing.T) {
 			t.Fatalf("recovery rotation error: %v", err)
 		}
 
-		// After recovery: new identity decrypts store
-		finalIdentity, _ := vault.ResolveIdentity()
-		store, err := vault.DecryptStore(finalIdentity)
+		// After recovery: vault decrypts via the auto-resolved new identity
+		store, err := vault.ReadStore()
 		if err != nil {
 			t.Fatalf("can't decrypt after recovery: %v", err)
 		}

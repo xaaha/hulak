@@ -79,11 +79,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, err := vault.ResolveIdentity()
-		if err != nil {
-			t.Fatal(err)
-		}
-		store, err := vault.DecryptStore(identity)
+		store, err := vault.ReadStore()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,8 +103,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		global := store.GetEnv("global")
 		if global["URL"] != "https://example.com" {
@@ -135,8 +130,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		prod := store.GetEnv("prod")
 		if prod["TOKEN"] != "from_store" {
@@ -156,8 +150,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		env := store.GetEnv("global")
 		if env["TOKEN"] != "$GITHUB_TOKEN" {
@@ -176,8 +169,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		envs := store.ListEnvs()
 		for _, name := range envs {
@@ -196,8 +188,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		staging := store.GetEnv("staging")
 		if staging == nil {
@@ -228,8 +219,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		staging := store.GetEnv("staging")
 		if staging == nil {
@@ -252,8 +242,7 @@ func TestRunEnvMigrate(t *testing.T) {
 			t.Fatalf("runEnvMigrate error: %v", err)
 		}
 
-		identity, _ := vault.ResolveIdentity()
-		store, _ := vault.DecryptStore(identity)
+		store, _ := vault.ReadStore()
 
 		env := store.GetEnv("global")
 		if env["NAME"] != "José" {
