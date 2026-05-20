@@ -521,3 +521,131 @@ func TestParseTypedValue_UnknownType(t *testing.T) {
 		}
 	}
 }
+
+func TestRunEnvSet_TypedInt(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"userAge", "3939"}, "global", false, "int"); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	got := readStoredValue(t, "global", "userAge")
+	num, ok := got.(json.Number)
+	if !ok {
+		t.Fatalf("stored value = %v (%T), want json.Number", got, got)
+	}
+	if num.String() != "3939" {
+		t.Errorf("stored = %q, want %q", num.String(), "3939")
+	}
+}
+
+func TestRunEnvSet_TypedFloat(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"ratio", "1.5"}, "global", false, "float"); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	got := readStoredValue(t, "global", "ratio")
+	num, ok := got.(json.Number)
+	if !ok || num.String() != "1.5" {
+		t.Errorf("stored = %v (%T), want json.Number(\"1.5\")", got, got)
+	}
+}
+
+func TestRunEnvSet_TypedBool(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"ENABLED", "true"}, "global", false, "bool"); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	got := readStoredValue(t, "global", "ENABLED")
+	b, ok := got.(bool)
+	if !ok || !b {
+		t.Errorf("stored = %v (%T), want true (bool)", got, got)
+	}
+}
+
+func TestRunEnvSet_TypedJSON(t *testing.T) {
+	setupVaultProject(t)
+	if err := runEnvSet([]string{"config", `{"port":8000}`}, "global", false, "json"); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	got := readStoredValue(t, "global", "config")
+	m, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("stored = %v (%T), want map[string]any", got, got)
+	}
+	num, ok := m["port"].(json.Number)
+	if !ok || num.String() != "8000" {
+		t.Errorf("config.port = %v (%T), want json.Number(\"8000\")", m["port"], m["port"])
+	}
+}
+
+func TestRunEnvSet_TypedStdin(t *testing.T) {
+	setupVaultProject(t)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	if _, err := w.WriteString("42\n"); err != nil {
+		t.Fatalf("write pipe: %v", err)
+	}
+	_ = w.Close()
+
+	orig := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = orig })
+
+	if err := runEnvSet([]string{"port"}, "global", true, "int"); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+
+	got := readStoredValue(t, "global", "port")
+	num, ok := got.(json.Number)
+	if !ok || num.String() != "42" {
+		t.Errorf("stored = %v, want json.Number(\"42\")", got)
+	}
+}
+
+func TestRunEnvSet_TypedInvalidValueAbortsBeforeStore(t *testing.T) {
+	setupVaultProject(t)
+	// Seed an existing value so we can verify it stays untouched.
+	if err := runEnvSet([]string{"port", "8000"}, "global", false, "int"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Reset with invalid int should error and not touch the stored value.
+	err := runEnvSet([]string{"port", "not-a-number"}, "global", false, "int")
+	if err == nil {
+		t.Fatal("expected error for invalid int, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid int") {
+		t.Errorf("error %q should mention 'invalid int'", err.Error())
+	}
+
+	got := readStoredValue(t, "global", "port")
+	num, ok := got.(json.Number)
+	if !ok || num.String() != "8000" {
+		t.Errorf("seed value mutated by failed set: got %v, want json.Number(\"8000\")", got)
+	}
+}
+
+func TestRunEnvSet_TypedUnknownTypeErrors(t *testing.T) {
+	setupVaultProject(t)
+	err := runEnvSet([]string{"K", "v"}, "global", false, "integer")
+	if err == nil {
+		t.Fatal("expected error for unknown type, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Errorf("error %q should mention 'unknown type'", err.Error())
+	}
+}
+
+func TestRunEnvSet_DefaultTypeIsString(t *testing.T) {
+	setupVaultProject(t)
+	// Number-shaped string with no --type stays a string (backward compat).
+	if err := runEnvSet([]string{"token", "3939"}, "global", false, ""); err != nil {
+		t.Fatalf("runEnvSet: %v", err)
+	}
+	got := readStoredValue(t, "global", "token")
+	if s, ok := got.(string); !ok || s != "3939" {
+		t.Errorf("stored = %v (%T), want \"3939\" (string)", got, got)
+	}
+}
