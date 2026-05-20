@@ -31,7 +31,7 @@ func fakeEditor(t *testing.T, body string) string {
 
 func TestRunEnvEdit_NoChange(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -48,7 +48,7 @@ func TestRunEnvEdit_NoChange(t *testing.T) {
 
 func TestRunEnvEdit_EditorFailsNoWrite(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestRunEnvEdit_EditorFailsNoWrite(t *testing.T) {
 
 func TestRunEnvEdit_SaveValidJSON(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"OLD", "v"}, "staging", false); err != nil {
+	if err := runEnvSet([]string{"OLD", "v"}, "staging", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestRunEnvEdit_SaveValidJSON(t *testing.T) {
 
 func TestRunEnvEdit_InvalidJSONPreservesStore(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -165,7 +165,7 @@ func TestRunEnvEdit_Errors(t *testing.T) {
 // hang waiting for keypress.
 func TestRunEnvEdit_NoDefaultGlobal(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -205,7 +205,7 @@ func TestRunEnvEdit_WholesaleReplacesEnv(t *testing.T) {
 	for _, kv := range [][2]string{
 		{"KEEP", "1"}, {"REMOVE_ME", "2"}, {"ALSO_REMOVE", "3"},
 	} {
-		if err := runEnvSet([]string{kv[0], kv[1]}, "global", false); err != nil {
+		if err := runEnvSet([]string{kv[0], kv[1]}, "global", false, ""); err != nil {
 			t.Fatalf("seed %s: %v", kv[0], err)
 		}
 	}
@@ -236,10 +236,10 @@ func TestRunEnvEdit_WholesaleReplacesEnv(t *testing.T) {
 // guarantee: replacing one env must not affect any other env in the store.
 func TestRunEnvEdit_LeavesOtherEnvsUntouched(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"P", "prod-value"}, "prod", false); err != nil {
+	if err := runEnvSet([]string{"P", "prod-value"}, "prod", false, ""); err != nil {
 		t.Fatalf("seed prod: %v", err)
 	}
-	if err := runEnvSet([]string{"S", "staging-value"}, "staging", false); err != nil {
+	if err := runEnvSet([]string{"S", "staging-value"}, "staging", false, ""); err != nil {
 		t.Fatalf("seed staging: %v", err)
 	}
 

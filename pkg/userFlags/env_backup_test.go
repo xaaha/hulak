@@ -13,7 +13,7 @@ import (
 func TestRunBackup_DefaultPath(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -45,7 +45,7 @@ func TestRunBackup_DefaultPath(t *testing.T) {
 func TestRunBackup_OutPath(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func TestRunBackup_OutPath(t *testing.T) {
 func TestRunBackup_OutExistingNoForce(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -83,7 +83,7 @@ func TestRunBackup_OutExistingNoForce(t *testing.T) {
 func TestRunBackup_OutExistingForce(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestRunBackup_OutExistingForce(t *testing.T) {
 func TestRunBackup_SameSecondCollision(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -157,7 +157,7 @@ func TestRunBackupList_Empty(t *testing.T) {
 func TestRunBackupList_WithBackups(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 	if err := runBackup("", false); err != nil {
@@ -172,7 +172,7 @@ func TestRunBackupList_WithBackups(t *testing.T) {
 func TestRunBackup_GitignoreUpdated(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 	if err := runBackup("", false); err != nil {
@@ -193,7 +193,7 @@ func TestRunBackup_GitignoreUpdated(t *testing.T) {
 func TestRunRestore_LatestBackup(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "original"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "original"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -201,7 +201,7 @@ func TestRunRestore_LatestBackup(t *testing.T) {
 		t.Fatalf("backup: %v", err)
 	}
 
-	if err := runEnvSet([]string{"KEY", "mutated"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "mutated"}, "global", false, ""); err != nil {
 		t.Fatalf("mutate store: %v", err)
 	}
 	if got := readStoredValue(t, "global", "KEY"); got != "mutated" {
@@ -220,7 +220,7 @@ func TestRunRestore_LatestBackup(t *testing.T) {
 func TestRunRestore_SpecificPath(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "original"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "original"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -229,7 +229,7 @@ func TestRunRestore_SpecificPath(t *testing.T) {
 		t.Fatalf("backup: %v", err)
 	}
 
-	if err := runEnvSet([]string{"KEY", "changed"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "changed"}, "global", false, ""); err != nil {
 		t.Fatalf("mutate: %v", err)
 	}
 
@@ -286,7 +286,7 @@ func TestRunRestore_PlaintextFile(t *testing.T) {
 func TestRunRestore_WrongIdentity(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -313,7 +313,7 @@ func TestRunRestore_WrongIdentity(t *testing.T) {
 func TestRunRestore_ReencryptsToCurrentRecipients(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "val"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -346,7 +346,7 @@ func TestRunRestore_ReencryptsToCurrentRecipients(t *testing.T) {
 func TestRunRestore_CancelledPrompt(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"KEY", "original"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "original"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
 	}
 
@@ -355,7 +355,7 @@ func TestRunRestore_CancelledPrompt(t *testing.T) {
 		t.Fatalf("backup: %v", err)
 	}
 
-	if err := runEnvSet([]string{"KEY", "mutated"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"KEY", "mutated"}, "global", false, ""); err != nil {
 		t.Fatalf("mutate: %v", err)
 	}
 

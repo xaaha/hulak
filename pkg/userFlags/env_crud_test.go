@@ -14,7 +14,7 @@ import (
 func TestRunEnvSet_PositionalValue(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false, ""); err != nil {
 		t.Fatalf("runEnvSet: %v", err)
 	}
 
@@ -39,7 +39,7 @@ func TestRunEnvSet_StdinValue(t *testing.T) {
 	os.Stdin = r
 	t.Cleanup(func() { os.Stdin = orig })
 
-	if err := runEnvSet([]string{"TOKEN"}, "global", true); err != nil {
+	if err := runEnvSet([]string{"TOKEN"}, "global", true, ""); err != nil {
 		t.Fatalf("runEnvSet: %v", err)
 	}
 
@@ -55,7 +55,7 @@ func TestRunEnvSet_StdinValue(t *testing.T) {
 func TestRunEnvSet_CustomEnv(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"DB_URL", "postgres://x"}, "prod", false); err != nil {
+	if err := runEnvSet([]string{"DB_URL", "postgres://x"}, "prod", false, ""); err != nil {
 		t.Fatalf("runEnvSet: %v", err)
 	}
 
@@ -67,10 +67,10 @@ func TestRunEnvSet_CustomEnv(t *testing.T) {
 func TestRunEnvSet_Upsert(t *testing.T) {
 	setupVaultProject(t)
 
-	if err := runEnvSet([]string{"K", "v1"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"K", "v1"}, "global", false, ""); err != nil {
 		t.Fatalf("set v1: %v", err)
 	}
-	if err := runEnvSet([]string{"K", "v2"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"K", "v2"}, "global", false, ""); err != nil {
 		t.Fatalf("set v2: %v", err)
 	}
 
@@ -103,7 +103,7 @@ func TestRunEnvSet_Errors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
-			err := runEnvSet(tc.args, tc.envName, tc.stdin)
+			err := runEnvSet(tc.args, tc.envName, tc.stdin, "")
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -116,7 +116,7 @@ func TestRunEnvSet_Errors(t *testing.T) {
 
 func TestRunEnvGet_PrintsString(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestRunEnvGet_PrintsNonString(t *testing.T) {
 
 func TestRunEnvGet_FromCustomEnv(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"DB_URL", "postgres"}, "prod", false); err != nil {
+	if err := runEnvSet([]string{"DB_URL", "postgres"}, "prod", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -220,7 +220,7 @@ func TestRunEnvGet_Errors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
-			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false); err != nil {
+			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false, ""); err != nil {
 				t.Fatalf("seed: %v", err)
 			}
 
@@ -237,7 +237,7 @@ func TestRunEnvGet_Errors(t *testing.T) {
 
 func TestRunEnvDelete_RemovesKey(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "bar"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "bar"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -253,10 +253,10 @@ func TestRunEnvDelete_RemovesKey(t *testing.T) {
 
 func TestRunEnvDelete_LeavesOtherKeysAlone(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FOO", "1"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FOO", "1"}, "global", false, ""); err != nil {
 		t.Fatalf("seed FOO: %v", err)
 	}
-	if err := runEnvSet([]string{"BAR", "2"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"BAR", "2"}, "global", false, ""); err != nil {
 		t.Fatalf("seed BAR: %v", err)
 	}
 
@@ -302,7 +302,7 @@ func TestRunEnvDelete_Errors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
-			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false); err != nil {
+			if err := runEnvSet([]string{tc.seedKey, "v"}, tc.seedEnv, false, ""); err != nil {
 				t.Fatalf("seed: %v", err)
 			}
 
@@ -337,7 +337,7 @@ func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 		done <- b.String()
 	}()
 
-	if err := runEnvSet([]string{"BIG", big}, "global", false); err != nil {
+	if err := runEnvSet([]string{"BIG", big}, "global", false, ""); err != nil {
 		t.Fatalf("runEnvSet: %v", err)
 	}
 	_ = w.Close()
