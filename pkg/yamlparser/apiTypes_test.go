@@ -263,3 +263,27 @@ func TestEncodeBody(t *testing.T) {
 		})
 	}
 }
+
+func TestProcessVariable_PreservesUintFamily(t *testing.T) {
+	testCases := []struct {
+		name string
+		in   any
+	}{
+		{"uint", uint(3939)},
+		{"uint8", uint8(42)},
+		{"uint16", uint16(8000)},
+		{"uint32", uint32(70000)},
+		{"uint64", uint64(3939)},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := processVariable(tc.in)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.in {
+				t.Errorf("got %v (%T), want %v (%T)", got, got, tc.in, tc.in)
+			}
+		})
+	}
+}

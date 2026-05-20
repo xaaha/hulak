@@ -324,7 +324,10 @@ func processVariable(v any) (any, error) {
 	}
 
 	switch val := v.(type) {
-	case string, bool, int, int32, int64, float32, float64:
+	case string, bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
 		// Basic types can be used as-is
 		return val, nil
 
