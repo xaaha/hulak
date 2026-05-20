@@ -1,6 +1,7 @@
 package yamlparser
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -482,6 +483,20 @@ func TestSetValueOnAfterMap(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:        "json.Number int normalizes to int64",
+			afterMap:    map[string]any{"age": "3939"},
+			path:        []any{"age"},
+			replaceWith: json.Number("3939"),
+			expected:    map[string]any{"age": int64(3939)},
+		},
+		{
+			name:        "json.Number float normalizes to float64",
+			afterMap:    map[string]any{"height": "300.12"},
+			path:        []any{"height"},
+			replaceWith: json.Number("300.12"),
+			expected:    map[string]any{"height": float64(300.12)},
 		},
 	}
 

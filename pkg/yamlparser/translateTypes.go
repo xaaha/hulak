@@ -1,12 +1,32 @@
 package yamlparser
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// normalizeNumber converts a json.Number to a concrete int64/float64 so the
+// downstream yaml encoder emits it as a number instead of a quoted string.
+// Vault store decodes numbers with json.Number to preserve int/float
+// distinction, but goccy/go-yaml marshals json.Number (a string under the
+// hood) as "3939" rather than 3939, which breaks GraphQL Int variables.
+func normalizeNumber(v any) any {
+	num, ok := v.(json.Number)
+	if !ok {
+		return v
+	}
+	if i, err := num.Int64(); err == nil {
+		return i
+	}
+	if f, err := num.Float64(); err == nil {
+		return f
+	}
+	return v
+}
 
 type actionType string
 
@@ -165,6 +185,7 @@ func setValueOnAfterMap(
 	afterMap map[string]any,
 	replaceWith any,
 ) map[string]any {
+	replaceWith = normalizeNumber(replaceWith)
 	var current any = afterMap
 
 	for i, value := range path {
