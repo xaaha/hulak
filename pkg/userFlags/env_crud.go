@@ -63,6 +63,12 @@ func parseTypedValue(raw, typeName string) (any, error) {
 		if err := dec.Decode(&v); err != nil {
 			return nil, fmt.Errorf("invalid json value: %w", err)
 		}
+		// Reject trailing tokens like `{"a":1}garbage` so silent truncation
+		// can't happen. Trailing whitespace is fine — Decode consumes it on
+		// the next call only if non-whitespace remains.
+		if err := dec.Decode(new(any)); err != io.EOF {
+			return nil, fmt.Errorf("invalid json value: unexpected data after value")
+		}
 		return v, nil
 	default:
 		return nil, fmt.Errorf(

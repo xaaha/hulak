@@ -510,6 +510,38 @@ func TestParseTypedValue_JSONInvalid(t *testing.T) {
 	}
 }
 
+func TestParseTypedValue_JSONRejectsTrailingData(t *testing.T) {
+	cases := []string{
+		`{"a":1}garbage`,
+		`[1,2] extra`,
+		`42 99`,
+		`"hello" world`,
+	}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			_, err := parseTypedValue(raw, "json")
+			if err == nil {
+				t.Errorf("expected error for trailing data in %q, got nil", raw)
+			}
+		})
+	}
+}
+
+func TestParseTypedValue_JSONAcceptsTrailingWhitespace(t *testing.T) {
+	cases := []string{
+		`{"a":1}` + "\n",
+		`[1,2]  `,
+		"  42  \n\t",
+	}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := parseTypedValue(raw, "json"); err != nil {
+				t.Errorf("trailing whitespace should be allowed, got error for %q: %v", raw, err)
+			}
+		})
+	}
+}
+
 func TestParseTypedValue_UnknownType(t *testing.T) {
 	_, err := parseTypedValue("v", "integer")
 	if err == nil {
