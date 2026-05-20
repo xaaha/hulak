@@ -682,3 +682,41 @@ func TestRunEnvSet_DefaultTypeIsString(t *testing.T) {
 		t.Errorf("stored = %v (%T), want \"3939\" (string)", got, got)
 	}
 }
+
+// TestEnvSetCmd_FlagWiring exercises the full newEnvSetCmd() path: build the
+// command, parse flag args through the FlagSet, then invoke Run. This is the
+// only test that catches a regression in the `-t`/`--type` alias wiring or
+// the StringVar pair pointing to the same variable (a bug here would have
+// integration tests still pass because they bypass flag parsing).
+func TestEnvSetCmd_FlagWiring(t *testing.T) {
+	testCases := []struct {
+		name string
+		args []string // full args after `secrets set`
+		key  string
+	}{
+		{"long flag --type int", []string{"--type", "int", "longInt", "100"}, "longInt"},
+		{"short flag -t int", []string{"-t", "int", "shortInt", "200"}, "shortInt"},
+		{"long flag --type bool", []string{"--type", "bool", "longBool", "true"}, "longBool"},
+		{"short flag -t bool", []string{"-t", "bool", "shortBool", "false"}, "shortBool"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupVaultProject(t)
+			cmd := newEnvSetCmd()
+			if err := cmd.Flags.Parse(tc.args); err != nil {
+				t.Fatalf("Flags.Parse(%v): %v", tc.args, err)
+			}
+			if err := cmd.Run(cmd.Flags.Args()); err != nil {
+				t.Fatalf("cmd.Run: %v", err)
+			}
+
+			got := readStoredValue(t, "global", tc.key)
+			// Stored value should NOT be the raw string. Any non-string type
+			// proves --type was honored end-to-end via the flag binding.
+			if s, ok := got.(string); ok {
+				t.Errorf("stored as string %q — flag binding did not honor --type", s)
+			}
+		})
+	}
+}
