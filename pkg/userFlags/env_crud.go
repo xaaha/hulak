@@ -78,12 +78,16 @@ func newEnvSetCmd() *command {
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
 	setEnv := registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
 	setStdin := setFs.Bool("stdin", false, "Read value from stdin")
+	var setType string
+	typeUsage := "Value type: " + strings.Join(validSetTypes[:], "|")
+	setFs.StringVar(&setType, "type", "string", typeUsage)
+	setFs.StringVar(&setType, "t", "string", typeUsage)
 
 	return &command{
 		Name:    "set",
 		Aliases: []string{"add"},
 		Short:   "Set a key-value pair",
-		Long:    "Store a secret in the encrypted vault.\n\nIf VALUE is omitted, you'll be prompted to enter it (no echo, no shell history).\nUse --stdin to pipe the value from standard input (useful for scripts).",
+		Long:    "Store a secret in the encrypted vault.\n\nIf VALUE is omitted, you'll be prompted to enter it (no echo, no shell history).\nUse --stdin to pipe the value from standard input (useful for scripts).\nUse --type to store numbers, booleans, or JSON instead of strings.",
 		Flags:   setFs,
 		Args: []argDef{
 			{Name: "key", Required: true, Desc: "Secret key name"},
@@ -106,8 +110,20 @@ func newEnvSetCmd() *command {
 				Command:     "hulak secrets set FEATURE_FLAG true --env staging",
 				Description: "Set a value in a specific environment",
 			},
+			{
+				Command:     "hulak secrets set userAge 3939 --type int",
+				Description: "Store as an integer (preserved through to GraphQL/JSON bodies)",
+			},
+			{
+				Command:     "hulak secrets set ENABLED true --type bool",
+				Description: "Store as a boolean",
+			},
+			{
+				Command:     "hulak secrets set config '{\"a\":1}' --type json",
+				Description: "Store an arbitrary JSON value (object, array, number, etc.)",
+			},
 		},
-		Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin) },
+		Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin, setType) },
 	}
 }
 
@@ -118,9 +134,14 @@ func newEnvSetCmd() *command {
 //  2. positional VALUE → use as-is
 //  3. interactive prompt with no echo (only if stdin is a TTY)
 //
+// typeName is the --type flag value; "" or "string" stores the raw string.
+// int/float/bool/json are parsed by parseTypedValue and the typed result is
+// what lands in the vault. Parse failure aborts before the store lock so a
+// bad type/value never opens or mutates the store.
+//
 // The read-modify-write of store.age is wrapped in WithStoreLock so concurrent
 // `hulak secrets set` invocations cannot lose each other's edits.
-func runEnvSet(args []string, envName string, useStdin bool) error {
+func runEnvSet(args []string, envName string, useStdin bool, typeName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
 	}
@@ -133,16 +154,21 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 		return err
 	}
 
-	value, err := resolveSetValue(args, useStdin, key)
+	rawValue, err := resolveSetValue(args, useStdin, key)
 	if err != nil {
 		return err
 	}
 
-	if len(value) > MaxValueSizeWarnBytes {
+	if len(rawValue) > MaxValueSizeWarnBytes {
 		utils.PrintWarningStderr(fmt.Sprintf(
 			"value for %q is %.1f KB — consider {{getFile \"path\"}} for large blobs",
-			key, float64(len(value))/1024,
+			key, float64(len(rawValue))/1024,
 		))
+	}
+
+	typedValue, err := parseTypedValue(rawValue, typeName)
+	if err != nil {
+		return err
 	}
 
 	// acquire lock
@@ -152,7 +178,7 @@ func runEnvSet(args []string, envName string, useStdin bool) error {
 			return err
 		}
 
-		store.SetKey(envName, key, value)
+		store.SetKey(envName, key, typedValue)
 
 		if err := vault.WriteStoreToRecipients(store); err != nil {
 			return err
