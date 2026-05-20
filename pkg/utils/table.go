@@ -25,8 +25,8 @@ const DefaultTableMaxCellWidth = 60
 
 // tableHeaderStyle wraps header cells in bold + italic + bright yellow.
 // Bold ensures readability on terminals that don't render italic; yellow
-// matches the existing PrintWarning palette so section/table headings feel
-// like the same visual family.
+// matches PrintSectionHeader so section/table headings feel like the same
+// visual family.
 const tableHeaderStyle = "\033[1;3;93m"
 
 // ansiRe matches CSI SGR escape sequences (\x1b[...m). Used to strip styling

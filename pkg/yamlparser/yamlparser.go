@@ -88,7 +88,7 @@ func replaceVarsWithPrefix(
 // Reads YAML, validates if the file exists, is not empty, and changes keys to lowercase
 func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("file does not exist: %s", filepath)
+		return nil, fmt.Errorf("file does not exist %s: %w", filepath, err)
 	}
 
 	file, err := os.Open(filepath)
