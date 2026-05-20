@@ -90,10 +90,9 @@ func CreateDir(dirPath string) error {
 		return err
 	}
 	if err := os.Mkdir(dirPath, DirPer); err != nil {
-		PrintRed("Error creating directory " + CrossMark)
-		return err
+		return fmt.Errorf("creating directory %s: %w", dirPath, err)
 	}
-	PrintGreen("Created directory " + CheckMark)
+	PrintSuccessStderr("Created directory " + dirPath)
 	return nil
 }
 

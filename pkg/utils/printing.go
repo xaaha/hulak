@@ -12,13 +12,10 @@ import (
 	"golang.org/x/term"
 )
 
-// PrintGreen Prints Success Message
-func PrintGreen(msg string) {
-	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
-}
-
-// PrintWarning Inform or Warn the user
-func PrintWarning(msg string) {
+// PrintSectionHeader prints a yellow section header to stdout. Use for help
+// text headings ("COMMANDS", "FLAGS", etc.) — not for warnings. Stays on
+// stdout because help output is the program's actual output, not diagnostics.
+func PrintSectionHeader(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
@@ -55,16 +52,6 @@ func PrintSuccessStderr(msg string) {
 // pollute stdout but doesn't warrant warning/error decoration either.
 func PrintInfoStderr(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
-}
-
-// PrintRed is used mostly for errors
-func PrintRed(msg string) {
-	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)
-}
-
-// PrintInfo prints the info for the user in blue
-func PrintInfo(msg string) {
-	fmt.Printf("%s%s%s\n", Blue, msg, ColorReset)
 }
 
 // PanicRedAndExit prints a fatal error to STDERR (red prefix, plain message)
