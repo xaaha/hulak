@@ -9,23 +9,41 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// normalizeNumber converts a json.Number to a concrete int64/float64 so the
-// downstream yaml encoder emits it as a number instead of a quoted string.
-// Vault store decodes numbers with json.Number to preserve int/float
+// normalizeNumber converts json.Number values to concrete int64/float64 so
+// the downstream yaml encoder emits them as numbers instead of quoted
+// strings. Vault store decodes numbers with json.Number to preserve int/float
 // distinction, but goccy/go-yaml marshals json.Number (a string under the
 // hood) as "3939" rather than 3939, which breaks GraphQL Int variables.
+//
+// Recurses into map[string]any and []any so json.Number nested inside a
+// `--type json` secret (e.g. {"port": 8000}) is also converted before it
+// reaches the yaml encoder. Maps and slices are rebuilt rather than mutated
+// in place so the caller's input is not modified.
 func normalizeNumber(v any) any {
-	num, ok := v.(json.Number)
-	if !ok {
+	switch val := v.(type) {
+	case json.Number:
+		if i, err := val.Int64(); err == nil {
+			return i
+		}
+		if f, err := val.Float64(); err == nil {
+			return f
+		}
+		return v
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, item := range val {
+			out[k] = normalizeNumber(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, item := range val {
+			out[i] = normalizeNumber(item)
+		}
+		return out
+	default:
 		return v
 	}
-	if i, err := num.Int64(); err == nil {
-		return i
-	}
-	if f, err := num.Float64(); err == nil {
-		return f
-	}
-	return v
 }
 
 type actionType string
