@@ -3,6 +3,7 @@ package features
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -105,14 +106,14 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	// Open the browser
 	log.Println("Opening browser for authentication...")
 	if err := OpenURL(urlStr); err != nil {
-		return "", utils.ColorError("error opening browser: %w", err)
+		return "", fmt.Errorf("error opening browser: %w", err)
 	}
 	// Wait for the code or a timeout
 	select {
 	case code := <-codeChan:
 		return code, nil
 	case <-time.After(timeout):
-		return "", utils.ColorError("timeout waiting for the code")
+		return "", errors.New("timeout waiting for the code")
 	}
 }
 

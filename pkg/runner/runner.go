@@ -659,7 +659,7 @@ func generateFilePathList(fileName string, fp string) ([]string, error) {
 	standardErrMsg := "to send api request(s), please provide a valid file name with \n'-f fileName' flag or  \n'-fp file/path/' "
 
 	if fileName == "" && fp == "" {
-		return nil, utils.ColorError(standardErrMsg)
+		return nil, errors.New(standardErrMsg)
 	}
 
 	var filePathList []string
@@ -677,7 +677,7 @@ func generateFilePathList(fileName string, fp string) ([]string, error) {
 	}
 
 	if len(filePathList) == 0 {
-		return nil, utils.ColorError(standardErrMsg)
+		return nil, errors.New(standardErrMsg)
 	}
 	return filePathList, nil
 }
