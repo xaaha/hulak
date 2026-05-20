@@ -135,7 +135,8 @@ func TestRunEnvGet_PrintsString(t *testing.T) {
 func TestRunEnvGet_PrintsNonString(t *testing.T) {
 	setupVaultProject(t)
 
-	// Seed non-string types via the store directly (CLI `set` always stores strings).
+	// Seed non-string types via the store directly to keep this test focused on
+	// runEnvGet's printing behavior independent of runEnvSet/--type.
 	if err := vault.WithStoreLock(func() error {
 		ageKey, _ := vault.EnsureKeypair()
 		store, _ := vault.ReadStore()
