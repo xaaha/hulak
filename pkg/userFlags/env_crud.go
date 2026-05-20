@@ -21,8 +21,9 @@ import (
 const MaxValueSizeWarnBytes = 64 << 10 // 64 KiB
 
 // validSetTypes lists the type names accepted by `secrets set --type`.
-// Kept as a slice (not a map) so error messages can present them in a stable
-// order and the default ("string") is first. Items available in json type
+// Kept as a fixed-size array (not a map) so error messages can present them
+// in a stable order, the default ("string") stays first, and adding a value
+// fails the compiler if the size constant is not updated to match.
 var validSetTypes = [5]string{"string", "int", "float", "bool", "json"}
 
 // parseTypedValue converts the raw string value read from the CLI into the
