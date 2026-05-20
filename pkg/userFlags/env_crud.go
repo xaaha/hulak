@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -18,6 +19,59 @@ import (
 // Above this, the user is warned and pointed at {{getFile "path"}} for blobs.
 // Not a hard limit — the value is still written.
 const MaxValueSizeWarnBytes = 64 << 10 // 64 KiB
+
+// validSetTypes lists the type names accepted by `secrets set --type`.
+// Kept as a slice (not a map) so error messages can present them in a stable
+// order and the default ("string") is first. Items available in json type
+var validSetTypes = [5]string{"string", "int", "float", "bool", "json"}
+
+// parseTypedValue converts the raw string value read from the CLI into the
+// typed any that gets stored in the vault. Empty typeName defaults to
+// "string" so callers that don't pass --type keep current behavior.
+//
+// int and float are returned as json.Number to match the shape the vault
+// decoder emits on read (UseNumber). That keeps write-then-read a no-op and
+// lets downstream JSON marshalling emit numbers as raw numbers rather than
+// quoted strings.
+func parseTypedValue(raw, typeName string) (any, error) {
+	if typeName == "" {
+		typeName = "string"
+	}
+	switch typeName {
+	case "string":
+		return raw, nil
+	case "int":
+		if _, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			return nil, fmt.Errorf("invalid int value %q: %w", raw, err)
+		}
+		return json.Number(raw), nil
+	case "float":
+		if _, err := strconv.ParseFloat(raw, 64); err != nil {
+			return nil, fmt.Errorf("invalid float value %q: %w", raw, err)
+		}
+		return json.Number(raw), nil
+	case "bool":
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bool value %q: %w", raw, err)
+		}
+		return b, nil
+	case "json":
+		dec := json.NewDecoder(strings.NewReader(raw))
+		dec.UseNumber()
+		var v any
+		if err := dec.Decode(&v); err != nil {
+			return nil, fmt.Errorf("invalid json value: %w", err)
+		}
+		return v, nil
+	default:
+		return nil, fmt.Errorf(
+			"unknown type %q: must be one of %s",
+			typeName,
+			strings.Join(validSetTypes[:], ", "),
+		)
+	}
+}
 
 // newEnvSetCmd returns the command struct for `hulak secrets set`.
 func newEnvSetCmd() *command {

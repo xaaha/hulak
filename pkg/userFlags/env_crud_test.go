@@ -351,3 +351,173 @@ func TestRunEnvSet_LargeValueWarning(t *testing.T) {
 		t.Error("large value should still be written")
 	}
 }
+
+func TestParseTypedValue_String(t *testing.T) {
+	got, err := parseTypedValue("hello world", "string")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "hello world" {
+		t.Errorf("got %v (%T), want %q (string)", got, got, "hello world")
+	}
+}
+
+func TestParseTypedValue_StringDefault(t *testing.T) {
+	got, err := parseTypedValue("anything", "")
+	if err != nil {
+		t.Fatalf("empty type should default to string, got error: %v", err)
+	}
+	if got != "anything" {
+		t.Errorf("got %v, want %q", got, "anything")
+	}
+}
+
+func TestParseTypedValue_Int(t *testing.T) {
+	got, err := parseTypedValue("3939", "int")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	num, ok := got.(json.Number)
+	if !ok {
+		t.Fatalf("got %v (%T), want json.Number", got, got)
+	}
+	if num.String() != "3939" {
+		t.Errorf("got %q, want %q", num.String(), "3939")
+	}
+}
+
+func TestParseTypedValue_IntNegative(t *testing.T) {
+	got, err := parseTypedValue("-42", "int")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	num, ok := got.(json.Number)
+	if !ok || num.String() != "-42" {
+		t.Errorf("got %v, want json.Number(\"-42\")", got)
+	}
+}
+
+func TestParseTypedValue_IntInvalid(t *testing.T) {
+	cases := []string{"3.5", "abc", "", "1e3"}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := parseTypedValue(raw, "int"); err == nil {
+				t.Errorf("expected error for int %q, got nil", raw)
+			}
+		})
+	}
+}
+
+func TestParseTypedValue_Float(t *testing.T) {
+	got, err := parseTypedValue("3.14", "float")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	num, ok := got.(json.Number)
+	if !ok || num.String() != "3.14" {
+		t.Errorf("got %v, want json.Number(\"3.14\")", got)
+	}
+}
+
+func TestParseTypedValue_FloatInvalid(t *testing.T) {
+	if _, err := parseTypedValue("not-a-number", "float"); err == nil {
+		t.Error("expected error for invalid float, got nil")
+	}
+}
+
+func TestParseTypedValue_Bool(t *testing.T) {
+	cases := map[string]bool{
+		"true":  true,
+		"false": false,
+		"1":     true,
+		"0":     false,
+		"T":     true,
+		"F":     false,
+	}
+	for raw, want := range cases {
+		t.Run(raw, func(t *testing.T) {
+			got, err := parseTypedValue(raw, "bool")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			b, ok := got.(bool)
+			if !ok {
+				t.Fatalf("got %v (%T), want bool", got, got)
+			}
+			if b != want {
+				t.Errorf("got %v, want %v", b, want)
+			}
+		})
+	}
+}
+
+func TestParseTypedValue_BoolInvalid(t *testing.T) {
+	cases := []string{"yes", "no", "TRUE!", "", "2"}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := parseTypedValue(raw, "bool"); err == nil {
+				t.Errorf("expected error for bool %q, got nil", raw)
+			}
+		})
+	}
+}
+
+func TestParseTypedValue_JSONObject(t *testing.T) {
+	got, err := parseTypedValue(`{"a":1,"b":"x"}`, "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("got %T, want map[string]any", got)
+	}
+	num, ok := m["a"].(json.Number)
+	if !ok || num.String() != "1" {
+		t.Errorf("m[a] = %v (%T), want json.Number(\"1\")", m["a"], m["a"])
+	}
+	if m["b"] != "x" {
+		t.Errorf("m[b] = %v, want %q", m["b"], "x")
+	}
+}
+
+func TestParseTypedValue_JSONArray(t *testing.T) {
+	got, err := parseTypedValue(`[1,2,3]`, "json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	arr, ok := got.([]any)
+	if !ok {
+		t.Fatalf("got %T, want []any", got)
+	}
+	if len(arr) != 3 {
+		t.Fatalf("len=%d, want 3", len(arr))
+	}
+	num, ok := arr[0].(json.Number)
+	if !ok || num.String() != "1" {
+		t.Errorf("arr[0] = %v, want json.Number(\"1\")", arr[0])
+	}
+}
+
+func TestParseTypedValue_JSONInvalid(t *testing.T) {
+	cases := []string{`{`, `not json`, ``, `{"a":}`}
+	for _, raw := range cases {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := parseTypedValue(raw, "json"); err == nil {
+				t.Errorf("expected error for json %q, got nil", raw)
+			}
+		})
+	}
+}
+
+func TestParseTypedValue_UnknownType(t *testing.T) {
+	_, err := parseTypedValue("v", "integer")
+	if err == nil {
+		t.Fatal("expected error for unknown type, got nil")
+	}
+	msg := err.Error()
+	for _, want := range []string{"string", "int", "float", "bool", "json"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q should list valid type %q", msg, want)
+		}
+	}
+}
