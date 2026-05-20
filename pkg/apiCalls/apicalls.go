@@ -60,7 +60,7 @@ func StandardCallWithClient(
 
 	req, err := http.NewRequestWithContext(ctx, method, preparedURL, newBodyReader)
 	if err != nil {
-		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %v", method, err)
+		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
 	}
 
 	if len(headers) > 0 {

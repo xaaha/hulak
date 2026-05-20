@@ -2,6 +2,7 @@
 package migration
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -10,7 +11,7 @@ import (
 // CompleteMigration processes all files for migration
 func CompleteMigration(filePaths []string) error {
 	if len(filePaths) == 0 {
-		return utils.ColorError("please provide a valid json file for migration")
+		return errors.New("please provide a valid json file for migration")
 	}
 	for _, path := range filePaths {
 		jsonStr, err := readJSON(path)

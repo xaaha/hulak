@@ -4,6 +4,7 @@ package envparser
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -27,10 +28,7 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 	if os.Getenv(utils.EnvKey) == "" {
 		err := os.Setenv(utils.EnvKey, utils.DefaultEnvVal)
 		if err != nil {
-			return fileCreationSkipped, utils.ColorError(
-				"error setting environment variable: %v",
-				err,
-			)
+			return fileCreationSkipped, fmt.Errorf("error setting environment variable: %w", err)
 		}
 	}
 	// get a list of env files and get their file name
@@ -51,15 +49,12 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 		fmt.Fprintf(os.Stderr, "'%v.env' not found in the env directory\n", envFromFlag)
 		confirmed, confirmErr := utils.ConfirmAction(fmt.Sprintf("Create '%v.env'? [y/N] ", envFromFlag))
 		if confirmErr != nil {
-			return fileCreationSkipped, utils.ColorError("failed to read input: %v", confirmErr)
+			return fileCreationSkipped, fmt.Errorf("failed to read input: %w", confirmErr)
 		}
 		if confirmed {
 			err := CreateDefaultEnvs(&envFromFlag)
 			if err != nil {
-				return fileCreationSkipped, utils.ColorError(
-					"failed to create environment file: %v",
-					err,
-				)
+				return fileCreationSkipped, fmt.Errorf("failed to create environment file: %w", err)
 			}
 		} else {
 			fileCreationSkipped = true
@@ -268,13 +263,13 @@ func GenerateSecretsMap(envFromFlag string, isCli bool) (map[string]any, error) 
 
 	skipped, err := setEnvironment(envFromFlag, isCli)
 	if err != nil {
-		return nil, utils.ColorError("error while setting environment: %w", err)
+		return nil, fmt.Errorf("error while setting environment: %w", err)
 	}
 
 	// Retrieve the environment value
 	envVal, ok := os.LookupEnv(utils.EnvKey)
 	if !ok {
-		return nil, utils.ColorError("error while looking up environment variable")
+		return nil, errors.New("error while looking up environment variable")
 	}
 
 	if envVal == "" || skipped {
@@ -306,12 +301,12 @@ func GenerateSecretsMap(envFromFlag string, isCli bool) (map[string]any, error) 
 func loadEnvFile(fileName string) (map[string]any, error) {
 	filePath, err := utils.CreatePath(filepath.Join(utils.EnvironmentFolder, fileName))
 	if err != nil {
-		return nil, utils.ColorError("error while creating file path for "+fileName, err)
+		return nil, fmt.Errorf("error while creating file path for %s: %w", fileName, err)
 	}
 
 	envVars, err := LoadEnvVars(filePath)
 	if err != nil {
-		return nil, utils.ColorError("error while loading env vars from "+filePath, err)
+		return nil, fmt.Errorf("error while loading env vars from %s: %w", filePath, err)
 	}
 
 	return envVars, nil
@@ -345,7 +340,7 @@ func LoadSecretsMap(envName string) (map[string]any, error) {
 
 	// Ensure global.env exists (create if missing)
 	if err := CreateDefaultEnvs(nil); err != nil {
-		return nil, utils.ColorError("failed to create global.env", err)
+		return nil, fmt.Errorf("failed to create global.env: %w", err)
 	}
 
 	// Load global environment variables

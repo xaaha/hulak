@@ -146,7 +146,7 @@ func (cmd *command) printHelp() {
 	}
 
 	if len(cmd.SubCommands) > 0 {
-		utils.PrintWarning("COMMANDS")
+		utils.PrintSectionHeader("COMMANDS")
 		var entries []*utils.CommandHelp
 		for _, sub := range cmd.SubCommands {
 			if sub.Hidden {
@@ -176,7 +176,7 @@ func (cmd *command) printHelp() {
 	}
 
 	if len(cmd.Args) > 0 {
-		utils.PrintWarning("ARGUMENTS")
+		utils.PrintSectionHeader("ARGUMENTS")
 		var entries []*utils.CommandHelp
 		for _, a := range cmd.Args {
 			name := "<" + a.Name + ">"
@@ -194,7 +194,7 @@ func (cmd *command) printHelp() {
 	}
 
 	if len(cmd.Examples) > 0 {
-		utils.PrintWarning("EXAMPLES")
+		utils.PrintSectionHeader("EXAMPLES")
 		for _, ex := range cmd.Examples {
 			fmt.Printf("  $ %s\n", ex.Command)
 			fmt.Printf("    %s\n", ex.Description)
@@ -202,7 +202,7 @@ func (cmd *command) printHelp() {
 		fmt.Println()
 	}
 
-	utils.PrintWarning("LEARN MORE")
+	utils.PrintSectionHeader("LEARN MORE")
 	fmt.Println("  Use `hulak <command> --help` for more information about a command.")
 }
 
@@ -227,7 +227,7 @@ func printFlags(fs *flag.FlagSet) {
 		return
 	}
 
-	utils.PrintWarning("FLAGS")
+	utils.PrintSectionHeader("FLAGS")
 	fs.VisitAll(func(f *flag.Flag) {
 		// Skip hidden and long-form aliases (shown with their short form)
 		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {

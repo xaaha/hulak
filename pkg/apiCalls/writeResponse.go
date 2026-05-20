@@ -4,6 +4,7 @@ package apicalls
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"mime"
 	"os"
@@ -137,7 +138,7 @@ func writeFile(path, suffixType, contentBody string) error {
 // fallback) and writes resBody next to path.
 func evalAndWriteRes(resBody, contentType, path string) error {
 	if resBody == "" || path == "" {
-		return utils.ColorError("Invalid input: file path and resBody cannot be empty")
+		return errors.New("invalid input: file path and resBody cannot be empty")
 	}
 	return writeFile(path, extensionFor(contentType, resBody), resBody)
 }

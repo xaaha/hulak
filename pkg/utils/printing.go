@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,27 +12,10 @@ import (
 	"golang.org/x/term"
 )
 
-// ColorError Creates an error message that optionally includes an additional error.
-// If an error is provided, it formats the message with the error appended.
-// The returned error is colored for console output.
-func ColorError(errMsg string, errs ...error) error {
-	var fullMsg strings.Builder
-	fullMsg.WriteString(errMsg)
-	for _, err := range errs {
-		if err != nil {
-			fullMsg.WriteString(": " + err.Error())
-		}
-	}
-	return fmt.Errorf("\n%s%s%s", Red, fullMsg.String(), ColorReset)
-}
-
-// PrintGreen Prints Success Message
-func PrintGreen(msg string) {
-	fmt.Printf("%s%s%s\n", Green, msg, ColorReset)
-}
-
-// PrintWarning Inform or Warn the user
-func PrintWarning(msg string) {
+// PrintSectionHeader prints a yellow section header to stdout. Use for help
+// text headings ("COMMANDS", "FLAGS", etc.) — not for warnings. Stays on
+// stdout because help output is the program's actual output, not diagnostics.
+func PrintSectionHeader(msg string) {
 	fmt.Printf("%s%s%s\n", Yellow, msg, ColorReset)
 }
 
@@ -68,16 +52,6 @@ func PrintSuccessStderr(msg string) {
 // pollute stdout but doesn't warrant warning/error decoration either.
 func PrintInfoStderr(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
-}
-
-// PrintRed is used mostly for errors
-func PrintRed(msg string) {
-	fmt.Printf("%s%s%s\n", Red, msg, ColorReset)
-}
-
-// PrintInfo prints the info for the user in blue
-func PrintInfo(msg string) {
-	fmt.Printf("%s%s%s\n", Blue, msg, ColorReset)
 }
 
 // PanicRedAndExit prints a fatal error to STDERR (red prefix, plain message)
@@ -163,9 +137,11 @@ func PromptSecret(prompt string) (string, error) {
 	return string(bytes), nil
 }
 
-// HelpfulError formats a multi-line error with a title, a section heading, and a
-// bullet list, then wraps it via ColorError. Use for user-facing errors that
-// should suggest remediation steps (e.g. "no env files found" → list of fixes).
+// HelpfulError formats a multi-line error with a title, a section heading, and
+// a bullet list. Returns a plain-text error — color is applied at the print
+// site (PanicRedAndExit, PrintErrorStderr) per the post-#179 stdout/stderr
+// convention. Use for user-facing errors that should suggest remediation steps
+// (e.g. "no env files found" → list of fixes).
 func HelpfulError(title, heading string, bullets []string) error {
 	var b strings.Builder
 	fmt.Fprintln(&b, title)
@@ -174,5 +150,5 @@ func HelpfulError(title, heading string, bullets []string) error {
 	for _, item := range bullets {
 		fmt.Fprintf(&b, "  - %s\n", item)
 	}
-	return ColorError(strings.TrimRight(b.String(), "\n"))
+	return errors.New(strings.TrimRight(b.String(), "\n"))
 }

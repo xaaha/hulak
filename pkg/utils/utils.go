@@ -3,6 +3,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -89,10 +90,9 @@ func CreateDir(dirPath string) error {
 		return err
 	}
 	if err := os.Mkdir(dirPath, DirPer); err != nil {
-		PrintRed("Error creating directory " + CrossMark)
-		return err
+		return fmt.Errorf("creating directory %s: %w", dirPath, err)
 	}
-	PrintGreen("Created directory " + CheckMark)
+	PrintSuccessStderr("Created directory " + dirPath)
 	return nil
 }
 
@@ -187,7 +187,7 @@ func CopyEnvMap(original map[string]any) map[string]any {
 // Returns slice of matched file paths and an error if no matching files are found or if there are file system errors.
 func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error) {
 	if matchFile == "" {
-		return nil, ColorError(ErrFileSearchEmpty)
+		return nil, errors.New(ErrFileSearchEmpty)
 	}
 
 	fileExtensions := []string{YAML, YML, JSON}

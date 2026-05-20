@@ -2,6 +2,8 @@
 package yamlparser
 
 import (
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -97,11 +99,11 @@ func (b *Auth2Body) EncodeBody(code string) (io.Reader, string, error) {
 	case len(b.URLEncodedFormData) > 0:
 		encodedBody, err := EncodeXwwwFormURLBody(mergedMap)
 		if err != nil {
-			return nil, "", utils.ColorError(utils.ErrOAuthBodyEncoding, err)
+			return nil, "", fmt.Errorf("%s: %w", utils.ErrOAuthBodyEncoding, err)
 		}
 		body, contentType = encodedBody, "application/x-www-form-urlencoded"
 	default:
-		return nil, "", utils.ColorError("no valid body type provided")
+		return nil, "", errors.New("no valid body type provided")
 
 	}
 	return body, contentType, nil
@@ -125,7 +127,7 @@ type AuthRequestFile struct {
 // Valid Body is present
 func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 	if auth2Body == nil {
-		return false, utils.ColorError("auth request body is nil")
+		return false, errors.New("auth request body is nil")
 	}
 
 	// If method is  missing, By default, method is POST for Auth2.0
@@ -138,33 +140,33 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 
 	// method is required as each implementation of  Auth2.0 is different
 	if !auth2Body.Method.IsValid() {
-		return false, utils.ColorError("invalid HTTP method " + string(auth2Body.Method))
+		return false, fmt.Errorf("invalid HTTP method %s", string(auth2Body.Method))
 	}
 
 	// Validate Auth section
 	if auth2Body.Auth == nil {
-		return false, utils.ColorError("when 'Kind: auth' is present, auth section is required")
+		return false, errors.New("when 'Kind: auth' is present, auth section is required")
 	}
 
 	if valid := auth2Body.Auth.IsValid(); !valid {
-		return false, utils.ColorError(
+		return false, errors.New(
 			"invalid 'auth' section. Make sure the Auth2.0 file contains valid auth section with 'type' && access_token_url",
 		)
 	}
 
 	// Validate URL
 	if !auth2Body.URL.IsValidURL() {
-		return false, utils.ColorError("missing or invalid URL in auth request body")
+		return false, errors.New("missing or invalid URL in auth request body")
 	}
 
 	// Validate optional URL parameters, if present
 	if len(auth2Body.URLParams) > 0 && !auth2Body.URLParams.IsValid() {
-		return false, utils.ColorError("invalid URL parameters")
+		return false, errors.New("invalid URL parameters")
 	}
 
 	// Validate Body
 	if !auth2Body.Body.IsValid() {
-		return false, utils.ColorError("invalid body content")
+		return false, errors.New("invalid body content")
 	}
 
 	return true, nil
@@ -174,7 +176,7 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 func (auth2Body *AuthRequestFile) PrepareStruct(code string) (APIInfo, error) {
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
-		return APIInfo{}, utils.ColorError(utils.ErrBodyEncoding, err)
+		return APIInfo{}, fmt.Errorf("%s: %w", utils.ErrBodyEncoding, err)
 	}
 
 	if contentType != "" {

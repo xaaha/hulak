@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ func LookupValue(key string, data map[string]any) (any, error) {
 		if !ok {
 			currMap, ok = structToMap(current)
 			if !ok {
-				return "", ColorError(
+				return "", errors.New(
 					"invalid path, segment is not a map: " + strings.Join(
 						segments[:i+1],
 						pathSeparator,
@@ -47,12 +48,12 @@ func LookupValue(key string, data map[string]any) (any, error) {
 			// Handle array keys
 			value, exists := currMap[keyPart]
 			if !exists {
-				return "", ColorError(KeyNotFound + keyPart)
+				return "", errors.New(KeyNotFound + keyPart)
 			}
 
 			rv := reflect.ValueOf(value)
 			if rv.Kind() != reflect.Slice || index < 0 || index >= rv.Len() {
-				return "", ColorError(IndexOutOfBounds + segment)
+				return "", errors.New(IndexOutOfBounds + segment)
 			}
 
 			current = rv.Index(index).Interface()
@@ -60,7 +61,7 @@ func LookupValue(key string, data map[string]any) (any, error) {
 			// Handle map keys
 			value, exists := currMap[segment]
 			if !exists {
-				return "", ColorError(KeyNotFound + segment)
+				return "", errors.New(KeyNotFound + segment)
 			}
 			current = value
 		}
@@ -72,7 +73,7 @@ func LookupValue(key string, data map[string]any) (any, error) {
 	}
 
 	// Return error if unexpected
-	return "", ColorError("unexpected error")
+	return "", errors.New("unexpected error")
 }
 
 // convertToCompatibleFormat ensures that values are returned in the format expected by tests
