@@ -472,8 +472,9 @@ func splitErrorForOutcome(err error) (headline, detail string) {
 }
 
 // ansiInOutcome strips ANSI SGR escape sequences from error strings.
-// Older wrappers (ColorError) baked colors into errors; we don't want those
-// surviving into the outcome line.
+// Defense-in-depth: errors should be plain text post-#180, but a third-party
+// library could still emit ANSI and we don't want those surviving into the
+// outcome line.
 var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // runTasks manages the go tasks with a limited worker pool. Returns one
