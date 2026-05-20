@@ -1,6 +1,7 @@
 package yamlparser
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -210,7 +211,7 @@ func translateType(
 	for _, dotStringActionObj := range pathMap.DotStrings {
 		path, err := parsePath(dotStringActionObj.Path)
 		if err != nil {
-			return nil, utils.ColorError(utils.ErrTypeTranslation, err)
+			return nil, fmt.Errorf("%s: %w", utils.ErrTypeTranslation, err)
 		}
 		if len(path) == 0 {
 			continue
@@ -227,7 +228,7 @@ func translateType(
 	for _, getValueOfActionObj := range pathMap.GetValueOfs {
 		path, err := parsePath(getValueOfActionObj.Path)
 		if err != nil {
-			return nil, utils.ColorError(utils.ErrTypeTranslation, err)
+			return nil, fmt.Errorf("%s: %w", utils.ErrTypeTranslation, err)
 		}
 
 		if len(path) == 0 {
@@ -266,15 +267,14 @@ func parsePath(path string) ([]any, error) {
 	var keys []any
 
 	if len(path) == 0 {
-		return keys, utils.ColorError("path should not be empty")
+		return keys, errors.New("path should not be empty")
 	}
 
 	rawKeys := strings.Split(path, "->")
 	for i, segment := range rawKeys {
 		trimmedKey := strings.TrimSpace(segment)
 		if trimmedKey == "" {
-			msg := fmt.Sprintf("Invalid format: empty key at position %d", i+1)
-			return nil, utils.ColorError(msg)
+			return nil, fmt.Errorf("invalid format: empty key at position %d", i+1)
 		}
 		isArrayKey, keyPart, index := utils.ParseArrayKey(trimmedKey)
 		if isArrayKey {

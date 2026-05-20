@@ -120,9 +120,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	// translate the types, if acceptable
 	parsedMap, err = translateType(data, parsedMap, secretsMap, actions.GetValueOf)
 	if err != nil {
-		// TODO(#180): replace with fmt.Errorf — ColorError injects \n + ANSI
-		// codes that the runner has to strip before rendering.
-		return nil, utils.ColorError(utils.ErrYAMLPostProcessing, err)
+		return nil, fmt.Errorf("%s: %w", utils.ErrYAMLPostProcessing, err)
 	}
 
 	var buf bytes.Buffer
@@ -165,17 +163,17 @@ func FinalStructForOAuth2(
 ) (AuthRequestFile, error) {
 	buf, err := checkYamlFile(filePath, secretsMap)
 	if err != nil {
-		return AuthRequestFile{}, utils.ColorError("Error after reading yaml file: %v", err)
+		return AuthRequestFile{}, fmt.Errorf("error after reading yaml file: %w", err)
 	}
 
 	var auth2Config AuthRequestFile
 	dec := yaml.NewDecoder(buf)
 	if err := dec.Decode(&auth2Config); err != nil {
-		return AuthRequestFile{}, utils.ColorError("Error decoding data: %v", err)
+		return AuthRequestFile{}, fmt.Errorf("error decoding data: %w", err)
 	}
 
 	if valid, err := auth2Config.IsValid(); !valid {
-		return AuthRequestFile{}, utils.ColorError("Error on Auth2 Request Body %v", err)
+		return AuthRequestFile{}, fmt.Errorf("error on auth2 request body: %w", err)
 	}
 	return auth2Config, nil
 }

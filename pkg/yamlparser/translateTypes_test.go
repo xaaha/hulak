@@ -337,7 +337,7 @@ func TestParsePath(t *testing.T) {
 			name:   "empty key in path",
 			input:  "key1 ->  -> key3",
 			output: nil,
-			error:  "Invalid format: empty key at position 2",
+			error:  "invalid format: empty key at position 2",
 		},
 		{
 			name:   "array key with invalid format",
