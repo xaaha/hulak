@@ -3,6 +3,7 @@ package migration
 
 // postman environment
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -40,7 +41,7 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 	if name, ok := jsonStr["name"].(string); ok {
 		env.Name = name
 	} else {
-		return env, utils.ColorError("name field is missing or not a string")
+		return env, errors.New("name field is missing or not a string")
 	}
 
 	if values, ok := jsonStr["values"].([]any); ok {
@@ -51,34 +52,34 @@ func PrepareEnvStruct(jsonStr map[string]any) (Environment, error) {
 				if key, ok := valueMap["key"].(string); ok {
 					envValue.Key = key
 				} else {
-					return env, utils.ColorError("key field is missing or not a string in EnvValues")
+					return env, errors.New("key field is missing or not a string in EnvValues")
 				}
 
 				if value, ok := valueMap["value"].(string); ok {
 					envValue.Value = value
 				} else {
-					return env, utils.ColorError("value field is missing or not a string in EnvValues")
+					return env, errors.New("value field is missing or not a string in EnvValues")
 				}
 
 				if enabled, ok := valueMap["enabled"].(bool); ok {
 					envValue.Enabled = enabled
 				} else {
-					return env, utils.ColorError("enabled field is missing or not a boolean in EnvValues")
+					return env, errors.New("enabled field is missing or not a boolean in EnvValues")
 				}
 
 				env.Values = append(env.Values, envValue)
 			} else {
-				return env, utils.ColorError("value is not a valid map for EnvValues")
+				return env, errors.New("value is not a valid map for EnvValues")
 			}
 		}
 	} else {
-		return env, utils.ColorError("values field is missing or not an array")
+		return env, errors.New("values field is missing or not an array")
 	}
 
 	if scope, ok := jsonStr["_postman_variable_scope"].(string); ok {
 		env.Scope = scope
 	} else {
-		return env, utils.ColorError("scope field is missing or not a string")
+		return env, errors.New("scope field is missing or not a string")
 	}
 
 	return env, nil
@@ -116,19 +117,19 @@ func migrateEnv(env Environment, comment ...string) error {
 
 	filePath, err := envparser.CreateEnvDirAndFiles(envFileName)
 	if err != nil {
-		return utils.ColorError("error creating env directory or file: %w", err)
+		return fmt.Errorf("error creating env directory or file: %w", err)
 	}
 
 	// append the content
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, utils.FilePer)
 	if err != nil {
-		return utils.ColorError("error opening file: %w", err)
+		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	_, err = file.WriteString(content)
 	if err != nil {
-		return utils.ColorError("error writing to file: %w", err)
+		return fmt.Errorf("error writing to file: %w", err)
 	}
 
 	utils.PrintSuccessStderr("Environment migration successful")
