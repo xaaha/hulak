@@ -22,6 +22,7 @@ var flagAliases = map[string]string{
 	"help":        "h",
 	"quiet":       "q",
 	"sequential":  "seq",
+	"type":        "t",
 }
 
 // hiddenFlags are omitted from help output entirely (utility flags

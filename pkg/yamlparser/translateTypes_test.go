@@ -1,6 +1,7 @@
 package yamlparser
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -483,6 +484,40 @@ func TestSetValueOnAfterMap(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "json.Number int normalizes to int64",
+			afterMap:    map[string]any{"age": "3939"},
+			path:        []any{"age"},
+			replaceWith: json.Number("3939"),
+			expected:    map[string]any{"age": int64(3939)},
+		},
+		{
+			name:        "json.Number float normalizes to float64",
+			afterMap:    map[string]any{"height": "300.12"},
+			path:        []any{"height"},
+			replaceWith: json.Number("300.12"),
+			expected:    map[string]any{"height": float64(300.12)},
+		},
+		{
+			// Real flow: yaml `{{.cfg}}` templates a map into its fmt repr.
+			// swapValue compares that repr to fmt.Sprintf(replaceWith); if equal,
+			// the normalized replaceWith lands in afterMap.
+			name:     "nested json.Number in map normalizes when swap triggers",
+			afterMap: map[string]any{"cfg": "map[active:true name:svc port:8000]"},
+			path:     []any{"cfg"},
+			replaceWith: map[string]any{
+				"port":   json.Number("8000"),
+				"name":   "svc",
+				"active": true,
+			},
+			expected: map[string]any{
+				"cfg": map[string]any{
+					"port":   int64(8000),
+					"name":   "svc",
+					"active": true,
+				},
+			},
+		},
 	}
 
 	for _, tt := range testCases {
@@ -497,6 +532,90 @@ func TestSetValueOnAfterMap(t *testing.T) {
 				resStr,
 			)
 		}
+	}
+}
+
+func TestNormalizeNumber(t *testing.T) {
+	testCases := []struct {
+		name string
+		in   any
+		want any
+	}{
+		{
+			name: "top-level int json.Number",
+			in:   json.Number("3939"),
+			want: int64(3939),
+		},
+		{
+			name: "top-level float json.Number",
+			in:   json.Number("1.5"),
+			want: float64(1.5),
+		},
+		{
+			name: "plain string untouched",
+			in:   "hello",
+			want: "hello",
+		},
+		{
+			name: "plain bool untouched",
+			in:   true,
+			want: true,
+		},
+		{
+			name: "nil untouched",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "nested json.Number in map",
+			in: map[string]any{
+				"port":  json.Number("8000"),
+				"ratio": json.Number("1.5"),
+				"name":  "svc",
+			},
+			want: map[string]any{
+				"port":  int64(8000),
+				"ratio": float64(1.5),
+				"name":  "svc",
+			},
+		},
+		{
+			name: "nested json.Number in slice",
+			in:   []any{json.Number("80"), json.Number("443"), "alpha"},
+			want: []any{int64(80), int64(443), "alpha"},
+		},
+		{
+			name: "deeply nested map/slice/map",
+			in: map[string]any{
+				"inner": []any{
+					map[string]any{"n": json.Number("42")},
+				},
+			},
+			want: map[string]any{
+				"inner": []any{
+					map[string]any{"n": int64(42)},
+				},
+			},
+		},
+		{
+			name: "empty map untouched",
+			in:   map[string]any{},
+			want: map[string]any{},
+		},
+		{
+			name: "empty slice untouched",
+			in:   []any{},
+			want: []any{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeNumber(tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("normalizeNumber(%v) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 

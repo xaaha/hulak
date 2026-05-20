@@ -13,7 +13,7 @@ func TestRunEnvList_PrintsSortedNames(t *testing.T) {
 
 	// Seed: prod, global, staging — listing should sort alphabetically.
 	for _, env := range []string{"prod", "global", "staging"} {
-		if err := runEnvSet([]string{"K", "v"}, env, false); err != nil {
+		if err := runEnvSet([]string{"K", "v"}, env, false, ""); err != nil {
 			t.Fatalf("seed %s: %v", env, err)
 		}
 	}
@@ -69,7 +69,7 @@ func TestRunEnvList_TooManyArgs(t *testing.T) {
 
 func TestRunEnvKeys_MasksByDefault(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -93,7 +93,7 @@ func TestRunEnvKeys_MasksByDefault(t *testing.T) {
 
 func TestRunEnvKeys_ShowReveals(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"API_KEY", "sk-123"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -115,7 +115,7 @@ func TestRunEnvKeys_ShowReveals(t *testing.T) {
 func TestRunEnvKeys_SortsKeys(t *testing.T) {
 	setupVaultProject(t)
 	for _, k := range []string{"ZETA", "alpha", "MIDDLE"} {
-		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+		if err := runEnvSet([]string{k, "v"}, "global", false, ""); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
@@ -148,7 +148,7 @@ func TestRunEnvKeys_SortsKeys(t *testing.T) {
 func TestRunEnvKeys_SearchSubstring(t *testing.T) {
 	setupVaultProject(t)
 	for _, k := range []string{"API_KEY", "DB_URL", "api_token", "TIMEOUT"} {
-		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+		if err := runEnvSet([]string{k, "v"}, "global", false, ""); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
@@ -172,7 +172,7 @@ func TestRunEnvKeys_SearchSubstring(t *testing.T) {
 func TestRunEnvKeys_SearchGlob(t *testing.T) {
 	setupVaultProject(t)
 	for _, k := range []string{"API_KEY", "API_TOKEN", "DB_URL"} {
-		if err := runEnvSet([]string{k, "v"}, "global", false); err != nil {
+		if err := runEnvSet([]string{k, "v"}, "global", false, ""); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
 	}
@@ -195,7 +195,7 @@ func TestRunEnvKeys_SearchGlob(t *testing.T) {
 
 func TestRunEnvKeys_SearchNoMatches(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"API_KEY", "v"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"API_KEY", "v"}, "global", false, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -228,7 +228,7 @@ func TestRunEnvKeys_Errors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
-			if err := runEnvSet([]string{"K", "v"}, "global", false); err != nil {
+			if err := runEnvSet([]string{"K", "v"}, "global", false, ""); err != nil {
 				t.Fatalf("seed: %v", err)
 			}
 
@@ -289,10 +289,10 @@ func TestFormatTableValue_EscapesControlChars(t *testing.T) {
 // We render two rows; both must appear on their own line, in order.
 func TestRunEnvKeys_AlignsValuesContainingControlChars(t *testing.T) {
 	setupVaultProject(t)
-	if err := runEnvSet([]string{"FIRST", "value\rwith-cr"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"FIRST", "value\rwith-cr"}, "global", false, ""); err != nil {
 		t.Fatalf("seed FIRST: %v", err)
 	}
-	if err := runEnvSet([]string{"SECOND", "plain"}, "global", false); err != nil {
+	if err := runEnvSet([]string{"SECOND", "plain"}, "global", false, ""); err != nil {
 		t.Fatalf("seed SECOND: %v", err)
 	}
 
