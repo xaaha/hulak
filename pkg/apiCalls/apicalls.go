@@ -89,7 +89,17 @@ func StandardCallWithClient(
 // a per-file outcome line. On pre-flight failures (config parse, request
 // build) the status is empty. On transport failures (network down, DNS) the
 // status is also empty — the err carries the detail.
-func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path string, debug bool) ([]byte, string, error) {
+//
+// When dryRun is true, the request is built and printed to stdout but
+// never sent. No response file is written and the returned status is
+// empty. show controls whether sensitive headers are revealed in the
+// printed output.
+func SendAndSaveAPIRequest(
+	ctx context.Context,
+	secretsMap map[string]any,
+	path string,
+	debug, dryRun, show bool,
+) ([]byte, string, error) {
 	apiConfig, _, err := yamlparser.FinalStructForAPI(
 		path,
 		secretsMap,
@@ -101,6 +111,13 @@ func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path 
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
 		return nil, "", err
+	}
+
+	if dryRun {
+		if err := PrintDryRun(&apiInfo, show); err != nil {
+			return nil, "", err
+		}
+		return nil, "", nil
 	}
 
 	resp, err := StandardCall(ctx, apiInfo, debug)
