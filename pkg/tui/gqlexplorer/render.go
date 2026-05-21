@@ -64,7 +64,8 @@ func (m *Model) renderList() (string, int) {
 			if focused {
 				row.WriteString(tui.SubtitleStyle.Render(selectedPrefix + op.Name))
 			} else {
-				row.WriteString(selectedPrefix + op.Name)
+				row.WriteString(selectedPrefix)
+				row.WriteString(op.Name)
 			}
 			wrapW := max(m.leftPanelWidth()-detailPadding, 1)
 			for _, text := range []string{op.Description, op.Endpoint} {
