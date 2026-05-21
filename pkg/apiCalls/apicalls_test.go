@@ -691,6 +691,37 @@ func TestSerializeAndSaveResp_Default(t *testing.T) {
 	}
 }
 
+// TestSerializeAndSaveResp_EmptyBody verifies that an empty response body
+// (HTTP 204 No Content and similar) does not error and writes no file.
+func TestSerializeAndSaveResp_EmptyBody(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := dir + "/req.hk.yaml"
+	resp := &CustomResponse{
+		Response:    &ResponseInfo{StatusCode: 204, Status: "204 No Content"},
+		Duration:    "1.00ms",
+		contentType: "",
+		rawBody:     []byte{},
+	}
+	bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+	if err != nil {
+		t.Fatalf("empty body should not error, got: %v", err)
+	}
+	if len(bytesOut) != 0 {
+		t.Errorf("expected zero-length bytes, got %d: %q", len(bytesOut), bytesOut)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading temp dir: %v", err)
+	}
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("expected no files written for empty body, found: %v", names)
+	}
+}
+
 // TestSerializeAndSaveResp_Debug verifies --debug mode preserves the full
 // wrapped CustomResponse shape (request, response, http_info, duration).
 func TestSerializeAndSaveResp_Debug(t *testing.T) {

@@ -147,6 +147,10 @@ func SerializeAndSaveResp(resp *CustomResponse, path string) ([]byte, error) {
 	}
 
 	body := defaultBodyForOutput(resp.rawBody)
+	if len(body) == 0 {
+		// 204 No Content and friends: nothing to print or save.
+		return body, nil
+	}
 	return body, evalAndWriteRes(string(body), resp.contentType, path)
 }
 
