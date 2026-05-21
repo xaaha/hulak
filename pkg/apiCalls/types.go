@@ -12,6 +12,20 @@ type CustomResponse struct {
 	// file can use the right extension (#208). Unexported so it doesn't
 	// leak into the JSON output users see — encoding/json skips it.
 	contentType string
+
+	// rawBody is the exact bytes returned by the server. Used in default
+	// (non-debug) mode so saved files and stdout output match what the
+	// server sent, byte-for-byte for non-JSON content and pretty-printed
+	// for JSON. Unexported — JSON encoder ignores it.
+	rawBody []byte
+}
+
+// isDebug reports whether this response was built in debug mode.
+// processResponse only sets Request when --debug is on, so its presence
+// is a reliable signal. A dedicated bool field would push the struct
+// over the lint size threshold for pass-by-value.
+func (r *CustomResponse) isDebug() bool {
+	return r.Request != nil
 }
 
 // RequestInfo has all the information about the  request body

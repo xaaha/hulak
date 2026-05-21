@@ -62,7 +62,11 @@ func processResponse(
 	contentType := resp.Header.Get("Content-Type")
 
 	if !debug {
-		// Return minimal set of data
+		// Return minimal set of data. rawBody is what the file writer
+		// and stdout printer actually emit in default mode; the wrapped
+		// Response/Duration fields stay populated so downstream callers
+		// (runner outcome line) can still read status without re-parsing.
+		// Request stays nil — isDebug() reads that as "default mode".
 		return CustomResponse{
 			Response: &ResponseInfo{
 				StatusCode: resp.StatusCode,
@@ -71,6 +75,7 @@ func processResponse(
 			},
 			Duration:    durationFormatted,
 			contentType: contentType,
+			rawBody:     respBody,
 		}, nil
 	}
 
@@ -126,6 +131,7 @@ func processResponse(
 		HTTPInfo:    &tlsInfo,
 		Duration:    durationFormatted,
 		contentType: contentType,
+		rawBody:     respBody,
 	}, nil
 }
 

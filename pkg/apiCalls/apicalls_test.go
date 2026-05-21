@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -536,4 +537,234 @@ func TestMockServerWithHandler(t *testing.T) {
 	if resp2.StatusCode != 201 {
 		t.Errorf("POST: expected 201, got %d", resp2.StatusCode)
 	}
+}
+
+func TestIsDebug(t *testing.T) {
+	tests := []struct {
+		name string
+		resp CustomResponse
+		want bool
+	}{
+		{"nil Request is default mode", CustomResponse{}, false},
+		{"set Request is debug mode", CustomResponse{Request: &RequestInfo{Method: "GET"}}, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.resp.isDebug(); got != tc.want {
+				t.Errorf("isDebug() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDefaultBodyForOutput(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []byte
+		want []byte
+	}{
+		{
+			name: "empty input returned as-is",
+			in:   []byte{},
+			want: []byte{},
+		},
+		{
+			name: "nil input returned as-is",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "valid JSON pretty-printed",
+			in:   []byte(`{"a":1,"b":{"c":2}}`),
+			want: []byte("{\n  \"a\": 1,\n  \"b\": {\n    \"c\": 2\n  }\n}"),
+		},
+		{
+			name: "already-formatted JSON re-indented to two spaces",
+			in:   []byte("{\n    \"a\": 1\n}"),
+			want: []byte("{\n  \"a\": 1\n}"),
+		},
+		{
+			name: "HTML preserved byte-perfect",
+			in:   []byte("<!DOCTYPE html><html><body>x</body></html>"),
+			want: []byte("<!DOCTYPE html><html><body>x</body></html>"),
+		},
+		{
+			name: "XML preserved byte-perfect",
+			in:   []byte("<root><k>v</k></root>"),
+			want: []byte("<root><k>v</k></root>"),
+		},
+		{
+			name: "plain text preserved byte-perfect",
+			in:   []byte("hello world\nline two"),
+			want: []byte("hello world\nline two"),
+		},
+		{
+			name: "malformed JSON returned as-is (fallback path)",
+			in:   []byte(`{"a": 1,`),
+			want: []byte(`{"a": 1,`),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := defaultBodyForOutput(tc.in)
+			if !bytes.Equal(got, tc.want) {
+				t.Errorf("defaultBodyForOutput()\n  got:  %q\n  want: %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestSerializeAndSaveResp_Default verifies that default mode writes only
+// the response body — no request/duration/http_info wrapper. JSON bodies
+// are pretty-printed, non-JSON content is preserved byte-perfect.
+func TestSerializeAndSaveResp_Default(t *testing.T) {
+	tests := []struct {
+		name        string
+		rawBody     []byte
+		contentType string
+		wantOnDisk  string
+		wantExt     string
+	}{
+		{
+			name:        "JSON body is pretty-printed",
+			rawBody:     []byte(`{"data":{"id":42}}`),
+			contentType: "application/json",
+			wantOnDisk:  "{\n  \"data\": {\n    \"id\": 42\n  }\n}",
+			wantExt:     ".json",
+		},
+		{
+			name:        "HTML body kept byte-perfect",
+			rawBody:     []byte("<!DOCTYPE html><html><body>ok</body></html>"),
+			contentType: "text/html",
+			wantOnDisk:  "<!DOCTYPE html><html><body>ok</body></html>",
+			wantExt:     ".html",
+		},
+		{
+			name:        "XML body kept byte-perfect",
+			rawBody:     []byte("<root><k>v</k></root>"),
+			contentType: "application/xml",
+			wantOnDisk:  "<root><k>v</k></root>",
+			wantExt:     ".xml",
+		},
+		{
+			name:        "plain text body kept byte-perfect",
+			rawBody:     []byte("plain text response"),
+			contentType: "text/plain",
+			wantOnDisk:  "plain text response",
+			wantExt:     ".txt",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			// Path the runner passes is a yaml-like input; evalAndWriteRes
+			// strips the trailing extension and appends the resolved one.
+			inputPath := dir + "/req.hk.yaml"
+			resp := &CustomResponse{
+				Response:    &ResponseInfo{StatusCode: 200, Status: "200 OK"},
+				Duration:    "10.00ms",
+				contentType: tc.contentType,
+				rawBody:     tc.rawBody,
+			}
+			bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+			if err != nil {
+				t.Fatalf("SerializeAndSaveResp returned error: %v", err)
+			}
+			if string(bytesOut) != tc.wantOnDisk {
+				t.Errorf("returned bytes mismatch\n  got:  %q\n  want: %q", bytesOut, tc.wantOnDisk)
+			}
+			// The wrapper keys must NOT appear in default mode output.
+			for _, leak := range []string{`"response"`, `"duration"`, `"status_code"`, `"http_info"`, `"request"`} {
+				if strings.Contains(string(bytesOut), leak) {
+					t.Errorf("default-mode bytes contain wrapper key %s: %s", leak, bytesOut)
+				}
+			}
+			diskPath := dir + "/req.hk_response" + tc.wantExt
+			onDisk, readErr := readFile(t, diskPath)
+			if readErr != nil {
+				t.Fatalf("reading saved file %s: %v", diskPath, readErr)
+			}
+			if onDisk != tc.wantOnDisk {
+				t.Errorf("on-disk content mismatch\n  got:  %q\n  want: %q", onDisk, tc.wantOnDisk)
+			}
+		})
+	}
+}
+
+// TestSerializeAndSaveResp_EmptyBody verifies that an empty response body
+// (HTTP 204 No Content and similar) does not error and writes no file.
+func TestSerializeAndSaveResp_EmptyBody(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := dir + "/req.hk.yaml"
+	resp := &CustomResponse{
+		Response:    &ResponseInfo{StatusCode: 204, Status: "204 No Content"},
+		Duration:    "1.00ms",
+		contentType: "",
+		rawBody:     []byte{},
+	}
+	bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+	if err != nil {
+		t.Fatalf("empty body should not error, got: %v", err)
+	}
+	if len(bytesOut) != 0 {
+		t.Errorf("expected zero-length bytes, got %d: %q", len(bytesOut), bytesOut)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading temp dir: %v", err)
+	}
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("expected no files written for empty body, found: %v", names)
+	}
+}
+
+// TestSerializeAndSaveResp_Debug verifies --debug mode preserves the full
+// wrapped CustomResponse shape (request, response, http_info, duration).
+func TestSerializeAndSaveResp_Debug(t *testing.T) {
+	dir := t.TempDir()
+	inputPath := dir + "/req.hk.yaml"
+	resp := &CustomResponse{
+		Request: &RequestInfo{
+			Method: "POST",
+			URL:    "https://example.com/api",
+		},
+		Response: &ResponseInfo{
+			StatusCode: 200,
+			Status:     "200 OK",
+			Body:       map[string]any{"ok": true},
+		},
+		HTTPInfo:    &HTTPInfo{Protocol: "HTTP/1.1"},
+		Duration:    "12.34ms",
+		contentType: "application/json",
+		rawBody:     []byte(`{"ok":true}`),
+	}
+	bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+	if err != nil {
+		t.Fatalf("SerializeAndSaveResp returned error: %v", err)
+	}
+	// Wrapped output must include the metadata keys.
+	for _, want := range []string{`"request"`, `"response"`, `"http_info"`, `"duration"`} {
+		if !strings.Contains(string(bytesOut), want) {
+			t.Errorf("debug bytes missing wrapper key %s\n  got: %s", want, bytesOut)
+		}
+	}
+	// Parse to confirm the saved JSON is structurally well-formed.
+	var roundTrip map[string]any
+	if err := json.Unmarshal(bytesOut, &roundTrip); err != nil {
+		t.Fatalf("debug bytes are not valid JSON: %v", err)
+	}
+	if _, ok := roundTrip["request"]; !ok {
+		t.Error("debug JSON missing request key")
+	}
+}
+
+// readFile is a small test helper.
+func readFile(t *testing.T, path string) (string, error) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	return string(b), err
 }
