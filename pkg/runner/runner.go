@@ -46,6 +46,22 @@ type Flags struct {
 	// SSHIdentity overrides the SSH key path for vault decryption.
 	// Propagated via HULAK_SSH_IDENTITY for the duration of this execution.
 	SSHIdentity string
+	// DryRun builds and prints each request but skips transport. Used to
+	// inspect the encoded wire shape before sending.
+	DryRun bool
+	// Show reveals sensitive headers (Authorization, Cookie, etc.) when
+	// printing requests in --dry-run mode. Off by default.
+	Show bool
+}
+
+// runOptions bundles per-run flags that every internal helper needs to
+// thread through to processTask. Built once in Execute / ExecuteSingleFile
+// so adding a new flag (e.g. record mode) is a single-field change rather
+// than a parameter rewrite across five signatures.
+type runOptions struct {
+	Debug  bool
+	DryRun bool
+	Show   bool
 }
 
 // DefaultTimeout is the per-request timeout used when no override is set
@@ -115,10 +131,11 @@ func Execute(f *Flags) error {
 		}
 	}
 
+	opts := runOptions{Debug: f.Debug, DryRun: f.DryRun, Show: f.Show}
 	return handleAPIRequests(
 		envMap,
-		f.Debug,
 		f.Quiet,
+		opts,
 		append(fileList, concurrentDir...),
 		sequentialDir,
 		baseTimeout,
@@ -140,7 +157,7 @@ func ExecuteSingleFile(
 	if err != nil {
 		return err
 	}
-	return handleAPIRequests(envMap, debug, false, []string{filePath}, nil, baseTimeout)
+	return handleAPIRequests(envMap, false, runOptions{Debug: debug}, []string{filePath}, nil, baseTimeout)
 }
 
 // resolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
@@ -248,8 +265,8 @@ type outcome struct {
 // the floor used for each request unless the file's YAML overrides it.
 func handleAPIRequests(
 	secrets map[string]any,
-	debug bool,
 	quiet bool,
+	opts runOptions,
 	concurrentFiles []string,
 	sequentialFiles []string,
 	baseTimeout time.Duration,
@@ -272,7 +289,7 @@ func handleAPIRequests(
 		// case guard above.
 		outcomes = append(outcomes, runSingleWithSpinner(
 			firstNonEmpty(concurrentFiles, sequentialFiles),
-			secrets, debug, baseTimeout,
+			secrets, opts, baseTimeout,
 		))
 	default:
 		if len(concurrentFiles) > 0 {
@@ -283,7 +300,7 @@ func handleAPIRequests(
 			}
 			outcomes = append(
 				outcomes,
-				runTasks(concurrentFiles, secrets, debug, baseTimeout)...)
+				runTasks(concurrentFiles, secrets, opts, baseTimeout)...)
 		}
 		if len(sequentialFiles) > 0 {
 			utils.PrintInfoStderr(
@@ -291,7 +308,7 @@ func handleAPIRequests(
 			)
 			outcomes = append(
 				outcomes,
-				processFilesSequentially(sequentialFiles, secrets, debug, multiFile, baseTimeout)...)
+				processFilesSequentially(sequentialFiles, secrets, opts, multiFile, baseTimeout)...)
 		}
 	}
 
@@ -488,7 +505,7 @@ var ansiInOutcome = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 func runTasks(
 	filePathList []string,
 	secretsMap map[string]any,
-	debug bool,
+	opts runOptions,
 	baseTimeout time.Duration,
 ) []outcome {
 	maxWorkers := utils.GetWorkers(nil)
@@ -508,7 +525,7 @@ func runTasks(
 			defer wg.Done()
 
 			for path := range taskChan {
-				final := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+				final := processTask(path, utils.CopyEnvMap(secretsMap), opts, baseTimeout)
 				if final.respBytes != nil {
 					apicalls.PrintRespBytes(final.respBytes)
 				}
@@ -537,12 +554,12 @@ func runTasks(
 func runSingleWithSpinner(
 	path string,
 	secrets map[string]any,
-	debug bool,
+	opts runOptions,
 	baseTimeout time.Duration,
 ) outcome {
 	msg := fmt.Sprintf("Running '%s'...", filepath.Base(path))
 	result, _ := tui.RunWithSpinnerOnStderr(msg, func() (any, error) {
-		return processTask(path, utils.CopyEnvMap(secrets), debug, baseTimeout), nil
+		return processTask(path, utils.CopyEnvMap(secrets), opts, baseTimeout), nil
 	})
 	o := result.(outcome)
 	// Spinner has cleared by this point. Print the response now so it lands
@@ -585,7 +602,7 @@ func firstNonEmpty(a, b []string) string {
 func processTask(
 	path string,
 	secretsMap map[string]any,
-	debug bool,
+	opts runOptions,
 	baseTimeout time.Duration,
 ) outcome {
 	start := time.Now()
@@ -604,13 +621,15 @@ func processTask(
 
 	switch {
 	case config.IsAuth():
-		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, debug)
+		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, opts.Debug)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case config.IsAPI() || config.IsGraphql():
 		respBytes, status, err := apicalls.SendAndSaveAPIRequest(ctx, apicalls.RequestOptions{
 			Secrets: secretsMap,
 			Path:    path,
-			Debug:   debug,
+			Debug:   opts.Debug,
+			DryRun:  opts.DryRun,
+			Show:    opts.Show,
 		})
 		return outcome{
 			path:      path,
@@ -641,13 +660,13 @@ func processTask(
 func processFilesSequentially(
 	filePaths []string,
 	secretsMap map[string]any,
-	debug bool,
+	opts runOptions,
 	multiFile bool,
 	baseTimeout time.Duration,
 ) []outcome {
 	outcomes := make([]outcome, 0, len(filePaths))
 	for _, path := range filePaths {
-		o := processTask(path, utils.CopyEnvMap(secretsMap), debug, baseTimeout)
+		o := processTask(path, utils.CopyEnvMap(secretsMap), opts, baseTimeout)
 		if o.respBytes != nil {
 			apicalls.PrintRespBytes(o.respBytes)
 		}

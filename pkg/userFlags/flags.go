@@ -50,6 +50,8 @@ var (
 	flagDirseq  string
 	flagDebug   bool
 	flagQuiet   bool
+	flagDryRun  bool
+	flagShow    bool
 	flagTimeout time.Duration
 
 	flagVersion bool
@@ -76,6 +78,10 @@ func init() {
 
 	flag.BoolVar(&flagQuiet, "quiet", false, "Suppress the end-of-run summary table")
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress the end-of-run summary table")
+
+	flag.BoolVar(&flagDryRun, "dry-run", false, "Print the built request and exit without sending it")
+
+	flag.BoolVar(&flagShow, "show", false, "Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output")
 
 	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 
