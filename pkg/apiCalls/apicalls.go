@@ -82,28 +82,19 @@ func StandardCallWithClient(
 	return processResponse(req, response, duration, debug, reqBodyForDebug)
 }
 
-// SendAndSaveAPIRequest calls the PrepareStruct using the provided envMap
-// and makes the Api Call with StandardCall and prints the response in console.
+// SendAndSaveAPIRequest builds the API request from the file at opts.Path,
+// then either executes it or (when opts.DryRun) prints the built request.
 //
 // Returns the HTTP status string (e.g. "200 OK") so the runner can render
 // a per-file outcome line. On pre-flight failures (config parse, request
 // build) the status is empty. On transport failures (network down, DNS) the
 // status is also empty — the err carries the detail.
 //
-// When dryRun is true, the request is built and printed to stdout but
-// never sent. No response file is written and the returned status is
-// empty. show controls whether sensitive headers are revealed in the
-// printed output.
-func SendAndSaveAPIRequest(
-	ctx context.Context,
-	secretsMap map[string]any,
-	path string,
-	debug, dryRun, show bool,
-) ([]byte, string, error) {
-	apiConfig, _, err := yamlparser.FinalStructForAPI(
-		path,
-		secretsMap,
-	)
+// When opts.DryRun is true, the request is built and printed to stdout but
+// never sent. No response file is written. opts.Show controls whether
+// sensitive headers are revealed in the printed output.
+func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, string, error) {
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
 	if err != nil {
 		return nil, "", err
 	}
@@ -113,19 +104,19 @@ func SendAndSaveAPIRequest(
 		return nil, "", err
 	}
 
-	if dryRun {
-		if err := PrintDryRun(&apiInfo, show); err != nil {
+	if opts.DryRun {
+		if err := PrintDryRun(&apiInfo, opts.Show); err != nil {
 			return nil, "", err
 		}
 		return nil, "", nil
 	}
 
-	resp, err := StandardCall(ctx, apiInfo, debug)
+	resp, err := StandardCall(ctx, apiInfo, opts.Debug)
 	if err != nil {
 		return nil, "", err
 	}
 
-	respBytes, saveErr := SerializeAndSaveResp(&resp, path)
+	respBytes, saveErr := SerializeAndSaveResp(&resp, opts.Path)
 	status := ""
 	if resp.Response != nil {
 		status = resp.Response.Status
