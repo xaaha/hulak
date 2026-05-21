@@ -92,6 +92,8 @@ hulak run path/to/file.yaml --env staging
 hulak run path/to/dir/
 hulak run path/to/dir/ --sequential
 hulak run path/to/file.yaml --ssh-identity ~/.ssh/work_ed25519
+hulak run path/to/file.yaml --dry-run
+hulak run path/to/file.yaml --dry-run --show
 ```
 
 Supported flags:
@@ -99,9 +101,11 @@ Supported flags:
 | Flag | Meaning |
 | ---- | ------- |
 | `--debug` | Enable debug mode |
+| `--dry-run` | Print the built request and exit without sending it |
 | `--env`, `--environment` | Environment to use |
 | `--q`, `--quiet` | Suppress the end-of-run summary table |
 | `--seq`, `--sequential` | Run directory files sequentially |
+| `--show` | Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output |
 | `--ssh-identity` | Path to SSH private key for vault decryption |
 | `--timeout` | Per-request timeout, e.g. 5m or 90s (default 60s) |
 
