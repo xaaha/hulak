@@ -375,7 +375,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case queryExecutedMsg:
 		m.executing = false
 		m.updateActionRow()
-		m.handleQueryExecuted(msg)
+		m.handleQueryExecuted(&msg)
 		return m, nil
 	case queryErrorMsg:
 		m.executing = false
@@ -1088,7 +1088,7 @@ func (m *Model) restoreResponseFromCache(formKey string) {
 	m.responsePanel.Footer = ""
 }
 
-func (m *Model) handleQueryExecuted(msg queryExecutedMsg) {
+func (m *Model) handleQueryExecuted(msg *queryExecutedMsg) {
 	var bodyJSON []byte
 	if msg.resp.Response != nil && msg.resp.Response.Body != nil {
 		bodyJSON, _ = json.MarshalIndent(msg.resp.Response.Body, "", "  ")
