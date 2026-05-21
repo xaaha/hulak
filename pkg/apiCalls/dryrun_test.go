@@ -3,6 +3,7 @@ package apicalls
 import (
 	"bytes"
 	"io"
+	"mime/multipart"
 	"os"
 	"strings"
 	"testing"
@@ -159,6 +160,66 @@ func TestPrintDryRun_NilBody(t *testing.T) {
 	// there are no headers in this test.
 	if strings.Contains(out, "\n\n") {
 		t.Errorf("nil body should not emit blank line + body block, got:\n%s", out)
+	}
+}
+
+func TestPrintDryRun_URLEncodedBodyPretty(t *testing.T) {
+	info := &yamlparser.APIInfo{
+		Method:  "POST",
+		URL:     "https://api.example.com/x",
+		Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		Body:    strings.NewReader("user=Jane+Doe&age=42"),
+	}
+	out := captureStdout(t, func() {
+		if err := PrintDryRun(info, false); err != nil {
+			t.Fatalf("PrintDryRun: %v", err)
+		}
+	})
+	if !strings.Contains(out, "age: 42") {
+		t.Errorf("urlencoded body should render key: value, got:\n%s", out)
+	}
+	if !strings.Contains(out, "user: Jane Doe") {
+		t.Errorf("urlencoded body should URL-decode values, got:\n%s", out)
+	}
+	if strings.Contains(out, "user=Jane+Doe") {
+		t.Errorf("raw urlencoded bytes should not leak when pretty-printed, got:\n%s", out)
+	}
+}
+
+func TestPrintDryRun_MultipartBodyPretty(t *testing.T) {
+	// Build a real multipart body via mime/multipart so the boundary in the
+	// header matches the bytes in the body.
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if err := mw.WriteField("product", "hulak"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.WriteField("user", "Jane Doe"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	info := &yamlparser.APIInfo{
+		Method:  "POST",
+		URL:     "https://api.example.com/x",
+		Headers: map[string]string{"Content-Type": mw.FormDataContentType()},
+		Body:    &buf,
+	}
+	out := captureStdout(t, func() {
+		if err := PrintDryRun(info, false); err != nil {
+			t.Fatalf("PrintDryRun: %v", err)
+		}
+	})
+	if !strings.Contains(out, "product: hulak") {
+		t.Errorf("multipart body should render key: value, got:\n%s", out)
+	}
+	if !strings.Contains(out, "user: Jane Doe") {
+		t.Errorf("multipart body should render second field, got:\n%s", out)
+	}
+	if strings.Contains(out, "Content-Disposition") {
+		t.Errorf("raw multipart envelope should not leak when pretty-printed, got:\n%s", out)
 	}
 }
 
