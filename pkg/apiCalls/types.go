@@ -1,6 +1,17 @@
 // Package apicalls has all things related to api call
 package apicalls
 
+// RequestOptions bundles the per-request flags SendAndSaveAPIRequest needs
+// from the runner. Keeps the call site readable when more flags get added
+// (next likely additions: timeout overrides, output redirection).
+type RequestOptions struct {
+	Secrets map[string]any
+	Path    string
+	Debug   bool
+	DryRun  bool
+	Show    bool
+}
+
 // CustomResponse is structure of the result to print and save
 type CustomResponse struct {
 	Request  *RequestInfo  `json:"request,omitempty"`

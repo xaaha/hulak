@@ -40,6 +40,7 @@ func TestGlobalFlagsRegistered(t *testing.T) {
 	expected := []string{
 		"env", "environment", "fp", "file-path", "f", "file",
 		"debug", "dir", "dirseq",
+		"dry-run", "show",
 		"v", "version", "h", "help",
 	}
 
@@ -107,7 +108,7 @@ func TestRunSubcommandFlags(t *testing.T) {
 		t.Fatal("expected run subcommand to exist")
 	}
 
-	for _, name := range []string{"env", "environment", "sequential", "seq", "debug"} {
+	for _, name := range []string{"env", "environment", "sequential", "seq", "debug", "dry-run", "show"} {
 		if runCmd.Flags.Lookup(name) == nil {
 			t.Errorf("run subcommand should have --%s flag", name)
 		}
@@ -171,7 +172,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, false, 0, "", []string{tmpFile})
+	f, err := parseRunArgs(runCmdArgs{Args: []string{tmpFile}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,7 +189,7 @@ func TestParseRunArgsSetsFilePath(t *testing.T) {
 func TestParseRunArgsSetsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", false, false, false, 0, "", []string{tmpDir})
+	f, err := parseRunArgs(runCmdArgs{Args: []string{tmpDir}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,7 +214,7 @@ func TestParseRunArgsRoutesFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("staging", false, true, false, 0, "", []string{tmpFile})
+	f, err := parseRunArgs(runCmdArgs{Env: "staging", Debug: true, Args: []string{tmpFile}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -236,7 +237,7 @@ func TestParseRunArgsQuietPlumbed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, true, 0, "", []string{tmpFile})
+	f, err := parseRunArgs(runCmdArgs{Quiet: true, Args: []string{tmpFile}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -245,12 +246,64 @@ func TestParseRunArgsQuietPlumbed(t *testing.T) {
 	}
 }
 
+// TestParseRunArgsDryRunPlumbed verifies DryRun=true lands on runner.Flags.
+func TestParseRunArgsDryRunPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs(runCmdArgs{DryRun: true, Args: []string{tmpFile}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.DryRun {
+		t.Error("DryRun should be true when DryRun arg is true")
+	}
+}
+
+// TestParseRunArgsShowPlumbed verifies Show=true lands on runner.Flags.
+func TestParseRunArgsShowPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs(runCmdArgs{Show: true, Args: []string{tmpFile}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.Show {
+		t.Error("Show should be true when Show arg is true")
+	}
+}
+
+// TestParseRunArgsDryRunAndShowPlumbed verifies both flags set together
+// land on runner.Flags so --dry-run --show reveals headers as intended.
+func TestParseRunArgsDryRunAndShowPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs(runCmdArgs{DryRun: true, Show: true, Args: []string{tmpFile}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.DryRun {
+		t.Error("DryRun should be true")
+	}
+	if !f.Show {
+		t.Error("Show should be true")
+	}
+}
+
 // TestParseRunArgsSequentialDir verifies sequential=true on a directory
 // routes to Dirseq instead of Dir.
 func TestParseRunArgsSequentialDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	f, err := parseRunArgs("", true, false, false, 0, "", []string{tmpDir})
+	f, err := parseRunArgs(runCmdArgs{Sequential: true, Args: []string{tmpDir}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -273,7 +326,7 @@ func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
 	}
 
 	want := 5 * time.Minute
-	f, err := parseRunArgs("", false, false, false, want, "", []string{tmpFile})
+	f, err := parseRunArgs(runCmdArgs{Timeout: want, Args: []string{tmpFile}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -284,7 +337,7 @@ func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
 
 // TestParseRunArgsBadPath verifies that a nonexistent path returns an error.
 func TestParseRunArgsBadPath(t *testing.T) {
-	_, err := parseRunArgs("", false, false, false, 0, "", []string{"/nonexistent/path.yaml"})
+	_, err := parseRunArgs(runCmdArgs{Args: []string{"/nonexistent/path.yaml"}})
 	if err == nil {
 		t.Fatal("expected an error for nonexistent path")
 	}
@@ -298,7 +351,7 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := parseRunArgs("", false, false, false, 0, "", []string{tmpFile})
+	f, err := parseRunArgs(runCmdArgs{Args: []string{tmpFile}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

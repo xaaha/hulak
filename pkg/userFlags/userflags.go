@@ -75,6 +75,8 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 					Dir:      flagDir,
 					Dirseq:   flagDirseq,
 					Timeout:  flagTimeout,
+					DryRun:   flagDryRun,
+					Show:     flagShow,
 				})
 				if err != nil {
 					return nil, err

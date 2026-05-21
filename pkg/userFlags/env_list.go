@@ -14,8 +14,10 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// maskedValue is what `keys` prints in place of secret values when --show is off.
-const maskedValue = "••••"
+// maskedValue is what `keys` prints in place of secret values when --show is
+// off. Aliased to utils.MaskedValue so the glyph stays in sync across every
+// command that masks output.
+const maskedValue = utils.MaskedValue
 
 // newEnvListCmd returns the command struct for `hulak secrets list`.
 func newEnvListCmd() *command {
@@ -62,7 +64,7 @@ func runEnvList(args []string) error {
 func newEnvKeysCmd() *command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
 	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
-	keysShow := keysFs.Bool("show", false, "Reveal values instead of masking them")
+	keysShow := registerShowFlag(keysFs, "Reveal values instead of masking them")
 	keysSearch := keysFs.String(
 		"search",
 		"",

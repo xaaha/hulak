@@ -6,7 +6,7 @@ hulak \- file-based API client for the terminal
 .SH SYNOPSIS
 .B hulak
 .br
-.B hulak run [\-\-debug] [\-\-env] [\-\-q] [\-\-seq] [\-\-ssh-identity] [\-\-timeout] <path>
+.B hulak run [\-\-debug] [\-\-dry-run] [\-\-env] [\-\-q] [\-\-seq] [\-\-show] [\-\-ssh-identity] [\-\-timeout] <path>
 .br
 .B hulak version
 .br
@@ -85,6 +85,9 @@ Show help for hulak
 .B \-\-debug
 Enable debug mode
 .TP
+.B \-\-dry-run
+Print the built request and exit without sending it
+.TP
 .B \-\-env, \-\-environment <string>
 Environment to use
 .TP
@@ -93,6 +96,9 @@ Suppress the end\-of\-run summary table
 .TP
 .B \-\-seq, \-\-sequential
 Run directory files sequentially
+.TP
+.B \-\-show
+Reveal sensitive headers (Authorization, Cookie, etc\&.) in \-\-dry\-run output
 .TP
 .B \-\-ssh-identity <string>
 Path to SSH private key for vault decryption
@@ -115,6 +121,9 @@ Directory path to run concurrently
 .B \-\-dirseq <string>
 Directory path to run in alphabetical order
 .TP
+.B \-\-dry-run
+Print the built request and exit without sending it
+.TP
 .B \-\-env, \-\-environment <string>
 Environment file to use during the call
 .TP
@@ -126,6 +135,9 @@ Relative (or absolute) file path of the request file
 .TP
 .B \-\-q, \-\-quiet
 Suppress the end\-of\-run summary table
+.TP
+.B \-\-show
+Reveal sensitive headers (Authorization, Cookie, etc\&.) in \-\-dry\-run output
 .TP
 .B \-\-timeout <duration>
 Per\-request timeout, e\&.g\&. 5m or 90s (default 60s)
@@ -172,6 +184,12 @@ hulak run path/to/dir/ \-\-sequential
 .RE
 .RS
 hulak run path/to/file\&.yaml \-\-ssh\-identity ~/\&.ssh/work_ed25519
+.RE
+.RS
+hulak run path/to/file\&.yaml \-\-dry\-run
+.RE
+.RS
+hulak run path/to/file\&.yaml \-\-dry\-run \-\-show
 .RE
 .PP
 version:

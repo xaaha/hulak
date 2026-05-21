@@ -47,7 +47,6 @@ func TestDiscoverFilePaths_FpReturnsFileList(t *testing.T) {
 		"",      // dirseq
 		false,   // hasDirFlags
 	)
-
 	if err != nil {
 		t.Fatalf("discoverFilePaths: %v", err)
 	}
@@ -78,7 +77,6 @@ func TestDiscoverFilePaths_DirReturnsConcurrent(t *testing.T) {
 		"",     // dirseq
 		true,   // hasDirFlags
 	)
-
 	if err != nil {
 		t.Fatalf("discoverFilePaths: %v", err)
 	}
@@ -507,7 +505,7 @@ func TestProcessFilesSequentially_TimeoutEnforced(t *testing.T) {
 
 	timeout := 100 * time.Millisecond
 	start := time.Now()
-	outcomes := processFilesSequentially([]string{path}, nil, false, false, timeout)
+	outcomes := processFilesSequentially([]string{path}, nil, runOptions{}, false, timeout)
 	elapsed := time.Since(start)
 
 	if len(outcomes) != 1 {
@@ -555,7 +553,7 @@ func TestProcessFilesSequentially_YAMLTimeoutWins(t *testing.T) {
 	// approach this base instead of the YAML's 100ms.
 	base := 10 * time.Second
 	start := time.Now()
-	outcomes := processFilesSequentially([]string{path}, nil, false, false, base)
+	outcomes := processFilesSequentially([]string{path}, nil, runOptions{}, false, base)
 	elapsed := time.Since(start)
 
 	if len(outcomes) != 1 {
@@ -589,12 +587,12 @@ func TestRunTasks_TimeoutEnforced(t *testing.T) {
 	t.Cleanup(func() { close(block) })
 
 	path := filepath.Join(t.TempDir(), "slow.hk.yaml")
-	if err := os.WriteFile(path, []byte(fmt.Sprintf("method: GET\nurl: %q\n", server.URL)), 0o600); err != nil {
+	if err := os.WriteFile(path, fmt.Appendf(nil, "method: GET\nurl: %q\n", server.URL), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	start := time.Now()
-	outcomes := runTasks([]string{path}, nil, false, 100*time.Millisecond)
+	outcomes := runTasks([]string{path}, nil, runOptions{}, 100*time.Millisecond)
 	elapsed := time.Since(start)
 
 	if len(outcomes) != 1 {
@@ -603,7 +601,8 @@ func TestRunTasks_TimeoutEnforced(t *testing.T) {
 	if outcomes[0].ok {
 		t.Error("outcome.ok = true, want false")
 	}
-	if outcomes[0].err == nil || !strings.Contains(outcomes[0].err.Error(), "context deadline exceeded") {
+	if outcomes[0].err == nil ||
+		!strings.Contains(outcomes[0].err.Error(), "context deadline exceeded") {
 		t.Errorf("err = %v, want context deadline exceeded", outcomes[0].err)
 	}
 	if elapsed > 500*time.Millisecond {
@@ -630,7 +629,7 @@ func TestProcessTask_YAMLTimeoutOverridesBase(t *testing.T) {
 	}
 
 	start := time.Now()
-	o := processTask(path, nil, false, 10*time.Second)
+	o := processTask(path, nil, runOptions{}, 10*time.Second)
 	elapsed := time.Since(start)
 
 	if o.ok {
@@ -679,7 +678,7 @@ func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	o := runSingleWithSpinner(tmp, nil, false, 5*time.Second)
+	o := runSingleWithSpinner(tmp, nil, runOptions{}, 5*time.Second)
 	if !o.ok {
 		t.Errorf("expected ok outcome, got err=%v", o.err)
 	}
