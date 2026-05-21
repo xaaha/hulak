@@ -155,10 +155,11 @@ func (f *formItem) View() string {
 			for i, line := range strings.Split(inputBox, "\n") {
 				b.WriteString("\n")
 				if i == 0 {
-					b.WriteString(connector + line)
+					b.WriteString(connector)
 				} else {
-					b.WriteString(continuePad + line)
+					b.WriteString(continuePad)
 				}
+				b.WriteString(line)
 			}
 			return strings.TrimPrefix(b.String(), "\n")
 		}
@@ -178,10 +179,11 @@ func (f *formItem) View() string {
 		for i, line := range strings.Split(inputBox, "\n") {
 			b.WriteString("\n")
 			if i == 0 {
-				b.WriteString(connector + line)
+				b.WriteString(connector)
 			} else {
-				b.WriteString(continuePad + line)
+				b.WriteString(continuePad)
 			}
+			b.WriteString(line)
 		}
 		return b.String()
 	case formItemDropdown:
