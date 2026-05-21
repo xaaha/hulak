@@ -62,7 +62,7 @@ func runEnvList(args []string) error {
 func newEnvKeysCmd() *command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
 	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
-	keysShow := keysFs.Bool("show", false, "Reveal values instead of masking them")
+	keysShow := registerShowFlag(keysFs, "Reveal values instead of masking them")
 	keysSearch := keysFs.String(
 		"search",
 		"",
