@@ -108,7 +108,7 @@ func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path 
 		return nil, "", err
 	}
 
-	respBytes, saveErr := SerializeAndSaveResp(resp, path)
+	respBytes, saveErr := SerializeAndSaveResp(&resp, path)
 	status := ""
 	if resp.Response != nil {
 		status = resp.Response.Status
@@ -120,7 +120,7 @@ func SendAndSaveAPIRequest(ctx context.Context, secretsMap map[string]any, path 
 // disk next to the request file. Returns an error if the disk write fails so
 // the caller can fail the task. A successful HTTP request with a missing
 // response file should not look like a success to the user.
-func PrintAndSaveFinalResp(resp CustomResponse, path string) error {
+func PrintAndSaveFinalResp(resp *CustomResponse, path string) error {
 	respBytes, saveErr := SerializeAndSaveResp(resp, path)
 	if respBytes != nil {
 		PrintRespBytes(respBytes)
@@ -128,20 +128,45 @@ func PrintAndSaveFinalResp(resp CustomResponse, path string) error {
 	return saveErr
 }
 
-// SerializeAndSaveResp serializes the response, saves it to disk next to the
-// request file, and returns the serialized bytes. It does NOT print to
-// stdout. Use this when the caller needs to defer printing (e.g. when the
-// response will be printed after a stderr spinner clears).
-func SerializeAndSaveResp(resp CustomResponse, path string) ([]byte, error) {
-	jsonData, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		utils.PrintWarningStderr("serializing response: " + err.Error())
-		// Fallback so the disk write still has something useful.
-		strBody := fmt.Sprintf("%+v", resp)
-		return []byte(strBody), evalAndWriteRes(strBody, resp.contentType, path)
+// SerializeAndSaveResp writes the response to disk next to the request
+// file and returns the bytes. Does not print.
+//
+// Default: raw response body (JSON pretty-printed, others byte-perfect).
+// --debug: full CustomResponse (request, response, http_info, duration).
+func SerializeAndSaveResp(resp *CustomResponse, path string) ([]byte, error) {
+	if resp.isDebug() {
+		jsonData, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			utils.PrintWarningStderr("serializing response: " + err.Error())
+			// Fallback so the disk write still has something useful.
+			strBody := fmt.Sprintf("%+v", resp)
+			return []byte(strBody), evalAndWriteRes(strBody, resp.contentType, path)
+		}
+		strBody := string(jsonData)
+		return jsonData, evalAndWriteRes(strBody, resp.contentType, path)
 	}
-	strBody := string(jsonData)
-	return jsonData, evalAndWriteRes(strBody, resp.contentType, path)
+
+	body := defaultBodyForOutput(resp.rawBody)
+	return body, evalAndWriteRes(string(body), resp.contentType, path)
+}
+
+// defaultBodyForOutput returns the bytes used for default-mode save and
+// print: raw bytes verbatim, but pretty-printed when the payload is valid
+// JSON so the on-disk file is readable. Falls back to the original bytes
+// when json.Indent fails so non-JSON content (HTML, XML, plain text, binary)
+// is preserved exactly.
+func defaultBodyForOutput(raw []byte) []byte {
+	if len(raw) == 0 {
+		return raw
+	}
+	if !IsJSON(string(raw)) {
+		return raw
+	}
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, raw, "", "  "); err != nil {
+		return raw
+	}
+	return pretty.Bytes()
 }
 
 // PrintRespBytes prints serialized response JSON to stdout, colored when
