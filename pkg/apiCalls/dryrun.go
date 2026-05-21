@@ -25,8 +25,8 @@ import (
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
 func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
-	url := PrepareURL(apiInfo.URL, apiInfo.URLParams)
-	fmt.Printf("%s %s\n", apiInfo.Method, url)
+	reqURL := PrepareURL(apiInfo.URL, apiInfo.URLParams)
+	fmt.Printf("%s %s\n", apiInfo.Method, reqURL)
 
 	headers := utils.RedactHeaders(apiInfo.Headers, show)
 	names := make([]string, 0, len(headers))
@@ -52,7 +52,7 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
 		fmt.Print(pretty)
 		return nil
 	}
-	if IsJSON(string(body)) {
+	if isJSONContentType(ct) || IsJSON(string(body)) {
 		var pretty bytes.Buffer
 		if err := json.Indent(&pretty, body, "", "  "); err == nil {
 			fmt.Println(pretty.String())
@@ -61,6 +61,16 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
 	}
 	fmt.Println(string(body))
 	return nil
+}
+
+// isJSONContentType reports whether contentType is a JSON media type
+// (application/json or any +json suffix like application/vnd.api+json).
+func isJSONContentType(contentType string) bool {
+	media, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return media == "application/json" || strings.HasSuffix(media, "+json")
 }
 
 // contentTypeOf returns the Content-Type header value from headers,

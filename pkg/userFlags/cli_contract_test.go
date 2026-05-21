@@ -278,6 +278,26 @@ func TestParseRunArgsShowPlumbed(t *testing.T) {
 	}
 }
 
+// TestParseRunArgsDryRunAndShowPlumbed verifies both flags set together
+// land on runner.Flags so --dry-run --show reveals headers as intended.
+func TestParseRunArgsDryRunAndShowPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs(runCmdArgs{DryRun: true, Show: true, Args: []string{tmpFile}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.DryRun {
+		t.Error("DryRun should be true")
+	}
+	if !f.Show {
+		t.Error("Show should be true")
+	}
+}
+
 // TestParseRunArgsSequentialDir verifies sequential=true on a directory
 // routes to Dirseq instead of Dir.
 func TestParseRunArgsSequentialDir(t *testing.T) {

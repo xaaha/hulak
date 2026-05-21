@@ -223,6 +223,48 @@ func TestPrintDryRun_MultipartBodyPretty(t *testing.T) {
 	}
 }
 
+// TestPrintDryRun_MultipartMixedTextAndFile exercises a multipart body that
+// contains both a text field and a file part in the same envelope. File
+// parts must render as a "<file: name, N bytes>" summary, not raw bytes.
+func TestPrintDryRun_MultipartMixedTextAndFile(t *testing.T) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if err := mw.WriteField("title", "report"); err != nil {
+		t.Fatal(err)
+	}
+	fileWriter, err := mw.CreateFormFile("attachment", "data.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fileWriter.Write([]byte{0x00, 0x01, 0x02, 0x03, 0x04}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	info := &yamlparser.APIInfo{
+		Method:  "POST",
+		URL:     "https://api.example.com/x",
+		Headers: map[string]string{"Content-Type": mw.FormDataContentType()},
+		Body:    &buf,
+	}
+	out := captureStdout(t, func() {
+		if err := PrintDryRun(info, false); err != nil {
+			t.Fatalf("PrintDryRun: %v", err)
+		}
+	})
+	if !strings.Contains(out, "title: report") {
+		t.Errorf("text field should render verbatim, got:\n%s", out)
+	}
+	if !strings.Contains(out, "attachment: <file: data.bin, 5 bytes>") {
+		t.Errorf("file part should render as summary, got:\n%s", out)
+	}
+	if strings.Contains(out, "\x00\x01\x02") {
+		t.Errorf("raw binary bytes leaked into output:\n%s", out)
+	}
+}
+
 func TestPrintDryRun_EmptyBody(t *testing.T) {
 	info := &yamlparser.APIInfo{
 		Method: "GET",

@@ -77,6 +77,10 @@ const HulakTimeoutEnv = "HULAK_TIMEOUT"
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
+	if f.Show && !f.DryRun {
+		utils.PrintWarningStderr("--show has no effect without --dry-run")
+	}
+
 	// If --ssh-identity is set and the env var isn't already set by the shell,
 	// propagate it so ResolveIdentity picks it up for vault decryption.
 	// Uses env var (same mechanism as HULAK_MASTER_KEY) rather than threading

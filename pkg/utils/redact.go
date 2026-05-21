@@ -12,12 +12,16 @@ const MaskedValue = "••••"
 // purpose — over-redaction frustrates users more than under-redaction.
 // Extend deliberately, not speculatively.
 var sensitiveHeaders = map[string]bool{
-	"authorization":       true,
-	"proxy-authorization": true,
-	"cookie":              true,
-	"set-cookie":          true,
-	"x-api-key":           true,
-	"x-auth-token":        true,
+	"authorization":        true,
+	"proxy-authorization":  true,
+	"proxy-authenticate":   true,
+	"www-authenticate":     true,
+	"cookie":               true,
+	"set-cookie":           true,
+	"x-api-key":            true,
+	"x-auth-token":         true,
+	"x-csrf-token":         true,
+	"x-amz-security-token": true,
 }
 
 // IsSensitiveHeader reports whether name is in the sensitive-headers set.

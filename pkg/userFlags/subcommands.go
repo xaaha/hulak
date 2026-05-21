@@ -336,7 +336,6 @@ func newRunCmd() *command {
 	var sequential bool
 	var debug bool
 	var quiet bool
-	var dryRun bool
 	var timeout time.Duration
 	var sshIdentity string
 	fs.BoolVar(&sequential, "sequential", false, "Run directory files sequentially")
@@ -344,7 +343,7 @@ func newRunCmd() *command {
 	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
 	fs.BoolVar(&quiet, "quiet", false, "Suppress the end-of-run summary table")
 	fs.BoolVar(&quiet, "q", false, "Suppress the end-of-run summary table")
-	fs.BoolVar(&dryRun, "dry-run", false, "Print the built request and exit without sending it")
+	dryRun := registerDryRunFlag(fs)
 	show := registerShowFlag(
 		fs,
 		"Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output",
@@ -407,7 +406,7 @@ func newRunCmd() *command {
 			Sequential:  sequential,
 			Debug:       debug,
 			Quiet:       quiet,
-			DryRun:      dryRun,
+			DryRun:      *dryRun,
 			Show:        *show,
 			Timeout:     timeout,
 			SSHIdentity: sshIdentity,

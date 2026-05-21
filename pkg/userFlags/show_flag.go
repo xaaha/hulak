@@ -13,3 +13,14 @@ func registerShowFlag(fs *flag.FlagSet, usage string) *bool {
 	fs.BoolVar(&show, "show", false, usage)
 	return &show
 }
+
+// registerDryRunFlag binds --dry-run on fs to a bool with default false.
+// Returns a pointer so the handler reads the parsed value after flag.Parse.
+//
+// Kept as a helper so every command that opts into dry-run gets the same
+// usage string and default. Mirrors registerShowFlag.
+func registerDryRunFlag(fs *flag.FlagSet) *bool {
+	var dryRun bool
+	fs.BoolVar(&dryRun, "dry-run", false, "Print the built request and exit without sending it")
+	return &dryRun
+}
