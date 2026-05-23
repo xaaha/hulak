@@ -144,11 +144,11 @@ func loadSecretsForEnv(env string) (map[string]any, string, error) {
 
 	// If no env provided, show the interactive selector
 	if selectedEnv == "" {
-		picked, err := envselect.RunEnvSelector()
+		picked, cancelled, err := envselect.RunEnvSelector()
 		if err != nil {
 			return nil, "", fmt.Errorf("environment selector: %w", err)
 		}
-		if picked == "" {
+		if cancelled {
 			return nil, "", nil
 		}
 		selectedEnv = picked

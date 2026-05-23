@@ -11,16 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xaaha/hulak/pkg/tui/envselect"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
-
-// envPicker is the function called to interactively pick an environment when
-// the user omits --env on `hulak secrets edit`. Indirected as a package variable
-// so tests can stub it out — calling the real selector would open a TUI on
-// /dev/tty and wait for keypress, hanging non-interactive test runs.
-var envPicker = envselect.RunEnvSelector
 
 // newEnvEditCmd returns the command struct for `hulak secrets edit`.
 func newEnvEditCmd() *command {
@@ -79,12 +72,12 @@ func runEnvEdit(args []string, envName string) error {
 		return err
 	}
 
-	if envName == "" {
-		picked, err := envPicker()
-		if err != nil {
-			return err
-		}
-		envName = picked
+	envName, cancelled, err := resolveEnv(envName)
+	if err != nil {
+		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {

@@ -176,9 +176,9 @@ func TestExecute_EnvNotSet_CallsSelector(t *testing.T) {
 	defer func() { envSelector = orig }()
 
 	called := false
-	envSelector = func() (string, error) {
+	envSelector = func() (string, bool, error) {
 		called = true
-		return "picked-env", nil
+		return "picked-env", false, nil
 	}
 
 	// File with template vars
@@ -210,9 +210,9 @@ func TestExecute_EnvSet_SkipsSelector(t *testing.T) {
 	defer func() { envSelector = orig }()
 
 	called := false
-	envSelector = func() (string, error) {
+	envSelector = func() (string, bool, error) {
 		called = true
-		return "should-not-be-used", nil
+		return "should-not-be-used", false, nil
 	}
 
 	// File with template vars
@@ -242,9 +242,9 @@ func TestExecute_NoTemplateVars_SkipsSelector(t *testing.T) {
 	defer func() { envSelector = orig }()
 
 	called := false
-	envSelector = func() (string, error) {
+	envSelector = func() (string, bool, error) {
 		called = true
-		return "should-not-be-used", nil
+		return "should-not-be-used", false, nil
 	}
 
 	// File WITHOUT template vars

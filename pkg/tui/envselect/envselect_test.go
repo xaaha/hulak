@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"filippo.io/age"
+	"golang.org/x/term"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -277,6 +278,47 @@ func setupVaultProject(t *testing.T) string {
 	}
 
 	return tmpDir
+}
+
+// TestRunEnvSelector_NonTTYFailsFast asserts the selector refuses to launch
+// when stdin is not a terminal. Without this guard, bubbletea would fall back
+// to /dev/tty and hang in CI (PTY-allocated jobs) or emit a cryptic open
+// error (detached contexts). The error must point the user at --env so the
+// recovery is obvious.
+func TestRunEnvSelector_NonTTYFailsFast(t *testing.T) {
+	if term.IsTerminal(int(os.Stdin.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		t.Skip("test runner has a TTY on stdin; cannot exercise the non-TTY guard")
+	}
+
+	setupVaultProject(t)
+
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatalf("GenerateX25519Identity: %v", err)
+	}
+	if err := vault.SetIdentity(id.String()); err != nil {
+		t.Fatalf("SetIdentity: %v", err)
+	}
+	store := &vault.Store{Envs: map[string]vault.Env{
+		"global": {"K": "v"},
+	}}
+	if err := vault.WriteStore(store, id.Recipient()); err != nil {
+		t.Fatalf("WriteStore: %v", err)
+	}
+
+	_, cancelled, err := RunEnvSelector()
+	if err == nil {
+		t.Fatal("expected non-TTY guard to refuse, got nil error")
+	}
+	if cancelled {
+		t.Error("cancelled should be false on error path")
+	}
+	if !strings.Contains(err.Error(), "not a terminal") {
+		t.Errorf("error should mention non-terminal context, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "--env") {
+		t.Errorf("error should suggest passing --env, got: %v", err)
+	}
 }
 
 // TestEnvItems_VaultErrors regression for #209 — vault read failures used to

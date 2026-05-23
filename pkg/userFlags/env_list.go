@@ -63,7 +63,7 @@ func runEnvList(args []string) error {
 // newEnvKeysCmd returns the command struct for `hulak secrets keys`.
 func newEnvKeysCmd() *command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	keysEnv := registerEnvFlag(keysFs, utils.DefaultEnvVal, "Environment to operate on")
+	keysEnv := registerEnvFlag(keysFs, "", "Environment to operate on")
 	keysShow := registerShowFlag(keysFs, "Reveal values instead of masking them")
 	keysSearch := keysFs.String(
 		"search",
@@ -110,6 +110,15 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 	if err := requireVaultProject(); err != nil {
 		return err
 	}
+
+	envName, cancelled, err := resolveEnv(envName)
+	if err != nil {
+		return err
+	}
+	if cancelled {
+		return nil
+	}
+
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}

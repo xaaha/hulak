@@ -172,9 +172,9 @@ func TestRunEnvEdit_NoDefaultGlobal(t *testing.T) {
 	prevPicker := envPicker
 	t.Cleanup(func() { envPicker = prevPicker })
 	pickerCalled := false
-	envPicker = func() (string, error) {
+	envPicker = func() (string, bool, error) {
 		pickerCalled = true
-		return "", errors.New("picker disabled in tests")
+		return "", false, errors.New("picker disabled in tests")
 	}
 
 	t.Setenv("EDITOR", fakeEditor(t, `{"GOT_EDITED":"yes"}`))
