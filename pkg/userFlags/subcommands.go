@@ -462,8 +462,6 @@ func parseRunArgs(a runCmdArgs) (*runner.Flags, error) {
 	if a.Env != "" {
 		f.Env = a.Env
 		f.EnvSet = true
-	} else {
-		f.Env = utils.DefaultEnvVal
 	}
 
 	if info.IsDir() {

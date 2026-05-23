@@ -72,9 +72,12 @@ func runEnvEdit(args []string, envName string) error {
 		return err
 	}
 
-	envName, err := resolveEnv(envName)
+	envName, cancelled, err := resolveEnv(envName)
 	if err != nil {
 		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {

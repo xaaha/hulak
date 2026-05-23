@@ -158,9 +158,12 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 		return err
 	}
 
-	envName, err := resolveEnv(envName)
+	envName, cancelled, err := resolveEnv(envName)
 	if err != nil {
 		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {
@@ -281,9 +284,12 @@ func runEnvGet(args []string, envName string) error {
 		return err
 	}
 
-	envName, err := resolveEnv(envName)
+	envName, cancelled, err := resolveEnv(envName)
 	if err != nil {
 		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {
@@ -373,9 +379,12 @@ func runEnvDelete(args []string, envName string) error {
 		return err
 	}
 
-	envName, err := resolveEnv(envName)
+	envName, cancelled, err := resolveEnv(envName)
 	if err != nil {
 		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {

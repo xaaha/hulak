@@ -13,12 +13,24 @@ import "github.com/xaaha/hulak/pkg/tui/envselect"
 var envPicker = envselect.RunEnvSelector
 
 // resolveEnv returns envName when non-empty, otherwise prompts the user via
-// the envselect TUI. A cancelled picker returns "" with no error; callers
-// should pass that through to ValidateEnvName, which rejects empty names —
-// that's the single chokepoint for "no env was chosen".
-func resolveEnv(envName string) (string, error) {
+// the envselect TUI.
+//
+// The bool return distinguishes "user hit Esc to cancel" (cancelled=true,
+// no error) from "the picker errored" (cancelled=false, err set) and from
+// the normal path (cancelled=false, value set). Without it, callers couldn't
+// tell a deliberate cancel from an accidental empty value, and would surface
+// a misleading "environment name cannot be empty" from ValidateEnvName.
+// On cancel, callers should return nil — Esc is a user action, not a failure.
+func resolveEnv(envName string) (resolved string, cancelled bool, err error) {
 	if envName != "" {
-		return envName, nil
+		return envName, false, nil
 	}
-	return envPicker()
+	picked, err := envPicker()
+	if err != nil {
+		return "", false, err
+	}
+	if picked == "" {
+		return "", true, nil
+	}
+	return picked, false, nil
 }

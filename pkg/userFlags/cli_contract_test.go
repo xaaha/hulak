@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // TestSubCommandsExist verifies every expected subcommand is registered.
@@ -343,9 +341,10 @@ func TestParseRunArgsBadPath(t *testing.T) {
 	}
 }
 
-// TestParseRunArgsDefaultEnv verifies that an empty envFlagVal falls back to
-// the default environment.
-func TestParseRunArgsDefaultEnv(t *testing.T) {
+// TestParseRunArgsNoEnv verifies that omitting --env leaves Env empty and
+// EnvSet false, so the runner knows to invoke the picker instead of silently
+// defaulting to "global".
+func TestParseRunArgsNoEnv(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
 	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
 		t.Fatal(err)
@@ -356,8 +355,8 @@ func TestParseRunArgsDefaultEnv(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if f.Env != utils.DefaultEnvVal {
-		t.Errorf("Env = %q, want default %q", f.Env, utils.DefaultEnvVal)
+	if f.Env != "" {
+		t.Errorf("Env = %q, want empty so the runner invokes the picker", f.Env)
 	}
 	if f.EnvSet {
 		t.Error("EnvSet should be false when no env is provided")

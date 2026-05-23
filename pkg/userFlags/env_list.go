@@ -111,9 +111,12 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return err
 	}
 
-	envName, err := resolveEnv(envName)
+	envName, cancelled, err := resolveEnv(envName)
 	if err != nil {
 		return err
+	}
+	if cancelled {
+		return nil
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {

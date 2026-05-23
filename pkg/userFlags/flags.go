@@ -60,11 +60,11 @@ var (
 
 // go's init func executes automatically, and registers the flags during package initialization
 func init() {
-	flag.StringVar(&flagEnv, "env", utils.DefaultEnvVal, "Environment file to use during the call")
+	flag.StringVar(&flagEnv, "env", "", "Environment file to use during the call")
 	flag.StringVar(
 		&flagEnv,
 		"environment",
-		utils.DefaultEnvVal,
+		"",
 		"Environment file to use during the call",
 	)
 
