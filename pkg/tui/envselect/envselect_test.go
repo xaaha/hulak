@@ -290,7 +290,7 @@ func TestRunEnvSelector_NonTTYFailsFast(t *testing.T) {
 		t.Skip("test runner has a TTY on stdin; cannot exercise the non-TTY guard")
 	}
 
-	tmpDir := setupVaultProject(t)
+	setupVaultProject(t)
 
 	id, err := age.GenerateX25519Identity()
 	if err != nil {
@@ -305,11 +305,13 @@ func TestRunEnvSelector_NonTTYFailsFast(t *testing.T) {
 	if err := vault.WriteStore(store, id.Recipient()); err != nil {
 		t.Fatalf("WriteStore: %v", err)
 	}
-	_ = tmpDir
 
-	_, err = RunEnvSelector()
+	_, cancelled, err := RunEnvSelector()
 	if err == nil {
 		t.Fatal("expected non-TTY guard to refuse, got nil error")
+	}
+	if cancelled {
+		t.Error("cancelled should be false on error path")
 	}
 	if !strings.Contains(err.Error(), "not a terminal") {
 		t.Errorf("error should mention non-terminal context, got: %v", err)

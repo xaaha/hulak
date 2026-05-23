@@ -119,14 +119,14 @@ func Execute(f *Flags) error {
 			return fmt.Errorf("not a hulak project — run 'hulak init' to set up")
 		}
 		if !f.EnvSet {
-			selectedEnv, err := envSelector()
+			picked, cancelled, err := envSelector()
 			if err != nil {
 				return fmt.Errorf("environment selector: %w", err)
 			}
-			if selectedEnv == "" {
-				return nil // user cancelled the picker; not an error
+			if cancelled {
+				return nil
 			}
-			f.Env = selectedEnv
+			f.Env = picked
 		}
 		var err error
 		envMap, err = InitializeProject(f.Env, true)

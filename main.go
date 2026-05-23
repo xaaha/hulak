@@ -92,12 +92,12 @@ func runInteractiveFlow(env *string, envSet bool) string {
 		return selectedFile
 	}
 
-	selectedEnv, err := envselect.RunEnvSelector()
+	selectedEnv, cancelled, err := envselect.RunEnvSelector()
 	if err != nil {
 		utils.PanicRedAndExit("%v", err)
 	}
 
-	if selectedEnv == "" {
+	if cancelled {
 		os.Exit(0)
 	}
 
