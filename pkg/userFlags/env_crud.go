@@ -158,12 +158,9 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 		return err
 	}
 
-	if envName == "" {
-		picked, err := envPicker()
-		if err != nil {
-			return err
-		}
-		envName = picked
+	envName, err := resolveEnv(envName)
+	if err != nil {
+		return err
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {
@@ -284,12 +281,9 @@ func runEnvGet(args []string, envName string) error {
 		return err
 	}
 
-	if envName == "" {
-		picked, err := envPicker()
-		if err != nil {
-			return err
-		}
-		envName = picked
+	envName, err := resolveEnv(envName)
+	if err != nil {
+		return err
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {
@@ -379,12 +373,9 @@ func runEnvDelete(args []string, envName string) error {
 		return err
 	}
 
-	if envName == "" {
-		picked, err := envPicker()
-		if err != nil {
-			return err
-		}
-		envName = picked
+	envName, err := resolveEnv(envName)
+	if err != nil {
+		return err
 	}
 
 	if err := utils.ValidateEnvName(envName); err != nil {
