@@ -83,7 +83,7 @@ func parseTypedValue(raw, typeName string) (any, error) {
 // newEnvSetCmd returns the command struct for `hulak secrets set`.
 func newEnvSetCmd() *command {
 	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	setEnv := registerEnvFlag(setFs, utils.DefaultEnvVal, "Environment to operate on")
+	setEnv := registerEnvFlag(setFs, "", "Environment to operate on")
 	setStdin := setFs.Bool("stdin", false, "Read value from stdin")
 	var setType string
 	typeUsage := "Value type: " + strings.Join(validSetTypes[:], "|")
@@ -157,6 +157,15 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 	if err := requireVaultProject(); err != nil {
 		return err
 	}
+
+	if envName == "" {
+		picked, err := envPicker()
+		if err != nil {
+			return err
+		}
+		envName = picked
+	}
+
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}
@@ -230,7 +239,7 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 // newEnvGetCmd returns the command struct for `hulak secrets get`.
 func newEnvGetCmd() *command {
 	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	getEnv := registerEnvFlag(getFs, utils.DefaultEnvVal, "Environment to operate on")
+	getEnv := registerEnvFlag(getFs, "", "Environment to operate on")
 
 	return &command{
 		Name:    "get",
@@ -274,6 +283,15 @@ func runEnvGet(args []string, envName string) error {
 	if err := requireVaultProject(); err != nil {
 		return err
 	}
+
+	if envName == "" {
+		picked, err := envPicker()
+		if err != nil {
+			return err
+		}
+		envName = picked
+	}
+
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}
@@ -315,7 +333,7 @@ func printValue(value any) error {
 // newEnvDeleteCmd returns the command struct for `hulak secrets delete`.
 func newEnvDeleteCmd() *command {
 	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	deleteEnv := registerEnvFlag(deleteFs, utils.DefaultEnvVal, "Environment to operate on")
+	deleteEnv := registerEnvFlag(deleteFs, "", "Environment to operate on")
 
 	return &command{
 		Name:    "delete",
@@ -360,6 +378,15 @@ func runEnvDelete(args []string, envName string) error {
 	if err := requireVaultProject(); err != nil {
 		return err
 	}
+
+	if envName == "" {
+		picked, err := envPicker()
+		if err != nil {
+			return err
+		}
+		envName = picked
+	}
+
 	if err := utils.ValidateEnvName(envName); err != nil {
 		return err
 	}

@@ -89,7 +89,6 @@ func TestRunEnvSet_Errors(t *testing.T) {
 	}{
 		{"missing key", []string{}, "global", false, "missing required argument"},
 		{"invalid env name (space)", []string{"K", "v"}, "bad name", false, "invalid"},
-		{"invalid env name (empty)", []string{"K", "v"}, "", false, "empty"},
 		{"invalid env name (reserved prefix)", []string{"K", "v"}, "_internal", false, "reserved"},
 		{
 			"too many positionals",
@@ -694,10 +693,10 @@ func TestEnvSetCmd_FlagWiring(t *testing.T) {
 		args []string // full args after `secrets set`
 		key  string
 	}{
-		{"long flag --type int", []string{"--type", "int", "longInt", "100"}, "longInt"},
-		{"short flag -t int", []string{"-t", "int", "shortInt", "200"}, "shortInt"},
-		{"long flag --type bool", []string{"--type", "bool", "longBool", "true"}, "longBool"},
-		{"short flag -t bool", []string{"-t", "bool", "shortBool", "false"}, "shortBool"},
+		{"long flag --type int", []string{"--env", "global", "--type", "int", "longInt", "100"}, "longInt"},
+		{"short flag -t int", []string{"--env", "global", "-t", "int", "shortInt", "200"}, "shortInt"},
+		{"long flag --type bool", []string{"--env", "global", "--type", "bool", "longBool", "true"}, "longBool"},
+		{"short flag -t bool", []string{"--env", "global", "-t", "bool", "shortBool", "false"}, "shortBool"},
 	}
 
 	for _, tc := range testCases {
