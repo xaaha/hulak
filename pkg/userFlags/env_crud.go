@@ -103,7 +103,7 @@ func newEnvSetCmd() *command {
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets set API_KEY sk-123",
-				Description: "Set a value in the default (global) environment",
+				Description: "Pick an environment from the TUI, then set",
 			},
 			{
 				Command:     "hulak secrets set DB_URL --env prod",
@@ -253,7 +253,7 @@ func newEnvGetCmd() *command {
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets get API_KEY",
-				Description: "Print API_KEY from the default environment",
+				Description: "Pick an environment from the TUI, then print API_KEY",
 			},
 			{
 				Command:     "hulak secrets get DB_URL --env prod",
@@ -347,7 +347,7 @@ func newEnvDeleteCmd() *command {
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets delete OLD_KEY",
-				Description: "Delete OLD_KEY from the default environment",
+				Description: "Pick an environment from the TUI, then delete OLD_KEY",
 			},
 			{
 				Command:     "hulak secrets rm STALE_TOKEN --env staging",

@@ -484,7 +484,7 @@ func newEnvCmd() *command {
 		Short:   "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
 			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
-			"The default environment is \"global\" unless --env is specified.\n\n" +
+			"When --env is omitted, you'll be prompted to pick an environment interactively.\n\n" +
 			"'env' is retained as an alias for backward compatibility with pre-0.3 docs.",
 		Examples: []*utils.CommandHelp{
 			{

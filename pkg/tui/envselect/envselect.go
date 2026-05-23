@@ -1,8 +1,12 @@
 package envselect
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -75,10 +79,23 @@ func envItems() ([]string, error) {
 // RunEnvSelector runs the environment selector and returns the selected environment.
 // Surfaces vault-layer errors verbatim so the user sees the actual problem
 // (e.g. "identity file is corrupt") instead of an empty selector.
+//
+// When stdin is not a terminal (CI, cron, piped input), the selector refuses
+// to launch and returns an actionable error. Without this guard, bubbletea
+// would silently fall back to /dev/tty — which in CI with a PTY hangs forever
+// waiting for keypress, and in detached contexts surfaces a cryptic
+// "could not open a new TTY" error. The check is gated on having items to
+// show so that the more helpful "no envs configured" error still wins when
+// the store is empty.
 func RunEnvSelector() (string, error) {
 	items, err := envItems()
 	if err != nil {
 		return "", err
+	}
+	if len(items) > 0 && !term.IsTerminal(int(os.Stdin.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		return "", errors.New(
+			"no --env provided and stdin is not a terminal — pass --env <name> to skip the picker",
+		)
 	}
 	return tui.RunSelector(items, "Select Environment: ", noEnvFilesError())
 }
