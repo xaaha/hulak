@@ -257,7 +257,7 @@ Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
 Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 
 Secrets are organized by environment (e.g. global, staging, prod).
-The default environment is "global" unless --env is specified.
+When --env is omitted, you'll be prompted to pick an environment interactively.
 
 'env' is retained as an alias for backward compatibility with pre-0.3 docs. See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
 
