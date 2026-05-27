@@ -177,6 +177,27 @@ func (s *Store) DeleteEnv(envName string) {
 	delete(s.Envs, envName)
 }
 
+// RenameEnv moves all keys from oldName to newName.
+//
+// Errors if oldName does not exist or if newName already exists — the caller
+// must explicitly delete the destination first if a merge or overwrite is
+// intended. Same-name rename (oldName == newName) is a no-op.
+func (s *Store) RenameEnv(oldName, newName string) error {
+	if oldName == newName {
+		return nil
+	}
+	env, ok := s.Envs[oldName]
+	if !ok {
+		return fmt.Errorf("environment %q does not exist", oldName)
+	}
+	if _, exists := s.Envs[newName]; exists {
+		return fmt.Errorf("environment %q already exists", newName)
+	}
+	s.Envs[newName] = env
+	delete(s.Envs, oldName)
+	return nil
+}
+
 // StorePath returns the absolute path to .hulak/store.age in the project root.
 func StorePath() (string, error) {
 	markerPath, err := utils.GetProjectMarker()

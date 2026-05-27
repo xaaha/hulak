@@ -269,6 +269,90 @@ func TestStoreDeleteEnv(t *testing.T) {
 	})
 }
 
+func TestStoreRenameEnv(t *testing.T) {
+	t.Run("rename moves keys to new name", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"staging": {"API_KEY": "sk-staging", "URL": "https://staging.example.com"},
+		}}
+
+		if err := s.RenameEnv("staging", "stage"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if _, exists := s.Envs["staging"]; exists {
+			t.Error("RenameEnv did not remove old name")
+		}
+		got := s.GetEnv("stage")
+		if got == nil {
+			t.Fatal("RenameEnv did not create new name")
+		}
+		if got["API_KEY"] != "sk-staging" {
+			t.Errorf("API_KEY = %v, want %q", got["API_KEY"], "sk-staging")
+		}
+		if got["URL"] != "https://staging.example.com" {
+			t.Errorf("URL = %v, want %q", got["URL"], "https://staging.example.com")
+		}
+	})
+
+	t.Run("rename leaves siblings intact", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod":    {"API_KEY": "sk-prod"},
+			"staging": {"API_KEY": "sk-staging"},
+		}}
+
+		if err := s.RenameEnv("staging", "stage"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if s.Envs["prod"]["API_KEY"] != "sk-prod" {
+			t.Error("RenameEnv disturbed unrelated env")
+		}
+	})
+
+	t.Run("rename to existing name errors", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod":    {"API_KEY": "sk-prod"},
+			"staging": {"API_KEY": "sk-staging"},
+		}}
+
+		err := s.RenameEnv("staging", "prod")
+		if err == nil {
+			t.Fatal("expected error on collision, got nil")
+		}
+		// Source must be untouched on failure so callers can recover.
+		if s.Envs["staging"]["API_KEY"] != "sk-staging" {
+			t.Error("RenameEnv mutated source after collision error")
+		}
+		if s.Envs["prod"]["API_KEY"] != "sk-prod" {
+			t.Error("RenameEnv overwrote destination after collision error")
+		}
+	})
+
+	t.Run("rename missing source errors", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{"prod": {"K": "v"}}}
+
+		err := s.RenameEnv("missing", "new")
+		if err == nil {
+			t.Fatal("expected error on missing source, got nil")
+		}
+		if _, exists := s.Envs["new"]; exists {
+			t.Error("RenameEnv created destination despite missing source")
+		}
+	})
+
+	t.Run("same-name rename is no-op", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod": {"API_KEY": "sk-prod"},
+		}}
+
+		if err := s.RenameEnv("prod", "prod"); err != nil {
+			t.Fatalf("same-name rename should not error, got %v", err)
+		}
+		if s.Envs["prod"]["API_KEY"] != "sk-prod" {
+			t.Error("same-name rename disturbed contents")
+		}
+	})
+}
+
 // setupHulakProject creates a temp directory with env/ and .hulak/ to simulate
 // a hulak project, changes into it, and returns the directory path.
 func setupHulakProject(t *testing.T) string {
