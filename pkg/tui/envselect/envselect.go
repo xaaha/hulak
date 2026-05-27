@@ -86,24 +86,28 @@ func envItems() ([]string, error) {
 // On cancel, returns ("", true, nil); on success, (env, false, nil); on
 // error, ("", false, err).
 //
-// When stdin is not a terminal (CI, cron, piped input), the selector refuses
-// to launch and returns an actionable error. Without this guard, bubbletea
-// would silently fall back to /dev/tty — which in CI with a PTY hangs forever
-// waiting for keypress, and in detached contexts surfaces a cryptic
-// "could not open a new TTY" error. The check is gated on having items to
-// show so that the more helpful "no envs configured" error still wins when
-// the store is empty.
+// Terminal handling:
+//
+//   - stdin is a TTY → run the picker against stdin/stdout as usual.
+//   - stdin is piped (e.g. `pbpaste | hulak secrets set TOKEN --stdin`) but
+//     stdout is a TTY and /dev/tty is openable → run the picker against
+//     /dev/tty so the pipe stays free to feed the secret value. Without this
+//     fallback, legitimate piped-value workflows would be locked out of the
+//     picker.
+//   - stdin is piped and stdout is not a TTY (CI, cron, captured output) →
+//     refuse with an actionable error. Falling through to bubbletea here
+//     would hang in PTY-allocated CI jobs or emit a cryptic "could not open
+//     a new TTY" in detached contexts.
+//
+// The empty-items path skips the TTY logic entirely so the more helpful
+// "no envs configured" error still wins when the store is empty.
 func RunEnvSelector() (env string, cancelled bool, err error) {
 	items, err := envItems()
 	if err != nil {
 		return "", false, err
 	}
-	if len(items) > 0 && !term.IsTerminal(int(os.Stdin.Fd())) { //nolint:gosec // G115 fd is small non-neg
-		return "", false, errors.New(
-			"no --env provided and stdin is not a terminal — pass --env <name> to skip the picker",
-		)
-	}
-	picked, err := tui.RunSelector(items, "Select Environment: ", noEnvFilesError())
+
+	picked, err := pickEnv(items)
 	if err != nil {
 		return "", false, err
 	}
@@ -111,4 +115,34 @@ func RunEnvSelector() (env string, cancelled bool, err error) {
 		return "", true, nil
 	}
 	return picked, false, nil
+}
+
+// pickEnv routes the picker to the correct input/output channel based on
+// what is currently a terminal. See RunEnvSelector for the decision matrix.
+func pickEnv(items []string) (string, error) {
+	if len(items) == 0 {
+		return tui.RunSelector(items, "Select Environment: ", noEnvFilesError())
+	}
+
+	if term.IsTerminal(int(os.Stdin.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		return tui.RunSelector(items, "Select Environment: ", noEnvFilesError())
+	}
+
+	if !term.IsTerminal(int(os.Stdout.Fd())) { //nolint:gosec // G115 fd is small non-neg
+		return "", noInteractiveTerminalError()
+	}
+
+	tty, err := tui.OpenControllingTerminal()
+	if err != nil {
+		return "", noInteractiveTerminalError()
+	}
+	defer tty.Close()
+
+	return tui.RunSelectorOnTTY(items, "Select Environment: ", noEnvFilesError(), tty)
+}
+
+func noInteractiveTerminalError() error {
+	return errors.New(
+		"no --env provided and stdin is not a terminal — pass --env <name> to skip the picker",
+	)
 }

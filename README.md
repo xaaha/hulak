@@ -52,7 +52,7 @@ Other install options:
 
 ```bash
 mkdir my-apis && cd my-apis
-hulak init                                            # creates .hulak/store.age + identity
+hulak init
 hulak secrets set Url https://api.example.com/v1 --env prod
 ```
 
