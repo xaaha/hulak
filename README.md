@@ -62,7 +62,7 @@ Scaffold a starter request (runs as-is against a public test API):
 hulak example api  # writes example-api.hk.yaml
 ```
 
-For other types run: `hulak example`
+Other types: `hulak example formdata`, `hulak example graphql` (alias `gql`), `hulak example auth`, `hulak example options` (reference card).
 
 Or write your own:
 
