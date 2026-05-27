@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/main/assets/schema.json
 ---
 # Example GraphQL request against a public schema (no auth required).
-# Run with: hulak -fp example-graphql.hk.yaml
+# Run with: hulak run example-graphql.hk.yaml
 kind: GraphQL
 method: POST
 url: https://countries.trevorblades.com/

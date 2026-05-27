@@ -7,7 +7,7 @@
 # Hulak sets Content-Type: multipart/form-data (with boundary) automatically.
 # httpbin.org/post echoes the request back so you can see how it was parsed.
 #
-# Run with: hulak -fp example-formdata.hk.yaml
+# Run with: hulak run example-formdata.hk.yaml
 method: POST
 url: https://httpbin.org/post
 headers:

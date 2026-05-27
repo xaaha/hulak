@@ -6,7 +6,7 @@
 #   hulak secrets set client_id <your-github-oauth-app-id>
 #   hulak secrets set client_secret <your-github-oauth-app-secret>
 #
-# Then run with: hulak -fp example-auth.hk.yaml
+# Then run with: hulak run example-auth.hk.yaml
 # A browser window opens for authorization; the access token is saved
 # to example-auth_response.json.
 #

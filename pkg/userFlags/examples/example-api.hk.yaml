@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/xaaha/hulak/main/assets/schema.json
 ---
 # Example REST request. Schema-valid and runnable as-is.
-# Run with: hulak -fp example-api.hk.yaml
+# Run with: hulak run example-api.hk.yaml
 method: POST
 url: https://jsonplaceholder.typicode.com/posts
 headers:
