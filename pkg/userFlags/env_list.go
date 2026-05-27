@@ -107,11 +107,7 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
@@ -119,18 +115,14 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return nil
 	}
 
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
-	}
-
 	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
 
-	env := store.GetEnv(envName)
-	if env == nil {
-		return fmt.Errorf("environment %q not found in vault store", envName)
+	env, err := requireEnvExists(store, envName)
+	if err != nil {
+		return err
 	}
 
 	keys := make([]string, 0, len(env))

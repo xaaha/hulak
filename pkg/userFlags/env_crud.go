@@ -154,20 +154,12 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
 	if cancelled {
 		return nil
-	}
-
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
 	}
 
 	rawValue, err := resolveSetValue(args, useStdin, key)
@@ -280,11 +272,7 @@ func runEnvGet(args []string, envName string) error {
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
@@ -292,18 +280,14 @@ func runEnvGet(args []string, envName string) error {
 		return nil
 	}
 
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
-	}
-
 	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
 
-	env := store.GetEnv(envName)
-	if env == nil {
-		return fmt.Errorf("environment %q not found in vault store", envName)
+	env, err := requireEnvExists(store, envName)
+	if err != nil {
+		return err
 	}
 
 	value, ok := env[key]
@@ -375,20 +359,12 @@ func runEnvDelete(args []string, envName string) error {
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
 	if cancelled {
 		return nil
-	}
-
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
 	}
 
 	return vault.WithStoreLock(func() error {
@@ -397,9 +373,9 @@ func runEnvDelete(args []string, envName string) error {
 			return err
 		}
 
-		env := store.GetEnv(envName)
-		if env == nil {
-			return fmt.Errorf("environment %q not found in vault store", envName)
+		env, err := requireEnvExists(store, envName)
+		if err != nil {
+			return err
 		}
 		if _, ok := env[key]; !ok {
 			return fmt.Errorf("key %q not found in environment %q", key, envName)
