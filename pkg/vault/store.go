@@ -170,6 +170,13 @@ func (s *Store) DeleteKey(envName, key string) {
 	delete(env, key)
 }
 
+// DeleteEnv removes an environment entirely.
+// No-op if the environment does not exist or s.Envs is nil.
+// Other environments are untouched.
+func (s *Store) DeleteEnv(envName string) {
+	delete(s.Envs, envName)
+}
+
 // StorePath returns the absolute path to .hulak/store.age in the project root.
 func StorePath() (string, error) {
 	markerPath, err := utils.GetProjectMarker()

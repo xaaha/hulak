@@ -212,6 +212,63 @@ func TestStoreDeleteKey(t *testing.T) {
 	})
 }
 
+func TestStoreDeleteEnv(t *testing.T) {
+	t.Run("delete existing env removes it", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod": {"API_KEY": "sk-xxx"},
+		}}
+		s.DeleteEnv("prod")
+
+		if _, exists := s.Envs["prod"]; exists {
+			t.Error("DeleteEnv() did not remove environment")
+		}
+	})
+
+	t.Run("delete leaves siblings intact", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod":    {"API_KEY": "sk-prod"},
+			"staging": {"API_KEY": "sk-staging"},
+			"global":  {"URL": "https://example.com"},
+		}}
+		s.DeleteEnv("prod")
+
+		if _, exists := s.Envs["prod"]; exists {
+			t.Error("DeleteEnv() did not remove target env")
+		}
+		if s.Envs["staging"]["API_KEY"] != "sk-staging" {
+			t.Error("DeleteEnv() disturbed staging env")
+		}
+		if s.Envs["global"]["URL"] != "https://example.com" {
+			t.Error("DeleteEnv() disturbed global env")
+		}
+	})
+
+	t.Run("delete nonexistent env is no-op", func(_ *testing.T) {
+		s := &Store{Envs: map[string]Env{"prod": {"K": "v"}}}
+		s.DeleteEnv("missing")
+		// should not panic; siblings untouched (asserted in other subtests)
+	})
+
+	t.Run("delete on nil Envs map is no-op", func(_ *testing.T) {
+		s := &Store{}
+		s.DeleteEnv("anything")
+		// must not panic
+	})
+
+	t.Run("delete env then re-create via EnsureSection yields empty env", func(t *testing.T) {
+		s := &Store{Envs: map[string]Env{
+			"prod": {"API_KEY": "sk-xxx", "URL": "https://example.com"},
+		}}
+		s.DeleteEnv("prod")
+		if !s.EnsureSection("prod") {
+			t.Error("EnsureSection after DeleteEnv should report true (new section)")
+		}
+		if got := s.GetEnv("prod"); got == nil || len(got) != 0 {
+			t.Errorf("expected empty re-created env, got %v", got)
+		}
+	})
+}
+
 // setupHulakProject creates a temp directory with env/ and .hulak/ to simulate
 // a hulak project, changes into it, and returns the directory path.
 func setupHulakProject(t *testing.T) string {
