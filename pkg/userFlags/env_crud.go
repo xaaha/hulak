@@ -235,7 +235,7 @@ func newEnvGetCmd() *command {
 
 	return &command{
 		Name:    "get",
-		Aliases: []string{"g", "show", "view"},
+		Aliases: nil,
 		Short:   "Get a value by key",
 		Long:    "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
 		Flags:   getFs,
@@ -321,7 +321,7 @@ func newEnvDeleteCmd() *command {
 
 	return &command{
 		Name:    "delete",
-		Aliases: []string{"rm", "remove", "del"},
+		Aliases: []string{"rm"},
 		Short:   "Delete a key",
 		Long:    "Remove a secret from the encrypted vault.\n\nExits non-zero if the key doesn't exist.",
 		Flags:   deleteFs,

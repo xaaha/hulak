@@ -92,22 +92,22 @@ func TestSecretsSurfaceSnapshot(t *testing.T) {
 
 	const want = `add-recipient | - | allow-rsa,github,keyserver,name,stdin
 backup | - | f,force,o,out
-delete | rm,remove,del | env,environment
+delete | rm | env,environment
 edit | - | env,environment
 export-key | export-identity | o,out
 gen-identity | generate-identity | name
-get | g,show,view | env,environment
+get | - | env,environment
 import-key | import-identity | force,name,stdin
 keys | key | env,environment,search,show
-list | ls,l | -
+list | ls | -
 list-identity | - | -
 list-recipients | - | -
 migrate | - | -
 remove-recipient | - | -
 restore | - | f,force
-rotate | sync,reencrypt | -
 rotate-key | rotate-identity | -
 set | add | env,environment,stdin,t,type
+sync | rotate | -
 `
 
 	if got != want {
@@ -131,22 +131,22 @@ When --env is omitted, you'll be prompted to pick an environment interactively.
 COMMANDS
   add-recipient                       - Add a recipient for shared vault access
   backup                              - Create a backup of the encrypted store
-  delete (rm, remove, del)            - Delete a key
+  delete (rm)                         - Delete a key
   edit                                - Edit secrets interactively
   export-key (export-identity)        - Export the age identity (private key)
   gen-identity (generate-identity)    - Generate a new age keypair without creating a vault
-  get (g, show, view)                 - Get a value by key
+  get                                 - Get a value by key
   import-key (import-identity)        - Import an age identity (private key)
   keys (key)                          - List keys in an environment
-  list (ls, l)                        - List environment names
+  list (ls)                           - List environment names
   list-identity                       - List identities that can decrypt the vault
   list-recipients                     - List all recipients
   migrate                             - Migrate env/*.env files to the encrypted vault
   remove-recipient                    - Remove a recipient
   restore                             - Restore the encrypted store from a backup
-  rotate (sync, reencrypt)            - Re-encrypt the store to current recipients
   rotate-key (rotate-identity)        - Rotate your age identity (keypair)
   set (add)                           - Set a key-value pair
+  sync (rotate)                       - Re-encrypt the store to current recipients
 
 EXAMPLES
   $ hulak secrets list

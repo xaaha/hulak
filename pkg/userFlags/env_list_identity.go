@@ -34,10 +34,6 @@ func newEnvListIdentityCmd() *command {
 				Command:     "hulak secrets list-identity",
 				Description: "Show every decrypting identity on this machine",
 			},
-			{
-				Command:     "hulak secrets ls-identity",
-				Description: "Same (alias)",
-			},
 		},
 		Run: runListIdentity,
 	}

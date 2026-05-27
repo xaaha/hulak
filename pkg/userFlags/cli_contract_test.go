@@ -395,11 +395,13 @@ func TestEnvAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"list", []string{"ls", "l"}},
+		// When this list changes, also update the snapshot in TestSecretsSurfaceSnapshot.
+		{"list", []string{"ls"}},
 		{"set", []string{"add"}},
-		{"get", []string{"g", "show", "view"}},
+		{"get", nil}, // no alias: --show flag (unmask values) would conflict
 		{"keys", []string{"key"}},
-		{"delete", []string{"rm", "remove", "del"}},
+		{"delete", []string{"rm"}},
+		{"sync", []string{"rotate"}},
 	}
 
 	for _, tc := range tests {

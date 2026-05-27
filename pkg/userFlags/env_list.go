@@ -25,7 +25,7 @@ func newEnvListCmd() *command {
 
 	return &command{
 		Name:    "list",
-		Aliases: []string{"ls", "l"},
+		Aliases: []string{"ls"},
 		Short:   "List environment names",
 		Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak secrets keys --env <name>` to list keys within an environment.",
 		Flags:   listFs,
