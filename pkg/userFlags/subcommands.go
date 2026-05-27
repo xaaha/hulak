@@ -17,16 +17,6 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// registerEnvFlag adds both --env and --environment aliases to a FlagSet,
-// pointing to the same underlying variable, and returns a pointer so
-// Run handlers can read the parsed value.
-func registerEnvFlag(fs *flag.FlagSet, defaultVal string, usage string) *string {
-	var envVal string
-	fs.StringVar(&envVal, "env", defaultVal, usage)
-	fs.StringVar(&envVal, "environment", defaultVal, usage)
-	return &envVal
-}
-
 // subCommands builds the full sub-command tree for hulak
 func subCommands() *command {
 	root := &command{
