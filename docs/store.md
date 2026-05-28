@@ -178,7 +178,7 @@ hulak secrets identity add-recipient --github alice --keyserver https://gitlab.c
 
 ### Joining a team (with age keys)
 
-If the new member prefers a dedicated age keypair (or is on a new machine and doesn't want `hulak init`'s vault-scaffolding side effects), use `gen-identity`:
+If the new member prefers a dedicated age keypair (or is on a new machine and doesn't want `hulak init`'s vault-scaffolding side effects), use `secrets identity generate`:
 
 ```bash
 # === New member's machine ===
@@ -189,7 +189,7 @@ hulak secrets identity generate
 # age1bob...   ← printed to stdout, pipe-friendly
 ```
 
-Unlike `hulak init`, `gen-identity` only creates the global identity file — no `.hulak/` files in the current directory, so cloning the repo later works without conflicts.
+Unlike `hulak init`, `secrets identity generate` only creates the global identity file — no `.hulak/` files in the current directory, so cloning the repo later works without conflicts.
 
 The new member sends their **public key** (`age1bob...`) to an existing team member via Slack, email, or a PR. **Public keys are not secret.** Never share the private key from `~/.config/hulak/identity.txt`.
 
