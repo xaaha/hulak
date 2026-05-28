@@ -11,16 +11,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // newEnvEditCmd returns the command struct for `hulak secrets edit`.
-func newEnvEditCmd() *command {
+func newEnvEditCmd() *cli.Command {
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
 	editEnv := registerEnvFlag(editFs, "", "Environment to edit (omit to pick interactively)")
 
-	return &command{
+	return &cli.Command{
 		Name:  "edit",
 		Short: "Edit secrets interactively",
 		Long:  "Open the decrypted environment in $EDITOR (falls back to vi).\n\nWhen --env is omitted you'll be prompted to pick an environment from a TUI list,\nthe same flow as `hulak run`. To create a brand-new environment, pass --env\nexplicitly with the new name.\n\nThe decrypted JSON is written to a temp file with 0600 permissions inside .hulak/.\nWhat you save in the editor REPLACES the entire environment — keys you delete\nfrom the file are deleted from the store. Other environments in the store are\nuntouched. The store is re-encrypted atomically.\n\nIf the editor exits non-zero or the file is unchanged, no write occurs.",

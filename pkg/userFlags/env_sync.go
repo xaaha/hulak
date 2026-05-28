@@ -4,12 +4,13 @@ package userflags
 import (
 	"fmt"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-func newEnvSyncCmd() *command {
-	return &command{
+func newEnvSyncCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "sync",
 		Short: "Re-encrypt the store to current recipients",
 		Long: "Re-encrypt store.age to match the current recipients.txt.\n\n" +
@@ -35,7 +36,7 @@ func runSync(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 

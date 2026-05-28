@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -24,7 +25,7 @@ const (
 	displayTimestampFormat = "2006-01-02 15:04:05"
 )
 
-func newEnvBackupCmd() *command {
+func newEnvBackupCmd() *cli.Command {
 	fs := flag.NewFlagSet("env backup", flag.ContinueOnError)
 	var force bool
 	out := registerOutputFlag(
@@ -34,7 +35,7 @@ func newEnvBackupCmd() *command {
 	fs.BoolVar(&force, "force", false, "Overwrite existing --out target")
 	fs.BoolVar(&force, "f", false, "Overwrite existing --out target")
 
-	return &command{
+	return &cli.Command{
 		Name:  "backup",
 		Short: "Create a backup of the encrypted store",
 		Long: "Copy store.age to a timestamped backup file after validating decryptability.\n\n" +
@@ -56,7 +57,7 @@ func newEnvBackupCmd() *command {
 				Description: "Overwrite an existing backup file",
 			},
 		},
-		SubCommands: []*command{newEnvBackupListCmd()},
+		SubCommands: []*cli.Command{newEnvBackupListCmd()},
 		Run: func(args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("unexpected arguments: %v", args)
@@ -66,8 +67,8 @@ func newEnvBackupCmd() *command {
 	}
 }
 
-func newEnvBackupListCmd() *command {
-	return &command{
+func newEnvBackupListCmd() *cli.Command {
+	return &cli.Command{
 		Name:    "list",
 		Aliases: []string{"ls"},
 		Short:   "List existing backups",
@@ -87,7 +88,7 @@ func newEnvBackupListCmd() *command {
 
 // runBackup creates a backup of store.age.
 func runBackup(outPath string, force bool) error {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 
@@ -178,7 +179,7 @@ func resolveBackupDest(outPath string, force bool) (string, error) {
 
 // runBackupList prints existing backups from .hulak/backups/.
 func runBackupList() error {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 
@@ -236,13 +237,13 @@ func runBackupList() error {
 	)
 }
 
-func newEnvRestoreCmd() *command {
+func newEnvRestoreCmd() *cli.Command {
 	fs := flag.NewFlagSet("env restore", flag.ContinueOnError)
 	var force bool
 	fs.BoolVar(&force, "force", false, "Skip confirmation prompt")
 	fs.BoolVar(&force, "f", false, "Skip confirmation prompt")
 
-	return &command{
+	return &cli.Command{
 		Name:  "restore",
 		Short: "Restore the encrypted store from a backup",
 		Long: "Restore store.age from a backup file.\n\n" +
@@ -250,7 +251,7 @@ func newEnvRestoreCmd() *command {
 			"Pass a path to restore a specific backup. The backup is decrypted and\n" +
 			"re-encrypted to the current recipients.txt.",
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "path", Desc: "Path to backup file (default: latest from .hulak/backups/)"},
 		},
 		Examples: []*utils.CommandHelp{
@@ -283,7 +284,7 @@ func newEnvRestoreCmd() *command {
 
 // runRestore restores store.age from a backup.
 func runRestore(backupPath string, force bool) error {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 

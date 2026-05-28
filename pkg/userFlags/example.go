@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -35,14 +36,14 @@ var exampleAliases = map[string]string{
 	"urlencodedformdata": "urlencoded",
 }
 
-func newExampleCmd() *command {
+func newExampleCmd() *cli.Command {
 	fs := flag.NewFlagSet("example", flag.ContinueOnError)
 	out := registerOutputFlag(
 		fs,
 		"Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created.",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "example",
 		Short: "Scaffold an example request file",
 		Long: "Scaffold a starter request file into the current directory.\n\n" +
@@ -67,7 +68,7 @@ func newExampleCmd() *command {
 			{Command: "hulak example", Description: "List available example types"},
 		},
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "type", Desc: "Example type to scaffold (api, formdata, urlencoded, graphql, auth, options)"},
 		},
 		Run: func(args []string) error {

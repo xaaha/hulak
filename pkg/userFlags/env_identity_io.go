@@ -11,12 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // newIdentityImportCmd returns the command struct for `hulak secrets identity import`.
-func newIdentityImportCmd() *command {
+func newIdentityImportCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity import", flag.ContinueOnError)
 	importKeyStdin := fs.Bool("stdin", false, "Read key from stdin")
 	importKeyForce := fs.Bool("force", false, "Overwrite existing identity file")
@@ -25,7 +26,7 @@ func newIdentityImportCmd() *command {
 		"Auto-register the imported key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "import",
 		Short: "Import an age identity (private key)",
 		Long: "Import an age private key from a file or stdin and save it to hulak's\n" +
@@ -39,7 +40,7 @@ func newIdentityImportCmd() *command {
 			"vault as part of the same operation.\n\n" +
 			"Will not overwrite an existing identity unless --force is passed.",
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "path", Desc: "Path to the identity file (omit with --stdin)"},
 		},
 		Examples: []*utils.CommandHelp{
@@ -145,7 +146,7 @@ func runImportKey(args []string, useStdin, force bool, name string) error {
 // it to the vault as a recipient using whatever identity currently decrypts
 // store.age. Used by import-key --name and gen-identity --name.
 func registerImportedKeyAsRecipient(raw, name string) error {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return fmt.Errorf("--name needs a vault project in cwd: %w", err)
 	}
 	candidate, err := vault.ParseImportKey(raw)
@@ -218,14 +219,14 @@ func validateImportAgainstVault(raw string) error {
 }
 
 // newIdentityExportCmd returns the command struct for `hulak secrets identity export`.
-func newIdentityExportCmd() *command {
+func newIdentityExportCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity export", flag.ContinueOnError)
 	out := registerOutputFlag(
 		fs,
 		"Write key to file instead of stdout (mode 0600). Directory inputs append 'identity.txt'.",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "export",
 		Short: "Export the age identity (private key)",
 		Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",

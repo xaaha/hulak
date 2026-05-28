@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -15,14 +16,14 @@ import (
 // keypair without the side effects of `hulak init` (which creates a fresh
 // .hulak/ in cwd). Pass --name when you already have decrypt access (e.g.
 // via SSH) and want the new key auto-registered as a recipient.
-func newIdentityGenCmd() *command {
+func newIdentityGenCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity gen", flag.ContinueOnError)
 	genIdentityName := registerNameFlag(
 		fs,
 		"Auto-register the new key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:    "generate",
 		Aliases: []string{"gen"},
 		Short:   "Generate a new age keypair without creating a vault",
@@ -93,7 +94,7 @@ func runGenIdentity(args []string, name string) error {
 	pubKey := key.Recipient.String()
 
 	if name != "" {
-		if err := requireVaultProject(); err != nil {
+		if err := cli.RequireVaultProject(); err != nil {
 			return fmt.Errorf("--name needs a vault project in cwd: %w", err)
 		}
 		if err := registerPubKeyAsRecipient(pubKey, name); err != nil {

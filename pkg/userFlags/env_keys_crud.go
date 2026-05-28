@@ -13,10 +13,11 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-func keysListCmd() *command {
+func keysListCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys list", flag.ContinueOnError)
 	envName := registerEnvFlag(fs, "", "Environment to operate on")
 	show := registerShowFlag(fs, "Reveal values instead of masking them")
@@ -26,7 +27,7 @@ func keysListCmd() *command {
 		"Filter keys by case-insensitive substring or glob pattern",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:    "list",
 		Aliases: []string{"ls"},
 		Short:   "List keys in an environment",
@@ -52,7 +53,7 @@ func keysListCmd() *command {
 	}
 }
 
-func keysSetCmd() *command {
+func keysSetCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys set", flag.ContinueOnError)
 	envName := registerEnvFlag(fs, "", "Environment to operate on")
 	useStdin := fs.Bool("stdin", false, "Read value from stdin")
@@ -61,13 +62,13 @@ func keysSetCmd() *command {
 	fs.StringVar(&typeName, "type", "string", typeUsage)
 	fs.StringVar(&typeName, "t", "string", typeUsage)
 
-	return &command{
+	return &cli.Command{
 		Name:    "set",
 		Aliases: []string{"add"},
 		Short:   "Set a key-value pair",
 		Long:    "Store a secret in the encrypted vault.\n\nIf VALUE is omitted, you'll be prompted to enter it (no echo, no shell history).\nUse --stdin to pipe the value from standard input.\nUse --type to store numbers, booleans, or JSON instead of strings.",
 		Flags:   fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "key", Required: true, Desc: "Secret key name"},
 			{Name: "value", Desc: "Secret value (omit to be prompted, or use --stdin)"},
 		},
@@ -91,16 +92,16 @@ func keysSetCmd() *command {
 	}
 }
 
-func keysGetCmd() *command {
+func keysGetCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys get", flag.ContinueOnError)
 	envName := registerEnvFlag(fs, "", "Environment to operate on")
 
-	return &command{
+	return &cli.Command{
 		Name:  "get",
 		Short: "Get a value by key",
 		Long:  "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "key", Required: true, Desc: "Secret key to retrieve"},
 		},
 		Examples: []*utils.CommandHelp{
@@ -119,17 +120,17 @@ func keysGetCmd() *command {
 	}
 }
 
-func keysDeleteCmd() *command {
+func keysDeleteCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys delete", flag.ContinueOnError)
 	envName := registerEnvFlag(fs, "", "Environment to operate on")
 
-	return &command{
+	return &cli.Command{
 		Name:    "delete",
 		Aliases: []string{"rm"},
 		Short:   "Delete a key from an environment",
 		Long:    "Remove a secret from the encrypted vault.\n\nExits non-zero if the key doesn't exist.",
 		Flags:   fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "key", Required: true, Desc: "Secret key to delete"},
 		},
 		Examples: []*utils.CommandHelp{

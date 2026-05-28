@@ -7,10 +7,13 @@
 // env_recipients.go). This file is purely the subgroup assembler.
 package userflags
 
-import "github.com/xaaha/hulak/pkg/utils"
+import (
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/utils"
+)
 
-func newEnvIdentityCmd() *command {
-	return &command{
+func newEnvIdentityCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "identity",
 		Short: "Manage age identities and recipients",
 		Long: "Manage age identities and recipients for the encrypted vault.\n\n" +
@@ -58,7 +61,7 @@ func newEnvIdentityCmd() *command {
 				Description: "Rotate your age keypair and re-encrypt the store",
 			},
 		},
-		SubCommands: []*command{
+		SubCommands: []*cli.Command{
 			newIdentityAddRecipientCmd(),
 			newIdentityExportCmd(),
 			newIdentityGenCmd(),

@@ -13,13 +13,14 @@ import (
 	"github.com/xaaha/hulak/pkg/migration"
 	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // subCommands builds the full sub-command tree for hulak
-func subCommands() *command {
-	root := &command{
+func subCommands() *cli.Command {
+	root := &cli.Command{
 		Name:  "hulak",
 		Long:  "hulak — a file-based API client for the terminal",
 		Flags: flag.CommandLine,
@@ -48,7 +49,7 @@ func subCommands() *command {
 		},
 	}
 
-	root.SubCommands = []*command{
+	root.SubCommands = []*cli.Command{
 		newRunCmd(),
 		newVersionCmd(),
 		newInitCmd(),
@@ -64,8 +65,8 @@ func subCommands() *command {
 	return root
 }
 
-func newVersionCmd() *command {
-	return &command{
+func newVersionCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "version",
 		Short: "Print hulak version",
 		Long:  "Print the current hulak version.\n\nUseful for bug reports and verifying installs.",
@@ -79,7 +80,7 @@ func newVersionCmd() *command {
 	}
 }
 
-func newInitCmd() *command {
+func newInitCmd() *cli.Command {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	createEnvFlag := fs.Bool(
 		"env",
@@ -97,7 +98,7 @@ func newInitCmd() *command {
 		"Path to SSH private key (implies --ssh; overrides the default path)",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "init",
 		Short: "Initialize a hulak project",
 		Long: "Set up a new hulak project in the current directory.\n\n" +
@@ -131,10 +132,10 @@ func newInitCmd() *command {
 			},
 		},
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
 		},
-		SubCommands: []*command{newInitClassicCmd()},
+		SubCommands: []*cli.Command{newInitClassicCmd()},
 		Run: func(args []string) error {
 			var envNames []string
 			if *createEnvFlag {
@@ -158,7 +159,7 @@ func newInitCmd() *command {
 	}
 }
 
-func newInitClassicCmd() *command {
+func newInitClassicCmd() *cli.Command {
 	fs := flag.NewFlagSet("init classic", flag.ContinueOnError)
 	createEnvFlag := fs.Bool(
 		"env",
@@ -166,7 +167,7 @@ func newInitClassicCmd() *command {
 		"Create specific environment files instead of the default setup",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:    "classic",
 		Aliases: []string{"plain", "no-vault"},
 		Short:   "Initialize with the plaintext env/ layout",
@@ -188,7 +189,7 @@ func newInitClassicCmd() *command {
 			},
 		},
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "envNames", Desc: "Environment names to create (used with -env)"},
 		},
 		Run: func(args []string) error {
@@ -215,8 +216,8 @@ func newInitClassicCmd() *command {
 	}
 }
 
-func newMigrateCmd() *command {
-	return &command{
+func newMigrateCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "migrate",
 		Short: "Migrate Postman collections to hulak format",
 		Long: "Convert Postman v2.1 environment and collection JSON exports into hulak .hk.yaml and .env files.\n\n" +
@@ -229,20 +230,20 @@ func newMigrateCmd() *command {
 				Description: "Migrate environment and collection together",
 			},
 		},
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "files", Required: true, Desc: "Postman JSON export files"},
 		},
 		Run: migration.CompleteMigration,
 	}
 }
 
-func newDoctorCmd() *command {
+func newDoctorCmd() *cli.Command {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fixFlag := fs.Bool("fix", false, "Auto-repair safe issues (chmod, .gitignore)")
 	yesFlag := fs.Bool("yes", false, "Skip confirmation prompts (use with --fix)")
 	jsonFlag := fs.Bool("json", false, "Output findings as JSON to stdout")
 
-	return &command{
+	return &cli.Command{
 		Name:  "doctor",
 		Short: "Check project health",
 		Long: "Inspect your hulak project for common issues.\n\n" +
@@ -266,11 +267,11 @@ func newDoctorCmd() *command {
 	}
 }
 
-func newGQLCmd() *command {
+func newGQLCmd() *cli.Command {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
 	envFlagVal := registerEnvFlag(fs, "", "Environment to use (skips interactive selector)")
 
-	gqlCmd := &command{
+	gqlCmd := &cli.Command{
 		Name:    "gql",
 		Aliases: []string{"graphql"},
 		Short:   "Open the GraphQL explorer",
@@ -290,7 +291,7 @@ func newGQLCmd() *command {
 			},
 		},
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{
 				Name:     "path",
 				Required: true,
@@ -301,7 +302,7 @@ func newGQLCmd() *command {
 
 	gqlCmd.Run = func(args []string) error {
 		if len(args) == 0 {
-			gqlCmd.printHelp()
+			gqlCmd.PrintHelp()
 			return nil
 		}
 		data, refreshFn, warnings, err := loadGraphQLOperations(args[0], *envFlagVal)
@@ -320,7 +321,7 @@ func newGQLCmd() *command {
 	return gqlCmd
 }
 
-func newRunCmd() *command {
+func newRunCmd() *cli.Command {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
 	var sequential bool
@@ -346,7 +347,7 @@ func newRunCmd() *command {
 	)
 	fs.StringVar(&sshIdentity, "ssh-identity", "", "Path to SSH private key for vault decryption")
 
-	runCmd := &command{
+	runCmd := &cli.Command{
 		Name:  "run",
 		Short: "Run API request file(s) or directory",
 		Long: "Execute one or more API request files.\n\n" +
@@ -380,14 +381,14 @@ func newRunCmd() *command {
 			},
 		},
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "path", Required: true, Desc: "File or directory to run"},
 		},
 	}
 
 	runCmd.Run = func(args []string) error {
 		if len(args) == 0 {
-			runCmd.printHelp()
+			runCmd.PrintHelp()
 			return nil
 		}
 
@@ -467,8 +468,8 @@ func parseRunArgs(a runCmdArgs) (*runner.Flags, error) {
 	return f, nil
 }
 
-func newEnvCmd() *command {
-	envCmd := &command{
+func newEnvCmd() *cli.Command {
+	envCmd := &cli.Command{
 		Name:    "secrets",
 		Aliases: []string{"env"},
 		Short:   "Manage encrypted environment secrets",
@@ -505,7 +506,7 @@ func newEnvCmd() *command {
 		},
 	}
 
-	envCmd.SubCommands = []*command{
+	envCmd.SubCommands = []*cli.Command{
 		newEnvCreateCmd(),
 		newEnvDeleteCmd(),
 		newEnvListCmd(),
@@ -522,8 +523,8 @@ func newEnvCmd() *command {
 	return envCmd
 }
 
-func newHelpCmd(root *command) *command {
-	return &command{
+func newHelpCmd(root *cli.Command) *cli.Command {
+	return &cli.Command{
 		Name:  "help",
 		Short: "Show help for hulak",
 		Long:  "Print the top-level hulak help.\n\nFor help on a specific command, use `hulak <command> --help` instead.",
@@ -533,7 +534,7 @@ func newHelpCmd(root *command) *command {
 			{Command: "hulak secrets keys --help", Description: "Show help for a nested subcommand"},
 		},
 		Run: func(_ []string) error {
-			root.printHelp()
+			root.PrintHelp()
 			return nil
 		},
 	}

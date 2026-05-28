@@ -11,12 +11,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 )
 
 // newGenDocsCmd returns a hidden subcommand that regenerates man/hulak.1
 // and docs/cli.md from the live command tree.
-func newGenDocsCmd() *command {
-	return &command{
+func newGenDocsCmd() *cli.Command {
+	return &cli.Command{
 		Name:   "gendocs",
 		Hidden: true,
 		Short:  "Regenerate man page and CLI markdown",
@@ -147,7 +149,7 @@ func generateManPage(w io.Writer) {
 	p("")
 
 	// Per-command flag sections
-	runCmd := root.findSub("run")
+	runCmd := root.FindSub("run")
 	if runCmd != nil && runCmd.Flags != nil {
 		p(".SH RUN FLAGS")
 		manWriteFlags(w, runCmd.Flags)
@@ -416,7 +418,7 @@ func generateCLIMarkdown(w io.Writer) {
 }
 
 // mdWriteCommand writes a markdown section for a single command.
-func mdWriteCommand(w io.Writer, cmd *command) {
+func mdWriteCommand(w io.Writer, cmd *cli.Command) {
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
 
 	p("### `%s`", cmd.Name)
@@ -498,7 +500,7 @@ func mdWriteCommand(w io.Writer, cmd *command) {
 }
 
 // mdWriteSecretsSubcommands writes the subcommand table for secrets.
-func mdWriteSecretsSubcommands(w io.Writer, cmd *command) {
+func mdWriteSecretsSubcommands(w io.Writer, cmd *cli.Command) {
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
 
 	p("| Subcommand | Notes |")
@@ -521,13 +523,13 @@ func mdWriteSecretsSubcommands(w io.Writer, cmd *command) {
 
 // --- man page helpers ---
 
-func manSynopsis(cmd *command, parent string) string {
+func manSynopsis(cmd *cli.Command, parent string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, ".B %s %s", parent, cmd.Name)
 
 	if cmd.Flags != nil {
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
-			if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+			if cli.HiddenFlags[f.Name] || cli.FlagAliases[f.Name] != "" {
 				return
 			}
 			fmt.Fprintf(&b, " [\\-\\-%s]", f.Name)
@@ -553,14 +555,14 @@ func manWriteFlags(w io.Writer, fs *flag.FlagSet) {
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
 
 	longFor := make(map[string]string)
-	for long, short := range flagAliases {
+	for long, short := range cli.FlagAliases {
 		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
 			longFor[short] = long
 		}
 	}
 
 	fs.VisitAll(func(f *flag.Flag) {
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+		if cli.HiddenFlags[f.Name] || cli.FlagAliases[f.Name] != "" {
 			return
 		}
 
@@ -596,7 +598,7 @@ type mdFlag struct {
 
 func mdCollectFlags(fs *flag.FlagSet) []mdFlag {
 	longFor := make(map[string]string)
-	for long, short := range flagAliases {
+	for long, short := range cli.FlagAliases {
 		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
 			longFor[short] = long
 		}
@@ -604,7 +606,7 @@ func mdCollectFlags(fs *flag.FlagSet) []mdFlag {
 
 	var flags []mdFlag
 	fs.VisitAll(func(f *flag.Flag) {
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+		if cli.HiddenFlags[f.Name] || cli.FlagAliases[f.Name] != "" {
 			return
 		}
 

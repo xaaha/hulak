@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -16,8 +17,8 @@ import (
 // vault — replacing the per-decrypt stderr noise of "Decrypted with X" with
 // an explicit user-driven inspection command. The first row is the default
 // (marked with utils.Asterisk): it's what hulak would use for any read path.
-func newIdentityListCmd() *command {
-	return &command{
+func newIdentityListCmd() *cli.Command {
+	return &cli.Command{
 		Name:    "list",
 		Aliases: []string{"ls"},
 		Short:   "List identities that can decrypt the vault",
@@ -45,7 +46,7 @@ func runListIdentity(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -20,10 +21,10 @@ import (
 const maskedValue = utils.MaskedValue
 
 // newEnvListCmd returns the command struct for `hulak secrets list`.
-func newEnvListCmd() *command {
+func newEnvListCmd() *cli.Command {
 	listFs := flag.NewFlagSet("env list", flag.ContinueOnError)
 
-	return &command{
+	return &cli.Command{
 		Name:    "list",
 		Aliases: []string{"ls"},
 		Short:   "List environment names",
@@ -43,7 +44,7 @@ func runEnvList(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 
@@ -61,7 +62,7 @@ func runEnvList(args []string) error {
 }
 
 // newEnvKeysCmd returns the command struct for `hulak secrets keys`.
-func newEnvKeysCmd() *command {
+func newEnvKeysCmd() *cli.Command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
 	keysEnv := registerEnvFlag(keysFs, "", "Environment to operate on")
 	keysShow := registerShowFlag(keysFs, "Reveal values instead of masking them")
@@ -71,7 +72,7 @@ func newEnvKeysCmd() *command {
 		"Filter keys by case-insensitive substring or glob pattern",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:    "keys",
 		Aliases: []string{"key"},
 		Short:   "Manage keys within an environment",
@@ -103,7 +104,7 @@ func newEnvKeysCmd() *command {
 				Description: "Delete a key from prod",
 			},
 		},
-		SubCommands: []*command{
+		SubCommands: []*cli.Command{
 			keysListCmd(),
 			keysSetCmd(),
 			keysGetCmd(),

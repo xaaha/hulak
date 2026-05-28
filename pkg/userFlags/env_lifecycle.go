@@ -14,12 +14,13 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
 // newEnvCreateCmd returns the command struct for `hulak secrets create`.
-func newEnvCreateCmd() *command {
+func newEnvCreateCmd() *cli.Command {
 	fs := flag.NewFlagSet("env create", flag.ContinueOnError)
 	envName := registerEnvFlag(
 		fs,
@@ -27,7 +28,7 @@ func newEnvCreateCmd() *command {
 		"Name of the new environment to create (required)",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "create",
 		Short: "Create a new empty environment",
 		Long: "Create a new empty environment in the encrypted vault.\n\n" +
@@ -57,7 +58,7 @@ func runEnvCreate(args []string, envName string) error {
 	if envName == "" {
 		return errors.New("--env is required: hulak secrets create --env NAME")
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 	if err := utils.ValidateEnvName(envName); err != nil {
@@ -81,7 +82,7 @@ func runEnvCreate(args []string, envName string) error {
 }
 
 // newEnvDeleteCmd returns the command struct for `hulak secrets delete`.
-func newEnvDeleteCmd() *command {
+func newEnvDeleteCmd() *cli.Command {
 	fs := flag.NewFlagSet("env delete", flag.ContinueOnError)
 	envName := registerEnvFlag(
 		fs,
@@ -90,7 +91,7 @@ func newEnvDeleteCmd() *command {
 	)
 	yes := registerYesFlag(fs, "Skip the destructive confirm prompt")
 
-	return &command{
+	return &cli.Command{
 		Name:    "delete",
 		Aliases: []string{"rm"},
 		Short:   "Delete an environment",
@@ -180,10 +181,10 @@ func runDeleteEnv(args []string, envName string, force bool) error {
 // of operation as renaming a file, and `mv staging stage` reads at a glance
 // while `--env staging --to stage` reads like a paragraph. The `mv` alias
 // makes the muscle-memory map explicit.
-func newEnvRenameCmd() *command {
+func newEnvRenameCmd() *cli.Command {
 	fs := flag.NewFlagSet("env rename", flag.ContinueOnError)
 
-	return &command{
+	return &cli.Command{
 		Name:    "rename",
 		Aliases: []string{"mv"},
 		Short:   "Rename an environment (unix-style mv)",
@@ -195,7 +196,7 @@ func newEnvRenameCmd() *command {
 			"untouched. Fails if OLD does not exist, NEW already exists, or either\n" +
 			"name is invalid (path separators, leading underscores, etc.).",
 		Flags: fs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "old", Required: true, Desc: "Existing environment name"},
 			{Name: "new", Required: true, Desc: "New environment name"},
 		},
@@ -225,7 +226,7 @@ func runRenameEnv(args []string) error {
 	}
 	oldName, newName := args[0], args[1]
 
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 	if err := utils.ValidateEnvName(oldName); err != nil {

@@ -8,6 +8,7 @@ package userflags
 import (
 	"fmt"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -28,7 +29,7 @@ import (
 // Step 1 (project check) runs first so users see "not a hulak project" before
 // the picker tries to read the vault and produces a confusing decrypt error.
 func resolveAndValidateEnv(envName string) (resolved string, cancelled bool, err error) {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return "", false, err
 	}
 

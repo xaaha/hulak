@@ -39,7 +39,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	if len(os.Args) >= 2 {
 		first := os.Args[1]
 		switch {
-		case subCmds.findSub(first) != nil:
+		case subCmds.FindSub(first) != nil:
 			if err := subCmds.Execute(os.Args[1:]); err != nil {
 				return nil, err
 			}
@@ -53,7 +53,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 				getVersion()
 				os.Exit(0)
 			case flagHelp:
-				subCmds.printHelp()
+				subCmds.PrintHelp()
 				os.Exit(0)
 			}
 

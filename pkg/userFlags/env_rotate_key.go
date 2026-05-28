@@ -7,12 +7,13 @@ import (
 
 	"filippo.io/age"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-func newIdentityRotateCmd() *command {
-	return &command{
+func newIdentityRotateCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "rotate",
 		Short: "Rotate your age identity (keypair)",
 		Long: "Generate a new age keypair, swap it in recipients.txt, and re-encrypt the store.\n\n" +
@@ -48,7 +49,7 @@ func runRotateKey(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 

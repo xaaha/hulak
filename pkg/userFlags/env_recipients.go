@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -22,7 +23,7 @@ const (
 )
 
 // newIdentityAddRecipientCmd returns the "add-recipient" command with its flag set.
-func newIdentityAddRecipientCmd() *command {
+func newIdentityAddRecipientCmd() *cli.Command {
 	addRecipientFs := flag.NewFlagSet("identity add-recipient", flag.ContinueOnError)
 	addRecipientName := registerNameFlag(addRecipientFs, "Human-readable label for the recipient (defaults to OS username)")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
@@ -42,7 +43,7 @@ func newIdentityAddRecipientCmd() *command {
 		"Also accept ssh-rsa keys (lower security margin)",
 	)
 
-	return &command{
+	return &cli.Command{
 		Name:  "add-recipient",
 		Short: "Add a recipient for shared vault access",
 		Long: "Add an age or SSH public key as a recipient so another user can decrypt the vault.\n\n" +
@@ -50,7 +51,7 @@ func newIdentityAddRecipientCmd() *command {
 			"Use --name to add a human-readable label.\n" +
 			"Use --github to fetch a user's SSH keys directly from GitHub.",
 		Flags: addRecipientFs,
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{Name: "public-key", Desc: "Age or SSH public key to add (not needed with --github)"},
 		},
 		Examples: []*utils.CommandHelp{
@@ -193,7 +194,7 @@ func runAddRecipient(
 	gitHubUser, keyserverURL string,
 	allowRSA bool,
 ) error {
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 
@@ -267,12 +268,12 @@ func runAddRecipient(
 }
 
 // newIdentityRemoveRecipientCmd returns the "remove-recipient" command.
-func newIdentityRemoveRecipientCmd() *command {
-	return &command{
+func newIdentityRemoveRecipientCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "remove-recipient",
 		Short: "Remove a recipient",
 		Long:  "Remove an age public key from the recipient list and re-encrypt the vault.\n\nMatch by key string or name label. Refuses to remove the last recipient.\nNote: removed users can still decrypt copies from before this point.",
-		Args: []argDef{
+		Args: []cli.ArgDef{
 			{
 				Name:     "key-or-name",
 				Required: true,
@@ -303,7 +304,7 @@ func runRemoveRecipient(args []string) error {
 	}
 	query := args[0]
 
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 
@@ -357,8 +358,8 @@ func runRemoveRecipient(args []string) error {
 }
 
 // newIdentityListRecipientsCmd returns the "list-recipients" command.
-func newIdentityListRecipientsCmd() *command {
-	return &command{
+func newIdentityListRecipientsCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "list-recipients",
 		Short: "List all recipients",
 		Long:  "Show all age public keys that can decrypt the vault, with labels.",
@@ -377,7 +378,7 @@ func runListRecipients(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
+	if err := cli.RequireVaultProject(); err != nil {
 		return err
 	}
 

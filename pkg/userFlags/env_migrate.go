@@ -9,12 +9,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/xaaha/hulak/pkg/envparser"
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-func newEnvMigrateCmd() *command {
-	return &command{
+func newEnvMigrateCmd() *cli.Command {
+	return &cli.Command{
 		Name:  "migrate",
 		Short: "Migrate env/*.env files to the encrypted vault",
 		Long: "Convert plaintext env/*.env files into the encrypted vault (.hulak/store.age).\n\n" +
