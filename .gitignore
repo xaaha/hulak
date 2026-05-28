@@ -8,6 +8,7 @@ test*
 !test.graphql
 !**/testdata/
 !**/testdata/**
+!*_test.go
 !e2etests/test_collection/formdata.json
 !mise.toml
 *plan.md

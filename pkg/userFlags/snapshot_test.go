@@ -8,9 +8,8 @@
 //   - secrets-level subcommand inventory: name | aliases | flags
 //   - secrets-level help text (Long, COMMANDS block, EXAMPLES)
 //
-// Behavioral tests for each command already live next to it
-// (env_crud_test.go, env_keys_test.go, env_list_test.go,
-// env_edit_test.go, env_backup_test.go, etc.).
+// Behavioral tests for each command live next to it in pkg/userFlags/secrets/
+// (crud_test.go, keys_test.go, list_test.go, edit_test.go, backup_test.go, …).
 package userflags
 
 import (

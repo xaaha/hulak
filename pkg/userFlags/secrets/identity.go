@@ -2,9 +2,9 @@
 // dealing with age identities (your private key) and recipients (public
 // keys allowed to decrypt the vault).
 //
-// The leaf factories themselves live in their feature files (env_keys.go,
-// env_gen_identity.go, env_list_identity.go, env_rotate_key.go,
-// env_recipients.go). This file is purely the subgroup assembler.
+// The leaf factories themselves live in their feature files (identity_io.go,
+// gen_identity.go, list_identity.go, rotate.go, recipients.go). This file
+// is purely the subgroup assembler.
 package secrets
 
 import (

@@ -1,6 +1,7 @@
-// Contains the top-level command tree and factories for non-env commands
-// (run, version, init, migrate, doctor, gql, help). Env subcommand factories
-// live in their respective env_*.go files; newEnvCmd assembles them here.
+// Builds the root command tree. Heavy leaves (run, init, doctor, gql,
+// example, secrets) come from their own subpackages via New() constructors;
+// trivial ones (version, migrate, help) stay here because a folder per
+// 20-line handler is more friction than it's worth.
 package userflags
 
 import (

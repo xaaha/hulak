@@ -6,7 +6,7 @@
 //	secrets keys delete     — delete a key
 //
 // Each factory builds a fresh FlagSet (FlagSets are not reusable across
-// commands). The Run handlers themselves live in env_key_handlers.go.
+// commands). The Run handlers themselves live in key_handlers.go.
 package secrets
 
 import (

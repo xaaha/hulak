@@ -1,6 +1,6 @@
 // Shared Run handlers for key-level CRUD operations (set, get, delete).
 //
-// The nested `secrets keys set/get/delete` factories in env_keys_crud.go
+// The nested `secrets keys set/get/delete` factories in keys_crud.go
 // dispatch here. Keeping the logic separate from the factories means the
 // factories stay pure wiring and a bug fix lands in one place.
 package secrets
@@ -232,7 +232,7 @@ func printValue(value any) error {
 
 // runEnvDelete handles the delete semantics for `secrets keys delete` —
 // removing a single KEY from an environment. (`secrets delete` is a
-// separate command in env_lifecycle.go that removes an entire environment.)
+// separate command in lifecycle.go that removes an entire environment.)
 // Wrapped in the file lock; exits non-zero if the key or env is missing
 // instead of silently treating it as success.
 func runEnvDelete(args []string, envName string) error {

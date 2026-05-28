@@ -1,4 +1,8 @@
-// Package userflags have everything related to user's flags & subcommands
+// Package userflags is the top-level CLI dispatch for hulak. It wires
+// root flags, builds the command tree from leaf subpackages (cli, cliflags,
+// runcmd, initcmd, doctor, gql, example, secrets), and routes os.Args
+// through ParseFlagsSubcmds. Heavy logic lives in those subpackages; this
+// package is the entry point and the glue.
 package userflags
 
 import (
