@@ -25,7 +25,7 @@ func newEnvListCmd() *command {
 
 	return &command{
 		Name:    "list",
-		Aliases: []string{"ls", "l"},
+		Aliases: []string{"ls"},
 		Short:   "List environment names",
 		Long:    "Show all environment names defined in the encrypted vault.\n\nThis lists the environments themselves (e.g. global, staging, prod).\nUse `hulak secrets keys --env <name>` to list keys within an environment.",
 		Flags:   listFs,
@@ -74,23 +74,40 @@ func newEnvKeysCmd() *command {
 	return &command{
 		Name:    "keys",
 		Aliases: []string{"key"},
-		Short:   "List keys in an environment",
-		Long:    "Show secret keys within an environment.\n\nValues are masked by default (••••) so the output is safe to share in screen recordings\nand meetings. Use --show to reveal them.\nUse --search to filter by case-insensitive substring or glob pattern (e.g. \"API*\", \"DB_?\").",
-		Flags:   keysFs,
+		Short:   "Manage keys within an environment",
+		Long: "Manage keys within an environment.\n\n" +
+			"All leaves are scoped to a single environment via --env (or --environment).\n" +
+			"When --env is omitted you'll be prompted to pick one from a TUI list.\n\n" +
+			"Values are masked by default (••••) so listing is safe in screen\n" +
+			"recordings and meetings. Use --show on `list` to reveal them. Use\n" +
+			"--search on `list` to filter by case-insensitive substring or glob\n" +
+			"(e.g. \"API*\", \"DB_?\").\n\n" +
+			"`secrets keys --env <name>` with no subcommand is shorthand for\n" +
+			"`secrets keys list --env <name>`.",
+		Flags: keysFs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets keys --env prod",
+				Command:     "hulak secrets keys list --env prod",
 				Description: "List keys in prod with values masked",
 			},
-			{Command: "hulak secrets keys --env prod --show", Description: "Reveal actual values"},
 			{
-				Command:     "hulak secrets keys --env prod --search \"API*\"",
-				Description: "Filter keys by glob pattern",
+				Command:     "hulak secrets keys set API_KEY sk-123 --env prod",
+				Description: "Set a key in prod",
 			},
 			{
-				Command:     "hulak secrets keys --env staging --search api",
-				Description: "Filter by case-insensitive substring",
+				Command:     "hulak secrets keys get API_KEY --env prod",
+				Description: "Print a value from prod",
 			},
+			{
+				Command:     "hulak secrets keys delete OLD_KEY --env prod",
+				Description: "Delete a key from prod",
+			},
+		},
+		SubCommands: []*command{
+			keysListCmd(),
+			keysSetCmd(),
+			keysGetCmd(),
+			keysDeleteCmd(),
 		},
 		Run: func(args []string) error {
 			return runEnvKeys(args, *keysEnv, *keysSearch, *keysShow)
@@ -107,11 +124,7 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
@@ -119,18 +132,14 @@ func runEnvKeys(args []string, envName, search string, show bool) error {
 		return nil
 	}
 
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
-	}
-
 	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
 
-	env := store.GetEnv(envName)
-	if env == nil {
-		return fmt.Errorf("environment %q not found in vault store", envName)
+	env, err := requireEnvExists(store, envName)
+	if err != nil {
+		return err
 	}
 
 	keys := make([]string, 0, len(env))

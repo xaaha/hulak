@@ -182,8 +182,8 @@ func TestRunRotateKey(t *testing.T) {
 		if err == nil {
 			t.Fatal("should refuse when HULAK_MASTER_KEY set")
 		}
-		if !strings.Contains(err.Error(), "import-key") {
-			t.Errorf("error should mention import-key, got: %v", err)
+		if !strings.Contains(err.Error(), "identity import") {
+			t.Errorf("error should mention identity import, got: %v", err)
 		}
 	})
 

@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak secrets rotate-key.
+// Contains command factory and handler for hulak secrets identity rotate.
 package userflags
 
 import (
@@ -11,20 +11,19 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-func newEnvRotateKeyCmd() *command {
+func newIdentityRotateCmd() *command {
 	return &command{
-		Name:    "rotate-key",
-		Aliases: []string{"rotate-identity"},
-		Short:   "Rotate your age identity (keypair)",
+		Name:  "rotate",
+		Short: "Rotate your age identity (keypair)",
 		Long: "Generate a new age keypair, swap it in recipients.txt, and re-encrypt the store.\n\n" +
 			"This is the \"my key was compromised\" command. After rotation:\n" +
 			"  - Your old private key is backed up to identity.txt.old\n" +
 			"  - The store is re-encrypted to the new key\n" +
 			"  - Teammates' keys are untouched\n\n" +
-			"Distinct from 'rotate' (which re-encrypts without changing keys).",
+			"Distinct from 'hulak secrets sync' (which re-encrypts without changing keys).",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets rotate-key",
+				Command:     "hulak secrets identity rotate",
 				Description: "Rotate your identity and re-encrypt the store",
 			},
 		},
@@ -42,7 +41,7 @@ type rotationState struct {
 	recovering     bool
 }
 
-// runRotateKey handles `hulak secrets rotate-key`.
+// runRotateKey handles `hulak secrets identity rotate`.
 // Generates a new age keypair, swaps it in recipients.txt, re-encrypts the
 // store, and backs up the old private key to identity.txt.old.
 func runRotateKey(args []string) error {
@@ -55,20 +54,20 @@ func runRotateKey(args []string) error {
 
 	if !vault.IdentityExists() {
 		return fmt.Errorf(
-			"rotate-key requires an age identity (identity.txt)\n\n" +
+			"rotate requires an age identity (identity.txt)\n\n" +
 				"This vault uses SSH keys. To rotate:\n" +
 				"  1. Generate new SSH key: ssh-keygen -t ed25519\n" +
-				"  2. Add new key: hulak secrets add-recipient \"$(cat ~/.ssh/new_key.pub)\"\n" +
+				"  2. Add new key: hulak secrets identity add-recipient \"$(cat ~/.ssh/new_key.pub)\"\n" +
 				"  3. Re-encrypt: hulak secrets sync\n" +
-				"  4. Remove old key: hulak secrets remove-recipient \"ssh-ed25519 <old>\"\n" +
+				"  4. Remove old key: hulak secrets identity remove-recipient \"ssh-ed25519 <old>\"\n" +
 				"  5. Verify: hulak doctor",
 		)
 	}
 
 	if os.Getenv(utils.MasterKey) != "" {
 		return fmt.Errorf(
-			"rotate-key cannot run while %s is set — "+
-				"run 'hulak secrets import-key' to move your key to disk first",
+			"identity rotate cannot run while %s is set — "+
+				"run 'hulak secrets identity import' to move your key to disk first",
 			utils.MasterKey,
 		)
 	}

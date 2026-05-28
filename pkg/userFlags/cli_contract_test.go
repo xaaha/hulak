@@ -371,11 +371,9 @@ func TestEnvSubCommandsExist(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	expected := []string{
-		"set", "get", "list", "keys", "delete", "edit",
-		"import-key", "export-key",
-		"add-recipient", "remove-recipient", "list-recipients",
-	}
+	// Identity-related cmds moved under `secrets identity` — see
+	// TestSecretsIdentitySurfaceSnapshot.
+	expected := []string{"list", "keys", "edit", "identity"}
 	for _, name := range expected {
 		if envCmd.findSub(name) == nil {
 			t.Errorf("expected env subcommand %q to exist", name)
@@ -395,11 +393,13 @@ func TestEnvAliases(t *testing.T) {
 		name    string
 		aliases []string
 	}{
-		{"list", []string{"ls", "l"}},
-		{"set", []string{"add"}},
-		{"get", []string{"g", "show", "view"}},
+		// When this list changes, also update the snapshot in TestSecretsSurfaceSnapshot.
+		// `set`/`get`/`delete` no longer live at this level — they moved
+		// under `secrets keys`. See TestSecretsKeysAliases for the nested
+		// versions.
+		{"list", []string{"ls"}},
 		{"keys", []string{"key"}},
-		{"delete", []string{"rm", "remove", "del"}},
+		{"sync", nil}, // intentionally no `rotate` alias — that name belongs to `identity rotate`
 	}
 
 	for _, tc := range tests {
@@ -409,6 +409,73 @@ func TestEnvAliases(t *testing.T) {
 					t.Errorf("expected env subcommand %q to resolve (alias of %q)", alias, tc.name)
 				}
 			})
+		}
+	}
+}
+
+// TestSecretsKeysAliases verifies the nested `secrets keys` subgroup
+// registers each leaf command with its documented alias.
+func TestSecretsKeysAliases(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("secrets")
+	if envCmd == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+	keys := envCmd.findSub("keys")
+	if keys == nil {
+		t.Fatal("expected secrets keys subcommand to exist")
+	}
+
+	tests := []struct {
+		name    string
+		aliases []string
+	}{
+		{"list", []string{"ls"}},
+		{"set", []string{"add"}},
+		{"get", nil}, // no alias: --show flag (unmask values) would conflict
+		{"delete", []string{"rm"}},
+	}
+
+	for _, tc := range tests {
+		for _, alias := range append([]string{tc.name}, tc.aliases...) {
+			t.Run(alias, func(t *testing.T) {
+				if keys.findSub(alias) == nil {
+					t.Errorf("expected secrets keys subcommand %q to resolve (alias of %q)", alias, tc.name)
+				}
+			})
+		}
+	}
+}
+
+// TestSecretsKeysSubCommandsHaveEnvFlag verifies every leaf of `secrets keys`
+// registers --env / --environment so users can target a specific environment
+// or fall through to the picker.
+func TestSecretsKeysSubCommandsHaveEnvFlag(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("secrets")
+	if envCmd == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+	keys := envCmd.findSub("keys")
+	if keys == nil {
+		t.Fatal("expected secrets keys subcommand to exist")
+	}
+
+	for _, leaf := range []string{"list", "set", "get", "delete"} {
+		sub := keys.findSub(leaf)
+		if sub == nil {
+			t.Errorf("expected secrets keys %q to exist", leaf)
+			continue
+		}
+		if sub.Flags == nil {
+			t.Errorf("secrets keys %q should have its own FlagSet", leaf)
+			continue
+		}
+		if sub.Flags.Lookup("env") == nil {
+			t.Errorf("secrets keys %q should have an --env flag", leaf)
+		}
+		if sub.Flags.Lookup("environment") == nil {
+			t.Errorf("secrets keys %q should have an --environment alias", leaf)
 		}
 	}
 }
@@ -448,7 +515,7 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 
 	// Subcommands that target a specific environment
 	// list does not take --env (it lists environment names themselves)
-	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
+	needsEnvFlag := []string{"keys", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -475,7 +542,7 @@ func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 	}
 
 	// list does not take --env (it lists environment names themselves)
-	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
+	needsEnvFlag := []string{"keys", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -505,12 +572,8 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 		subcommand string
 		flag       string
 	}{
-		{"set", "stdin"},
 		{"keys", "show"},
 		{"keys", "search"},
-		{"import-key", "stdin"},
-		{"import-key", "force"},
-		{"export-key", "out"},
 	}
 
 	for _, tc := range tests {
@@ -527,10 +590,41 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 			t.Errorf("env subcommand %q should have a --%s flag", tc.subcommand, tc.flag)
 		}
 	}
+
+	// Identity subgroup leaves with their own contract-critical flags.
+	identity := envCmd.findSub("identity")
+	if identity == nil {
+		t.Fatal("expected secrets identity subgroup to exist")
+	}
+	identityTests := []struct {
+		leaf string
+		flag string
+	}{
+		{"import", "stdin"},
+		{"import", "force"},
+		{"export", "out"},
+	}
+	for _, tc := range identityTests {
+		sub := identity.findSub(tc.leaf)
+		if sub == nil {
+			t.Errorf("expected secrets identity %q to exist", tc.leaf)
+			continue
+		}
+		if sub.Flags == nil {
+			t.Errorf("secrets identity %q should have a FlagSet", tc.leaf)
+			continue
+		}
+		if sub.Flags.Lookup(tc.flag) == nil {
+			t.Errorf("secrets identity %q should have a --%s flag", tc.leaf, tc.flag)
+		}
+	}
 }
 
-// TestEnvSubCommandsHaveRunHandlers verifies every env subcommand has a
+// TestEnvSubCommandsHaveRunHandlers verifies every leaf env subcommand has a
 // non-nil Run handler so dispatch doesn't silently fall through to help.
+// Subgroups (commands with SubCommands of their own, like `keys` and
+// `identity`) intentionally have no Run handler — they delegate to their
+// children, or to a fallback Run when the leaf is omitted.
 func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	root := subCommands()
 	envCmd := root.findSub("secrets")
@@ -540,6 +634,10 @@ func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	}
 
 	for _, sub := range envCmd.SubCommands {
+		// Subgroups may legitimately have a nil Run.
+		if len(sub.SubCommands) > 0 {
+			continue
+		}
 		if sub.Run == nil {
 			t.Errorf("env subcommand %q is missing a Run handler", sub.Name)
 		}
@@ -597,5 +695,75 @@ func TestSubCommandsHaveHelp(t *testing.T) {
 		if sub.Name != "help" && sub.Long == "" {
 			t.Errorf("subcommand %q is missing Long description", sub.Name)
 		}
+	}
+}
+
+// TestSecretsRotateBelongsToIdentity verifies that `hulak secrets rotate`
+// resolves only as `secrets identity rotate` — there is no env-level `rotate`
+// alias of `sync`. The two operations are not interchangeable: `sync` re-encrypts
+// without changing keys, `identity rotate` issues a new keypair. Aliasing them
+// would let `hulak secrets rotate` silently do the safe-but-wrong thing for a
+// user trying to respond to a key compromise.
+func TestSecretsRotateBelongsToIdentity(t *testing.T) {
+	root := subCommands()
+	secrets := root.findSub("secrets")
+	if secrets == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+
+	// At the env level, `rotate` must not resolve.
+	if got := secrets.findSub("rotate"); got != nil {
+		t.Errorf("`secrets rotate` should not resolve at the env level (resolved to %q); only `secrets identity rotate` should exist", got.Name)
+	}
+
+	// At the identity level, `rotate` must resolve.
+	identity := secrets.findSub("identity")
+	if identity == nil {
+		t.Fatal("expected secrets identity subgroup to exist")
+	}
+	if identity.findSub("rotate") == nil {
+		t.Error("`secrets identity rotate` should resolve")
+	}
+}
+
+// TestFindSubcommandIndex_FlagBeforeVerb verifies that dispatch skips past
+// leading flags when locating a subcommand. Without this, `secrets keys
+// --env prod list` would land in the parent's Run handler with `list` as
+// a stray positional. The leaf-level flag-anywhere parser in Execute makes
+// flag ordering insignificant; this test holds dispatch to the same contract.
+func TestFindSubcommandIndex_FlagBeforeVerb(t *testing.T) {
+	root := subCommands()
+	keys := root.findSub("secrets").findSub("keys")
+	if keys == nil {
+		t.Fatal("secrets keys subcommand missing")
+	}
+
+	tests := []struct {
+		name         string
+		args         []string
+		wantMatchIdx int
+		wantFirstPos int
+	}{
+		{"verb first", []string{"list"}, 0, 0},
+		{"verb after string flag (space form)", []string{"--env", "prod", "list"}, 2, 2},
+		{"verb after string flag (inline form)", []string{"--env=prod", "list"}, 1, 1},
+		{"verb after bool flag", []string{"--show", "list"}, 1, 1},
+		{"verb after multiple flags", []string{"--env", "prod", "--show", "list"}, 3, 3},
+		{"all flags, no verb", []string{"--env", "prod"}, -1, -1},
+		{"empty args", nil, -1, -1},
+		{"typo after flag", []string{"--env", "prod", "ghost"}, -1, 2},
+		{"alias resolves", []string{"--env", "prod", "ls"}, 2, 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotMatch, gotFirst := keys.findSubcommandIndex(tc.args)
+			if gotMatch != tc.wantMatchIdx {
+				t.Errorf("matchIdx = %d, want %d", gotMatch, tc.wantMatchIdx)
+			}
+			if gotFirst != tc.wantFirstPos {
+				t.Errorf("firstNonFlag = %d, want %d", gotFirst, tc.wantFirstPos)
+			}
+		})
 	}
 }

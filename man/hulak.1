@@ -291,16 +291,16 @@ secrets:
 hulak secrets list
 .RE
 .RS
-hulak secrets set API_KEY sk\-123 \-\-env prod
+hulak secrets keys list \-\-env prod
 .RE
 .RS
-hulak secrets get API_KEY \-\-env staging
+hulak secrets keys set API_KEY sk\-123 \-\-env prod
 .RE
 .RS
-hulak secrets keys \-\-env prod
+hulak secrets keys get API_KEY \-\-env staging
 .RE
 .RS
-hulak secrets delete OLD_KEY
+hulak secrets keys delete OLD_KEY \-\-env staging
 .RE
 .PP
 help:

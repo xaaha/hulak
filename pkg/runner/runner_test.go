@@ -343,12 +343,12 @@ func TestSplitErrorForOutcome(t *testing.T) {
 			name: "multi-line missing-key remediation preserves detail",
 			err: errors.New(
 				"key \"X\" not found in environment \"prod\".\n" +
-					"Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+					"Run 'hulak secrets keys set X <value> --env prod' to add it to the encrypted vault.\n" +
 					"For classic env/ mode, add X=<value> to env/prod.env.\n" +
 					"Or use a different environment with the -env flag",
 			),
 			wantHeadline: `key "X" not found in environment "prod".`,
-			wantDetail: "Run 'hulak secrets set X <value> --env prod' to add it to the encrypted vault.\n" +
+			wantDetail: "Run 'hulak secrets keys set X <value> --env prod' to add it to the encrypted vault.\n" +
 				"For classic env/ mode, add X=<value> to env/prod.env.\n" +
 				"Or use a different environment with the -env flag",
 		},

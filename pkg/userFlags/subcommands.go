@@ -17,16 +17,6 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// registerEnvFlag adds both --env and --environment aliases to a FlagSet,
-// pointing to the same underlying variable, and returns a pointer so
-// Run handlers can read the parsed value.
-func registerEnvFlag(fs *flag.FlagSet, defaultVal string, usage string) *string {
-	var envVal string
-	fs.StringVar(&envVal, "env", defaultVal, usage)
-	fs.StringVar(&envVal, "environment", defaultVal, usage)
-	return &envVal
-}
-
 // subCommands builds the full sub-command tree for hulak
 func subCommands() *command {
 	root := &command{
@@ -483,49 +473,47 @@ func newEnvCmd() *command {
 		Aliases: []string{"env"},
 		Short:   "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
-			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
-			"When --env is omitted, you'll be prompted to pick an environment interactively.\n\n" +
-			"'env' is retained as an alias for backward compatibility with pre-0.3 docs.",
+			"Secrets are organized by environment (e.g. global, staging, prod).\n\n" +
+			"Three concern-scoped groups live here:\n" +
+			"  - this level: environment listing, edit, backup/restore, sync, migrate.\n" +
+			"  - `secrets keys ...`     for key-level CRUD inside an environment.\n" +
+			"  - `secrets identity ...` for age identities and recipient management.\n\n" +
+			"When --env is omitted on a command that takes one, you'll be prompted\n" +
+			"to pick an environment from a TUI list.\n\n" +
+			"'env' is kept as an alias of `secrets` for backward compatibility.",
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets list",
 				Description: "List environment names defined in the vault",
 			},
 			{
-				Command:     "hulak secrets set API_KEY sk-123 --env prod",
-				Description: "Set a secret in the prod environment",
-			},
-			{
-				Command:     "hulak secrets get API_KEY --env staging",
-				Description: "Get a secret from the staging environment",
-			},
-			{
-				Command:     "hulak secrets keys --env prod",
+				Command:     "hulak secrets keys list --env prod",
 				Description: "List keys in the prod environment (values masked)",
 			},
 			{
-				Command:     "hulak secrets delete OLD_KEY",
-				Description: "Delete a key from the default environment",
+				Command:     "hulak secrets keys set API_KEY sk-123 --env prod",
+				Description: "Set a key in the prod environment",
+			},
+			{
+				Command:     "hulak secrets keys get API_KEY --env staging",
+				Description: "Get a value from the staging environment",
+			},
+			{
+				Command:     "hulak secrets keys delete OLD_KEY --env staging",
+				Description: "Delete a key from the staging environment",
 			},
 		},
 	}
 
 	envCmd.SubCommands = []*command{
-		newEnvSetCmd(),
-		newEnvGetCmd(),
+		newEnvCreateCmd(),
+		newEnvDeleteCmd(),
 		newEnvListCmd(),
 		newEnvKeysCmd(),
-		newEnvDeleteCmd(),
 		newEnvEditCmd(),
-		newEnvImportKeyCmd(),
-		newEnvExportKeyCmd(),
-		newEnvGenIdentityCmd(),
-		newEnvListIdentityCmd(),
-		newEnvAddRecipientCmd(),
-		newEnvRemoveRecipientCmd(),
-		newEnvListRecipientsCmd(),
+		newEnvIdentityCmd(),
+		newEnvRenameCmd(),
 		newEnvSyncCmd(),
-		newEnvRotateKeyCmd(),
 		newEnvMigrateCmd(),
 		newEnvBackupCmd(),
 		newEnvRestoreCmd(),
