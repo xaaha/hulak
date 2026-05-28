@@ -74,23 +74,43 @@ func newEnvKeysCmd() *command {
 	return &command{
 		Name:    "keys",
 		Aliases: []string{"key"},
-		Short:   "List keys in an environment",
-		Long:    "Show secret keys within an environment.\n\nValues are masked by default (••••) so the output is safe to share in screen recordings\nand meetings. Use --show to reveal them.\nUse --search to filter by case-insensitive substring or glob pattern (e.g. \"API*\", \"DB_?\").",
-		Flags:   keysFs,
+		Short:   "Manage keys within an environment",
+		Long: "Manage keys within an environment.\n\n" +
+			"Running `secrets keys` with no subcommand lists keys (legacy shorthand,\n" +
+			"equivalent to `secrets keys list`). Use the subcommands below for full\n" +
+			"key-level CRUD.\n\n" +
+			"Values are masked by default (••••) so the output is safe to share in\n" +
+			"screen recordings and meetings. Use --show to reveal them.\n" +
+			"Use --search to filter by case-insensitive substring or glob pattern\n" +
+			"(e.g. \"API*\", \"DB_?\").",
+		Flags: keysFs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets keys --env prod",
+				Command:     "hulak secrets keys list --env prod",
 				Description: "List keys in prod with values masked",
 			},
-			{Command: "hulak secrets keys --env prod --show", Description: "Reveal actual values"},
 			{
-				Command:     "hulak secrets keys --env prod --search \"API*\"",
-				Description: "Filter keys by glob pattern",
+				Command:     "hulak secrets keys set API_KEY sk-123 --env prod",
+				Description: "Set a key in prod",
 			},
 			{
-				Command:     "hulak secrets keys --env staging --search api",
-				Description: "Filter by case-insensitive substring",
+				Command:     "hulak secrets keys get API_KEY --env prod",
+				Description: "Print a value from prod",
 			},
+			{
+				Command:     "hulak secrets keys delete OLD_KEY --env prod",
+				Description: "Delete a key from prod",
+			},
+			{
+				Command:     "hulak secrets keys --env prod",
+				Description: "Shorthand for `keys list` (legacy)",
+			},
+		},
+		SubCommands: []*command{
+			keysListCmd(),
+			keysSetCmd(),
+			keysGetCmd(),
+			keysDeleteCmd(),
 		},
 		Run: func(args []string) error {
 			return runEnvKeys(args, *keysEnv, *keysSearch, *keysShow)
