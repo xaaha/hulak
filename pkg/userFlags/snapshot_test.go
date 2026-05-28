@@ -115,6 +115,35 @@ sync | rotate | -
 	}
 }
 
+// TestSecretsKeysSurfaceSnapshot freezes the `secrets keys` subgroup. Added
+// in Chunk 7 of the #230 restructure when `keys` gained nested commands
+// (list/set/get/delete). The bare `secrets keys --env prod` legacy shorthand
+// is preserved by the parent's Run handler — not captured here because the
+// snapshot only describes children.
+func TestSecretsKeysSurfaceSnapshot(t *testing.T) {
+	root := subCommands()
+	secrets := root.findSub("secrets")
+	if secrets == nil {
+		t.Fatal("secrets subcommand missing")
+	}
+	keys := secrets.findSub("keys")
+	if keys == nil {
+		t.Fatal("secrets keys subcommand missing")
+	}
+
+	got := formatCommandSurface(keys)
+
+	const want = `delete | rm | env,environment
+get | - | env,environment
+list | ls | env,environment,search,show
+set | add | env,environment,stdin,t,type
+`
+
+	if got != want {
+		t.Errorf("secrets keys surface drift\n--- want\n%s\n--- got\n%s", want, got)
+	}
+}
+
 // TestSecretsHelpSnapshot freezes the parent help block for `hulak secrets`.
 // Catches changes to Long, Examples, and the COMMANDS section ordering.
 func TestSecretsHelpSnapshot(t *testing.T) {
@@ -137,7 +166,7 @@ COMMANDS
   gen-identity (generate-identity)    - Generate a new age keypair without creating a vault
   get                                 - Get a value by key
   import-key (import-identity)        - Import an age identity (private key)
-  keys (key)                          - List keys in an environment
+  keys (key)                          - Manage keys within an environment
   list (ls)                           - List environment names
   list-identity                       - List identities that can decrypt the vault
   list-recipients                     - List all recipients
