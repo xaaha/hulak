@@ -213,7 +213,7 @@ func checkStoreDecrypts() finding {
 			check:    "store-decrypts",
 			severity: sevError,
 			message:  fmt.Sprintf("store.age cannot be decrypted: %v", err),
-			fix:      "check that your identity matches the recipients list, or run 'hulak secrets rotate-key'",
+			fix:      "check that your identity matches the recipients list, or run 'hulak secrets identity rotate'",
 		}
 	}
 
@@ -228,7 +228,7 @@ func checkRecipientsExist() finding {
 			check:    "recipients-exist",
 			severity: sevError,
 			message:  "recipients.txt not found",
-			fix:      "run 'hulak secrets add-recipient' to create it",
+			fix:      "run 'hulak secrets identity add-recipient' to create it",
 		}
 	}
 	return okFinding("recipients-exist", "recipients.txt exists")
@@ -256,7 +256,7 @@ func checkRecipientsValid() finding {
 			check:    "recipients-valid",
 			severity: sevError,
 			message:  "recipients.txt has no valid entries",
-			fix:      "run 'hulak secrets add-recipient' to add one",
+			fix:      "run 'hulak secrets identity add-recipient' to add one",
 		}
 	}
 
@@ -344,7 +344,7 @@ func checkRecipientDrift() finding {
 			"recipients.txt has %d entries but store.age has %d stanzas — re-encryption needed",
 			len(entries), stanzaCount,
 		),
-		fix: "run 'hulak secrets rotate-key' to re-encrypt for all current recipients",
+		fix: "run 'hulak secrets identity rotate' to re-encrypt for all current recipients",
 	}
 }
 

@@ -90,25 +90,49 @@ func getSecretsCmd(t *testing.T) *command {
 func TestSecretsSurfaceSnapshot(t *testing.T) {
 	got := formatCommandSurface(getSecretsCmd(t))
 
-	const want = `add-recipient | - | allow-rsa,github,keyserver,name,stdin
-backup | - | f,force,o,out
+	const want = `backup | - | f,force,o,out
 edit | - | env,environment
-export-key | export-identity | o,out
-gen-identity | generate-identity | name
-import-key | import-identity | force,name,stdin
+identity | - | -
 keys | key | env,environment,search,show
 list | ls | -
-list-identity | - | -
-list-recipients | - | -
 migrate | - | -
-remove-recipient | - | -
 restore | - | f,force
-rotate-key | rotate-identity | -
 sync | rotate | -
 `
 
 	if got != want {
 		t.Errorf("secrets surface drift\n--- want\n%s\n--- got\n%s", want, got)
+	}
+}
+
+// TestSecretsIdentitySurfaceSnapshot freezes the `secrets identity` subgroup
+// shape. Catches name or alias drift on the 8 leaves moved here from the
+// secrets top level.
+func TestSecretsIdentitySurfaceSnapshot(t *testing.T) {
+	root := subCommands()
+	secrets := root.findSub("secrets")
+	if secrets == nil {
+		t.Fatal("secrets subcommand missing")
+	}
+	identity := secrets.findSub("identity")
+	if identity == nil {
+		t.Fatal("secrets identity subcommand missing")
+	}
+
+	got := formatCommandSurface(identity)
+
+	const want = `add-recipient | - | allow-rsa,github,keyserver,name,stdin
+export | - | o,out
+generate | gen | name
+import | - | force,name,stdin
+list | ls | -
+list-recipients | - | -
+remove-recipient | - | -
+rotate | - | -
+`
+
+	if got != want {
+		t.Errorf("secrets identity surface drift\n--- want\n%s\n--- got\n%s", want, got)
 	}
 }
 
@@ -157,21 +181,14 @@ that takes one, you'll be prompted to pick an environment.
 'env' is retained as an alias for backward compatibility with pre-0.3 docs.
 
 COMMANDS
-  add-recipient                       - Add a recipient for shared vault access
-  backup                              - Create a backup of the encrypted store
-  edit                                - Edit secrets interactively
-  export-key (export-identity)        - Export the age identity (private key)
-  gen-identity (generate-identity)    - Generate a new age keypair without creating a vault
-  import-key (import-identity)        - Import an age identity (private key)
-  keys (key)                          - Manage keys within an environment
-  list (ls)                           - List environment names
-  list-identity                       - List identities that can decrypt the vault
-  list-recipients                     - List all recipients
-  migrate                             - Migrate env/*.env files to the encrypted vault
-  remove-recipient                    - Remove a recipient
-  restore                             - Restore the encrypted store from a backup
-  rotate-key (rotate-identity)        - Rotate your age identity (keypair)
-  sync (rotate)                       - Re-encrypt the store to current recipients
+  backup           - Create a backup of the encrypted store
+  edit             - Edit secrets interactively
+  identity         - Manage age identities and recipients
+  keys (key)       - Manage keys within an environment
+  list (ls)        - List environment names
+  migrate          - Migrate env/*.env files to the encrypted vault
+  restore          - Restore the encrypted store from a backup
+  sync (rotate)    - Re-encrypt the store to current recipients
 
 EXAMPLES
   $ hulak secrets list

@@ -10,16 +10,17 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// newEnvListIdentityCmd returns the command struct for `hulak secrets list-identity`.
+// newIdentityListCmd returns the command struct for `hulak secrets identity list`.
 //
 // Surfaces which identities on this machine can actually decrypt the current
 // vault — replacing the per-decrypt stderr noise of "Decrypted with X" with
 // an explicit user-driven inspection command. The first row is the default
 // (marked with utils.Asterisk): it's what hulak would use for any read path.
-func newEnvListIdentityCmd() *command {
+func newIdentityListCmd() *command {
 	return &command{
-		Name:  "list-identity",
-		Short: "List identities that can decrypt the vault",
+		Name:    "list",
+		Aliases: []string{"ls"},
+		Short:   "List identities that can decrypt the vault",
 		Long: "Show every configured identity on this machine that can currently\n" +
 			"decrypt store.age. Probes each source in precedence order:\n\n" +
 			"  1. $HULAK_MASTER_KEY env var\n" +
@@ -31,7 +32,7 @@ func newEnvListIdentityCmd() *command {
 			"recipients.txt when the pubkey matches an entry there.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets list-identity",
+				Command:     "hulak secrets identity list",
 				Description: "Show every decrypting identity on this machine",
 			},
 		},

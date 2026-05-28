@@ -371,11 +371,9 @@ func TestEnvSubCommandsExist(t *testing.T) {
 		t.Fatal("expected env subcommand to exist")
 	}
 
-	expected := []string{
-		"list", "keys", "edit",
-		"import-key", "export-key",
-		"add-recipient", "remove-recipient", "list-recipients",
-	}
+	// Identity-related cmds moved under `secrets identity` — see
+	// TestSecretsIdentitySurfaceSnapshot.
+	expected := []string{"list", "keys", "edit", "identity"}
 	for _, name := range expected {
 		if envCmd.findSub(name) == nil {
 			t.Errorf("expected env subcommand %q to exist", name)
@@ -576,9 +574,6 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 	}{
 		{"keys", "show"},
 		{"keys", "search"},
-		{"import-key", "stdin"},
-		{"import-key", "force"},
-		{"export-key", "out"},
 	}
 
 	for _, tc := range tests {
@@ -595,10 +590,41 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 			t.Errorf("env subcommand %q should have a --%s flag", tc.subcommand, tc.flag)
 		}
 	}
+
+	// Identity subgroup leaves with their own contract-critical flags.
+	identity := envCmd.findSub("identity")
+	if identity == nil {
+		t.Fatal("expected secrets identity subgroup to exist")
+	}
+	identityTests := []struct {
+		leaf string
+		flag string
+	}{
+		{"import", "stdin"},
+		{"import", "force"},
+		{"export", "out"},
+	}
+	for _, tc := range identityTests {
+		sub := identity.findSub(tc.leaf)
+		if sub == nil {
+			t.Errorf("expected secrets identity %q to exist", tc.leaf)
+			continue
+		}
+		if sub.Flags == nil {
+			t.Errorf("secrets identity %q should have a FlagSet", tc.leaf)
+			continue
+		}
+		if sub.Flags.Lookup(tc.flag) == nil {
+			t.Errorf("secrets identity %q should have a --%s flag", tc.leaf, tc.flag)
+		}
+	}
 }
 
-// TestEnvSubCommandsHaveRunHandlers verifies every env subcommand has a
+// TestEnvSubCommandsHaveRunHandlers verifies every leaf env subcommand has a
 // non-nil Run handler so dispatch doesn't silently fall through to help.
+// Subgroups (commands with SubCommands of their own, like `keys` and
+// `identity`) intentionally have no Run handler — they delegate to their
+// children, or to a fallback Run when the leaf is omitted.
 func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	root := subCommands()
 	envCmd := root.findSub("secrets")
@@ -608,6 +634,10 @@ func TestEnvSubCommandsHaveRunHandlers(t *testing.T) {
 	}
 
 	for _, sub := range envCmd.SubCommands {
+		// Subgroups may legitimately have a nil Run.
+		if len(sub.SubCommands) > 0 {
+			continue
+		}
 		if sub.Run == nil {
 			t.Errorf("env subcommand %q is missing a Run handler", sub.Name)
 		}

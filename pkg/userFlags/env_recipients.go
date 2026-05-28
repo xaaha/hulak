@@ -20,9 +20,9 @@ const (
 	EllipsisLength = 20
 )
 
-// newEnvAddRecipientCmd returns the "add-recipient" command with its flag set.
-func newEnvAddRecipientCmd() *command {
-	addRecipientFs := flag.NewFlagSet("env add-recipient", flag.ContinueOnError)
+// newIdentityAddRecipientCmd returns the "add-recipient" command with its flag set.
+func newIdentityAddRecipientCmd() *command {
+	addRecipientFs := flag.NewFlagSet("identity add-recipient", flag.ContinueOnError)
 	addRecipientName := registerNameFlag(addRecipientFs, "Human-readable label for the recipient (defaults to OS username)")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
 	addRecipientGitHub := addRecipientFs.String(
@@ -54,23 +54,23 @@ func newEnvAddRecipientCmd() *command {
 		},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets add-recipient age1ql3z...",
+				Command:     "hulak secrets identity add-recipient age1ql3z...",
 				Description: "Add a teammate's age public key",
 			},
 			{
-				Command:     "hulak secrets add-recipient \"ssh-ed25519 AAAA...\" --name Alice",
+				Command:     "hulak secrets identity add-recipient \"ssh-ed25519 AAAA...\" --name Alice",
 				Description: "Add an SSH ed25519 public key",
 			},
 			{
-				Command:     "hulak secrets add-recipient --github alice --name Alice",
+				Command:     "hulak secrets identity add-recipient --github alice --name Alice",
 				Description: "Fetch and add Alice's ed25519 keys from GitHub",
 			},
 			{
-				Command:     "hulak secrets add-recipient --github alice --keyserver https://gitlab.com --name Alice",
+				Command:     "hulak secrets identity add-recipient --github alice --keyserver https://gitlab.com --name Alice",
 				Description: "Fetch from a self-hosted GitLab",
 			},
 			{
-				Command:     "cat keys.txt | hulak secrets add-recipient --stdin --name Team",
+				Command:     "cat keys.txt | hulak secrets identity add-recipient --stdin --name Team",
 				Description: "Add multiple keys from stdin",
 			},
 		},
@@ -265,8 +265,8 @@ func runAddRecipient(
 	})
 }
 
-// newEnvRemoveRecipientCmd returns the "remove-recipient" command.
-func newEnvRemoveRecipientCmd() *command {
+// newIdentityRemoveRecipientCmd returns the "remove-recipient" command.
+func newIdentityRemoveRecipientCmd() *command {
 	return &command{
 		Name:  "remove-recipient",
 		Short: "Remove a recipient",
@@ -280,11 +280,11 @@ func newEnvRemoveRecipientCmd() *command {
 		},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets remove-recipient age1ql3z...",
+				Command:     "hulak secrets identity remove-recipient age1ql3z...",
 				Description: "Remove by public key",
 			},
 			{
-				Command:     "hulak secrets remove-recipient Alice",
+				Command:     "hulak secrets identity remove-recipient Alice",
 				Description: "Remove by name label",
 			},
 		},
@@ -355,15 +355,15 @@ func runRemoveRecipient(args []string) error {
 	})
 }
 
-// newEnvListRecipientsCmd returns the "list-recipients" command.
-func newEnvListRecipientsCmd() *command {
+// newIdentityListRecipientsCmd returns the "list-recipients" command.
+func newIdentityListRecipientsCmd() *command {
 	return &command{
 		Name:  "list-recipients",
 		Short: "List all recipients",
 		Long:  "Show all age public keys that can decrypt the vault, with labels.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets list-recipients",
+				Command:     "hulak secrets identity list-recipients",
 				Description: "Show all recipients with names and key prefixes",
 			},
 		},

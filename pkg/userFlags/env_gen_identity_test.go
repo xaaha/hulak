@@ -69,8 +69,8 @@ func TestRunGenIdentity(t *testing.T) {
 		if !strings.Contains(err.Error(), "already exists") {
 			t.Errorf("error should mention 'already exists': %v", err)
 		}
-		if !strings.Contains(err.Error(), "rotate-key") {
-			t.Errorf("error should point at rotate-key: %v", err)
+		if !strings.Contains(err.Error(), "identity rotate") {
+			t.Errorf("error should point at identity rotate: %v", err)
 		}
 
 		// Identity unchanged
