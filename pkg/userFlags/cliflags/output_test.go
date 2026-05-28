@@ -1,4 +1,4 @@
-package userflags
+package cliflags
 
 import (
 	"os"
@@ -89,12 +89,12 @@ func TestResolveOutputPath(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveOutputPath(tc.outPath, tc.canonical, tc.knownExts...)
+			got, err := ResolveOutputPath(tc.outPath, tc.canonical, tc.knownExts...)
 			if err != nil {
-				t.Fatalf("resolveOutputPath: %v", err)
+				t.Fatalf("ResolveOutputPath: %v", err)
 			}
 			if got != tc.want {
-				t.Errorf("resolveOutputPath(%q, %q, %v) = %q, want %q",
+				t.Errorf("ResolveOutputPath(%q, %q, %v) = %q, want %q",
 					tc.outPath, tc.canonical, tc.knownExts, got, tc.want)
 			}
 		})
@@ -105,15 +105,15 @@ func TestResolveOutputPath_NormalizesCwd(t *testing.T) {
 	// "", ".", "./" all mean "use cwd" and should produce the same absolute
 	// path. CreatePath joins against cwd, so we can't predict the prefix —
 	// just verify all three agree and the basename matches.
-	got1, err := resolveOutputPath("", "example.hk.yaml", ".yaml")
+	got1, err := ResolveOutputPath("", "example.hk.yaml", ".yaml")
 	if err != nil {
 		t.Fatalf("empty: %v", err)
 	}
-	got2, err := resolveOutputPath(".", "example.hk.yaml", ".yaml")
+	got2, err := ResolveOutputPath(".", "example.hk.yaml", ".yaml")
 	if err != nil {
 		t.Fatalf(".: %v", err)
 	}
-	got3, err := resolveOutputPath("./", "example.hk.yaml", ".yaml")
+	got3, err := ResolveOutputPath("./", "example.hk.yaml", ".yaml")
 	if err != nil {
 		t.Fatalf("./: %v", err)
 	}

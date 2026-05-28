@@ -1,4 +1,4 @@
-package userflags
+package cliflags
 
 import (
 	"flag"
@@ -22,7 +22,7 @@ func TestRegisterYesFlag(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			yes := registerYesFlag(fs, "skip confirm")
+			yes := RegisterYes(fs, "skip confirm")
 			if err := fs.Parse(tc.args); err != nil {
 				t.Fatalf("Parse(%v): %v", tc.args, err)
 			}
@@ -38,7 +38,7 @@ func TestRegisterYesFlag(t *testing.T) {
 // variable — the contract that callers rely on.
 func TestRegisterYesFlagAlias(t *testing.T) {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	yes := registerYesFlag(fs, "skip confirm")
+	yes := RegisterYes(fs, "skip confirm")
 
 	long := fs.Lookup("yes")
 	short := fs.Lookup("y")
