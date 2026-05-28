@@ -1,34 +1,9 @@
-// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (
 	"flag"
-	"fmt"
 	"time"
-
-	"github.com/xaaha/hulak/pkg/utils"
 )
-
-// requireVaultProject returns an error if the current directory is not inside
-// a hulak vault project. Checks that .hulak/ directory actually exists on disk
-// (not just that FindProjectRoot found an env/ marker). The store.age file
-// itself may not exist yet (fresh init, before first `set`).
-func requireVaultProject() error {
-	markerPath, err := utils.GetProjectMarker()
-	if err != nil {
-		return fmt.Errorf(
-			"no vault project found\n\n" +
-				"Run 'hulak init' to create one, or change to a hulak project directory",
-		)
-	}
-	if !utils.DirExists(markerPath) {
-		return fmt.Errorf(
-			"this is a classic (env/) project, not a vault project\n\n" +
-				"Run 'hulak secrets migrate' to upgrade to the encrypted vault",
-		)
-	}
-	return nil
-}
 
 var (
 	flagEnv string
@@ -79,6 +54,9 @@ func init() {
 	flag.BoolVar(&flagQuiet, "quiet", false, "Suppress the end-of-run summary table")
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress the end-of-run summary table")
 
+	// --dry-run and --show are also registered per-subcommand via
+	// cliflags.RegisterDryRun / RegisterShow in runcmd. Keep usage strings
+	// and defaults in sync across both registration paths.
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Print the built request and exit without sending it")
 
 	flag.BoolVar(&flagShow, "show", false, "Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output")

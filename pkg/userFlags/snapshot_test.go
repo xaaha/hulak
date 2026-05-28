@@ -8,9 +8,8 @@
 //   - secrets-level subcommand inventory: name | aliases | flags
 //   - secrets-level help text (Long, COMMANDS block, EXAMPLES)
 //
-// Behavioral tests for each command already live next to it
-// (env_crud_test.go, env_keys_test.go, env_list_test.go,
-// env_edit_test.go, env_backup_test.go, etc.).
+// Behavioral tests for each command live next to it in pkg/userFlags/secrets/
+// (crud_test.go, keys_test.go, list_test.go, edit_test.go, backup_test.go, …).
 package userflags
 
 import (
@@ -21,6 +20,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 // ansiSeq matches every ANSI CSI escape sequence used by utils.PrintSectionHeader
@@ -41,9 +43,9 @@ func stripANSI(s string) string {
 // is omitted because it isn't part of any FlagSet at construction time — it
 // gets registered lazily on first parse. Excluding them keeps the snapshot
 // stable regardless of whether something has executed the command yet.
-func formatCommandSurface(cmd *command) string {
-	subs := append([]*command(nil), cmd.SubCommands...)
-	slices.SortFunc(subs, func(a, b *command) int {
+func formatCommandSurface(cmd *cli.Command) string {
+	subs := append([]*cli.Command(nil), cmd.SubCommands...)
+	slices.SortFunc(subs, func(a, b *cli.Command) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -74,10 +76,10 @@ func formatCommandSurface(cmd *command) string {
 	return sb.String()
 }
 
-func getSecretsCmd(t *testing.T) *command {
+func getSecretsCmd(t *testing.T) *cli.Command {
 	t.Helper()
 	root := subCommands()
-	cmd := root.findSub("secrets")
+	cmd := root.FindSub("secrets")
 	if cmd == nil {
 		t.Fatal("secrets subcommand missing")
 	}
@@ -113,11 +115,11 @@ sync | - | -
 // secrets top level.
 func TestSecretsIdentitySurfaceSnapshot(t *testing.T) {
 	root := subCommands()
-	secrets := root.findSub("secrets")
+	secrets := root.FindSub("secrets")
 	if secrets == nil {
 		t.Fatal("secrets subcommand missing")
 	}
-	identity := secrets.findSub("identity")
+	identity := secrets.FindSub("identity")
 	if identity == nil {
 		t.Fatal("secrets identity subcommand missing")
 	}
@@ -146,11 +148,11 @@ rotate | - | -
 // snapshot only describes children.
 func TestSecretsKeysSurfaceSnapshot(t *testing.T) {
 	root := subCommands()
-	secrets := root.findSub("secrets")
+	secrets := root.FindSub("secrets")
 	if secrets == nil {
 		t.Fatal("secrets subcommand missing")
 	}
-	keys := secrets.findSub("keys")
+	keys := secrets.FindSub("keys")
 	if keys == nil {
 		t.Fatal("secrets keys subcommand missing")
 	}
@@ -172,7 +174,7 @@ set | add | env,environment,stdin,t,type
 // Catches changes to Long, Examples, and the COMMANDS section ordering.
 func TestSecretsHelpSnapshot(t *testing.T) {
 	cmd := getSecretsCmd(t)
-	got := stripANSI(captureStdout(t, cmd.printHelp))
+	got := stripANSI(testutil.CaptureStdout(t, cmd.PrintHelp))
 
 	const want = `Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 

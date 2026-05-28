@@ -59,7 +59,7 @@ hulak secrets keys set Url https://api.example.com/v1 --env prod
 Scaffold a starter request (runs as-is against a public test API):
 
 ```bash
-hulak example api                                     # writes example-api.hk.yaml
+hulak example api  # writes example-api.hk.yaml
 ```
 
 Other types: `hulak example formdata`, `hulak example graphql` (alias `gql`), `hulak example auth`, `hulak example options` (reference card).
