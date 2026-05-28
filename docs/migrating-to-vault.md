@@ -23,7 +23,7 @@ This page walks you through moving an existing classic-mode hulak project (`env/
 3. **Choose an identity source.** Hulak needs a private key to decrypt the vault. You have three options. Most users want the first.
    - **Generate a new age keypair** (default). Hulak creates `~/.config/hulak/identity.txt`.
    - **Use your SSH key.** Run `hulak init --ssh` first to bootstrap with `~/.ssh/id_ed25519`, then migrate.
-   - **Bring your own age key.** Generate it elsewhere, then import with `hulak secrets import-key`.
+   - **Bring your own age key.** Generate it elsewhere, then import with `hulak secrets identity import`.
 
 See [store.md#identity](./store.md#identity) for the full identity priority chain.
 
@@ -55,7 +55,7 @@ Three quick checks. Do all three before trusting the migration.
 hulak secrets list
 
 # 2. Keys per environment
-hulak secrets keys --env prod
+hulak secrets keys list --env prod
 
 # 3. End-to-end smoke test (run a real request with the new backend)
 hulak run requests/health.hk.yaml --env prod
@@ -82,13 +82,13 @@ Losing `~/.config/hulak/identity.txt` without a backup means losing access to yo
 
 ```bash
 # Option A. Export and paste into a password manager.
-hulak secrets export-key
+hulak secrets identity export
 # AGE-SECRET-KEY-1QF...
 # (paste into 1Password / Bitwarden / etc.)
 
 # Option B. Add a second recipient.
 # Generate a backup keypair on a different machine or USB. Then:
-hulak secrets add-recipient <backup-pubkey> --name "backup-laptop"
+hulak secrets identity add-recipient <backup-pubkey> --name "backup-laptop"
 ```
 
 See [store.md#identity-backup](./store.md#identity-backup) for details.
