@@ -2,7 +2,7 @@
 // Run via: go generate ./pkg/userFlags  or  hulak gendocs
 package initcmd
 
-//go:generate go run ../.. gendocs
+//go:generate go run ../../.. gendocs
 
 import (
 	"flag"
