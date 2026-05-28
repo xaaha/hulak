@@ -1,4 +1,8 @@
-// Package userflags have everything related to user's flags & subcommands
+// Package userflags is the top-level CLI dispatch for hulak. It wires
+// root flags, builds the command tree from leaf subpackages (cli, cliflags,
+// runcmd, initcmd, doctor, gql, example, secrets), and routes os.Args
+// through ParseFlagsSubcmds. Heavy logic lives in those subpackages; this
+// package is the entry point and the glue.
 package userflags
 
 import (
@@ -39,7 +43,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 	if len(os.Args) >= 2 {
 		first := os.Args[1]
 		switch {
-		case subCmds.findSub(first) != nil:
+		case subCmds.FindSub(first) != nil:
 			if err := subCmds.Execute(os.Args[1:]); err != nil {
 				return nil, err
 			}
@@ -53,7 +57,7 @@ func ParseFlagsSubcmds() (*AllFlags, error) {
 				getVersion()
 				os.Exit(0)
 			case flagHelp:
-				subCmds.printHelp()
+				subCmds.PrintHelp()
 				os.Exit(0)
 			}
 

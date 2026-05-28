@@ -2,35 +2,13 @@ package apicalls
 
 import (
 	"bytes"
-	"io"
 	"mime/multipart"
-	"os"
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
-
-// captureStdout swaps os.Stdout for a pipe, runs fn, and returns what was
-// written. Restores stdout even if fn panics.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	orig := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Stdout = w
-	defer func() { os.Stdout = orig }()
-
-	fn()
-	_ = w.Close()
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("io.Copy: %v", err)
-	}
-	return buf.String()
-}
 
 func TestPrintDryRun_MethodAndURL(t *testing.T) {
 	info := &yamlparser.APIInfo{
@@ -38,7 +16,7 @@ func TestPrintDryRun_MethodAndURL(t *testing.T) {
 		URL:       "https://api.example.com/users",
 		URLParams: map[string]string{"limit": "10"},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -59,7 +37,7 @@ func TestPrintDryRun_HeadersSortedAndRedacted(t *testing.T) {
 			"X-API-Key":     "key-456",
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -96,7 +74,7 @@ func TestPrintDryRun_ShowReveals(t *testing.T) {
 			"Authorization": "Bearer secret123",
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, true); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -115,7 +93,7 @@ func TestPrintDryRun_JSONBodyPrettyPrinted(t *testing.T) {
 		URL:    "https://api.example.com/x",
 		Body:   strings.NewReader(`{"name":"alice","age":42}`),
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -135,7 +113,7 @@ func TestPrintDryRun_NonJSONBodyVerbatim(t *testing.T) {
 		URL:    "https://api.example.com/x",
 		Body:   strings.NewReader(body),
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -151,7 +129,7 @@ func TestPrintDryRun_NilBody(t *testing.T) {
 		URL:    "https://api.example.com/x",
 		Body:   nil,
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -170,7 +148,7 @@ func TestPrintDryRun_URLEncodedBodyPretty(t *testing.T) {
 		Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
 		Body:    strings.NewReader("user=Jane+Doe&age=42"),
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -207,7 +185,7 @@ func TestPrintDryRun_MultipartBodyPretty(t *testing.T) {
 		Headers: map[string]string{"Content-Type": mw.FormDataContentType()},
 		Body:    &buf,
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -249,7 +227,7 @@ func TestPrintDryRun_MultipartMixedTextAndFile(t *testing.T) {
 		Headers: map[string]string{"Content-Type": mw.FormDataContentType()},
 		Body:    &buf,
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
@@ -271,7 +249,7 @@ func TestPrintDryRun_EmptyBody(t *testing.T) {
 		URL:    "https://api.example.com/x",
 		Body:   strings.NewReader(""),
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		if err := PrintDryRun(info, false); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
