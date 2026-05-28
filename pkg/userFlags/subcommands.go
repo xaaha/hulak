@@ -512,6 +512,7 @@ func newEnvCmd() *command {
 		newEnvKeysCmd(),
 		newEnvEditCmd(),
 		newEnvIdentityCmd(),
+		newEnvRenameCmd(),
 		newEnvSyncCmd(),
 		newEnvMigrateCmd(),
 		newEnvBackupCmd(),

@@ -2,10 +2,11 @@
 //
 //	secrets create   — create a new empty environment
 //	secrets delete   — delete an environment (with confirm prompt)
+//	secrets rename   — rename an environment (unix-style `mv OLD NEW`)
 //
-// `rename` joins this file in a subsequent chunk. Lifecycle is kept separate
-// from key-level CRUD (env_key_handlers.go) because the unit of work is
-// different — these commands operate on the env itself, not on keys within it.
+// Lifecycle is kept separate from key-level CRUD (env_key_handlers.go)
+// because the unit of work is different — these commands operate on the env
+// itself, not on keys within it.
 package userflags
 
 import (
@@ -168,6 +169,89 @@ func runDeleteEnv(args []string, envName string, force bool) error {
 			return err
 		}
 		utils.PrintSuccessStderr(fmt.Sprintf("Deleted environment %q", envName))
+		return nil
+	})
+}
+
+// newEnvRenameCmd returns the command struct for `hulak secrets rename`.
+//
+// Deliberately matches the unix `mv` shape (two positional args) instead of
+// the otherwise-prevailing --flag style. Renaming an env is the same shape
+// of operation as renaming a file, and `mv staging stage` reads at a glance
+// while `--env staging --to stage` reads like a paragraph. The `mv` alias
+// makes the muscle-memory map explicit.
+func newEnvRenameCmd() *command {
+	fs := flag.NewFlagSet("env rename", flag.ContinueOnError)
+
+	return &command{
+		Name:    "rename",
+		Aliases: []string{"mv"},
+		Short:   "Rename an environment (unix-style mv)",
+		Long: "Rename an environment in the encrypted vault. Takes two positional\n" +
+			"arguments, the same way `mv` does on a filesystem:\n\n" +
+			"  hulak secrets rename OLD NEW\n" +
+			"  hulak secrets mv     OLD NEW\n\n" +
+			"All keys in OLD move to NEW; recipients and other environments are\n" +
+			"untouched. Fails if OLD does not exist, NEW already exists, or either\n" +
+			"name is invalid (path separators, leading underscores, etc.).",
+		Flags: fs,
+		Args: []argDef{
+			{Name: "old", Required: true, Desc: "Existing environment name"},
+			{Name: "new", Required: true, Desc: "New environment name"},
+		},
+		Examples: []*utils.CommandHelp{
+			{
+				Command:     "hulak secrets rename staging stage",
+				Description: "Rename staging to stage",
+			},
+			{
+				Command:     "hulak secrets mv staging stage",
+				Description: "Same as rename (unix-style alias)",
+			},
+		},
+		Run: runRenameEnv,
+	}
+}
+
+// runRenameEnv moves all keys from args[0] to args[1] under the store lock.
+// Errors propagate from vault.RenameEnv: source missing, destination exists,
+// invalid names.
+func runRenameEnv(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf(
+			"rename takes exactly 2 arguments (OLD NEW), got %d",
+			len(args),
+		)
+	}
+	oldName, newName := args[0], args[1]
+
+	if err := requireVaultProject(); err != nil {
+		return err
+	}
+	if err := utils.ValidateEnvName(oldName); err != nil {
+		return fmt.Errorf("invalid OLD env name: %w", err)
+	}
+	if err := utils.ValidateEnvName(newName); err != nil {
+		return fmt.Errorf("invalid NEW env name: %w", err)
+	}
+
+	return vault.WithStoreLock(func() error {
+		store, err := vault.ReadStore()
+		if err != nil {
+			return err
+		}
+		if err := store.RenameEnv(oldName, newName); err != nil {
+			return err
+		}
+		if oldName == newName {
+			// Same-name rename is a Store-level no-op; nothing to write.
+			utils.PrintInfoStderr(fmt.Sprintf("Environment %q unchanged", oldName))
+			return nil
+		}
+		if err := vault.WriteStoreToRecipients(store); err != nil {
+			return err
+		}
+		utils.PrintSuccessStderr(fmt.Sprintf("Renamed %q to %q", oldName, newName))
 		return nil
 	})
 }

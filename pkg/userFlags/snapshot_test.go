@@ -98,6 +98,7 @@ identity | - | -
 keys | key | env,environment,search,show
 list | ls | -
 migrate | - | -
+rename | mv | -
 restore | - | f,force
 sync | rotate | -
 `
@@ -196,6 +197,7 @@ COMMANDS
   keys (key)       - Manage keys within an environment
   list (ls)        - List environment names
   migrate          - Migrate env/*.env files to the encrypted vault
+  rename (mv)      - Rename an environment (unix-style mv)
   restore          - Restore the encrypted store from a backup
   sync (rotate)    - Re-encrypt the store to current recipients
 

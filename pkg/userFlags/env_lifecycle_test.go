@@ -274,3 +274,131 @@ func TestRunDeleteEnv(t *testing.T) {
 		}
 	})
 }
+
+func TestRunRenameEnv(t *testing.T) {
+	t.Run("renames env and moves keys", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "staging", map[string]any{"API_KEY": "sk-staging", "URL": "https://s"})
+
+		if err := runRenameEnv([]string{"staging", "stage"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("staging") != nil {
+			t.Error("old name should be gone")
+		}
+		env := store.GetEnv("stage")
+		if env == nil {
+			t.Fatal("new name should exist")
+		}
+		if env["API_KEY"] != "sk-staging" {
+			t.Errorf("API_KEY = %v, want sk-staging", env["API_KEY"])
+		}
+	})
+
+	t.Run("preserves siblings", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "staging", map[string]any{"S": "stagingv"})
+		seedEnv(t, "prod", map[string]any{"P": "prodv"})
+
+		if err := runRenameEnv([]string{"staging", "stage"}); err != nil {
+			t.Fatal(err)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("prod")["P"] != "prodv" {
+			t.Error("rename disturbed sibling env")
+		}
+	})
+
+	t.Run("collision errors and leaves both intact", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "staging", map[string]any{"S": "stagingv"})
+		seedEnv(t, "prod", map[string]any{"P": "prodv"})
+
+		err := runRenameEnv([]string{"staging", "prod"})
+		if err == nil {
+			t.Fatal("expected collision error, got nil")
+		}
+		if !strings.Contains(err.Error(), `"prod" already exists`) {
+			t.Errorf("error should mention collision, got: %v", err)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("staging")["S"] != "stagingv" {
+			t.Error("source mutated after collision")
+		}
+		if store.GetEnv("prod")["P"] != "prodv" {
+			t.Error("destination mutated after collision")
+		}
+	})
+
+	t.Run("missing source errors", func(t *testing.T) {
+		setupVaultProject(t)
+		err := runRenameEnv([]string{"ghost", "anywhere"})
+		if err == nil {
+			t.Fatal("expected error for missing source")
+		}
+		if !strings.Contains(err.Error(), `"ghost" does not exist`) {
+			t.Errorf("error should name missing source, got: %v", err)
+		}
+	})
+
+	t.Run("same-name rename is a no-op", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"K": "v"})
+
+		if err := runRenameEnv([]string{"prod", "prod"}); err != nil {
+			t.Fatalf("same-name should not error: %v", err)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("prod")["K"] != "v" {
+			t.Error("same-name rename disturbed contents")
+		}
+	})
+
+	t.Run("rejects invalid old name", func(t *testing.T) {
+		setupVaultProject(t)
+		err := runRenameEnv([]string{"bad/name", "fine"})
+		if err == nil {
+			t.Fatal("expected validation error on old name")
+		}
+		if !strings.Contains(err.Error(), "OLD") {
+			t.Errorf("error should mention OLD, got: %v", err)
+		}
+	})
+
+	t.Run("rejects invalid new name", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "fine", map[string]any{"K": "v"})
+		err := runRenameEnv([]string{"fine", "bad/name"})
+		if err == nil {
+			t.Fatal("expected validation error on new name")
+		}
+		if !strings.Contains(err.Error(), "NEW") {
+			t.Errorf("error should mention NEW, got: %v", err)
+		}
+	})
+
+	t.Run("wrong arg count errors", func(t *testing.T) {
+		setupVaultProject(t)
+		for _, args := range [][]string{nil, {"only"}, {"a", "b", "c"}} {
+			if err := runRenameEnv(args); err == nil {
+				t.Errorf("expected error for args=%v, got nil", args)
+			}
+		}
+	})
+
+	t.Run("errors outside vault project", func(t *testing.T) {
+		t.Cleanup(chdirTemp(t, t.TempDir()))
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		_ = os.Unsetenv("HULAK_MASTER_KEY")
+
+		err := runRenameEnv([]string{"a", "b"})
+		if err == nil {
+			t.Fatal("expected error outside vault project")
+		}
+	})
+}
