@@ -37,9 +37,10 @@ func registerOutputFlag(fs *flag.FlagSet, usage string) *string {
 // knownExts may include or omit leading dots — both ".yaml" and "yaml" work.
 //
 // The rule-5 fallback (any-extension → file) is the right default for
-// commands like `secrets export-key` where the user picks whatever extension
-// suits their workflow (.txt, .pem, .key). Commands that want to restrict to
-// a specific format (e.g. backup → .age) should pass knownExts explicitly.
+// commands like `secrets identity export` where the user picks whatever
+// extension suits their workflow (.txt, .pem, .key). Commands that want to
+// restrict to a specific format (e.g. backup → .age) should pass knownExts
+// explicitly.
 func resolveOutputPath(outPath, canonical string, knownExts ...string) (string, error) {
 	// Normalize "." / "./" / "" → treat as "use cwd". filepath.Clean folds all
 	// three to "." so a single comparison handles them.

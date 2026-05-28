@@ -1,9 +1,8 @@
 // Shared Run handlers for key-level CRUD operations (set, get, delete).
 //
-// Both the top-level `secrets set/get/delete` factories (env_crud.go) and the
-// nested `secrets keys set/get/delete` factories (env_keys_crud.go) dispatch
-// here. Keeping the logic in one file means a bug fix lands once and benefits
-// both command paths — the factories themselves are pure wiring.
+// The nested `secrets keys set/get/delete` factories in env_keys_crud.go
+// dispatch here. Keeping the logic separate from the factories means the
+// factories stay pure wiring and a bug fix lands in one place.
 package userflags
 
 import (
@@ -24,7 +23,7 @@ import (
 // Not a hard limit — the value is still written.
 const MaxValueSizeWarnBytes = 64 << 10 // 64 KiB
 
-// validSetTypes lists the type names accepted by `secrets set --type`.
+// validSetTypes lists the type names accepted by `secrets keys set --type`.
 // Kept as a fixed-size array (not a map) so error messages can present them
 // in a stable order, the default ("string") stays first, and adding a value
 // fails the compiler if the size constant is not updated to match.
@@ -84,7 +83,7 @@ func parseTypedValue(raw, typeName string) (any, error) {
 	}
 }
 
-// runEnvSet handles set semantics for both `secrets set` and `secrets keys set`.
+// runEnvSet handles the set semantics for `secrets keys set`.
 //
 // Resolution order for the value:
 //  1. --stdin flag → read all of stdin
@@ -97,7 +96,7 @@ func parseTypedValue(raw, typeName string) (any, error) {
 // bad type/value never opens or mutates the store.
 //
 // The read-modify-write of store.age is wrapped in WithStoreLock so concurrent
-// `hulak secrets set` invocations cannot lose each other's edits.
+// `hulak secrets keys set` invocations cannot lose each other's edits.
 func runEnvSet(args []string, envName string, useStdin bool, typeName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
@@ -148,11 +147,11 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 
 // resolveSetValue returns the value to store, picking from --stdin, a positional
 // argument, or an interactive prompt. Trailing newlines are stripped from stdin
-// reads so 'echo "x" | hulak secrets set FOO --stdin' stores "x" not 'x\n'.
+// reads so 'echo "x" | hulak secrets keys set FOO --stdin' stores "x" not 'x\n'.
 //
-// Multi-word values must be quoted (e.g. `hulak secrets set MOTD "hello world"`).
+// Multi-word values must be quoted (e.g. `hulak secrets keys set MOTD "hello world"`).
 // More than one VALUE positional is rejected so a typo like
-// `hulak secrets set FOO bar baz` doesn't silently store "bar baz".
+// `hulak secrets keys set FOO bar baz` doesn't silently store "bar baz".
 func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 	switch {
 	case useStdin:
@@ -164,7 +163,7 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 
 	case len(args) > 2:
 		return "", fmt.Errorf(
-			"too many arguments: got %d, expected KEY [VALUE]; quote multi-word values: hulak secrets set %s \"...\"",
+			"too many arguments: got %d, expected KEY [VALUE]; quote multi-word values: hulak secrets keys set %s \"...\"",
 			len(args),
 			key,
 		)
@@ -177,9 +176,9 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 	}
 }
 
-// runEnvGet handles get semantics for both `secrets get` and `secrets keys get`.
-// Prints the raw value to stdout (suitable for $(...) capture) and returns a
-// non-zero error if the key or environment is missing.
+// runEnvGet handles the get semantics for `secrets keys get`. Prints the raw
+// value to stdout (suitable for $(...) capture) and returns a non-zero error
+// if the key or environment is missing.
 func runEnvGet(args []string, envName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
@@ -231,10 +230,11 @@ func printValue(value any) error {
 	return nil
 }
 
-// runEnvDelete handles delete semantics for both `secrets delete` and
-// `secrets keys delete`. Removes the key from the given environment under the
-// file lock. Exits non-zero if the key (or env) is missing — a missing key is
-// reported, not silently treated as success.
+// runEnvDelete handles the delete semantics for `secrets keys delete` —
+// removing a single KEY from an environment. (`secrets delete` is a
+// separate command in env_lifecycle.go that removes an entire environment.)
+// Wrapped in the file lock; exits non-zero if the key or env is missing
+// instead of silently treating it as success.
 func runEnvDelete(args []string, envName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
