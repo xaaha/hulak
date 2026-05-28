@@ -1,4 +1,8 @@
-package userflags
+// Package cli holds the CLI dispatch core: the Command struct, its Execute
+// method, help rendering, and small cross-cutting helpers (RequireVaultProject)
+// shared by every leaf command package. Leaf packages build *Command trees;
+// this package owns parsing and dispatch.
+package cli
 
 import (
 	"flag"
@@ -11,10 +15,12 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// flagAliases maps long-form flag names to their short form.
+// FlagAliases maps long-form flag names to their short form.
 // The long form is hidden from help output; only the short form is shown
-// with both names on one line (e.g. "-fp, --file-path").
-var flagAliases = map[string]string{
+// with both names on one line (e.g. "-fp, --file-path"). Exported so that
+// gendocs renders man pages using the same aliasing convention as runtime
+// help output.
+var FlagAliases = map[string]string{
 	"file-path":   "fp",
 	"file":        "f",
 	"environment": "env",
@@ -25,14 +31,16 @@ var flagAliases = map[string]string{
 	"type":        "t",
 }
 
-// hiddenFlags are omitted from help output entirely (utility flags
-// that don't need to clutter command-specific help)
-var hiddenFlags = map[string]bool{
+// HiddenFlags are omitted from help output entirely (utility flags
+// that don't need to clutter command-specific help). Exported alongside
+// FlagAliases for the same reason: gendocs shares the runtime's
+// visibility rules.
+var HiddenFlags = map[string]bool{
 	"h": true, "v": true,
 }
 
-// command represents a CLI command with optional subcommands and flags
-type command struct {
+// Command represents a CLI command with optional subcommands and flags.
+type Command struct {
 	Name        string                    // primary name (e.g. "gql")
 	Aliases     []string                  // alternative names (e.g. "graphql")
 	Short       string                    // one-line description for parent's help listing
@@ -40,24 +48,24 @@ type command struct {
 	Hidden      bool                      // omit from help listings (still callable)
 	Examples    []*utils.CommandHelp      // usage examples (printed via WriteCommandHelp)
 	Flags       *flag.FlagSet             // scoped flags for this command
-	Args        []argDef                  // positional arg descriptions (for help only)
-	SubCommands []*command                // nested subcommands
+	Args        []ArgDef                  // positional arg descriptions (for help only)
+	SubCommands []*Command                // nested subcommands
 	Run         func(args []string) error // handler; nil means subcommand-only
 }
 
-// ArgDef describes a positional argument for help output
-type argDef struct {
+// ArgDef describes a positional argument for help output.
+type ArgDef struct {
 	Name     string
 	Required bool
 	Desc     string
 }
 
-// Execute dispatches args to the correct subcommand or runs this command
-func (cmd *command) Execute(args []string) error {
+// Execute dispatches args to the correct subcommand or runs this command.
+func (cmd *Command) Execute(args []string) error {
 	// No args: show help if subcommand-only, or run with empty args
 	if len(args) == 0 {
 		if cmd.Run == nil {
-			cmd.printHelp()
+			cmd.PrintHelp()
 			return nil
 		}
 		return cmd.Run(args)
@@ -65,7 +73,7 @@ func (cmd *command) Execute(args []string) error {
 
 	// Check for help request as first arg
 	if isHelpArg(args[0]) {
-		cmd.printHelp()
+		cmd.PrintHelp()
 		return nil
 	}
 
@@ -74,15 +82,15 @@ func (cmd *command) Execute(args []string) error {
 	// (`secrets keys list --env prod`). This mirrors the iterative flag-anywhere
 	// parsing further down — order of flags vs verb is not significant.
 	if len(cmd.SubCommands) > 0 {
-		if idx, firstNonFlag := cmd.findSubcommandIndex(args); idx >= 0 {
-			sub := cmd.findSub(args[idx])
+		if idx, firstNonFlag := cmd.FindSubcommandIndex(args); idx >= 0 {
+			sub := cmd.FindSub(args[idx])
 			rest := append(append([]string(nil), args[:idx]...), args[idx+1:]...)
 			return sub.Execute(rest)
 		} else if firstNonFlag >= 0 {
 			// First non-flag token is not a subcommand — that's a typo, not
 			// a flag-handler invocation. Show help and exit non-zero.
 			fmt.Fprintln(os.Stderr)
-			cmd.printHelp()
+			cmd.PrintHelp()
 			return fmt.Errorf("unknown command %q for %s", args[firstNonFlag], cmd.Name)
 		}
 	}
@@ -113,7 +121,7 @@ func (cmd *command) Execute(args []string) error {
 				return fmt.Errorf("%s\nSee 'hulak %s --help' for usage", err, cmd.Name)
 			}
 			if helpFlag {
-				cmd.printHelp()
+				cmd.PrintHelp()
 				return nil
 			}
 			if cmd.Flags.NArg() == 0 {
@@ -126,15 +134,15 @@ func (cmd *command) Execute(args []string) error {
 	}
 
 	if cmd.Run == nil {
-		cmd.printHelp()
+		cmd.PrintHelp()
 		return nil
 	}
 
 	return cmd.Run(args)
 }
 
-// findSub returns the subcommand matching name by Name or Aliases, or nil
-func (cmd *command) findSub(name string) *command {
+// FindSub returns the subcommand matching name by Name or Aliases, or nil.
+func (cmd *Command) FindSub(name string) *Command {
 	for _, sub := range cmd.SubCommands {
 		if sub.Name == name || slices.Contains(sub.Aliases, name) {
 			return sub
@@ -143,7 +151,7 @@ func (cmd *command) findSub(name string) *command {
 	return nil
 }
 
-// findSubcommandIndex scans args for the first non-flag token, skipping
+// FindSubcommandIndex scans args for the first non-flag token, skipping
 // flags and (where determinable from cmd.Flags) their values. Returns:
 //
 //   - matchIdx ≥ 0  : args[matchIdx] resolves to a subcommand of cmd.
@@ -158,14 +166,14 @@ func (cmd *command) findSub(name string) *command {
 //
 // This is the dispatch-level analogue of the iterative flag-anywhere parsing
 // in Execute: ordering between flags and the verb is not significant.
-func (cmd *command) findSubcommandIndex(args []string) (matchIdx, firstNonFlag int) {
+func (cmd *Command) FindSubcommandIndex(args []string) (matchIdx, firstNonFlag int) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "" {
 			continue
 		}
 		if a[0] != '-' {
-			if cmd.findSub(a) != nil {
+			if cmd.FindSub(a) != nil {
 				return i, i
 			}
 			return -1, i
@@ -188,8 +196,8 @@ func (cmd *command) findSubcommandIndex(args []string) (matchIdx, firstNonFlag i
 	return -1, -1
 }
 
-// printHelp prints the command's help to stdout in a style similar to gh CLI
-func (cmd *command) printHelp() {
+// PrintHelp prints the command's help to stdout in a style similar to gh CLI.
+func (cmd *Command) PrintHelp() {
 	if cmd.Long != "" {
 		fmt.Println(cmd.Long)
 		fmt.Println()
@@ -257,11 +265,11 @@ func (cmd *command) printHelp() {
 }
 
 // printFlags renders the FLAGS section, merging short/long aliases onto one
-// line (e.g. "-fp, --file-path  string") and skipping hidden flags
+// line (e.g. "-fp, --file-path  string") and skipping hidden flags.
 func printFlags(fs *flag.FlagSet) {
 	// Collect which short names have a long alias
 	longFor := make(map[string]string) // short → long
-	for long, short := range flagAliases {
+	for long, short := range FlagAliases {
 		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
 			longFor[short] = long
 		}
@@ -269,7 +277,7 @@ func printFlags(fs *flag.FlagSet) {
 
 	hasVisible := false
 	fs.VisitAll(func(f *flag.Flag) {
-		if !hiddenFlags[f.Name] && flagAliases[f.Name] == "" {
+		if !HiddenFlags[f.Name] && FlagAliases[f.Name] == "" {
 			hasVisible = true
 		}
 	})
@@ -280,7 +288,7 @@ func printFlags(fs *flag.FlagSet) {
 	utils.PrintSectionHeader("FLAGS")
 	fs.VisitAll(func(f *flag.Flag) {
 		// Skip hidden and long-form aliases (shown with their short form)
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+		if HiddenFlags[f.Name] || FlagAliases[f.Name] != "" {
 			return
 		}
 
@@ -317,7 +325,7 @@ func printFlags(fs *flag.FlagSet) {
 	fmt.Println()
 }
 
-// isHelpArg returns true if the argument is a help request
+// isHelpArg returns true if the argument is a help request.
 func isHelpArg(arg string) bool {
 	return arg == "help" || arg == "--help" || arg == "-h"
 }
@@ -325,8 +333,8 @@ func isHelpArg(arg string) bool {
 // primaryName strips the "(alias, alias)" suffix from a command label so
 // sort comparisons see only the canonical name.
 func primaryName(label string) string {
-	if i := strings.IndexByte(label, ' '); i >= 0 {
-		return label[:i]
+	if before, _, ok := strings.Cut(label, " "); ok {
+		return before
 	}
 	return label
 }

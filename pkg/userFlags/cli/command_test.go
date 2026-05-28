@@ -1,4 +1,4 @@
-package userflags
+package cli
 
 import (
 	"bytes"
@@ -12,9 +12,9 @@ import (
 
 func TestExecuteDispatchesToSubcommand(t *testing.T) {
 	called := ""
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name:  "sub1",
 				Short: "first sub",
@@ -44,9 +44,9 @@ func TestExecuteDispatchesToSubcommand(t *testing.T) {
 
 func TestExecuteAliasMatching(t *testing.T) {
 	called := false
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name:    "gql",
 				Aliases: []string{"graphql", "GraphQL"},
@@ -73,9 +73,9 @@ func TestExecuteAliasMatching(t *testing.T) {
 
 func TestExecutePassesArgsToRun(t *testing.T) {
 	var gotArgs []string
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name: "migrate",
 				Run: func(args []string) error {
@@ -99,9 +99,9 @@ func TestExecuteWithFlags(t *testing.T) {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.StringVar(&envVal, "env", "", "environment")
 
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name:  "init",
 				Flags: fs,
@@ -133,7 +133,7 @@ func TestExecuteHelpFlag(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			runCalled := false
-			cmd := &command{
+			cmd := &Command{
 				Name: "test",
 				Long: "Test command help text",
 				Run: func(_ []string) error {
@@ -154,9 +154,9 @@ func TestExecuteHelpFlag(t *testing.T) {
 
 func TestExecuteSubcommandHelp(t *testing.T) {
 	runCalled := false
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name:  "init",
 				Short: "Initialize project",
@@ -180,10 +180,10 @@ func TestExecuteSubcommandHelp(t *testing.T) {
 
 func TestExecuteNoArgsSubcommandOnly(t *testing.T) {
 	// command with no Run and no args should print help without error
-	cmd := &command{
+	cmd := &Command{
 		Name: "root",
 		Long: "Root command",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{Name: "sub1", Short: "first"},
 		},
 	}
@@ -195,7 +195,7 @@ func TestExecuteNoArgsSubcommandOnly(t *testing.T) {
 
 func TestExecuteNoArgsWithRun(t *testing.T) {
 	called := false
-	cmd := &command{
+	cmd := &Command{
 		Name: "root",
 		Run: func(_ []string) error {
 			called = true
@@ -215,21 +215,21 @@ func TestPrintHelp(t *testing.T) {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
 	fs.String("env", "", "Environment to use")
 
-	cmd := &command{
+	cmd := &Command{
 		Name:  "gql",
 		Short: "GraphQL explorer",
 		Long:  "Open the GraphQL explorer for files and directories",
 		Flags: fs,
-		Args: []argDef{
+		Args: []ArgDef{
 			{Name: "path", Required: true, Desc: "File or directory path"},
 		},
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{Name: "create", Short: "Create a new GraphQL file"},
 		},
 	}
 
 	output := captureStdout(t, func() {
-		cmd.printHelp()
+		cmd.PrintHelp()
 	})
 
 	checks := []string{
@@ -251,10 +251,10 @@ func TestPrintHelp(t *testing.T) {
 }
 
 func TestPrintHelpShowsAliases(t *testing.T) {
-	cmd := &command{
+	cmd := &Command{
 		Name: "root",
 		Long: "Root command",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{Name: "list", Aliases: []string{"ls"}, Short: "List items"},
 			{Name: "delete", Aliases: []string{"rm", "remove"}, Short: "Delete an item"},
 			{Name: "get", Short: "Get an item"},
@@ -262,7 +262,7 @@ func TestPrintHelpShowsAliases(t *testing.T) {
 	}
 
 	output := captureStdout(t, func() {
-		cmd.printHelp()
+		cmd.PrintHelp()
 	})
 
 	checks := []string{
@@ -307,12 +307,12 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func TestExecuteNestedSubcommands(t *testing.T) {
 	var gotArgs []string
-	root := &command{
+	root := &Command{
 		Name: "root",
-		SubCommands: []*command{
+		SubCommands: []*Command{
 			{
 				Name: "env",
-				SubCommands: []*command{
+				SubCommands: []*Command{
 					{
 						Name: "set",
 						Run: func(args []string) error {
@@ -344,7 +344,7 @@ func TestExecuteNestedSubcommands(t *testing.T) {
 }
 
 func TestPrintHelpIncludesExamples(t *testing.T) {
-	cmd := &command{
+	cmd := &Command{
 		Name: "gql",
 		Long: "GraphQL explorer",
 		Examples: []*utils.CommandHelp{
@@ -353,7 +353,7 @@ func TestPrintHelpIncludesExamples(t *testing.T) {
 	}
 
 	output := captureStdout(t, func() {
-		cmd.printHelp()
+		cmd.PrintHelp()
 	})
 
 	checks := []string{"EXAMPLES", "hulak gql .", "All files in current dir"}
@@ -365,13 +365,13 @@ func TestPrintHelpIncludesExamples(t *testing.T) {
 }
 
 func TestFindSub(t *testing.T) {
-	sub := &command{
+	sub := &Command{
 		Name:    "gql",
 		Aliases: []string{"graphql"},
 	}
-	root := &command{
+	root := &Command{
 		Name:        "root",
-		SubCommands: []*command{sub},
+		SubCommands: []*Command{sub},
 	}
 
 	tests := []struct {
@@ -386,7 +386,7 @@ func TestFindSub(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := root.findSub(tc.input)
+			result := root.FindSub(tc.input)
 			if tc.found && result == nil {
 				t.Errorf("expected to find subcommand for %q", tc.input)
 			}
