@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -25,7 +26,7 @@ const (
 // newIdentityAddRecipientCmd returns the "add-recipient" command with its flag set.
 func newIdentityAddRecipientCmd() *cli.Command {
 	addRecipientFs := flag.NewFlagSet("identity add-recipient", flag.ContinueOnError)
-	addRecipientName := registerNameFlag(addRecipientFs, "Human-readable label for the recipient (defaults to OS username)")
+	addRecipientName := cliflags.RegisterName(addRecipientFs, "Human-readable label for the recipient (defaults to OS username)")
 	addRecipientStdin := addRecipientFs.Bool("stdin", false, "Read keys from stdin (one per line)")
 	addRecipientGitHub := addRecipientFs.String(
 		"github",
@@ -219,7 +220,7 @@ func runAddRecipient(
 
 		// User-supplied label wins; otherwise fall back to the GitHub username
 		// when the keys came from a github fetch.
-		recipientName := resolveRecipientName(name, gitHubUser)
+		recipientName := cliflags.ResolveRecipientName(name, gitHubUser)
 
 		added := 0
 		for _, pubKey := range pubKeys {

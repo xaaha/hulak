@@ -14,13 +14,14 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func keysListCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys list", flag.ContinueOnError)
-	envName := registerEnvFlag(fs, "", "Environment to operate on")
-	show := registerShowFlag(fs, "Reveal values instead of masking them")
+	envName := cliflags.RegisterEnv(fs, "", "Environment to operate on")
+	show := cliflags.RegisterShow(fs, "Reveal values instead of masking them")
 	search := fs.String(
 		"search",
 		"",
@@ -55,7 +56,7 @@ func keysListCmd() *cli.Command {
 
 func keysSetCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys set", flag.ContinueOnError)
-	envName := registerEnvFlag(fs, "", "Environment to operate on")
+	envName := cliflags.RegisterEnv(fs, "", "Environment to operate on")
 	useStdin := fs.Bool("stdin", false, "Read value from stdin")
 	var typeName string
 	typeUsage := "Value type: " + strings.Join(validSetTypes[:], "|")
@@ -94,7 +95,7 @@ func keysSetCmd() *cli.Command {
 
 func keysGetCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys get", flag.ContinueOnError)
-	envName := registerEnvFlag(fs, "", "Environment to operate on")
+	envName := cliflags.RegisterEnv(fs, "", "Environment to operate on")
 
 	return &cli.Command{
 		Name:  "get",
@@ -122,7 +123,7 @@ func keysGetCmd() *cli.Command {
 
 func keysDeleteCmd() *cli.Command {
 	fs := flag.NewFlagSet("keys delete", flag.ContinueOnError)
-	envName := registerEnvFlag(fs, "", "Environment to operate on")
+	envName := cliflags.RegisterEnv(fs, "", "Environment to operate on")
 
 	return &cli.Command{
 		Name:    "delete",

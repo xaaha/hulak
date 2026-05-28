@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -21,7 +22,7 @@ func newIdentityImportCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity import", flag.ContinueOnError)
 	importKeyStdin := fs.Bool("stdin", false, "Read key from stdin")
 	importKeyForce := fs.Bool("force", false, "Overwrite existing identity file")
-	importKeyName := registerNameFlag(
+	importKeyName := cliflags.RegisterName(
 		fs,
 		"Auto-register the imported key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)",
 	)
@@ -160,7 +161,7 @@ func registerImportedKeyAsRecipient(raw, name string) error {
 // store. Wraps vault.AddRecipientAndReencrypt with the OS-username fallback
 // and a clearer "already a recipient" message.
 func registerPubKeyAsRecipient(pubKey, name string) error {
-	added, err := vault.AddRecipientAndReencrypt(pubKey, resolveRecipientName(name, utils.Username()))
+	added, err := vault.AddRecipientAndReencrypt(pubKey, cliflags.ResolveRecipientName(name, utils.Username()))
 	if err != nil {
 		return err
 	}
@@ -221,7 +222,7 @@ func validateImportAgainstVault(raw string) error {
 // newIdentityExportCmd returns the command struct for `hulak secrets identity export`.
 func newIdentityExportCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity export", flag.ContinueOnError)
-	out := registerOutputFlag(
+	out := cliflags.RegisterOutput(
 		fs,
 		"Write key to file instead of stdout (mode 0600). Directory inputs append 'identity.txt'.",
 	)
@@ -267,7 +268,7 @@ func runExportKey(args []string, outPath string) error {
 		// Any-extension mode: user picks .txt, .pem, .key — whatever fits.
 		// Paths without an extension are treated as directories; "identity.txt"
 		// is appended.
-		dest, err := resolveOutputPath(outPath, "identity.txt")
+		dest, err := cliflags.ResolveOutputPath(outPath, "identity.txt")
 		if err != nil {
 			return err
 		}

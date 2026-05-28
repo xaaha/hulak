@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -18,7 +19,7 @@ import (
 // via SSH) and want the new key auto-registered as a recipient.
 func newIdentityGenCmd() *cli.Command {
 	fs := flag.NewFlagSet("identity gen", flag.ContinueOnError)
-	genIdentityName := registerNameFlag(
+	genIdentityName := cliflags.RegisterName(
 		fs,
 		"Auto-register the new key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)",
 	)

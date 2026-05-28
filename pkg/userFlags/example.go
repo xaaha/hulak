@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -38,7 +39,7 @@ var exampleAliases = map[string]string{
 
 func newExampleCmd() *cli.Command {
 	fs := flag.NewFlagSet("example", flag.ContinueOnError)
-	out := registerOutputFlag(
+	out := cliflags.RegisterOutput(
 		fs,
 		"Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created.",
 	)
@@ -81,7 +82,7 @@ func newExampleCmd() *cli.Command {
 }
 
 // scaffoldExample writes the embedded example for typeArg. outPath controls
-// where it lands — see resolveOutputPath for the dir-vs-file rules.
+// where it lands — see cliflags.ResolveOutputPath for the dir-vs-file rules.
 // Resolves aliases (e.g. gql → graphql) before lookup. Returns an error if
 // the type is unknown or the file cannot be written; a no-clobber on an
 // existing file is reported as a warning and returns nil.
@@ -99,7 +100,7 @@ func scaffoldExample(typeArg, outPath string) error {
 		)
 	}
 
-	dest, err := resolveOutputPath(outPath, filename, ".yaml", ".yml")
+	dest, err := cliflags.ResolveOutputPath(outPath, filename, ".yaml", ".yml")
 	if err != nil {
 		return err
 	}

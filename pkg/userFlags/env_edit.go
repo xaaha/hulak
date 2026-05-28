@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -19,7 +20,7 @@ import (
 // newEnvEditCmd returns the command struct for `hulak secrets edit`.
 func newEnvEditCmd() *cli.Command {
 	editFs := flag.NewFlagSet("env edit", flag.ContinueOnError)
-	editEnv := registerEnvFlag(editFs, "", "Environment to edit (omit to pick interactively)")
+	editEnv := cliflags.RegisterEnv(editFs, "", "Environment to edit (omit to pick interactively)")
 
 	return &cli.Command{
 		Name:  "edit",

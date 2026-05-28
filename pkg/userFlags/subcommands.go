@@ -14,6 +14,7 @@ import (
 	"github.com/xaaha/hulak/pkg/runner"
 	"github.com/xaaha/hulak/pkg/tui/gqlexplorer"
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -269,7 +270,7 @@ func newDoctorCmd() *cli.Command {
 
 func newGQLCmd() *cli.Command {
 	fs := flag.NewFlagSet("gql", flag.ContinueOnError)
-	envFlagVal := registerEnvFlag(fs, "", "Environment to use (skips interactive selector)")
+	envFlagVal := cliflags.RegisterEnv(fs, "", "Environment to use (skips interactive selector)")
 
 	gqlCmd := &cli.Command{
 		Name:    "gql",
@@ -323,7 +324,7 @@ func newGQLCmd() *cli.Command {
 
 func newRunCmd() *cli.Command {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
-	envFlagVal := registerEnvFlag(fs, "", "Environment to use")
+	envFlagVal := cliflags.RegisterEnv(fs, "", "Environment to use")
 	var sequential bool
 	var debug bool
 	var quiet bool
@@ -334,8 +335,8 @@ func newRunCmd() *cli.Command {
 	fs.BoolVar(&debug, "debug", false, "Enable debug mode")
 	fs.BoolVar(&quiet, "quiet", false, "Suppress the end-of-run summary table")
 	fs.BoolVar(&quiet, "q", false, "Suppress the end-of-run summary table")
-	dryRun := registerDryRunFlag(fs)
-	show := registerShowFlag(
+	dryRun := cliflags.RegisterDryRun(fs)
+	show := cliflags.RegisterShow(
 		fs,
 		"Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output",
 	)

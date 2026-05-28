@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -64,8 +65,8 @@ func runEnvList(args []string) error {
 // newEnvKeysCmd returns the command struct for `hulak secrets keys`.
 func newEnvKeysCmd() *cli.Command {
 	keysFs := flag.NewFlagSet("env keys", flag.ContinueOnError)
-	keysEnv := registerEnvFlag(keysFs, "", "Environment to operate on")
-	keysShow := registerShowFlag(keysFs, "Reveal values instead of masking them")
+	keysEnv := cliflags.RegisterEnv(keysFs, "", "Environment to operate on")
+	keysShow := cliflags.RegisterShow(keysFs, "Reveal values instead of masking them")
 	keysSearch := keysFs.String(
 		"search",
 		"",

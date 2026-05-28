@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -22,7 +23,7 @@ import (
 // newEnvCreateCmd returns the command struct for `hulak secrets create`.
 func newEnvCreateCmd() *cli.Command {
 	fs := flag.NewFlagSet("env create", flag.ContinueOnError)
-	envName := registerEnvFlag(
+	envName := cliflags.RegisterEnv(
 		fs,
 		"",
 		"Name of the new environment to create (required)",
@@ -84,12 +85,12 @@ func runEnvCreate(args []string, envName string) error {
 // newEnvDeleteCmd returns the command struct for `hulak secrets delete`.
 func newEnvDeleteCmd() *cli.Command {
 	fs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	envName := registerEnvFlag(
+	envName := cliflags.RegisterEnv(
 		fs,
 		"",
 		"Environment to delete (omit to pick interactively)",
 	)
-	yes := registerYesFlag(fs, "Skip the destructive confirm prompt")
+	yes := cliflags.RegisterYes(fs, "Skip the destructive confirm prompt")
 
 	return &cli.Command{
 		Name:    "delete",

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -28,7 +29,7 @@ const (
 func newEnvBackupCmd() *cli.Command {
 	fs := flag.NewFlagSet("env backup", flag.ContinueOnError)
 	var force bool
-	out := registerOutputFlag(
+	out := cliflags.RegisterOutput(
 		fs,
 		"Custom output path for the backup file. Directory inputs append a timestamped name.",
 	)
@@ -146,7 +147,7 @@ func runBackup(outPath string, force bool) error {
 func resolveBackupDest(outPath string, force bool) (string, error) {
 	if outPath != "" {
 		canonical := backupPrefix + time.Now().Format(backupTimestampFormat)
-		dest, err := resolveOutputPath(outPath, canonical, ".age")
+		dest, err := cliflags.ResolveOutputPath(outPath, canonical, ".age")
 		if err != nil {
 			return "", err
 		}
