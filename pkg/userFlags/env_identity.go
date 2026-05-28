@@ -30,12 +30,28 @@ func newEnvIdentityCmd() *command {
 				Description: "Show identities on this machine that can decrypt the vault",
 			},
 			{
+				Command:     "hulak secrets identity list-recipients",
+				Description: "Show every public key the vault is encrypted to",
+			},
+			{
 				Command:     "hulak secrets identity generate --name alice-laptop",
 				Description: "Generate a keypair and auto-register it as a recipient",
 			},
 			{
+				Command:     "hulak secrets identity import ~/backup-identity.txt",
+				Description: "Restore an age private key from a backup file",
+			},
+			{
+				Command:     "hulak secrets identity export --out ~/backup-identity.txt",
+				Description: "Save your private key to a 0600 file for backup",
+			},
+			{
 				Command:     "hulak secrets identity add-recipient --github alice --name Alice",
 				Description: "Grant Alice decrypt access using her GitHub SSH keys",
+			},
+			{
+				Command:     "hulak secrets identity remove-recipient Alice",
+				Description: "Revoke Alice's access (matches by name label or pubkey)",
 			},
 			{
 				Command:     "hulak secrets identity rotate",

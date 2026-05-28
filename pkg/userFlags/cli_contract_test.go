@@ -399,7 +399,7 @@ func TestEnvAliases(t *testing.T) {
 		// versions.
 		{"list", []string{"ls"}},
 		{"keys", []string{"key"}},
-		{"sync", []string{"rotate"}},
+		{"sync", nil}, // intentionally no `rotate` alias — that name belongs to `identity rotate`
 	}
 
 	for _, tc := range tests {
@@ -695,6 +695,34 @@ func TestSubCommandsHaveHelp(t *testing.T) {
 		if sub.Name != "help" && sub.Long == "" {
 			t.Errorf("subcommand %q is missing Long description", sub.Name)
 		}
+	}
+}
+
+// TestSecretsRotateBelongsToIdentity verifies that `hulak secrets rotate`
+// resolves only as `secrets identity rotate` — there is no env-level `rotate`
+// alias of `sync`. The two operations are not interchangeable: `sync` re-encrypts
+// without changing keys, `identity rotate` issues a new keypair. Aliasing them
+// would let `hulak secrets rotate` silently do the safe-but-wrong thing for a
+// user trying to respond to a key compromise.
+func TestSecretsRotateBelongsToIdentity(t *testing.T) {
+	root := subCommands()
+	secrets := root.findSub("secrets")
+	if secrets == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+
+	// At the env level, `rotate` must not resolve.
+	if got := secrets.findSub("rotate"); got != nil {
+		t.Errorf("`secrets rotate` should not resolve at the env level (resolved to %q); only `secrets identity rotate` should exist", got.Name)
+	}
+
+	// At the identity level, `rotate` must resolve.
+	identity := secrets.findSub("identity")
+	if identity == nil {
+		t.Fatal("expected secrets identity subgroup to exist")
+	}
+	if identity.findSub("rotate") == nil {
+		t.Error("`secrets identity rotate` should resolve")
 	}
 }
 

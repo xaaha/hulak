@@ -291,7 +291,7 @@ hulak secrets keys delete OLD_KEY --env staging
 | `edit` | Edit secrets interactively |
 | `identity` | Manage age identities and recipients |
 | `rename` (`mv`) | Rename an environment (unix-style mv) |
-| `sync` (`rotate`) | Re-encrypt the store to current recipients |
+| `sync` | Re-encrypt the store to current recipients (use `identity rotate` for keypair rotation) |
 | `migrate` | Migrate env/*.env files to the encrypted vault |
 | `backup` | Create a backup of the encrypted store |
 | `restore` | Restore the encrypted store from a backup |

@@ -100,7 +100,7 @@ list | ls | -
 migrate | - | -
 rename | mv | -
 restore | - | f,force
-sync | rotate | -
+sync | - | -
 `
 
 	if got != want {
@@ -189,17 +189,17 @@ to pick an environment from a TUI list.
 'env' is kept as an alias of ` + "`secrets`" + ` for backward compatibility.
 
 COMMANDS
-  backup           - Create a backup of the encrypted store
-  create           - Create a new empty environment
-  delete (rm)      - Delete an environment
-  edit             - Edit secrets interactively
-  identity         - Manage age identities and recipients
-  keys (key)       - Manage keys within an environment
-  list (ls)        - List environment names
-  migrate          - Migrate env/*.env files to the encrypted vault
-  rename (mv)      - Rename an environment (unix-style mv)
-  restore          - Restore the encrypted store from a backup
-  sync (rotate)    - Re-encrypt the store to current recipients
+  backup         - Create a backup of the encrypted store
+  create         - Create a new empty environment
+  delete (rm)    - Delete an environment
+  edit           - Edit secrets interactively
+  identity       - Manage age identities and recipients
+  keys (key)     - Manage keys within an environment
+  list (ls)      - List environment names
+  migrate        - Migrate env/*.env files to the encrypted vault
+  rename (mv)    - Rename an environment (unix-style mv)
+  restore        - Restore the encrypted store from a backup
+  sync           - Re-encrypt the store to current recipients
 
 EXAMPLES
   $ hulak secrets list

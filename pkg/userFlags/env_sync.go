@@ -10,23 +10,18 @@ import (
 
 func newEnvSyncCmd() *command {
 	return &command{
-		Name:    "sync",
-		Aliases: []string{"rotate"},
-		Short:   "Re-encrypt the store to current recipients",
+		Name:  "sync",
+		Short: "Re-encrypt the store to current recipients",
 		Long: "Re-encrypt store.age to match the current recipients.txt.\n\n" +
 			"Use this after manually editing recipients.txt. Not needed after\n" +
 			"add-recipient or remove-recipient — those re-encrypt automatically.\n\n" +
-			"This is different from `hulak secrets identity rotate`, which generates\n" +
-			"a brand-new age keypair and swaps it into recipients. `sync` only\n" +
-			"re-encrypts; it never changes keys.",
+			"`sync` only re-encrypts; it never changes keys. To rotate a\n" +
+			"compromised keypair, use `hulak secrets identity rotate` instead —\n" +
+			"that's the only command in hulak that issues a new private key.",
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets sync",
 				Description: "Re-encrypt store to match recipients.txt",
-			},
-			{
-				Command:     "hulak secrets rotate",
-				Description: "Same as sync (alias)",
 			},
 		},
 		Run: runSync,
