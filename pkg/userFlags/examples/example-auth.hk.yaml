@@ -3,8 +3,8 @@
 # Example OAuth 2.0 web-application flow (GitHub).
 #
 # Before running, set the placeholders in your vault:
-#   hulak secrets set client_id <your-github-oauth-app-id>
-#   hulak secrets set client_secret <your-github-oauth-app-secret>
+#   hulak secrets keys set client_id <your-github-oauth-app-id>
+#   hulak secrets keys set client_secret <your-github-oauth-app-secret>
 #
 # Then run with: hulak run example-auth.hk.yaml
 # A browser window opens for authorization; the access token is saved

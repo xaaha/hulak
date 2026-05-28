@@ -1,10 +1,13 @@
-// Contains command factories and handlers for hulak secrets set, get, and delete.
+// Shared Run handlers for key-level CRUD operations (set, get, delete).
+//
+// The nested `secrets keys set/get/delete` factories in env_keys_crud.go
+// dispatch here. Keeping the logic separate from the factories means the
+// factories stay pure wiring and a bug fix lands in one place.
 package userflags
 
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -20,7 +23,7 @@ import (
 // Not a hard limit — the value is still written.
 const MaxValueSizeWarnBytes = 64 << 10 // 64 KiB
 
-// validSetTypes lists the type names accepted by `secrets set --type`.
+// validSetTypes lists the type names accepted by `secrets keys set --type`.
 // Kept as a fixed-size array (not a map) so error messages can present them
 // in a stable order, the default ("string") stays first, and adding a value
 // fails the compiler if the size constant is not updated to match.
@@ -80,61 +83,7 @@ func parseTypedValue(raw, typeName string) (any, error) {
 	}
 }
 
-// newEnvSetCmd returns the command struct for `hulak secrets set`.
-func newEnvSetCmd() *command {
-	setFs := flag.NewFlagSet("env set", flag.ContinueOnError)
-	setEnv := registerEnvFlag(setFs, "", "Environment to operate on")
-	setStdin := setFs.Bool("stdin", false, "Read value from stdin")
-	var setType string
-	typeUsage := "Value type: " + strings.Join(validSetTypes[:], "|")
-	setFs.StringVar(&setType, "type", "string", typeUsage)
-	setFs.StringVar(&setType, "t", "string", typeUsage)
-
-	return &command{
-		Name:    "set",
-		Aliases: []string{"add"},
-		Short:   "Set a key-value pair",
-		Long:    "Store a secret in the encrypted vault.\n\nIf VALUE is omitted, you'll be prompted to enter it (no echo, no shell history).\nUse --stdin to pipe the value from standard input (useful for scripts).\nUse --type to store numbers, booleans, or JSON instead of strings.",
-		Flags:   setFs,
-		Args: []argDef{
-			{Name: "key", Required: true, Desc: "Secret key name"},
-			{Name: "value", Desc: "Secret value (omit to be prompted, or use --stdin)"},
-		},
-		Examples: []*utils.CommandHelp{
-			{
-				Command:     "hulak secrets set API_KEY sk-123",
-				Description: "Pick an environment from the TUI, then set",
-			},
-			{
-				Command:     "hulak secrets set DB_URL --env prod",
-				Description: "Prompt for the value (no shell history)",
-			},
-			{
-				Command:     "echo -n \"$TOKEN\" | hulak secrets set TOKEN --stdin",
-				Description: "Read value from stdin (scripts/CI)",
-			},
-			{
-				Command:     "hulak secrets set FEATURE_FLAG true --env staging",
-				Description: "Set a value in a specific environment",
-			},
-			{
-				Command:     "hulak secrets set userAge 3939 --type int",
-				Description: "Store as an integer (preserved through to GraphQL/JSON bodies)",
-			},
-			{
-				Command:     "hulak secrets set ENABLED true --type bool",
-				Description: "Store as a boolean",
-			},
-			{
-				Command:     "hulak secrets set config '{\"a\":1}' --type json",
-				Description: "Store an arbitrary JSON value (object, array, number, etc.)",
-			},
-		},
-		Run: func(args []string) error { return runEnvSet(args, *setEnv, *setStdin, setType) },
-	}
-}
-
-// runEnvSet handles `hulak secrets set KEY [VALUE]`.
+// runEnvSet handles the set semantics for `secrets keys set`.
 //
 // Resolution order for the value:
 //  1. --stdin flag → read all of stdin
@@ -147,27 +96,19 @@ func newEnvSetCmd() *command {
 // bad type/value never opens or mutates the store.
 //
 // The read-modify-write of store.age is wrapped in WithStoreLock so concurrent
-// `hulak secrets set` invocations cannot lose each other's edits.
+// `hulak secrets keys set` invocations cannot lose each other's edits.
 func runEnvSet(args []string, envName string, useStdin bool, typeName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
 	if cancelled {
 		return nil
-	}
-
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
 	}
 
 	rawValue, err := resolveSetValue(args, useStdin, key)
@@ -187,7 +128,6 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 		return err
 	}
 
-	// acquire lock
 	return vault.WithStoreLock(func() error {
 		store, err := vault.ReadStore()
 		if err != nil {
@@ -207,11 +147,11 @@ func runEnvSet(args []string, envName string, useStdin bool, typeName string) er
 
 // resolveSetValue returns the value to store, picking from --stdin, a positional
 // argument, or an interactive prompt. Trailing newlines are stripped from stdin
-// reads so 'echo "x" | hulak secrets set FOO --stdin' stores "x" not 'x\n'.
+// reads so 'echo "x" | hulak secrets keys set FOO --stdin' stores "x" not 'x\n'.
 //
-// Multi-word values must be quoted (e.g. `hulak secrets set MOTD "hello world"`).
+// Multi-word values must be quoted (e.g. `hulak secrets keys set MOTD "hello world"`).
 // More than one VALUE positional is rejected so a typo like
-// `hulak secrets set FOO bar baz` doesn't silently store "bar baz".
+// `hulak secrets keys set FOO bar baz` doesn't silently store "bar baz".
 func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 	switch {
 	case useStdin:
@@ -223,7 +163,7 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 
 	case len(args) > 2:
 		return "", fmt.Errorf(
-			"too many arguments: got %d, expected KEY [VALUE]; quote multi-word values: hulak secrets set %s \"...\"",
+			"too many arguments: got %d, expected KEY [VALUE]; quote multi-word values: hulak secrets keys set %s \"...\"",
 			len(args),
 			key,
 		)
@@ -236,41 +176,9 @@ func resolveSetValue(args []string, useStdin bool, key string) (string, error) {
 	}
 }
 
-// newEnvGetCmd returns the command struct for `hulak secrets get`.
-func newEnvGetCmd() *command {
-	getFs := flag.NewFlagSet("env get", flag.ContinueOnError)
-	getEnv := registerEnvFlag(getFs, "", "Environment to operate on")
-
-	return &command{
-		Name:    "get",
-		Aliases: []string{"g", "show", "view"},
-		Short:   "Get a value by key",
-		Long:    "Retrieve a secret from the encrypted vault and print it to stdout.\n\nOutput is raw — no formatting — suitable for $(...) substitution in scripts.\nExits non-zero if the key is missing.",
-		Flags:   getFs,
-		Args: []argDef{
-			{Name: "key", Required: true, Desc: "Secret key to retrieve"},
-		},
-		Examples: []*utils.CommandHelp{
-			{
-				Command:     "hulak secrets get API_KEY",
-				Description: "Pick an environment from the TUI, then print API_KEY",
-			},
-			{
-				Command:     "hulak secrets get DB_URL --env prod",
-				Description: "Print DB_URL from the prod environment",
-			},
-			{
-				Command:     "API_KEY=$(hulak secrets get API_KEY --env staging)",
-				Description: "Capture a value into a shell variable",
-			},
-		},
-		Run: func(args []string) error { return runEnvGet(args, *getEnv) },
-	}
-}
-
-// runEnvGet handles `hulak secrets get KEY`. Prints the raw value to stdout
-// (suitable for $(...) capture) and returns a non-zero error if the key
-// or environment is missing.
+// runEnvGet handles the get semantics for `secrets keys get`. Prints the raw
+// value to stdout (suitable for $(...) capture) and returns a non-zero error
+// if the key or environment is missing.
 func runEnvGet(args []string, envName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
@@ -280,11 +188,7 @@ func runEnvGet(args []string, envName string) error {
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
@@ -292,18 +196,14 @@ func runEnvGet(args []string, envName string) error {
 		return nil
 	}
 
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
-	}
-
 	store, err := vault.ReadStore()
 	if err != nil {
 		return err
 	}
 
-	env := store.GetEnv(envName)
-	if env == nil {
-		return fmt.Errorf("environment %q not found in vault store", envName)
+	env, err := requireEnvExists(store, envName)
+	if err != nil {
+		return err
 	}
 
 	value, ok := env[key]
@@ -330,42 +230,11 @@ func printValue(value any) error {
 	return nil
 }
 
-// newEnvDeleteCmd returns the command struct for `hulak secrets delete`.
-func newEnvDeleteCmd() *command {
-	deleteFs := flag.NewFlagSet("env delete", flag.ContinueOnError)
-	deleteEnv := registerEnvFlag(deleteFs, "", "Environment to operate on")
-
-	return &command{
-		Name:    "delete",
-		Aliases: []string{"rm", "remove", "del"},
-		Short:   "Delete a key",
-		Long:    "Remove a secret from the encrypted vault.\n\nExits non-zero if the key doesn't exist.",
-		Flags:   deleteFs,
-		Args: []argDef{
-			{Name: "key", Required: true, Desc: "Secret key to delete"},
-		},
-		Examples: []*utils.CommandHelp{
-			{
-				Command:     "hulak secrets delete OLD_KEY",
-				Description: "Pick an environment from the TUI, then delete OLD_KEY",
-			},
-			{
-				Command:     "hulak secrets rm STALE_TOKEN --env staging",
-				Description: "Delete from a specific environment (alias)",
-			},
-		},
-		Run: func(args []string) error { return runEnvDelete(args, *deleteEnv) },
-	}
-}
-
-// runEnvDelete handles 'hulak secrets delete KEY'.
-// Removes the key from the given environment under the file lock.
-// Exits non-zero if the key (or env) is missing
-// — a missing key is reported, not silently treated as success.
-//
-// Unlike set, this uses LoadIdentity (not EnsureKeypair) so running delete in a
-// fresh project errors with "no identity found" instead of generating spurious
-// keys. There's nothing to delete if no store exists.
+// runEnvDelete handles the delete semantics for `secrets keys delete` —
+// removing a single KEY from an environment. (`secrets delete` is a
+// separate command in env_lifecycle.go that removes an entire environment.)
+// Wrapped in the file lock; exits non-zero if the key or env is missing
+// instead of silently treating it as success.
 func runEnvDelete(args []string, envName string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: KEY")
@@ -375,20 +244,12 @@ func runEnvDelete(args []string, envName string) error {
 	}
 	key := args[0]
 
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
 	if cancelled {
 		return nil
-	}
-
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
 	}
 
 	return vault.WithStoreLock(func() error {
@@ -397,9 +258,9 @@ func runEnvDelete(args []string, envName string) error {
 			return err
 		}
 
-		env := store.GetEnv(envName)
-		if env == nil {
-			return fmt.Errorf("environment %q not found in vault store", envName)
+		env, err := requireEnvExists(store, envName)
+		if err != nil {
+			return err
 		}
 		if _, ok := env[key]; !ok {
 			return fmt.Errorf("key %q not found in environment %q", key, envName)

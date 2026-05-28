@@ -69,18 +69,22 @@ func (cmd *command) Execute(args []string) error {
 		return nil
 	}
 
-	// Try to match a subcommand
-	if sub := cmd.findSub(args[0]); sub != nil {
-		return sub.Execute(args[1:])
-	}
-
-	// Unknown subcommand — show help, then return an error so the top-level
-	// caller (main) can decide on the exit code. Help goes to stderr because
-	// it's diagnostic output, not the user's intended program output.
-	if len(cmd.SubCommands) > 0 && len(args[0]) > 0 && args[0][0] != '-' {
-		fmt.Fprintln(os.Stderr)
-		cmd.printHelp()
-		return fmt.Errorf("unknown command %q for %s", args[0], cmd.Name)
+	// Try to match a subcommand. Scan past leading flags so verb-after-flag
+	// (`secrets keys --env prod list`) dispatches the same as verb-first
+	// (`secrets keys list --env prod`). This mirrors the iterative flag-anywhere
+	// parsing further down — order of flags vs verb is not significant.
+	if len(cmd.SubCommands) > 0 {
+		if idx, firstNonFlag := cmd.findSubcommandIndex(args); idx >= 0 {
+			sub := cmd.findSub(args[idx])
+			rest := append(append([]string(nil), args[:idx]...), args[idx+1:]...)
+			return sub.Execute(rest)
+		} else if firstNonFlag >= 0 {
+			// First non-flag token is not a subcommand — that's a typo, not
+			// a flag-handler invocation. Show help and exit non-zero.
+			fmt.Fprintln(os.Stderr)
+			cmd.printHelp()
+			return fmt.Errorf("unknown command %q for %s", args[firstNonFlag], cmd.Name)
+		}
 	}
 
 	// No subcommand matched — parse flags and run
@@ -137,6 +141,51 @@ func (cmd *command) findSub(name string) *command {
 		}
 	}
 	return nil
+}
+
+// findSubcommandIndex scans args for the first non-flag token, skipping
+// flags and (where determinable from cmd.Flags) their values. Returns:
+//
+//   - matchIdx ≥ 0  : args[matchIdx] resolves to a subcommand of cmd.
+//   - matchIdx == -1, firstNonFlag ≥ 0 : a positional was found but it
+//     isn't a subcommand (typo).
+//   - both -1       : args contains only flags / is empty.
+//
+// Flag-value pairing rules:
+//   - `--name=value` inlines the value — the next arg is not consumed.
+//   - Bool flags (per the flag.Value IsBoolFlag contract) take no value.
+//   - Anything else is assumed to consume the next arg as its value.
+//
+// This is the dispatch-level analogue of the iterative flag-anywhere parsing
+// in Execute: ordering between flags and the verb is not significant.
+func (cmd *command) findSubcommandIndex(args []string) (matchIdx, firstNonFlag int) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "" {
+			continue
+		}
+		if a[0] != '-' {
+			if cmd.findSub(a) != nil {
+				return i, i
+			}
+			return -1, i
+		}
+		name := strings.TrimLeft(a, "-")
+		if strings.Contains(name, "=") {
+			// --foo=bar inlines the value; the next arg is not consumed.
+			continue
+		}
+		if cmd.Flags != nil {
+			if f := cmd.Flags.Lookup(name); f != nil {
+				if bf, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+					continue
+				}
+			}
+		}
+		// Unknown flag or known non-bool flag: assume the next arg is its value.
+		i++
+	}
+	return -1, -1
 }
 
 // printHelp prints the command's help to stdout in a style similar to gh CLI

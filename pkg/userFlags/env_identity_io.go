@@ -1,4 +1,5 @@
-// Contains command factories and handlers for hulak secrets import-key and export-key.
+// Contains command factories and handlers for the identity I/O leaves under
+// `hulak secrets identity`: import and export.
 package userflags
 
 import (
@@ -14,9 +15,9 @@ import (
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
-// newEnvImportKeyCmd returns the command struct for `hulak secrets import-key`.
-func newEnvImportKeyCmd() *command {
-	fs := flag.NewFlagSet("env import-key", flag.ContinueOnError)
+// newIdentityImportCmd returns the command struct for `hulak secrets identity import`.
+func newIdentityImportCmd() *command {
+	fs := flag.NewFlagSet("identity import", flag.ContinueOnError)
 	importKeyStdin := fs.Bool("stdin", false, "Read key from stdin")
 	importKeyForce := fs.Bool("force", false, "Overwrite existing identity file")
 	importKeyName := registerNameFlag(
@@ -25,9 +26,8 @@ func newEnvImportKeyCmd() *command {
 	)
 
 	return &command{
-		Name:    "import-key",
-		Aliases: []string{"import-identity"},
-		Short:   "Import an age identity (private key)",
+		Name:  "import",
+		Short: "Import an age identity (private key)",
 		Long: "Import an age private key from a file or stdin and save it to hulak's\n" +
 			"config directory so it can decrypt the vault.\n\n" +
 			"Inside a vault project, hulak first checks that the key can decrypt\n" +
@@ -44,19 +44,19 @@ func newEnvImportKeyCmd() *command {
 		},
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets import-key ~/backup-identity.txt",
+				Command:     "hulak secrets identity import ~/backup-identity.txt",
 				Description: "Restore a key that's already a recipient of the vault",
 			},
 			{
-				Command:     "hulak secrets import-key ~/age-key.txt --name alice-laptop",
+				Command:     "hulak secrets identity import ~/age-key.txt --name alice-laptop",
 				Description: "Import + auto-register as recipient (needs another working identity)",
 			},
 			{
-				Command:     "hulak secrets import-key ~/backup.txt --force",
+				Command:     "hulak secrets identity import ~/backup.txt --force",
 				Description: "Overwrite an existing identity file",
 			},
 			{
-				Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak secrets import-key --stdin",
+				Command:     "echo \"AGE-SECRET-KEY-1QF...\" | hulak secrets identity import --stdin",
 				Description: "Import from stdin (password manager pipe)",
 			},
 		},
@@ -66,7 +66,7 @@ func newEnvImportKeyCmd() *command {
 	}
 }
 
-// runImportKey handles `hulak secrets import-key [path] [--stdin] [--force] [--name LABEL]`.
+// runImportKey handles `hulak secrets identity import [path] [--stdin] [--force] [--name LABEL]`.
 //
 // Two modes, picked by --name:
 //
@@ -209,7 +209,7 @@ func validateImportAgainstVault(raw string) error {
 			"What to do",
 			[]string{
 				fmt.Sprintf("Public key derived from import: %s", pub),
-				fmt.Sprintf("Ask a current vault member to add it: hulak secrets add-recipient %s", pub),
+				fmt.Sprintf("Ask a current vault member to add it: hulak secrets identity add-recipient %s", pub),
 				"If you already have another working identity (SSH, master key), re-run with --name <label> to self-register",
 			},
 		)
@@ -217,27 +217,26 @@ func validateImportAgainstVault(raw string) error {
 	return nil
 }
 
-// newEnvExportKeyCmd returns the command struct for `hulak secrets export-key`.
-func newEnvExportKeyCmd() *command {
-	fs := flag.NewFlagSet("env export-key", flag.ContinueOnError)
+// newIdentityExportCmd returns the command struct for `hulak secrets identity export`.
+func newIdentityExportCmd() *command {
+	fs := flag.NewFlagSet("identity export", flag.ContinueOnError)
 	out := registerOutputFlag(
 		fs,
 		"Write key to file instead of stdout (mode 0600). Directory inputs append 'identity.txt'.",
 	)
 
 	return &command{
-		Name:    "export-key",
-		Aliases: []string{"export-identity"},
-		Short:   "Export the age identity (private key)",
-		Long:    "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
-		Flags:   fs,
+		Name:  "export",
+		Short: "Export the age identity (private key)",
+		Long:  "Print the age private key to stdout for backup or transfer.\n\nUse --out to write directly to a file with 0600 permissions instead of stdout.",
+		Flags: fs,
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets export-key",
+				Command:     "hulak secrets identity export",
 				Description: "Print the private key (with security warning on stderr)",
 			},
 			{
-				Command:     "hulak secrets export-key --out ~/backup-identity.txt",
+				Command:     "hulak secrets identity export --out ~/backup-identity.txt",
 				Description: "Save to a file with 0600 permissions",
 			},
 		},
@@ -245,7 +244,7 @@ func newEnvExportKeyCmd() *command {
 	}
 }
 
-// runExportKey handles `hulak secrets export-key [--out path]`.
+// runExportKey handles `hulak secrets identity export [--out path]`.
 func runExportKey(args []string, outPath string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

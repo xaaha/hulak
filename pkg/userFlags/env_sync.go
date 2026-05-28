@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak secrets rotate (sync/reencrypt).
+// Contains command factory and handler for hulak secrets sync.
 package userflags
 
 import (
@@ -10,20 +10,18 @@ import (
 
 func newEnvSyncCmd() *command {
 	return &command{
-		Name:    "rotate",
-		Aliases: []string{"sync", "reencrypt"},
-		Short:   "Re-encrypt the store to current recipients",
+		Name:  "sync",
+		Short: "Re-encrypt the store to current recipients",
 		Long: "Re-encrypt store.age to match the current recipients.txt.\n\n" +
 			"Use this after manually editing recipients.txt. Not needed after\n" +
-			"add-recipient or remove-recipient — those re-encrypt automatically.",
+			"add-recipient or remove-recipient — those re-encrypt automatically.\n\n" +
+			"`sync` only re-encrypts; it never changes keys. To rotate a\n" +
+			"compromised keypair, use `hulak secrets identity rotate` instead —\n" +
+			"that's the only command in hulak that issues a new private key.",
 		Examples: []*utils.CommandHelp{
 			{
-				Command:     "hulak secrets rotate",
-				Description: "Re-encrypt store to match recipients.txt",
-			},
-			{
 				Command:     "hulak secrets sync",
-				Description: "Same as rotate (alias)",
+				Description: "Re-encrypt store to match recipients.txt",
 			},
 		},
 		Run: runSync,

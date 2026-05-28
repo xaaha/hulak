@@ -2,12 +2,12 @@
 
 ## 1. Accessing secrets from the vault
 
-Hulak resolves `{{.key}}` template values from the encrypted vault (`.hulak/store.age`). Set a secret once with `hulak secrets set`. Then reference it in your request files.
+Hulak resolves `{{.key}}` template values from the encrypted vault (`.hulak/store.age`). Set a secret once with `hulak secrets keys set`. Then reference it in your request files.
 
 ```bash
 # Set once, per environment
-hulak secrets set Url https://example.com         --env prod
-hulak secrets set Url https://test.example.com    --env staging
+hulak secrets keys set Url https://example.com         --env prod
+hulak secrets keys set Url https://test.example.com    --env staging
 ```
 
 Reference it in a request file:
@@ -144,8 +144,8 @@ This produces `Basic YWRtaW46c2VjcmV0MTIz`. No manual base64 encoding needed.
 Store credentials in the vault and reference them with template vars:
 
 ```bash
-hulak secrets set apiUser admin       --env prod
-hulak secrets set apiPassword secret123 --env prod
+hulak secrets keys set apiUser admin       --env prod
+hulak secrets keys set apiPassword secret123 --env prod
 ```
 
 ```yaml

@@ -52,8 +52,8 @@ Other install options:
 
 ```bash
 mkdir my-apis && cd my-apis
-hulak init
-hulak secrets set Url https://api.example.com/v1 --env prod
+hulak init                                            # creates .hulak/store.age + identity
+hulak secrets keys set Url https://api.example.com/v1 --env prod
 ```
 
 Scaffold a starter request (runs as-is against a public test API):
@@ -89,8 +89,8 @@ If you only want the vault piece, the same `init` command works. Skip writing `.
 ```bash
 mkdir my-secrets && cd my-secrets
 hulak init
-hulak secrets set DATABASE_URL postgres://... --env prod
-hulak secrets add-recipient --github alice --name Alice   # share with a teammate
+hulak secrets keys set DATABASE_URL postgres://... --env prod
+hulak secrets identity add-recipient --github alice --name Alice   # share with a teammate
 git add .hulak/ && git commit -m "add prod secrets"
 ```
 

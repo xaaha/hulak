@@ -68,20 +68,12 @@ func runEnvEdit(args []string, envName string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))
 	}
-	if err := requireVaultProject(); err != nil {
-		return err
-	}
-
-	envName, cancelled, err := resolveEnv(envName)
+	envName, cancelled, err := resolveAndValidateEnv(envName)
 	if err != nil {
 		return err
 	}
 	if cancelled {
 		return nil
-	}
-
-	if err := utils.ValidateEnvName(envName); err != nil {
-		return err
 	}
 
 	return vault.WithStoreLock(func() error {
