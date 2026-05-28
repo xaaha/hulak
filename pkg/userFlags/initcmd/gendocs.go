@@ -1,6 +1,6 @@
 // Generates man page and CLI markdown reference from the command tree.
 // Run via: go generate ./pkg/userFlags  or  hulak gendocs
-package userflags
+package initcmd
 
 //go:generate go run ../.. gendocs
 
@@ -17,27 +17,33 @@ import (
 
 // newGenDocsCmd returns a hidden subcommand that regenerates man/hulak.1
 // and docs/cli.md from the live command tree.
-func newGenDocsCmd() *cli.Command {
+// NewGenDocs builds the hidden `hulak gendocs` command. The rootFn closure
+// is the top-level dispatcher's tree builder — gendocs walks it to render
+// the man page and CLI markdown. Passed as a closure (rather than a baked-in
+// *cli.Command) so docs reflect the live tree at run time, including the
+// gendocs command itself.
+func NewGenDocs(rootFn func() *cli.Command) *cli.Command {
 	return &cli.Command{
 		Name:   "gendocs",
 		Hidden: true,
 		Short:  "Regenerate man page and CLI markdown",
 		Long:   "Regenerate man/hulak.1 and docs/cli.md from the live command tree.\n\nRun this before tagging a release to keep docs in sync with code.",
 		Run: func(_ []string) error {
-			root, err := findRepoRoot()
+			repoRoot, err := findRepoRoot()
 			if err != nil {
 				return err
 			}
 
-			manPath := filepath.Join(root, "man", "hulak.1")
-			mdPath := filepath.Join(root, "docs", "cli.md")
+			cmdRoot := rootFn()
+			manPath := filepath.Join(repoRoot, "man", "hulak.1")
+			mdPath := filepath.Join(repoRoot, "docs", "cli.md")
 
-			if err := writeFile(manPath, generateManPage); err != nil {
+			if err := writeFile(manPath, func(w io.Writer) { generateManPage(w, cmdRoot) }); err != nil {
 				return fmt.Errorf("writing %s: %w", manPath, err)
 			}
 			fmt.Fprintf(os.Stderr, "wrote %s\n", manPath)
 
-			if err := writeFile(mdPath, generateCLIMarkdown); err != nil {
+			if err := writeFile(mdPath, func(w io.Writer) { generateCLIMarkdown(w, cmdRoot) }); err != nil {
 				return fmt.Errorf("writing %s: %w", mdPath, err)
 			}
 			fmt.Fprintf(os.Stderr, "wrote %s\n", mdPath)
@@ -75,8 +81,7 @@ func findRepoRoot() (string, error) {
 }
 
 // generateManPage writes the hulak(1) man page in roff format.
-func generateManPage(w io.Writer) {
-	root := subCommands()
+func generateManPage(w io.Writer, root *cli.Command) {
 	// Use a fixed epoch so CI regeneration doesn't produce a diff
 	// just because the calendar month rolled over. Bump this when
 	// cutting a release if you want the man page date to advance.
@@ -289,9 +294,7 @@ func generateManPage(w io.Writer) {
 }
 
 // generateCLIMarkdown writes the CLI reference in GitHub-flavored markdown.
-func generateCLIMarkdown(w io.Writer) {
-	root := subCommands()
-
+func generateCLIMarkdown(w io.Writer, root *cli.Command) {
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
 
 	p("# Hulak CLI Reference")

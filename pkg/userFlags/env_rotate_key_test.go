@@ -8,6 +8,7 @@ import (
 
 	"filippo.io/age"
 
+	"github.com/xaaha/hulak/pkg/userFlags/initcmd"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -301,7 +302,7 @@ func TestRunRotateKey_BlocksSSHOnlyVault(t *testing.T) {
 	}
 	keyPath, _ := writeTestSSHKey(t, sshDir)
 
-	if err := InitVaultProject(nil, keyPath); err != nil {
+	if err := initcmd.InitVaultProject(nil, keyPath); err != nil {
 		t.Fatalf("SSH init: %v", err)
 	}
 

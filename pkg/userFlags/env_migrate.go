@@ -51,16 +51,16 @@ func runEnvMigrate() error {
 	wasFresh := !vault.IdentityExists()
 
 	// only migrate to hulak vault
-	result, err := bootstrapVault(cwd, "")
+	result, err := vault.BootstrapVault(cwd, "")
 	if err != nil {
 		return err
 	}
 
-	if err := migrateEnvFiles(envDir, result.store); err != nil {
+	if err := migrateEnvFiles(envDir, result.Store); err != nil {
 		return err
 	}
 
-	if err := vault.WriteStoreToRecipients(result.store); err != nil {
+	if err := vault.WriteStoreToRecipients(result.Store); err != nil {
 		return err
 	}
 
@@ -80,91 +80,6 @@ func requireDirectory(path string) error {
 		return fmt.Errorf("expected %s/ to be a directory, got a file", filepath.Base(path))
 	}
 	return nil
-}
-
-// bootstrapResult holds the output of bootstrapVault for both age and SSH flows.
-type bootstrapResult struct {
-	recipientKey string       // public key written to recipients.txt
-	identityDesc string       // human-readable identity location
-	store        *vault.Store // current store (empty if first run)
-	isSSH        bool         // true when vault was bootstrapped with SSH
-}
-
-// bootstrapVault ensures .hulak/, identity, and recipients exist,
-// then returns the bootstrap result with the current store.
-//
-// When sshIdentityPath is empty, the age keypair flow runs (EnsureKeypair).
-// When sshIdentityPath is set, the SSH flow runs: no identity.txt is created,
-// and the SSH public key is written to recipients.txt instead.
-func bootstrapVault(projectRoot, sshIdentityPath string) (*bootstrapResult, error) {
-	hulakDir := filepath.Join(projectRoot, utils.HiddenProjectName)
-	if err := os.MkdirAll(hulakDir, utils.DirPer); err != nil {
-		return nil, fmt.Errorf("could not create %s/: %w", utils.HiddenProjectName, err)
-	}
-
-	if sshIdentityPath != "" {
-		return bootstrapSSH(sshIdentityPath)
-	}
-	return bootstrapAge()
-}
-
-// bootstrapAge is the default flow: generate or load an age keypair.
-func bootstrapAge() (*bootstrapResult, error) {
-	ageKey, err := vault.EnsureKeypair()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ensureRecipientsFile(ageKey.Recipient.String(), utils.Username()); err != nil {
-		return nil, err
-	}
-
-	store, err := vault.DecryptStore(ageKey.Identity)
-	if err != nil {
-		return nil, err
-	}
-
-	identityPath, _ := vault.IdentityPath()
-	return &bootstrapResult{
-		recipientKey: ageKey.Recipient.String(),
-		identityDesc: identityPath,
-		store:        store,
-	}, nil
-}
-
-// bootstrapSSH uses an existing SSH private key instead of generating an age keypair.
-func bootstrapSSH(sshIdentityPath string) (*bootstrapResult, error) {
-	// Reject if an age identity already exists — ambiguous ownership.
-	if vault.IdentityExists() {
-		idPath, _ := vault.IdentityPath()
-		return nil, fmt.Errorf(
-			"an age identity already exists at %s\n\n"+
-				"Remove it first to use SSH, or init without --ssh-identity",
-			idPath,
-		)
-	}
-
-	// Load identity and derive public key in one read.
-	identity, pubKey, err := vault.LoadSSHIdentityWithPubKey(sshIdentityPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ensureRecipientsFile(pubKey, utils.Username()); err != nil {
-		return nil, err
-	}
-
-	store, err := vault.DecryptStore(identity)
-	if err != nil {
-		return nil, err
-	}
-
-	return &bootstrapResult{
-		recipientKey: pubKey,
-		identityDesc: sshIdentityPath,
-		store:        store,
-		isSSH:        true,
-	}, nil
 }
 
 // migrateEnvFiles reads each *.env file in envDir and merges its
@@ -252,10 +167,10 @@ func mergeEnvFileIntoStore(filePath, envName string, store *vault.Store) error {
 
 // printMigrateSummary shows identity details on first-time setup
 // and reminds the user that env/ is untouched.
-func printMigrateSummary(wasFresh bool, result *bootstrapResult) error {
+func printMigrateSummary(wasFresh bool, result *vault.BootstrapResult) error {
 	if wasFresh {
-		utils.PrintInfoStderr(fmt.Sprintf("\n  Identity file: %s", result.identityDesc))
-		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
+		utils.PrintInfoStderr(fmt.Sprintf("\n  Identity file: %s", result.IdentityDesc))
+		utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.RecipientKey))
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)

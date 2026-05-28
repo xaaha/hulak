@@ -130,7 +130,7 @@ func runBackup(outPath string, force bool) error {
 
 	// Auto-add .hulak/backups/ to .gitignore on first default-path backup
 	if outPath == "" {
-		if err := ensureGitignoreEntry(utils.HiddenProjectName + "/backups/"); err != nil {
+		if err := utils.EnsureGitignoreEntry(utils.HiddenProjectName + "/backups/"); err != nil {
 			utils.PrintWarningStderr(fmt.Sprintf("could not update .gitignore: %v", err))
 		}
 	}

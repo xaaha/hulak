@@ -1,4 +1,4 @@
-package userflags
+package example
 
 import (
 	"embed"
@@ -37,7 +37,7 @@ var exampleAliases = map[string]string{
 	"urlencodedformdata": "urlencoded",
 }
 
-func newExampleCmd() *cli.Command {
+func New() *cli.Command {
 	fs := flag.NewFlagSet("example", flag.ContinueOnError)
 	out := cliflags.RegisterOutput(
 		fs,

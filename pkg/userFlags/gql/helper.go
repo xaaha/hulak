@@ -1,4 +1,7 @@
-package userflags
+// Package gql implements the `hulak gql` subcommand: the interactive
+// GraphQL explorer over .yml/.yaml schema files. New() builds the
+// command for registration by the top-level dispatch.
+package gql
 
 import (
 	"fmt"

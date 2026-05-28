@@ -1,4 +1,4 @@
-package userflags
+package example
 
 import (
 	"bytes"

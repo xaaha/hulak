@@ -1,8 +1,9 @@
-// Package userflags have everything related to user's flags & subcommands
-package userflags
+// Package initcmd implements the `hulak init` family of subcommands —
+// vault-mode and classic-mode project scaffolding, plus the gendocs
+// helper that regenerates man pages and the CLI markdown reference.
+package initcmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,7 +38,7 @@ func InitClassicProject() error {
 	}
 
 	// gitignored path suffix is "/"
-	if err := ensureGitignoreEntry(utils.EnvironmentFolder + "/"); err != nil {
+	if err := utils.EnsureGitignoreEntry(utils.EnvironmentFolder + "/"); err != nil {
 		utils.PrintWarningStderr(fmt.Sprintf("could not update .gitignore: %v", err))
 	}
 
@@ -105,14 +106,14 @@ func InitVaultProject(envNames []string, sshIdentityPath string) error {
 	}
 
 	// Fresh vault — bootstrap from scratch.
-	result, err := bootstrapVault(cwd, sshIdentityPath)
+	result, err := vault.BootstrapVault(cwd, sshIdentityPath)
 	if err != nil {
 		return err
 	}
 
-	added := ensureStoreSections(result.store, envNames)
+	added := ensureStoreSections(result.Store, envNames)
 
-	if err := vault.WriteStoreToRecipients(result.store); err != nil {
+	if err := vault.WriteStoreToRecipients(result.Store); err != nil {
 		return err
 	}
 
@@ -220,21 +221,21 @@ func ensureExtraEnvSections(envNames []string) error {
 }
 
 // printInitSummary prints the post-bootstrap summary for fresh vault creation.
-func printInitSummary(result *bootstrapResult) {
+func printInitSummary(result *vault.BootstrapResult) {
 	utils.PrintSuccessStderr(
 		fmt.Sprintf("Initialized vault at %s/", utils.HiddenProjectName),
 	)
-	utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.recipientKey))
+	utils.PrintInfoStderr(fmt.Sprintf("  Public key:    %s", result.RecipientKey))
 	utils.PrintInfoStderr(
 		fmt.Sprintf("  Recipients:    %s/%s", utils.HiddenProjectName, utils.RecipientsFile),
 	)
-	if result.isSSH {
-		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", result.identityDesc))
+	if result.IsSSH {
+		utils.PrintInfoStderr(fmt.Sprintf("  SSH identity:  %s", result.IdentityDesc))
 		utils.PrintWarningStderr(
 			"Your SSH private key is your vault identity — protect it.",
 		)
 	} else {
-		utils.PrintInfoStderr(fmt.Sprintf("  Identity file: %s", result.identityDesc))
+		utils.PrintInfoStderr(fmt.Sprintf("  Identity file: %s", result.IdentityDesc))
 		utils.PrintWarningStderr(
 			"Back up the identity file — losing it means losing access to the vault.",
 		)
@@ -272,76 +273,4 @@ func ensureStoreSections(store *vault.Store, names []string) []string {
 		}
 	}
 	return added
-}
-
-// ensureRecipientsFile creates .hulak/recipients.txt with the given public
-// key if the file doesn't already exist. Accepts both age (age1...) and SSH
-// (ssh-ed25519 ...) public keys. Idempotent — re-running init is a no-op.
-func ensureRecipientsFile(pubKey, name string) error {
-	path, err := vault.RecipientsFilePath()
-	if err != nil {
-		return err
-	}
-	if utils.FileExists(path) {
-		return nil
-	}
-	return vault.SaveRecipients([]vault.RecipientEntry{
-		{Key: pubKey, Name: vault.FormatRecipientName(name)},
-	})
-}
-
-// ensureGitignoreEntry adds entry to .gitignore if not already present.
-func ensureGitignoreEntry(entry string) error {
-	gitignorePath, err := utils.CreatePath(".gitignore")
-	if err != nil {
-		return fmt.Errorf("could not resolve .gitignore path: %w", err)
-	}
-
-	if utils.FileExists(gitignorePath) {
-		file, err := os.Open(gitignorePath)
-		if err != nil {
-			return fmt.Errorf("could not read .gitignore: %w", err)
-		}
-		defer file.Close()
-
-		bare := strings.TrimRight(entry, "/")
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == entry || line == bare {
-				return nil
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("error reading .gitignore: %w", err)
-		}
-	}
-
-	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, utils.FilePer)
-	if err != nil {
-		return fmt.Errorf("could not open .gitignore for writing: %w", err)
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return fmt.Errorf("could not stat .gitignore: %w", err)
-	}
-
-	prefix := ""
-	if info.Size() > 0 {
-		content, err := os.ReadFile(gitignorePath)
-		if err != nil {
-			return fmt.Errorf("could not read .gitignore: %w", err)
-		}
-		if len(content) > 0 && content[len(content)-1] != '\n' {
-			prefix = "\n"
-		}
-	}
-
-	if _, err := fmt.Fprintf(f, "%s%s\n", prefix, entry); err != nil {
-		return fmt.Errorf("could not write to .gitignore: %w", err)
-	}
-
-	return nil
 }
