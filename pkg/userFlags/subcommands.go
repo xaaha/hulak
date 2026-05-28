@@ -473,11 +473,14 @@ func newEnvCmd() *command {
 		Aliases: []string{"env"},
 		Short:   "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
-			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
-			"Environment lifecycle and vault-file ops live at this level. Key-level\n" +
-			"CRUD lives under `secrets keys`. When --env is omitted on a command\n" +
-			"that takes one, you'll be prompted to pick an environment.\n\n" +
-			"'env' is retained as an alias for backward compatibility with pre-0.3 docs.",
+			"Secrets are organized by environment (e.g. global, staging, prod).\n\n" +
+			"Three concern-scoped groups live here:\n" +
+			"  - this level: environment listing, edit, backup/restore, sync, migrate.\n" +
+			"  - `secrets keys ...`     for key-level CRUD inside an environment.\n" +
+			"  - `secrets identity ...` for age identities and recipient management.\n\n" +
+			"When --env is omitted on a command that takes one, you'll be prompted\n" +
+			"to pick an environment from a TUI list.\n\n" +
+			"'env' is kept as an alias of `secrets` for backward compatibility.",
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets list",

@@ -1,4 +1,5 @@
-// Contains command factories and handlers for hulak secrets import-key and export-key.
+// Contains command factories and handlers for the identity I/O leaves under
+// `hulak secrets identity`: import and export.
 package userflags
 
 import (
@@ -65,7 +66,7 @@ func newIdentityImportCmd() *command {
 	}
 }
 
-// runImportKey handles `hulak secrets import-key [path] [--stdin] [--force] [--name LABEL]`.
+// runImportKey handles `hulak secrets identity import [path] [--stdin] [--force] [--name LABEL]`.
 //
 // Two modes, picked by --name:
 //
@@ -243,7 +244,7 @@ func newIdentityExportCmd() *command {
 	}
 }
 
-// runExportKey handles `hulak secrets export-key [--out path]`.
+// runExportKey handles `hulak secrets identity export [--out path]`.
 func runExportKey(args []string, outPath string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

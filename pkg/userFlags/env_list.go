@@ -76,13 +76,14 @@ func newEnvKeysCmd() *command {
 		Aliases: []string{"key"},
 		Short:   "Manage keys within an environment",
 		Long: "Manage keys within an environment.\n\n" +
-			"Running `secrets keys` with no subcommand lists keys (legacy shorthand,\n" +
-			"equivalent to `secrets keys list`). Use the subcommands below for full\n" +
-			"key-level CRUD.\n\n" +
-			"Values are masked by default (••••) so the output is safe to share in\n" +
-			"screen recordings and meetings. Use --show to reveal them.\n" +
-			"Use --search to filter by case-insensitive substring or glob pattern\n" +
-			"(e.g. \"API*\", \"DB_?\").",
+			"All leaves are scoped to a single environment via --env (or --environment).\n" +
+			"When --env is omitted you'll be prompted to pick one from a TUI list.\n\n" +
+			"Values are masked by default (••••) so listing is safe in screen\n" +
+			"recordings and meetings. Use --show on `list` to reveal them. Use\n" +
+			"--search on `list` to filter by case-insensitive substring or glob\n" +
+			"(e.g. \"API*\", \"DB_?\").\n\n" +
+			"`secrets keys --env <name>` with no subcommand is shorthand for\n" +
+			"`secrets keys list --env <name>`.",
 		Flags: keysFs,
 		Examples: []*utils.CommandHelp{
 			{
@@ -100,10 +101,6 @@ func newEnvKeysCmd() *command {
 			{
 				Command:     "hulak secrets keys delete OLD_KEY --env prod",
 				Description: "Delete a key from prod",
-			},
-			{
-				Command:     "hulak secrets keys --env prod",
-				Description: "Shorthand for `keys list` (legacy)",
 			},
 		},
 		SubCommands: []*command{

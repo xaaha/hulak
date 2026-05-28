@@ -19,9 +19,11 @@ func newEnvIdentityCmd() *command {
 			"is encrypted to. Adding a recipient grants decrypt access. Removing\n" +
 			"one followed by `hulak secrets sync` revokes it.\n\n" +
 			"Operations here are vault-global and do not take --env.\n\n" +
-			"Note: `identity rotate` generates a new keypair and swaps it into\n" +
-			"recipients. That is different from `hulak secrets sync`, which only\n" +
-			"re-encrypts the store to the current recipients without changing keys.",
+			"Two commands sound similar but do different things:\n" +
+			"  `secrets identity rotate`  generates a NEW keypair and swaps it\n" +
+			"                             into recipients. Use after compromise.\n" +
+			"  `secrets sync`             re-encrypts the store to the current\n" +
+			"                             recipients without changing any keys.",
 		Examples: []*utils.CommandHelp{
 			{
 				Command:     "hulak secrets identity list",

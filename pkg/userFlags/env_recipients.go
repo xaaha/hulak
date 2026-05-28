@@ -1,4 +1,5 @@
-// Contains command factories and handlers for hulak secrets add-recipient, remove-recipient, and list-recipients.
+// Contains command factories and handlers for the recipient leaves under
+// `hulak secrets identity`: add-recipient, remove-recipient, list-recipients.
 package userflags
 
 import (
@@ -184,7 +185,7 @@ func fetchAndFilterKeys(url string, allowRSA bool) ([]string, error) {
 	return keys, nil
 }
 
-// runAddRecipient handles `hulak secrets add-recipient`.
+// runAddRecipient handles `hulak secrets identity add-recipient`.
 func runAddRecipient(
 	args []string,
 	name string,
@@ -292,7 +293,7 @@ func newIdentityRemoveRecipientCmd() *command {
 	}
 }
 
-// runRemoveRecipient handles `hulak secrets remove-recipient <key-or-name>`.
+// runRemoveRecipient handles `hulak secrets identity remove-recipient <key-or-name>`.
 func runRemoveRecipient(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing required argument: public-key or name label")
@@ -371,7 +372,7 @@ func newIdentityListRecipientsCmd() *command {
 	}
 }
 
-// runListRecipients handles `hulak secrets list-recipients`.
+// runListRecipients handles `hulak secrets identity list-recipients`.
 func runListRecipients(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

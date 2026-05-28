@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak secrets list-identity.
+// Contains command factory and handler for hulak secrets identity list.
 package userflags
 
 import (
@@ -40,7 +40,7 @@ func newIdentityListCmd() *command {
 	}
 }
 
-// runListIdentity handles `hulak secrets list-identity`.
+// runListIdentity handles `hulak secrets identity list`.
 func runListIdentity(args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("too many arguments: got %d, expected none", len(args))

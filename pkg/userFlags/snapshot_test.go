@@ -174,11 +174,16 @@ func TestSecretsHelpSnapshot(t *testing.T) {
 	const want = `Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 
 Secrets are organized by environment (e.g. global, staging, prod).
-Environment lifecycle and vault-file ops live at this level. Key-level
-CRUD lives under ` + "`secrets keys`" + `. When --env is omitted on a command
-that takes one, you'll be prompted to pick an environment.
 
-'env' is retained as an alias for backward compatibility with pre-0.3 docs.
+Three concern-scoped groups live here:
+  - this level: environment listing, edit, backup/restore, sync, migrate.
+  - ` + "`secrets keys ...`" + `     for key-level CRUD inside an environment.
+  - ` + "`secrets identity ...`" + ` for age identities and recipient management.
+
+When --env is omitted on a command that takes one, you'll be prompted
+to pick an environment from a TUI list.
+
+'env' is kept as an alias of ` + "`secrets`" + ` for backward compatibility.
 
 COMMANDS
   backup           - Create a backup of the encrypted store

@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak secrets gen-identity.
+// Contains command factory and handler for hulak secrets identity generate.
 package userflags
 
 import (
@@ -54,7 +54,7 @@ func newIdentityGenCmd() *command {
 	}
 }
 
-// runGenIdentity handles `hulak secrets gen-identity [--name LABEL]`.
+// runGenIdentity handles `hulak secrets identity generate [--name LABEL]`.
 //
 // Refuses if ~/.config/hulak/identity.txt already exists — overwriting it
 // silently would lose access to whatever vault that key was a recipient of.
@@ -116,7 +116,7 @@ func runGenIdentity(args []string, name string) error {
 		"Back up the identity file. Losing it means losing access to the vault.",
 	)
 
-	// Pubkey on stdout so it can be piped or captured: $(hulak secrets gen-identity)
+	// Pubkey on stdout so it can be piped or captured: $(hulak secrets identity generate)
 	fmt.Println(pubKey)
 	return nil
 }

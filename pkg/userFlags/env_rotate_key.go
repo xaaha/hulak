@@ -1,4 +1,4 @@
-// Contains command factory and handler for hulak secrets rotate-key.
+// Contains command factory and handler for hulak secrets identity rotate.
 package userflags
 
 import (
@@ -41,7 +41,7 @@ type rotationState struct {
 	recovering     bool
 }
 
-// runRotateKey handles `hulak secrets rotate-key`.
+// runRotateKey handles `hulak secrets identity rotate`.
 // Generates a new age keypair, swaps it in recipients.txt, re-encrypts the
 // store, and backs up the old private key to identity.txt.old.
 func runRotateKey(args []string) error {
