@@ -682,15 +682,15 @@ func TestRunEnvSet_DefaultTypeIsString(t *testing.T) {
 	}
 }
 
-// TestEnvSetCmd_FlagWiring exercises the full newEnvSetCmd() path: build the
+// TestKeysSetCmd_FlagWiring exercises the full keysSetCmd() path: build the
 // command, parse flag args through the FlagSet, then invoke Run. This is the
 // only test that catches a regression in the `-t`/`--type` alias wiring or
 // the StringVar pair pointing to the same variable (a bug here would have
 // integration tests still pass because they bypass flag parsing).
-func TestEnvSetCmd_FlagWiring(t *testing.T) {
+func TestKeysSetCmd_FlagWiring(t *testing.T) {
 	testCases := []struct {
 		name string
-		args []string // full args after `secrets set`
+		args []string // full args after `secrets keys set`
 		key  string
 	}{
 		{"long flag --type int", []string{"--env", "global", "--type", "int", "longInt", "100"}, "longInt"},
@@ -702,7 +702,7 @@ func TestEnvSetCmd_FlagWiring(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			setupVaultProject(t)
-			cmd := newEnvSetCmd()
+			cmd := keysSetCmd()
 			if err := cmd.Flags.Parse(tc.args); err != nil {
 				t.Fatalf("Flags.Parse(%v): %v", tc.args, err)
 			}
