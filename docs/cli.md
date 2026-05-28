@@ -72,9 +72,7 @@ When `--env` is omitted, behavior depends on the command:
 
 - **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.
 - **`hulak secrets edit`**: always opens the picker. There is no default. Pass `--env <name>` (including for new envs you want to create).
-- **`hulak secrets keys set/get/delete/list`**: open the interactive picker when `--env` is omitted, same as `edit`. Pass `--env <name>` to bypass the picker.
-- **`hulak secrets create`**: requires `--env NAME` (no picker — you're inventing a new name).
-- **`hulak secrets delete` (env-level), `rename`**: target an existing env explicitly; `delete` falls back to the picker if `--env` is omitted, `rename` takes positional `OLD NEW`.
+- **`hulak secrets set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
 - **`hulak secrets list`**: takes no `--env` (it lists envs themselves).
 
 All commands above accept `--env` / `--environment` to bypass any picker or default explicitly.
@@ -291,7 +289,7 @@ hulak secrets keys delete OLD_KEY --env staging
 | `edit` | Edit secrets interactively |
 | `identity` | Manage age identities and recipients |
 | `rename` (`mv`) | Rename an environment (unix-style mv) |
-| `sync` | Re-encrypt the store to current recipients (use `identity rotate` for keypair rotation) |
+| `sync` | Re-encrypt the store to current recipients |
 | `migrate` | Migrate env/*.env files to the encrypted vault |
 | `backup` | Create a backup of the encrypted store |
 | `restore` | Restore the encrypted store from a backup |
