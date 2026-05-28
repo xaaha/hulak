@@ -697,3 +697,45 @@ func TestSubCommandsHaveHelp(t *testing.T) {
 		}
 	}
 }
+
+// TestFindSubcommandIndex_FlagBeforeVerb verifies that dispatch skips past
+// leading flags when locating a subcommand. Without this, `secrets keys
+// --env prod list` would land in the parent's Run handler with `list` as
+// a stray positional. The leaf-level flag-anywhere parser in Execute makes
+// flag ordering insignificant; this test holds dispatch to the same contract.
+func TestFindSubcommandIndex_FlagBeforeVerb(t *testing.T) {
+	root := subCommands()
+	keys := root.findSub("secrets").findSub("keys")
+	if keys == nil {
+		t.Fatal("secrets keys subcommand missing")
+	}
+
+	tests := []struct {
+		name         string
+		args         []string
+		wantMatchIdx int
+		wantFirstPos int
+	}{
+		{"verb first", []string{"list"}, 0, 0},
+		{"verb after string flag (space form)", []string{"--env", "prod", "list"}, 2, 2},
+		{"verb after string flag (inline form)", []string{"--env=prod", "list"}, 1, 1},
+		{"verb after bool flag", []string{"--show", "list"}, 1, 1},
+		{"verb after multiple flags", []string{"--env", "prod", "--show", "list"}, 3, 3},
+		{"all flags, no verb", []string{"--env", "prod"}, -1, -1},
+		{"empty args", nil, -1, -1},
+		{"typo after flag", []string{"--env", "prod", "ghost"}, -1, 2},
+		{"alias resolves", []string{"--env", "prod", "ls"}, 2, 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotMatch, gotFirst := keys.findSubcommandIndex(tc.args)
+			if gotMatch != tc.wantMatchIdx {
+				t.Errorf("matchIdx = %d, want %d", gotMatch, tc.wantMatchIdx)
+			}
+			if gotFirst != tc.wantFirstPos {
+				t.Errorf("firstNonFlag = %d, want %d", gotFirst, tc.wantFirstPos)
+			}
+		})
+	}
+}
