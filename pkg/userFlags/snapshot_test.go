@@ -92,11 +92,9 @@ func TestSecretsSurfaceSnapshot(t *testing.T) {
 
 	const want = `add-recipient | - | allow-rsa,github,keyserver,name,stdin
 backup | - | f,force,o,out
-delete | rm | env,environment
 edit | - | env,environment
 export-key | export-identity | o,out
 gen-identity | generate-identity | name
-get | - | env,environment
 import-key | import-identity | force,name,stdin
 keys | key | env,environment,search,show
 list | ls | -
@@ -106,7 +104,6 @@ migrate | - | -
 remove-recipient | - | -
 restore | - | f,force
 rotate-key | rotate-identity | -
-set | add | env,environment,stdin,t,type
 sync | rotate | -
 `
 
@@ -153,18 +150,18 @@ func TestSecretsHelpSnapshot(t *testing.T) {
 	const want = `Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 
 Secrets are organized by environment (e.g. global, staging, prod).
-When --env is omitted, you'll be prompted to pick an environment interactively.
+Environment lifecycle and vault-file ops live at this level. Key-level
+CRUD lives under ` + "`secrets keys`" + `. When --env is omitted on a command
+that takes one, you'll be prompted to pick an environment.
 
 'env' is retained as an alias for backward compatibility with pre-0.3 docs.
 
 COMMANDS
   add-recipient                       - Add a recipient for shared vault access
   backup                              - Create a backup of the encrypted store
-  delete (rm)                         - Delete a key
   edit                                - Edit secrets interactively
   export-key (export-identity)        - Export the age identity (private key)
   gen-identity (generate-identity)    - Generate a new age keypair without creating a vault
-  get                                 - Get a value by key
   import-key (import-identity)        - Import an age identity (private key)
   keys (key)                          - Manage keys within an environment
   list (ls)                           - List environment names
@@ -174,20 +171,19 @@ COMMANDS
   remove-recipient                    - Remove a recipient
   restore                             - Restore the encrypted store from a backup
   rotate-key (rotate-identity)        - Rotate your age identity (keypair)
-  set (add)                           - Set a key-value pair
   sync (rotate)                       - Re-encrypt the store to current recipients
 
 EXAMPLES
   $ hulak secrets list
     List environment names defined in the vault
-  $ hulak secrets set API_KEY sk-123 --env prod
-    Set a secret in the prod environment
-  $ hulak secrets get API_KEY --env staging
-    Get a secret from the staging environment
-  $ hulak secrets keys --env prod
+  $ hulak secrets keys list --env prod
     List keys in the prod environment (values masked)
-  $ hulak secrets delete OLD_KEY
-    Delete a key from the default environment
+  $ hulak secrets keys set API_KEY sk-123 --env prod
+    Set a key in the prod environment
+  $ hulak secrets keys get API_KEY --env staging
+    Get a value from the staging environment
+  $ hulak secrets keys delete OLD_KEY --env staging
+    Delete a key from the staging environment
 
 LEARN MORE
   Use ` + "`hulak <command> --help`" + ` for more information about a command.
