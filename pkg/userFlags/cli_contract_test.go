@@ -372,7 +372,7 @@ func TestEnvSubCommandsExist(t *testing.T) {
 	}
 
 	expected := []string{
-		"set", "get", "list", "keys", "delete", "edit",
+		"list", "keys", "edit",
 		"import-key", "export-key",
 		"add-recipient", "remove-recipient", "list-recipients",
 	}
@@ -396,11 +396,11 @@ func TestEnvAliases(t *testing.T) {
 		aliases []string
 	}{
 		// When this list changes, also update the snapshot in TestSecretsSurfaceSnapshot.
+		// `set`/`get`/`delete` no longer live at this level — they moved
+		// under `secrets keys`. See TestSecretsKeysAliases for the nested
+		// versions.
 		{"list", []string{"ls"}},
-		{"set", []string{"add"}},
-		{"get", nil}, // no alias: --show flag (unmask values) would conflict
 		{"keys", []string{"key"}},
-		{"delete", []string{"rm"}},
 		{"sync", []string{"rotate"}},
 	}
 
@@ -411,6 +411,73 @@ func TestEnvAliases(t *testing.T) {
 					t.Errorf("expected env subcommand %q to resolve (alias of %q)", alias, tc.name)
 				}
 			})
+		}
+	}
+}
+
+// TestSecretsKeysAliases verifies the nested `secrets keys` subgroup
+// registers each leaf command with its documented alias.
+func TestSecretsKeysAliases(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("secrets")
+	if envCmd == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+	keys := envCmd.findSub("keys")
+	if keys == nil {
+		t.Fatal("expected secrets keys subcommand to exist")
+	}
+
+	tests := []struct {
+		name    string
+		aliases []string
+	}{
+		{"list", []string{"ls"}},
+		{"set", []string{"add"}},
+		{"get", nil}, // no alias: --show flag (unmask values) would conflict
+		{"delete", []string{"rm"}},
+	}
+
+	for _, tc := range tests {
+		for _, alias := range append([]string{tc.name}, tc.aliases...) {
+			t.Run(alias, func(t *testing.T) {
+				if keys.findSub(alias) == nil {
+					t.Errorf("expected secrets keys subcommand %q to resolve (alias of %q)", alias, tc.name)
+				}
+			})
+		}
+	}
+}
+
+// TestSecretsKeysSubCommandsHaveEnvFlag verifies every leaf of `secrets keys`
+// registers --env / --environment so users can target a specific environment
+// or fall through to the picker.
+func TestSecretsKeysSubCommandsHaveEnvFlag(t *testing.T) {
+	root := subCommands()
+	envCmd := root.findSub("secrets")
+	if envCmd == nil {
+		t.Fatal("expected secrets subcommand to exist")
+	}
+	keys := envCmd.findSub("keys")
+	if keys == nil {
+		t.Fatal("expected secrets keys subcommand to exist")
+	}
+
+	for _, leaf := range []string{"list", "set", "get", "delete"} {
+		sub := keys.findSub(leaf)
+		if sub == nil {
+			t.Errorf("expected secrets keys %q to exist", leaf)
+			continue
+		}
+		if sub.Flags == nil {
+			t.Errorf("secrets keys %q should have its own FlagSet", leaf)
+			continue
+		}
+		if sub.Flags.Lookup("env") == nil {
+			t.Errorf("secrets keys %q should have an --env flag", leaf)
+		}
+		if sub.Flags.Lookup("environment") == nil {
+			t.Errorf("secrets keys %q should have an --environment alias", leaf)
 		}
 	}
 }
@@ -450,7 +517,7 @@ func TestEnvSubCommandsHaveFlags(t *testing.T) {
 
 	// Subcommands that target a specific environment
 	// list does not take --env (it lists environment names themselves)
-	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
+	needsEnvFlag := []string{"keys", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -477,7 +544,7 @@ func TestEnvSubCommandsHaveEnvironmentAlias(t *testing.T) {
 	}
 
 	// list does not take --env (it lists environment names themselves)
-	needsEnvFlag := []string{"set", "get", "keys", "delete", "edit"}
+	needsEnvFlag := []string{"keys", "edit"}
 	for _, name := range needsEnvFlag {
 		sub := envCmd.findSub(name)
 		if sub == nil {
@@ -507,7 +574,6 @@ func TestEnvSubCommandSpecificFlags(t *testing.T) {
 		subcommand string
 		flag       string
 	}{
-		{"set", "stdin"},
 		{"keys", "show"},
 		{"keys", "search"},
 		{"import-key", "stdin"},

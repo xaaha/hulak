@@ -474,7 +474,9 @@ func newEnvCmd() *command {
 		Short:   "Manage encrypted environment secrets",
 		Long: "Manage environment secrets stored in the encrypted vault (.hulak/store.age).\n\n" +
 			"Secrets are organized by environment (e.g. global, staging, prod).\n" +
-			"When --env is omitted, you'll be prompted to pick an environment interactively.\n\n" +
+			"Environment lifecycle and vault-file ops live at this level. Key-level\n" +
+			"CRUD lives under `secrets keys`. When --env is omitted on a command\n" +
+			"that takes one, you'll be prompted to pick an environment.\n\n" +
 			"'env' is retained as an alias for backward compatibility with pre-0.3 docs.",
 		Examples: []*utils.CommandHelp{
 			{
@@ -482,30 +484,27 @@ func newEnvCmd() *command {
 				Description: "List environment names defined in the vault",
 			},
 			{
-				Command:     "hulak secrets set API_KEY sk-123 --env prod",
-				Description: "Set a secret in the prod environment",
-			},
-			{
-				Command:     "hulak secrets get API_KEY --env staging",
-				Description: "Get a secret from the staging environment",
-			},
-			{
-				Command:     "hulak secrets keys --env prod",
+				Command:     "hulak secrets keys list --env prod",
 				Description: "List keys in the prod environment (values masked)",
 			},
 			{
-				Command:     "hulak secrets delete OLD_KEY",
-				Description: "Delete a key from the default environment",
+				Command:     "hulak secrets keys set API_KEY sk-123 --env prod",
+				Description: "Set a key in the prod environment",
+			},
+			{
+				Command:     "hulak secrets keys get API_KEY --env staging",
+				Description: "Get a value from the staging environment",
+			},
+			{
+				Command:     "hulak secrets keys delete OLD_KEY --env staging",
+				Description: "Delete a key from the staging environment",
 			},
 		},
 	}
 
 	envCmd.SubCommands = []*command{
-		newEnvSetCmd(),
-		newEnvGetCmd(),
 		newEnvListCmd(),
 		newEnvKeysCmd(),
-		newEnvDeleteCmd(),
 		newEnvEditCmd(),
 		newEnvImportKeyCmd(),
 		newEnvExportKeyCmd(),
