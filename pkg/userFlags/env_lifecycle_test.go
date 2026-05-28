@@ -127,3 +127,150 @@ func TestRunEnvCreate(t *testing.T) {
 		}
 	})
 }
+
+// seedEnv creates envName in the current vault project and populates it with
+// the given key-value pairs. Test helper — fails the test on any vault error.
+func seedEnv(t *testing.T, envName string, kv map[string]any) {
+	t.Helper()
+	store, err := vault.ReadStore()
+	if err != nil {
+		t.Fatalf("ReadStore: %v", err)
+	}
+	store.EnsureSection(envName)
+	for k, v := range kv {
+		store.SetKey(envName, k, v)
+	}
+	if err := vault.WriteStoreToRecipients(store); err != nil {
+		t.Fatalf("WriteStoreToRecipients: %v", err)
+	}
+}
+
+func TestRunDeleteEnv(t *testing.T) {
+	t.Run("deletes empty env without prompting", func(t *testing.T) {
+		setupVaultProject(t)
+		if err := runEnvCreate(nil, "temp"); err != nil {
+			t.Fatal(err)
+		}
+		// Sentinel: if confirmDestroy reaches the prompt for count=0, fail.
+		prompt := stubConfirm(t, false, nil)
+
+		if err := runDeleteEnv(nil, "temp", false); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if *prompt != "" {
+			t.Errorf("empty env should skip prompt, got %q", *prompt)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("temp") != nil {
+			t.Error("env should be gone after delete")
+		}
+	})
+
+	t.Run("non-empty env: prompts and deletes on accept", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"API_KEY": "sk-xxx", "URL": "https://x"})
+		prompt := stubConfirm(t, true, nil)
+
+		if err := runDeleteEnv(nil, "prod", false); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(*prompt, "2 keys in \"prod\"") {
+			t.Errorf("expected prompt to include count + env, got %q", *prompt)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("prod") != nil {
+			t.Error("env should be gone after confirmed delete")
+		}
+	})
+
+	t.Run("non-empty env: declines preserves env", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"API_KEY": "sk-xxx"})
+		stubConfirm(t, false /*decline*/, nil)
+
+		if err := runDeleteEnv(nil, "prod", false); err != nil {
+			t.Fatalf("unexpected error on decline: %v", err)
+		}
+
+		store, _ := vault.ReadStore()
+		env := store.GetEnv("prod")
+		if env == nil {
+			t.Fatal("env should still exist after decline")
+		}
+		if env["API_KEY"] != "sk-xxx" {
+			t.Error("decline should not mutate env contents")
+		}
+	})
+
+	t.Run("--yes skips prompt and deletes regardless of count", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"K1": "v1", "K2": "v2", "K3": "v3"})
+		// Sentinel: prompt must not be called when force=true.
+		prompt := stubConfirm(t, false, nil)
+
+		if err := runDeleteEnv(nil, "prod", true /*force*/); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if *prompt != "" {
+			t.Errorf("--yes should skip prompt entirely, got %q", *prompt)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("prod") != nil {
+			t.Error("env should be gone after --yes delete")
+		}
+	})
+
+	t.Run("singular phrasing for count == 1", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"only": "v"})
+		prompt := stubConfirm(t, true, nil)
+
+		if err := runDeleteEnv(nil, "prod", false); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(*prompt, "1 key in \"prod\"") {
+			t.Errorf("expected singular phrasing, got %q", *prompt)
+		}
+	})
+
+	t.Run("missing env errors", func(t *testing.T) {
+		setupVaultProject(t)
+		err := runDeleteEnv(nil, "ghost", false)
+		if err == nil {
+			t.Fatal("expected error for missing env, got nil")
+		}
+		if !strings.Contains(err.Error(), `environment "ghost"`) {
+			t.Errorf("error should name the env, got: %v", err)
+		}
+	})
+
+	t.Run("preserves siblings", func(t *testing.T) {
+		setupVaultProject(t)
+		seedEnv(t, "prod", map[string]any{"K": "v"})
+		seedEnv(t, "staging", map[string]any{"S": "stagingv"})
+		stubConfirm(t, true, nil)
+
+		if err := runDeleteEnv(nil, "prod", false); err != nil {
+			t.Fatal(err)
+		}
+
+		store, _ := vault.ReadStore()
+		if store.GetEnv("prod") != nil {
+			t.Error("prod should be deleted")
+		}
+		if store.GetEnv("staging")["S"] != "stagingv" {
+			t.Error("delete disturbed sibling env")
+		}
+	})
+
+	t.Run("rejects extra positional args", func(t *testing.T) {
+		setupVaultProject(t)
+		err := runDeleteEnv([]string{"unexpected"}, "prod", false)
+		if err == nil {
+			t.Fatal("expected error on extra positional, got nil")
+		}
+	})
+}

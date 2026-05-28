@@ -92,6 +92,7 @@ func TestSecretsSurfaceSnapshot(t *testing.T) {
 
 	const want = `backup | - | f,force,o,out
 create | - | env,environment
+delete | rm | env,environment,y,yes
 edit | - | env,environment
 identity | - | -
 keys | key | env,environment,search,show
@@ -189,6 +190,7 @@ to pick an environment from a TUI list.
 COMMANDS
   backup           - Create a backup of the encrypted store
   create           - Create a new empty environment
+  delete (rm)      - Delete an environment
   edit             - Edit secrets interactively
   identity         - Manage age identities and recipients
   keys (key)       - Manage keys within an environment

@@ -507,6 +507,7 @@ func newEnvCmd() *command {
 
 	envCmd.SubCommands = []*command{
 		newEnvCreateCmd(),
+		newEnvDeleteCmd(),
 		newEnvListCmd(),
 		newEnvKeysCmd(),
 		newEnvEditCmd(),
