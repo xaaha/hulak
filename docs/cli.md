@@ -257,9 +257,16 @@ Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
 Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 
 Secrets are organized by environment (e.g. global, staging, prod).
-When --env is omitted, you'll be prompted to pick an environment interactively.
 
-'env' is retained as an alias for backward compatibility with pre-0.3 docs. See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
+Three concern-scoped groups live here:
+  - this level: environment listing, edit, backup/restore, sync, migrate.
+  - `secrets keys ...`     for key-level CRUD inside an environment.
+  - `secrets identity ...` for age identities and recipient management.
+
+When --env is omitted on a command that takes one, you'll be prompted
+to pick an environment from a TUI list.
+
+'env' is kept as an alias of `secrets` for backward compatibility. See [docs/store.md](./store.md) for the full encryption model and team-sharing flows.
 
 Aliases:
 
@@ -267,29 +274,22 @@ Aliases:
 
 ```bash
 hulak secrets list
-hulak secrets set API_KEY sk-123 --env prod
-hulak secrets get API_KEY --env staging
-hulak secrets keys --env prod
-hulak secrets delete OLD_KEY
+hulak secrets keys list --env prod
+hulak secrets keys set API_KEY sk-123 --env prod
+hulak secrets keys get API_KEY --env staging
+hulak secrets keys delete OLD_KEY --env staging
 ```
 
 | Subcommand | Notes |
 | ---------- | ----- |
-| `set` (`add`) | Set a key-value pair |
-| `get` (`g`, `show`, `view`) | Get a value by key |
-| `list` (`ls`, `l`) | List environment names |
-| `keys` (`key`) | List keys in an environment |
-| `delete` (`rm`, `remove`, `del`) | Delete a key |
+| `create` | Create a new empty environment |
+| `delete` (`rm`) | Delete an environment |
+| `list` (`ls`) | List environment names |
+| `keys` (`key`) | Manage keys within an environment |
 | `edit` | Edit secrets interactively |
-| `import-key` (`import-identity`) | Import an age identity (private key) |
-| `export-key` (`export-identity`) | Export the age identity (private key) |
-| `gen-identity` (`generate-identity`) | Generate a new age keypair without creating a vault |
-| `list-identity` | List identities that can decrypt the vault |
-| `add-recipient` | Add a recipient for shared vault access |
-| `remove-recipient` | Remove a recipient |
-| `list-recipients` | List all recipients |
-| `rotate` (`sync`, `reencrypt`) | Re-encrypt the store to current recipients |
-| `rotate-key` (`rotate-identity`) | Rotate your age identity (keypair) |
+| `identity` | Manage age identities and recipients |
+| `rename` (`mv`) | Rename an environment (unix-style mv) |
+| `sync` (`rotate`) | Re-encrypt the store to current recipients |
 | `migrate` | Migrate env/*.env files to the encrypted vault |
 | `backup` | Create a backup of the encrypted store |
 | `restore` | Restore the encrypted store from a backup |
