@@ -10,7 +10,7 @@ import (
 func TestSubCommandsExist(t *testing.T) {
 	root := subCommands()
 
-	expected := []string{"run", "version", "init", "migrate", "doctor", "gql", "secrets", "help"}
+	expected := []string{"run", "version", "init", "example", "migrate", "doctor", "gql", "secrets", "help"}
 	for _, name := range expected {
 		if root.FindSub(name) == nil {
 			t.Errorf("expected subcommand %q to exist", name)

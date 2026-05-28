@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 // ansiSeq matches every ANSI CSI escape sequence used by utils.PrintSectionHeader
@@ -173,7 +174,7 @@ set | add | env,environment,stdin,t,type
 // Catches changes to Long, Examples, and the COMMANDS section ordering.
 func TestSecretsHelpSnapshot(t *testing.T) {
 	cmd := getSecretsCmd(t)
-	got := stripANSI(captureStdout(t, cmd.PrintHelp))
+	got := stripANSI(testutil.CaptureStdout(t, cmd.PrintHelp))
 
 	const want = `Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 

@@ -1,7 +1,6 @@
 package secrets
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"encoding/pem"
 	"os"
@@ -30,29 +29,6 @@ func chdirTemp(t *testing.T, dir string) func() {
 			t.Fatalf("failed to restore working directory: %v", err)
 		}
 	}
-}
-
-// captureStdout redirects os.Stdout to a pipe, runs fn, and returns
-// everything that was written to stdout as a string.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	old := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("could not create pipe: %v", err)
-	}
-	os.Stdout = w
-
-	fn()
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("could not read from pipe: %v", err)
-	}
-	return buf.String()
 }
 
 // vaultTestSetup chdirs into a fresh project root and points

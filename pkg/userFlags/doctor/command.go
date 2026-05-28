@@ -30,6 +30,11 @@ func New() *cli.Command {
 			{Command: "hulak doctor --json", Description: "Output findings as JSON"},
 		},
 		Run: func(_ []string) error {
+			// doctor signals severity via exit code (0 ok, 1 warn, 2 error)
+			// rather than a returned error, so callers like CI can branch on
+			// it. Exit directly to preserve that contract — returning the
+			// code as an error would collapse 1 and 2 into the dispatcher's
+			// generic non-zero exit.
 			os.Exit(runDoctor(doctorOpts{
 				fix:     *fixFlag,
 				yes:     *yesFlag,

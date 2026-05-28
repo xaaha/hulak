@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
@@ -19,7 +20,7 @@ func TestRunEnvList_PrintsSortedNames(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvList(nil)
 	})
 	if runErr != nil {
@@ -45,7 +46,7 @@ func TestRunEnvList_EmptyStore(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvList(nil)
 	})
 	if runErr != nil {
@@ -74,7 +75,7 @@ func TestRunEnvKeys_MasksByDefault(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvKeys(nil, "global", "", false)
 	})
 	if runErr != nil {
@@ -98,7 +99,7 @@ func TestRunEnvKeys_ShowReveals(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvKeys(nil, "global", "", true)
 	})
 	if runErr != nil {
@@ -121,7 +122,7 @@ func TestRunEnvKeys_SortsKeys(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvKeys(nil, "global", "", false)
 	})
 	if runErr != nil {
@@ -154,7 +155,7 @@ func TestRunEnvKeys_SearchSubstring(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		// "api" — substring, case-insensitive: should match API_KEY and api_token.
 		runErr = runEnvKeys(nil, "global", "api", false)
 	})
@@ -178,7 +179,7 @@ func TestRunEnvKeys_SearchGlob(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		// Glob, case-sensitive: matches "API_*".
 		runErr = runEnvKeys(nil, "global", "API_*", false)
 	})
@@ -200,7 +201,7 @@ func TestRunEnvKeys_SearchNoMatches(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvKeys(nil, "global", "ZZZ", false)
 	})
 	if runErr != nil {
@@ -297,7 +298,7 @@ func TestRunEnvKeys_AlignsValuesContainingControlChars(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvKeys(nil, "global", "", true)
 	})
 	if runErr != nil {

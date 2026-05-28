@@ -54,6 +54,9 @@ func init() {
 	flag.BoolVar(&flagQuiet, "quiet", false, "Suppress the end-of-run summary table")
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress the end-of-run summary table")
 
+	// --dry-run and --show are also registered per-subcommand via
+	// cliflags.RegisterDryRun / RegisterShow in runcmd. Keep usage strings
+	// and defaults in sync across both registration paths.
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Print the built request and exit without sending it")
 
 	flag.BoolVar(&flagShow, "show", false, "Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output")

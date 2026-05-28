@@ -81,6 +81,9 @@ func New() *cli.Command {
 		},
 	}
 
+	// Run is assigned after construction because the help fallback needs to
+	// reference runCmd (the command itself). Inlining into the struct literal
+	// would require referencing runCmd before it exists.
 	runCmd.Run = func(args []string) error {
 		if len(args) == 0 {
 			runCmd.PrintHelp()

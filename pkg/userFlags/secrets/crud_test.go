@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 	"github.com/xaaha/hulak/pkg/vault"
 )
 
@@ -120,7 +121,7 @@ func TestRunEnvGet_PrintsString(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvGet([]string{"FOO"}, "global")
 	})
 	if runErr != nil {
@@ -156,7 +157,7 @@ func TestRunEnvGet_PrintsNonString(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.key, func(t *testing.T) {
 			var runErr error
-			out := captureStdout(t, func() {
+			out := testutil.CaptureStdout(t, func() {
 				runErr = runEnvGet([]string{tc.key}, "global")
 			})
 			if runErr != nil {
@@ -176,7 +177,7 @@ func TestRunEnvGet_FromCustomEnv(t *testing.T) {
 	}
 
 	var runErr error
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		runErr = runEnvGet([]string{"DB_URL"}, "prod")
 	})
 	if runErr != nil {

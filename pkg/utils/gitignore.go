@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 )
@@ -16,24 +17,22 @@ func EnsureGitignoreEntry(entry string) error {
 		return fmt.Errorf("could not resolve .gitignore path: %w", err)
 	}
 
-	if FileExists(gitignorePath) {
-		file, err := os.Open(gitignorePath)
-		if err != nil {
-			return fmt.Errorf("could not read .gitignore: %w", err)
-		}
-		defer file.Close()
+	existing, err := os.ReadFile(gitignorePath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("could not read .gitignore: %w", err)
+	}
 
-		bare := strings.TrimRight(entry, "/")
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == entry || line == bare {
-				return nil
-			}
+	bare := strings.TrimRight(entry, "/")
+	for line := range strings.SplitSeq(string(existing), "\n") {
+		line = strings.TrimSpace(line)
+		if line == entry || line == bare {
+			return nil
 		}
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("error reading .gitignore: %w", err)
-		}
+	}
+
+	prefix := ""
+	if len(existing) > 0 && existing[len(existing)-1] != '\n' {
+		prefix = "\n"
 	}
 
 	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, FilePer)
@@ -41,22 +40,6 @@ func EnsureGitignoreEntry(entry string) error {
 		return fmt.Errorf("could not open .gitignore for writing: %w", err)
 	}
 	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return fmt.Errorf("could not stat .gitignore: %w", err)
-	}
-
-	prefix := ""
-	if info.Size() > 0 {
-		content, err := os.ReadFile(gitignorePath)
-		if err != nil {
-			return fmt.Errorf("could not read .gitignore: %w", err)
-		}
-		if len(content) > 0 && content[len(content)-1] != '\n' {
-			prefix = "\n"
-		}
-	}
 
 	if _, err := fmt.Fprintf(f, "%s%s\n", prefix, entry); err != nil {
 		return fmt.Errorf("could not write to .gitignore: %w", err)
