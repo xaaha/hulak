@@ -44,17 +44,17 @@ For command-specific help, prefer `hulak <command> --help`.
 
 ## Command Index
 
-| Command   | Purpose                                      | Example                               |
-| --------- | -------------------------------------------- | ------------------------------------- |
-| `run` | Run API request file(s) or directory | `hulak run path/to/file.yaml` |
-| `version` | Print hulak version | `hulak version` |
-| `init` | Initialize a hulak project | `hulak init` |
-| `example` | Scaffold an example request file | `hulak example api` |
-| `migrate` | Migrate Postman collections to hulak format | `hulak migrate collection.json` |
-| `doctor` | Check project health | `hulak doctor` |
-| `gql` (alias: `graphql`) | Open the GraphQL explorer | `hulak gql .` |
-| `secrets` (alias: `env`) | Manage encrypted environment secrets | `hulak secrets list` |
-| `help` | Show help for hulak | `hulak help` |
+| Command                  | Purpose                                     | Example                         |
+| ------------------------ | ------------------------------------------- | ------------------------------- |
+| `run`                    | Run API request file(s) or directory        | `hulak run path/to/file.yaml`   |
+| `version`                | Print hulak version                         | `hulak version`                 |
+| `init`                   | Initialize a hulak project                  | `hulak init`                    |
+| `example`                | Scaffold an example request file            | `hulak example api`             |
+| `migrate`                | Migrate Postman collections to hulak format | `hulak migrate collection.json` |
+| `doctor`                 | Check project health                        | `hulak doctor`                  |
+| `gql` (alias: `graphql`) | Open the GraphQL explorer                   | `hulak gql .`                   |
+| `secrets` (alias: `env`) | Manage encrypted environment secrets        | `hulak secrets list`            |
+| `help`                   | Show help for hulak                         | `hulak help`                    |
 
 ## Core Behaviors
 
@@ -62,20 +62,19 @@ For command-specific help, prefer `hulak <command> --help`.
 
 Running `hulak` with no file or directory target opens the interactive picker.
 
-- Hulak asks you to choose a request file first.
+- Hulak asks you to choose a request yaml file first.
 - It only asks for an environment if the selected request uses template values like `{{.key}}`.
 - In non-interactive shells, you should pass a file or directory target instead.
 
 ### Environment selection
 
-When `--env` is omitted, behavior depends on the command:
+Omitting `--env` (or `--environment`) opens an interactive picker.
 
-- **`run` and `gql`**: open the interactive picker if the request files reference environment variables (`{{.key}}`). If a request needs no env, no picker.
-- **`hulak secrets edit`**: always opens the picker. There is no default. Pass `--env <name>` (including for new envs you want to create).
-- **`hulak secrets set`, `get`, `delete`, `keys`**: default to `global`. These are non-interactive operations on a known env; the default keeps scripts terse.
-- **`hulak secrets list`**: takes no `--env` (it lists envs themselves).
+- `hulak run` and `hulak gql` only prompt when request files reference `{{.key}}` vars.
+- `hulak secrets edit` and `hulak secrets keys` subcommands (`list`, `set`, `get`, `delete`) always prompt.
+- `hulak secrets list` takes no `--env`. It lists env names.
 
-All commands above accept `--env` / `--environment` to bypass any picker or default explicitly.
+Pass `--env <name>` to skip the picker. In non-interactive shells, `--env` is required.
 
 ## Commands
 
@@ -98,16 +97,16 @@ hulak run path/to/file.yaml --dry-run --show
 
 Supported flags:
 
-| Flag | Meaning |
-| ---- | ------- |
-| `--debug` | Enable debug mode |
-| `--dry-run` | Print the built request and exit without sending it |
-| `--env`, `--environment` | Environment to use |
-| `--q`, `--quiet` | Suppress the end-of-run summary table |
-| `--seq`, `--sequential` | Run directory files sequentially |
-| `--show` | Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output |
-| `--ssh-identity` | Path to SSH private key for vault decryption |
-| `--timeout` | Per-request timeout, e.g. 5m or 90s (default 60s) |
+| Flag                     | Meaning                                                                    |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `--debug`                | Enable debug mode                                                          |
+| `--dry-run`              | Print the built request and exit without sending it                        |
+| `--env`, `--environment` | Environment to use                                                         |
+| `--q`, `--quiet`         | Suppress the end-of-run summary table                                      |
+| `--seq`, `--sequential`  | Run directory files sequentially                                           |
+| `--show`                 | Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output |
+| `--ssh-identity`         | Path to SSH private key for vault decryption                               |
+| `--timeout`              | Per-request timeout, e.g. 5m or 90s (default 60s)                          |
 
 Notes:
 
@@ -129,36 +128,29 @@ hulak version
 
 Set up a new hulak project in the current directory.
 
-By default, creates an encrypted vault (.hulak/store.age) with an age keypair.
-Use --ssh to bootstrap with your default SSH ed25519 key (~/.ssh/id_ed25519),
-or --ssh-identity <path> for a custom key.
-
-To scaffold an example request file, use 'hulak example <type>' after init.
-Run 'hulak init classic' (aliases: plain, no-vault) to use the plaintext env/
-layout instead. Use -env to scaffold specific environments.
+By default, creates an encrypted vault (`.hulak/store.age`) with an age keypair. You can also bootstrap the vault with an SSH key, or use `init classic` for plaintext `env/` files.
 
 ```bash
 hulak init
-hulak init --ssh
-hulak init --ssh-identity ~/.ssh/work_ed25519
-hulak init -env staging prod
-hulak example api
 hulak init classic
 ```
 
+Run `hulak init -h` for SSH bootstrap options and env scaffolding flags.
+
 Supported flags:
 
-| Flag | Meaning |
-| ---- | ------- |
-| `--env` | Create specific environment files instead of the default setup |
-| `--ssh` | Use SSH ed25519 key (~/.ssh/id_ed25519) instead of generating an age keypair |
-| `--ssh-identity` | Path to SSH private key (implies --ssh; overrides the default path) |
+| Flag             | Meaning                                                                      |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `--env`          | Create specific environment files instead of the default setup               |
+| `--ssh`          | Use SSH ed25519 key (~/.ssh/id_ed25519) instead of generating an age keypair |
+| `--ssh-identity` | Path to SSH private key (implies --ssh; overrides the default path)          |
 
 Notes:
 
-- `hulak init` creates the default setup. That means an encrypted vault at `.hulak/store.age`, an age keypair at `~/.config/hulak/identity.txt`, and the example API options file.
-- Run `hulak init classic` for the legacy plaintext `env/` layout.
-- On `init`, `-env` is a **boolean setup flag**, not an environment selector. It tells Hulak to create the named env files you pass after it.
+> [!Note]
+>
+> - `hulak init` creates the default setup. That means an encrypted vault at `.hulak/store.age`, an age keypair at `~/.config/hulak/identity.txt`, and the example API options file.
+> - On `init`, `-env` is a **boolean setup flag**, not an environment selector. It tells Hulak to create the named env files you pass after it.
 
 ### `example`
 
@@ -190,9 +182,9 @@ hulak example
 
 Supported flags:
 
-| Flag | Meaning |
-| ---- | ------- |
-| `--o` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
+| Flag    | Meaning                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--o`   | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
 | `--out` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
 
 ### `migrate`
@@ -223,11 +215,11 @@ hulak doctor --json
 
 Supported flags:
 
-| Flag | Meaning |
-| ---- | ------- |
-| `--fix` | Auto-repair safe issues (chmod, .gitignore) |
-| `--json` | Output findings as JSON to stdout |
-| `--yes` | Skip confirmation prompts (use with --fix) |
+| Flag     | Meaning                                     |
+| -------- | ------------------------------------------- |
+| `--fix`  | Auto-repair safe issues (chmod, .gitignore) |
+| `--json` | Output findings as JSON to stdout           |
+| `--yes`  | Skip confirmation prompts (use with --fix)  |
 
 ### `gql`
 
@@ -246,8 +238,8 @@ hulak gql -env staging .
 
 Supported flags:
 
-| Flag | Meaning |
-| ---- | ------- |
+| Flag                     | Meaning                                         |
+| ------------------------ | ----------------------------------------------- |
 | `--env`, `--environment` | Environment to use (skips interactive selector) |
 
 Read the full guide in [graphql-explorer.md](./graphql-explorer.md).
@@ -259,9 +251,10 @@ Manage environment secrets stored in the encrypted vault (.hulak/store.age).
 Secrets are organized by environment (e.g. global, staging, prod).
 
 Three concern-scoped groups live here:
-  - this level: environment listing, edit, backup/restore, sync, migrate.
-  - `secrets keys ...`     for key-level CRUD inside an environment.
-  - `secrets identity ...` for age identities and recipient management.
+
+- this level: environment listing, edit, backup/restore, sync, migrate.
+- `secrets keys ...` for key-level CRUD inside an environment.
+- `secrets identity ...` for age identities and recipient management.
 
 When --env is omitted on a command that takes one, you'll be prompted
 to pick an environment from a TUI list.
@@ -280,19 +273,19 @@ hulak secrets keys get API_KEY --env staging
 hulak secrets keys delete OLD_KEY --env staging
 ```
 
-| Subcommand | Notes |
-| ---------- | ----- |
-| `create` | Create a new empty environment |
-| `delete` (`rm`) | Delete an environment |
-| `list` (`ls`) | List environment names |
-| `keys` (`key`) | Manage keys within an environment |
-| `edit` | Edit secrets interactively |
-| `identity` | Manage age identities and recipients |
-| `rename` (`mv`) | Rename an environment (unix-style mv) |
-| `sync` | Re-encrypt the store to current recipients |
-| `migrate` | Migrate env/*.env files to the encrypted vault |
-| `backup` | Create a backup of the encrypted store |
-| `restore` | Restore the encrypted store from a backup |
+| Subcommand      | Notes                                           |
+| --------------- | ----------------------------------------------- |
+| `create`        | Create a new empty environment                  |
+| `delete` (`rm`) | Delete an environment                           |
+| `list` (`ls`)   | List environment names                          |
+| `keys` (`key`)  | Manage keys within an environment               |
+| `edit`          | Edit secrets interactively                      |
+| `identity`      | Manage age identities and recipients            |
+| `rename` (`mv`) | Rename an environment (unix-style mv)           |
+| `sync`          | Re-encrypt the store to current recipients      |
+| `migrate`       | Migrate env/\*.env files to the encrypted vault |
+| `backup`        | Create a backup of the encrypted store          |
+| `restore`       | Restore the encrypted store from a backup       |
 
 **GUI editors** for `edit`: pass the wait flag in `$EDITOR` so hulak blocks until you save. e.g. `EDITOR="zed --wait"` or `EDITOR="code -w"`. Without it, the editor returns immediately and the file is read back unchanged.
 
