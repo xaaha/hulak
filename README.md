@@ -52,8 +52,7 @@ Other install options:
 
 ```bash
 mkdir my-apis && cd my-apis
-hulak init                                            # creates .hulak/store.age + identity
-hulak secrets keys set Url  https://jsonplaceholder.typicode.com/posts --env global
+hulak init # creates .hulak/store.age + identity
 ```
 
 Scaffold a starter request, to quickly check how a request file looks run:
@@ -68,33 +67,22 @@ hulak example api  # writes example-api.hk.yaml you can run
 To set up a secret you can run:
 
 ```bash
-hulak secrets keys set url  https://jsonplaceholder.typicode.com/posts -env prod
+hulak secrets keys set placeholder  https://jsonplaceholder.typicode.com/posts -env prod
 
 ```
 
-Now, in your `example-api.hk.yaml` file, you can reference this secret `url` as
+Now, in your `example-api.hk.yaml` file, you can reference this secret:
 
 ```yaml
 method: POST
-url: "{{.url}}" # ← hulak uses go's native text/template  {{.key}}
-headers:
-  Content-Type: application/json
-  Accept: application/json
-body:
-  raw: |-
-    {
-      "title": "hello",
-      "body": "world",
-      "userId": 1
-    }
+url: "{{.placeholder}}"
+# rest of the body of the file remains same
 ```
 
 Run the request:
 
 ```bash
 hulak run example-api.hk.yaml --env prod
-hulak run ./requests/                                 # run whole directory, concurrent
-hulak                                                 # interactive picker
 ```
 
 ### Prefer plaintext `env/` files instead of encrypted secrets?
