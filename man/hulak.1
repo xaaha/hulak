@@ -1,55 +1,27 @@
 .TH HULAK 1 "May 2026" "hulak" "General Commands Manual"
 
 .SH NAME
-hulak \- file-based API client for the terminal
+hulak \- file\-based API client with encrypted secrets
 
 .SH SYNOPSIS
 .B hulak
-.br
-.B hulak run [\-\-debug] [\-\-dry-run] [\-\-env] [\-\-q] [\-\-seq] [\-\-show] [\-\-ssh-identity] [\-\-timeout] <path>
-.br
-.B hulak version
-.br
-.B hulak init [\-\-env] [\-\-ssh] [\-\-ssh-identity] [envNames] <subcommand> [options]
-.br
-.B hulak example [\-\-o] [\-\-out] [type]
-.br
-.B hulak migrate <files>
-.br
-.B hulak doctor [\-\-fix] [\-\-json] [\-\-yes]
-.br
-.B hulak gql [\-\-env] <path>
-.br
-.B hulak secrets <subcommand> [options]
-.br
-.B hulak help
-.br
-.PP
-Supported shorthand forms:
+[<command>] [options]
 .br
 .B hulak
-[\-env <environment>] \-fp <file_path> [\-debug]
-.br
-.B hulak
-[\-env <environment>] \-f <file_name> [\-debug]
-.br
-.B hulak
-[\-env <environment>] \-dir <directory_path> [\-debug]
-.br
-.B hulak
-[\-env <environment>] \-dirseq <directory_path> [\-debug]
+[\-env <environment>] [\-fp|\-f|\-dir|\-dirseq <target>] [\-debug]
 
 .SH DESCRIPTION
-Hulak runs API requests defined in YAML files. The recommended style is command\-first usage with
-.B hulak run <path>
-, where <path> is either a single request file or a directory of request files.
+Hulak runs API requests defined in YAML files. Requests live in
+.B .hk.yaml
+files. Secrets live in
+.B .hulak/store.age
+(encrypted, default) or
+.B env/*.env
+(classic mode).
 .PP
-Running hulak with no file or directory target opens the interactive picker. Hulak asks you to pick
-a request file first, and only asks for an environment when the selected request uses template values
-like {{.token}}.
-.PP
-Hulak also includes a GraphQL explorer through the gql subcommand for schema discovery, operation
-search, query building, execution, and saving generated files.
+Run
+.B hulak <command> \-\-help
+for flags and per\-command examples.
 
 .SH COMMANDS
 .TP
@@ -71,311 +43,88 @@ Migrate Postman collections to hulak format
 .B doctor
 Check project health
 .TP
-.B gql
+.B gql (alias: graphql)
 Open the GraphQL explorer
 .TP
-.B secrets
+.B secrets (alias: env)
 Manage encrypted environment secrets
 .TP
 .B help
 Show help for hulak
 
-.SH RUN FLAGS
-.TP
-.B \-\-debug
-Enable debug mode
-.TP
-.B \-\-dry-run
-Print the built request and exit without sending it
-.TP
-.B \-\-env, \-\-environment <string>
-Environment to use
-.TP
-.B \-\-q, \-\-quiet
-Suppress the end\-of\-run summary table
-.TP
-.B \-\-seq, \-\-sequential
-Run directory files sequentially
-.TP
-.B \-\-show
-Reveal sensitive headers (Authorization, Cookie, etc\&.) in \-\-dry\-run output
-.TP
-.B \-\-ssh-identity <string>
-Path to SSH private key for vault decryption
-.TP
-.B \-\-timeout <duration>
-Per\-request timeout, e\&.g\&. 5m or 90s (default 60s)
-
-.SH GLOBAL SHORTHAND FLAGS
-These root flags remain supported, but
-.B hulak run <path>
-is the preferred form for examples and onboarding.
-
-.TP
-.B \-\-debug
-Enable debug mode for full request/response details
-.TP
-.B \-\-dir <string>
-Directory path to run concurrently
-.TP
-.B \-\-dirseq <string>
-Directory path to run in alphabetical order
-.TP
-.B \-\-dry-run
-Print the built request and exit without sending it
-.TP
-.B \-\-env, \-\-environment <string>
-Environment to use (omit to pick interactively)
-.TP
-.B \-\-f, \-\-file <string>
-File name for making an API request (case\-insensitive)
-.TP
-.B \-\-fp, \-\-file-path <string>
-Relative (or absolute) file path of the request file
-.TP
-.B \-\-q, \-\-quiet
-Suppress the end\-of\-run summary table
-.TP
-.B \-\-show
-Reveal sensitive headers (Authorization, Cookie, etc\&.) in \-\-dry\-run output
-.TP
-.B \-\-timeout <duration>
-Per\-request timeout, e\&.g\&. 5m or 90s (default 60s)
-
-.SH INTERACTIVE MODE
-.TP
-.B hulak
-Open the interactive request picker.
-.TP
-.B hulak \-env staging
-Open the interactive picker with a preselected environment.
+.SH PICKER BEHAVIOR
+Omitting
+.B \-\-env
+opens an interactive picker.
 .PP
-In non\-interactive shells, you should pass a file or directory target instead of relying on the picker.
+.B hulak run
+and
+.B hulak gql
+only prompt when files reference
+.B {{.key}}
+variables.
+.PP
+.B hulak secrets
+subcommands prompt every time, except
+.B secrets list
+which lists env names and takes no
+.B \-\-env
+.
+.PP
+Non\-interactive shells require
+.B \-\-env <name>
+.
 
 .SH ENVIRONMENT SETUP
-Create a project directory and initialize it with:
+Create a project and initialize:
 .PP
 .RS
 hulak init
 .RE
 .PP
-To create named environment files immediately:
+Scaffold named env files at init time:
 .PP
 .RS
 hulak init \-env staging prod
 .RE
 .PP
-Hulak uses env/ files only when request files need template resolution such as {{.key}}.
+Use
+.B hulak init classic
+for the plaintext
+.B env/
+layout instead of the encrypted vault.
 
-.SH EXAMPLES
-run:
-.PP
-.RS
-hulak run path/to/file\&.yaml
-.RE
-.RS
-hulak run path/to/file\&.yaml \-\-env staging
-.RE
-.RS
-hulak run path/to/dir/
-.RE
-.RS
-hulak run path/to/dir/ \-\-sequential
-.RE
-.RS
-hulak run path/to/file\&.yaml \-\-ssh\-identity ~/\&.ssh/work_ed25519
-.RE
-.RS
-hulak run path/to/file\&.yaml \-\-dry\-run
-.RE
-.RS
-hulak run path/to/file\&.yaml \-\-dry\-run \-\-show
-.RE
-.PP
-version:
-.PP
-.RS
-hulak version
-.RE
-.PP
-init:
-.PP
-.RS
-hulak init
-.RE
-.RS
-hulak init \-\-ssh
-.RE
-.RS
-hulak init \-\-ssh\-identity ~/\&.ssh/work_ed25519
-.RE
-.RS
-hulak init \-env staging prod
-.RE
-.RS
-hulak example api
-.RE
-.RS
-hulak init classic
-.RE
-.PP
-example:
-.PP
-.RS
-hulak example api
-.RE
-.RS
-hulak example formdata
-.RE
-.RS
-hulak example urlencoded
-.RE
-.RS
-hulak example graphql
-.RE
-.RS
-hulak example auth
-.RE
-.RS
-hulak example options
-.RE
-.RS
-hulak example api \-o requests/
-.RE
-.RS
-hulak example api \-o requests/health\&.hk\&.yaml
-.RE
-.RS
-hulak example
-.RE
-.PP
-migrate:
-.PP
-.RS
-hulak migrate collection\&.json
-.RE
-.RS
-hulak migrate env\&.json collection\&.json
-.RE
-.PP
-doctor:
-.PP
-.RS
-hulak doctor
-.RE
-.RS
-hulak doctor \-\-fix
-.RE
-.RS
-hulak doctor \-\-fix \-\-yes
-.RE
-.RS
-hulak doctor \-\-json
-.RE
-.PP
-gql:
-.PP
-.RS
-hulak gql \&.
-.RE
-.RS
-hulak gql path/to/schema\&.yml
-.RE
-.RS
-hulak gql \-env staging \&.
-.RE
-.PP
-secrets:
-.PP
-.RS
-hulak secrets list
-.RE
-.RS
-hulak secrets keys list \-\-env prod
-.RE
-.RS
-hulak secrets keys set API_KEY sk\-123 \-\-env prod
-.RE
-.RS
-hulak secrets keys get API_KEY \-\-env staging
-.RE
-.RS
-hulak secrets keys delete OLD_KEY \-\-env staging
-.RE
-.PP
-help:
-.PP
-.RS
-hulak help
-.RE
-.RS
-hulak secrets \-\-help
-.RE
-.RS
-hulak secrets keys \-\-help
-.RE
-.PP
 .SH INSTALLATION
-Homebrew tap (cask):
 .PP
 .RS
-brew install \-\-cask xaaha/tap/hulak
+brew install xaaha/tap/hulak
 .RE
 .PP
-The Homebrew tap publishes Hulak as a cask generated by GoReleaser. That cask links the hulak binary
-and the bundled manpage from the release archive.
-.PP
-go install:
+Or:
 .PP
 .RS
 go install github.com/xaaha/hulak@latest
 .RE
-.PP
-Build from source:
-.PP
-.RS
-git clone https://github.com/xaaha/hulak.git
-.br
-cd hulak
-.br
-go build \-o hulak
-.RE
 
-.SH SCHEMA
-Schema URL:
+.SH SEE ALSO
+Project README and docs:
+.RS
+https://github.com/xaaha/hulak
+.RE
 .PP
+Schema:
 .RS
 https://raw.githubusercontent.com/xaaha/hulak/refs/heads/main/assets/schema.json
 .RE
-
-.SH DOCUMENTATION
-CLI reference:
-.RS
-https://github.com/xaaha/hulak/blob/main/docs/cli.md
-.RE
 .PP
-GraphQL explorer guide:
-.RS
-https://github.com/xaaha/hulak/blob/main/docs/graphql-explorer.md
-.RE
-.PP
-Auth 2.0 guide:
-.RS
-https://github.com/xaaha/hulak/blob/main/docs/auth20.md
-.RE
-.PP
-For the current CLI surface from the binary itself, use:
-.PP
-.RS
-hulak help
-.br
-hulak <command> \-\-help
-.RE
+For the live CLI surface, run
+.B hulak help
+or
+.B hulak <command> \-\-help
+.
 
 .SH COPYRIGHT
-Copyright (c) 2025 Pratik Thapa
-.PP
-This software is released under the MIT License. For details, see the LICENSE file in the project repository.
+Copyright (c) 2025 Pratik Thapa. Released under the MIT License.
 
 .SH SOURCE CODE
 https://github.com/xaaha/hulak
