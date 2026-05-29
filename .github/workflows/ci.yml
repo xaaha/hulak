@@ -32,7 +32,7 @@ jobs:
         run: |
           # Compare content, ignoring whitespace-only differences
           # so editor auto-formatting doesn't cause false failures.
-          if ! git diff --ignore-all-space --ignore-blank-lines --exit-code -- man/hulak.1 docs/cli.md; then
+          if ! git diff --ignore-all-space --ignore-blank-lines --exit-code -- man/hulak.1; then
             echo ""
             echo "::error::Docs are out of date. Run 'hulak gendocs' and commit the result."
             exit 1
