@@ -53,58 +53,57 @@ Other install options:
 ```bash
 mkdir my-apis && cd my-apis
 hulak init                                            # creates .hulak/store.age + identity
-hulak secrets keys set Url https://api.example.com/v1 --env prod
+hulak secrets keys set Url  https://jsonplaceholder.typicode.com/posts --env global
 ```
 
-Scaffold a starter request (runs as-is against a public test API):
+Scaffold a starter request, to quickly check how a request file looks run:
 
 ```bash
-hulak example api  # writes example-api.hk.yaml
+hulak example api  # writes example-api.hk.yaml you can run
 ```
 
-Other types: `hulak example formdata`, `hulak example graphql` (alias `gql`), `hulak example auth`, `hulak example options` (reference card).
+> [!Info]
+> For Other types run: `hulak example`. `example` sub-command gives you a quick way to write a request file you can modify. For more info run `hulak example -h`
 
-Or write your own:
+To set up a secret you can run:
+
+```bash
+hulak secrets keys set url  https://jsonplaceholder.typicode.com/posts -env prod
+
+```
+
+Now, in your `example-api.hk.yaml` file, you can reference this secret `url` as
 
 ```yaml
-# test.hk.yaml
-method: Get
-url: "{{.Url}}/health"
+method: POST
+url: "{{.url}}" # ← hulak uses go's native text/template  {{.key}}
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  raw: |-
+    {
+      "title": "hello",
+      "body": "world",
+      "userId": 1
+    }
 ```
 
-Run it:
+Run the request:
 
 ```bash
-hulak run test.hk.yaml --env prod
-hulak run ./requests/                                 # whole directory, concurrent
+hulak run example-api.hk.yaml --env prod
+hulak run ./requests/                                 # run whole directory, concurrent
 hulak                                                 # interactive picker
 ```
 
-See [docs/store.md](./docs/store.md) for the full encryption model.
-
-### Path B. Just the secrets store
-
-If you only want the vault piece, the same `init` command works. Skip writing `.hk.yaml` files:
-
-```bash
-mkdir my-secrets && cd my-secrets
-hulak init
-hulak secrets keys set DATABASE_URL postgres://... --env prod
-hulak secrets identity add-recipient --github alice --name Alice   # share with a teammate
-git add .hulak/ && git commit -m "add prod secrets"
-```
-
-### Migrating from an older `env/` setup?
-
-See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
-
-### Prefer plaintext `env/` files?
+### Prefer plaintext `env/` files instead of encrypted secrets?
 
 ```bash
 hulak init classic
 ```
 
-Plaintext mode is fully supported for throwaway projects, or when secrets live entirely outside hulak. See [docs/environment.md](./docs/environment.md).
+Plaintext mode is fully supported. See [docs/environment.md](./docs/environment.md) for more info
 
 ## Project layout
 
