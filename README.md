@@ -93,12 +93,12 @@ hulak init classic
 
 Plaintext mode is fully supported. See [docs/environment.md](./docs/environment.md) for more info
 
-## Vault vs Classic
+## Encrypted Secrets Vault Or Plaintext `.env` files
 
 Hulak runs in two modes. Pick once during `hulak init`. You can migrate later.
 
 - **Vault (default):** secrets live in `.hulak/store.age`, encrypted with an age or SSH keypair. Safe to commit. Teams share via a recipients file. See [docs/store.md](./docs/store.md).
-- **Classic:** secrets live in plaintext `env/*.env` files. Simpler, no encryption. Add `env/` to `.gitignore`. See [docs/environment.md](./docs/environment.md).
+- **Plaintext:** secrets live in plaintext `env/*.env` files. Simpler, no encryption. Add `env/` to `.gitignore`. See [docs/environment.md](./docs/environment.md).
 
 Running classic and want to switch? See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
 
