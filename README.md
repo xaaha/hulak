@@ -61,7 +61,7 @@ Scaffold a starter request, to quickly check how a request file looks run:
 hulak example api  # writes example-api.hk.yaml you can run
 ```
 
-> [!Info]
+> [!Note]
 > For Other types run: `hulak example`. `example` sub-command gives you a quick way to write a request file you can modify. For more info run `hulak example -h`
 
 To set up a secret you can run:
