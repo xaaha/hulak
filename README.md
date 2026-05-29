@@ -85,13 +85,15 @@ Run the request:
 hulak run example-api.hk.yaml --env prod
 ```
 
-### Prefer plaintext `env/` files instead of encrypted secrets?
+### Prefer plaintext `env/*.env` files instead of encrypted secrets?
 
 ```bash
 hulak init classic
 ```
 
 Plaintext mode is fully supported. See [docs/environment.md](./docs/environment.md) for more info
+
+Read [docs/cli.md](./docs/cli.md) for detailed info on every command, flag, and how to run requests, manage secrets, and pick environments.
 
 ## Project layout
 
