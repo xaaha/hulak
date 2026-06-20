@@ -23,12 +23,26 @@ var flagAliases = map[string]string{
 	"quiet":       "q",
 	"sequential":  "seq",
 	"type":        "t",
+	"out":         "o",
 }
 
 // hiddenFlags are omitted from help output entirely (utility flags
 // that don't need to clutter command-specific help)
 var hiddenFlags = map[string]bool{
 	"h": true, "v": true,
+}
+
+// pathFlagNames lists flag names whose value is a filesystem path.
+// Used by shell completion to pick the right value completer.
+// When adding a new path-taking flag, register the name here so its
+// value autocompletes to files.
+var pathFlagNames = map[string]bool{
+	"out": true, "o": true, // registerOutputFlag
+	"file-path": true, "fp": true, // root --file-path/--fp
+	"file": true, "f": true, // root --file/-f
+	"ssh-identity": true, // run/init
+	"dir":          true, // root --dir
+	"dirseq":       true, // root --dirseq
 }
 
 // command represents a CLI command with optional subcommands and flags
@@ -45,11 +59,14 @@ type command struct {
 	Run         func(args []string) error // handler; nil means subcommand-only
 }
 
-// ArgDef describes a positional argument for help output
+// argDef describes a positional argument for help output and completion.
+// Kind selects the value completer: "yaml" (run/gql), "file" (any path), or
+// "" (no completion — for opaque values like secret keys or env names).
 type argDef struct {
 	Name     string
 	Required bool
 	Desc     string
+	Kind     string
 }
 
 // Execute dispatches args to the correct subcommand or runs this command
@@ -139,6 +156,45 @@ func (cmd *command) findSub(name string) *command {
 	return nil
 }
 
+// visibleSubs returns subcommands that aren't hidden. Help, man, markdown,
+// and completion generators all skip hidden commands the same way; go
+// through this helper so the rule lives in one place.
+func (cmd *command) visibleSubs() []*command {
+	out := make([]*command, 0, len(cmd.SubCommands))
+	for _, sub := range cmd.SubCommands {
+		if !sub.Hidden {
+			out = append(out, sub)
+		}
+	}
+	return out
+}
+
+// flagPairings returns a short→long map for flags where both forms are
+// registered on fs. Renderers (help, man, markdown, completion) use this
+// to merge `-fp, --file-path` onto one line.
+func flagPairings(fs *flag.FlagSet) map[string]string {
+	out := make(map[string]string)
+	for long, short := range flagAliases {
+		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
+			out[short] = long
+		}
+	}
+	return out
+}
+
+// visitVisibleFlags calls fn for each visible flag on fs — that is, every
+// flag except hidden ones and long-form aliases whose short partner is also
+// registered (the short form pulls the long form in via flagPairings).
+// Same iteration order as flag.FlagSet.VisitAll (alphabetical by name).
+func visitVisibleFlags(fs *flag.FlagSet, fn func(*flag.Flag)) {
+	fs.VisitAll(func(f *flag.Flag) {
+		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
+			return
+		}
+		fn(f)
+	})
+}
+
 // printHelp prints the command's help to stdout in a style similar to gh CLI
 func (cmd *command) printHelp() {
 	if cmd.Long != "" {
@@ -146,13 +202,10 @@ func (cmd *command) printHelp() {
 		fmt.Println()
 	}
 
-	if len(cmd.SubCommands) > 0 {
+	if subs := cmd.visibleSubs(); len(subs) > 0 {
 		utils.PrintSectionHeader("COMMANDS")
 		var entries []*utils.CommandHelp
-		for _, sub := range cmd.SubCommands {
-			if sub.Hidden {
-				continue
-			}
+		for _, sub := range subs {
 			name := sub.Name
 			if len(sub.Aliases) > 0 {
 				name += " (" + strings.Join(sub.Aliases, ", ") + ")"
@@ -210,31 +263,16 @@ func (cmd *command) printHelp() {
 // printFlags renders the FLAGS section, merging short/long aliases onto one
 // line (e.g. "-fp, --file-path  string") and skipping hidden flags
 func printFlags(fs *flag.FlagSet) {
-	// Collect which short names have a long alias
-	longFor := make(map[string]string) // short → long
-	for long, short := range flagAliases {
-		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
-			longFor[short] = long
-		}
-	}
+	longFor := flagPairings(fs)
 
 	hasVisible := false
-	fs.VisitAll(func(f *flag.Flag) {
-		if !hiddenFlags[f.Name] && flagAliases[f.Name] == "" {
-			hasVisible = true
-		}
-	})
+	visitVisibleFlags(fs, func(*flag.Flag) { hasVisible = true })
 	if !hasVisible {
 		return
 	}
 
 	utils.PrintSectionHeader("FLAGS")
-	fs.VisitAll(func(f *flag.Flag) {
-		// Skip hidden and long-form aliases (shown with their short form)
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
-			return
-		}
-
+	visitVisibleFlags(fs, func(f *flag.Flag) {
 		// Build flag name: "-fp, --file-path" or just "-debug"
 		label := "  -" + f.Name
 		if long, ok := longFor[f.Name]; ok {
