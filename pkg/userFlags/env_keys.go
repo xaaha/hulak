@@ -40,7 +40,7 @@ func newEnvImportKeyCmd() *command {
 			"Will not overwrite an existing identity unless --force is passed.",
 		Flags: fs,
 		Args: []argDef{
-			{Name: "path", Desc: "Path to the identity file (omit with --stdin)"},
+			{Name: "path", Desc: "Path to the identity file (omit with --stdin)", Kind: "file"},
 		},
 		Examples: []*utils.CommandHelp{
 			{

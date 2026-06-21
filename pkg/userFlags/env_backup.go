@@ -251,7 +251,7 @@ func newEnvRestoreCmd() *command {
 			"re-encrypted to the current recipients.txt.",
 		Flags: fs,
 		Args: []argDef{
-			{Name: "path", Desc: "Path to backup file (default: latest from .hulak/backups/)"},
+			{Name: "path", Desc: "Path to backup file (default: latest from .hulak/backups/)", Kind: "file"},
 		},
 		Examples: []*utils.CommandHelp{
 			{Command: "hulak secrets restore", Description: "Restore the latest backup"},
