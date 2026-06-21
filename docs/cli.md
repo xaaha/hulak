@@ -54,6 +54,7 @@ For command-specific help, prefer `hulak <command> --help`.
 | `doctor` | Check project health | `hulak doctor` |
 | `gql` (alias: `graphql`) | Open the GraphQL explorer | `hulak gql .` |
 | `secrets` (alias: `env`) | Manage encrypted environment secrets | `hulak secrets list` |
+| `completion` | Print a shell completion script (for go-install users) | `hulak completion zsh > "${fpath[1]}/_hulak"` |
 | `help` | Show help for hulak | `hulak help` |
 
 ## Core Behaviors
@@ -103,7 +104,7 @@ Supported flags:
 | `--debug` | Enable debug mode |
 | `--dry-run` | Print the built request and exit without sending it |
 | `--env`, `--environment` | Environment to use |
-| `--q`, `--quiet` | Suppress the end-of-run summary table |
+| `-q`, `--quiet` | Suppress the end-of-run summary table |
 | `--seq`, `--sequential` | Run directory files sequentially |
 | `--show` | Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output |
 | `--ssh-identity` | Path to SSH private key for vault decryption |
@@ -192,8 +193,7 @@ Supported flags:
 
 | Flag | Meaning |
 | ---- | ------- |
-| `--o` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
-| `--out` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
+| `-o`, `--out` | Output path. Directory (ends with '/' or no .yaml/.yml extension) → file lands inside with the canonical name; otherwise treated as a full file path. Parent directories are created. |
 
 ### `migrate`
 
@@ -295,6 +295,20 @@ hulak secrets delete OLD_KEY
 | `restore` | Restore the encrypted store from a backup |
 
 **GUI editors** for `edit`: pass the wait flag in `$EDITOR` so hulak blocks until you save. e.g. `EDITOR="zed --wait"` or `EDITOR="code -w"`. Without it, the editor returns immediately and the file is read back unchanged.
+
+### `completion`
+
+Print a completion script for the given shell.
+
+Homebrew users don't need this — the cask installs completions directly.
+For `go install` users, redirect the output into a directory your shell
+already scans for completions.
+
+```bash
+hulak completion zsh > "${fpath[1]}/_hulak"
+hulak completion bash > $(brew --prefix)/etc/bash_completion.d/hulak
+hulak completion bash | sudo tee /etc/bash_completion.d/hulak >/dev/null
+```
 
 ### `help`
 

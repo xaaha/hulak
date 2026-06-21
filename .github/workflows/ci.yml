@@ -30,11 +30,26 @@ jobs:
         run: go generate ./pkg/userFlags/...
       - name: Check content drift
         run: |
-          # Compare content, ignoring whitespace-only differences
-          # so editor auto-formatting doesn't cause false failures.
-          if ! git diff --ignore-all-space --ignore-blank-lines --exit-code -- man/hulak.1 docs/cli.md; then
+          # Generated files must be tracked in git so tag checkouts have
+          # them (goreleaser archives reference these paths). Catch the
+          # untracked-file case explicitly — git diff silently ignores it.
+          generated=(
+            man/hulak.1
+            docs/cli.md
+            completions/hulak.zsh
+            completions/hulak.bash
+          )
+          for f in "${generated[@]}"; do
+            if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::$f is not tracked. Add it to git and commit."
+              exit 1
+            fi
+          done
+          # Compare content, ignoring whitespace-only differences so editor
+          # auto-formatting doesn't cause false failures.
+          if ! git diff --ignore-all-space --ignore-blank-lines --exit-code -- "${generated[@]}"; then
             echo ""
-            echo "::error::Docs are out of date. Run 'hulak gendocs' and commit the result."
+            echo "::error::Generated docs/completions are out of date. Run 'mise gendocs' (or 'hulak gendocs') and commit the result."
             exit 1
           fi
   lint:

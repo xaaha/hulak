@@ -6,13 +6,13 @@ hulak \- file-based API client for the terminal
 .SH SYNOPSIS
 .B hulak
 .br
-.B hulak run [\-\-debug] [\-\-dry-run] [\-\-env] [\-\-q] [\-\-seq] [\-\-show] [\-\-ssh-identity] [\-\-timeout] <path>
+.B hulak run [\-\-debug] [\-\-dry-run] [\-\-env] [\-q] [\-\-seq] [\-\-show] [\-\-ssh-identity] [\-\-timeout] <path>
 .br
 .B hulak version
 .br
 .B hulak init [\-\-env] [\-\-ssh] [\-\-ssh-identity] [envNames] <subcommand> [options]
 .br
-.B hulak example [\-\-o] [\-\-out] [type]
+.B hulak example [\-o] [type]
 .br
 .B hulak migrate <files>
 .br
@@ -21,6 +21,8 @@ hulak \- file-based API client for the terminal
 .B hulak gql [\-\-env] <path>
 .br
 .B hulak secrets <subcommand> [options]
+.br
+.B hulak completion <subcommand> [options]
 .br
 .B hulak help
 .br
@@ -77,6 +79,9 @@ Open the GraphQL explorer
 .B secrets
 Manage encrypted environment secrets
 .TP
+.B completion
+Print a shell completion script (for go\-install users)
+.TP
 .B help
 Show help for hulak
 
@@ -91,7 +96,7 @@ Print the built request and exit without sending it
 .B \-\-env, \-\-environment <string>
 Environment to use
 .TP
-.B \-\-q, \-\-quiet
+.B \-q, \-\-quiet
 Suppress the end\-of\-run summary table
 .TP
 .B \-\-seq, \-\-sequential
@@ -127,13 +132,13 @@ Print the built request and exit without sending it
 .B \-\-env, \-\-environment <string>
 Environment to use (omit to pick interactively)
 .TP
-.B \-\-f, \-\-file <string>
+.B \-f, \-\-file <string>
 File name for making an API request (case\-insensitive)
 .TP
 .B \-\-fp, \-\-file-path <string>
 Relative (or absolute) file path of the request file
 .TP
-.B \-\-q, \-\-quiet
+.B \-q, \-\-quiet
 Suppress the end\-of\-run summary table
 .TP
 .B \-\-show
@@ -301,6 +306,18 @@ hulak secrets keys \-\-env prod
 .RE
 .RS
 hulak secrets delete OLD_KEY
+.RE
+.PP
+completion:
+.PP
+.RS
+hulak completion zsh > "${fpath[1]}/_hulak"
+.RE
+.RS
+hulak completion bash > $(brew \-\-prefix)/etc/bash_completion\&.d/hulak
+.RE
+.RS
+hulak completion bash | sudo tee /etc/bash_completion\&.d/hulak >/dev/null
 .RE
 .PP
 help:

@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - name: Regenerate docs and completions
+        # Belt-and-suspenders: even if the tag was cut without committed
+        # generated files, the archive references man/ and completions/.
+        # CI's docs-freshness job blocks PRs missing these, but tags
+        # cut by hand can skip CI — so generate here too.
+        run: go generate ./pkg/userFlags/...
       - name: Generate token for Homebrew tap
         uses: actions/create-github-app-token@v2
         id: app-token
