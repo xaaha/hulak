@@ -29,16 +29,25 @@ func newGenDocsCmd() *command {
 
 			manPath := filepath.Join(root, "man", "hulak.1")
 			mdPath := filepath.Join(root, "docs", "cli.md")
+			zshPath := filepath.Join(root, "completions", "hulak.zsh")
+			bashPath := filepath.Join(root, "completions", "hulak.bash")
 
-			if err := writeFile(manPath, generateManPage); err != nil {
-				return fmt.Errorf("writing %s: %w", manPath, err)
+			outputs := []struct {
+				path string
+				fn   func(io.Writer)
+			}{
+				{manPath, generateManPage},
+				{mdPath, generateCLIMarkdown},
+				{zshPath, generateZshCompletion},
+				{bashPath, generateBashCompletion},
 			}
-			fmt.Fprintf(os.Stderr, "wrote %s\n", manPath)
 
-			if err := writeFile(mdPath, generateCLIMarkdown); err != nil {
-				return fmt.Errorf("writing %s: %w", mdPath, err)
+			for _, o := range outputs {
+				if err := writeFile(o.path, o.fn); err != nil {
+					return fmt.Errorf("writing %s: %w", o.path, err)
+				}
+				fmt.Fprintf(os.Stderr, "wrote %s\n", o.path)
 			}
-			fmt.Fprintf(os.Stderr, "wrote %s\n", mdPath)
 
 			return nil
 		},
@@ -46,6 +55,9 @@ func newGenDocsCmd() *command {
 }
 
 func writeFile(path string, fn func(io.Writer)) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -95,10 +107,7 @@ func generateManPage(w io.Writer) {
 	p(".SH SYNOPSIS")
 	p(".B hulak")
 	p(".br")
-	for _, sub := range root.SubCommands {
-		if sub.Hidden {
-			continue
-		}
+	for _, sub := range root.visibleSubs() {
 		synopsisLine := manSynopsis(sub, "hulak")
 		p("%s", synopsisLine)
 		p(".br")
@@ -136,10 +145,7 @@ func generateManPage(w io.Writer) {
 
 	// COMMANDS
 	p(".SH COMMANDS")
-	for _, sub := range root.SubCommands {
-		if sub.Hidden {
-			continue
-		}
+	for _, sub := range root.visibleSubs() {
 		p(".TP")
 		p(".B %s", sub.Name)
 		p("%s", manEscape(sub.Short))
@@ -192,8 +198,8 @@ func generateManPage(w io.Writer) {
 
 	// EXAMPLES
 	p(".SH EXAMPLES")
-	for _, sub := range root.SubCommands {
-		if sub.Hidden || len(sub.Examples) == 0 {
+	for _, sub := range root.visibleSubs() {
+		if len(sub.Examples) == 0 {
 			continue
 		}
 		p("%s:", sub.Name)
@@ -346,10 +352,7 @@ func generateCLIMarkdown(w io.Writer) {
 	p("")
 	p("| Command   | Purpose                                      | Example                               |")
 	p("| --------- | -------------------------------------------- | ------------------------------------- |")
-	for _, sub := range root.SubCommands {
-		if sub.Hidden {
-			continue
-		}
+	for _, sub := range root.visibleSubs() {
 		example := ""
 		if len(sub.Examples) > 0 {
 			example = sub.Examples[0].Command
@@ -388,10 +391,7 @@ func generateCLIMarkdown(w io.Writer) {
 	// Commands
 	p("## Commands")
 	p("")
-	for _, sub := range root.SubCommands {
-		if sub.Hidden {
-			continue
-		}
+	for _, sub := range root.visibleSubs() {
 		mdWriteCommand(w, sub)
 	}
 
@@ -526,11 +526,8 @@ func manSynopsis(cmd *command, parent string) string {
 	fmt.Fprintf(&b, ".B %s %s", parent, cmd.Name)
 
 	if cmd.Flags != nil {
-		cmd.Flags.VisitAll(func(f *flag.Flag) {
-			if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
-				return
-			}
-			fmt.Fprintf(&b, " [\\-\\-%s]", f.Name)
+		visitVisibleFlags(cmd.Flags, func(f *flag.Flag) {
+			fmt.Fprintf(&b, " [%s]", manDashed(f.Name))
 		})
 	}
 
@@ -551,22 +548,12 @@ func manSynopsis(cmd *command, parent string) string {
 
 func manWriteFlags(w io.Writer, fs *flag.FlagSet) {
 	p := func(format string, a ...any) { fmt.Fprintf(w, format+"\n", a...) }
+	longFor := flagPairings(fs)
 
-	longFor := make(map[string]string)
-	for long, short := range flagAliases {
-		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
-			longFor[short] = long
-		}
-	}
-
-	fs.VisitAll(func(f *flag.Flag) {
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
-			return
-		}
-
-		label := "\\-\\-" + f.Name
+	visitVisibleFlags(fs, func(f *flag.Flag) {
+		label := manDashed(f.Name)
 		if long, ok := longFor[f.Name]; ok {
-			label += ", \\-\\-" + long
+			label += ", " + manDashed(long)
 		}
 
 		if f.DefValue != "false" && f.DefValue != "true" {
@@ -578,6 +565,16 @@ func manWriteFlags(w io.Writer, fs *flag.FlagSet) {
 		p("%s", manEscape(f.Usage))
 	})
 	p("")
+}
+
+// manDashed formats a flag name with the right number of dashes for man
+// output (escaped roff hyphens). 1-char names get one dash; longer names
+// get two.
+func manDashed(name string) string {
+	if len(name) == 1 {
+		return "\\-" + name
+	}
+	return "\\-\\-" + name
 }
 
 func manEscape(s string) string {
@@ -595,24 +592,13 @@ type mdFlag struct {
 }
 
 func mdCollectFlags(fs *flag.FlagSet) []mdFlag {
-	longFor := make(map[string]string)
-	for long, short := range flagAliases {
-		if fs.Lookup(long) != nil && fs.Lookup(short) != nil {
-			longFor[short] = long
-		}
-	}
-
+	longFor := flagPairings(fs)
 	var flags []mdFlag
-	fs.VisitAll(func(f *flag.Flag) {
-		if hiddenFlags[f.Name] || flagAliases[f.Name] != "" {
-			return
-		}
-
-		label := "`--" + f.Name + "`"
+	visitVisibleFlags(fs, func(f *flag.Flag) {
+		label := "`" + dashed(f.Name) + "`"
 		if long, ok := longFor[f.Name]; ok {
-			label += ", `--" + long + "`"
+			label += ", `" + dashed(long) + "`"
 		}
-
 		flags = append(flags, mdFlag{label: label, usage: f.Usage})
 	})
 	return flags
