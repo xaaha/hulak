@@ -67,6 +67,7 @@ func subCommands() *command {
 		newDoctorCmd(),
 		newGQLCmd(),
 		newEnvCmd(),
+		newCompletionCmd(),
 		newGenDocsCmd(),
 		newHelpCmd(root),
 	}
@@ -240,7 +241,7 @@ func newMigrateCmd() *command {
 			},
 		},
 		Args: []argDef{
-			{Name: "files", Required: true, Desc: "Postman JSON export files"},
+			{Name: "files", Required: true, Desc: "Postman JSON export files", Kind: "file"},
 		},
 		Run: migration.CompleteMigration,
 	}
@@ -305,6 +306,7 @@ func newGQLCmd() *command {
 				Name:     "path",
 				Required: true,
 				Desc:     "File or directory containing GraphQL definitions",
+				Kind:     "yaml",
 			},
 		},
 	}
@@ -391,7 +393,7 @@ func newRunCmd() *command {
 		},
 		Flags: fs,
 		Args: []argDef{
-			{Name: "path", Required: true, Desc: "File or directory to run"},
+			{Name: "path", Required: true, Desc: "File or directory to run", Kind: "yaml"},
 		},
 	}
 
