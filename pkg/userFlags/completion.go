@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -219,17 +220,18 @@ func zshFlagSpecs(cmd *cli.Command) []string {
 	}
 
 	type spec struct {
+		name    string
 		forms   []string
 		usage   string
 		isBool  bool
 		valKind string // "env" | "path" | ""
 	}
-	specs := map[string]*spec{}
-	var order []string
+	var specs []spec
 
 	longFor := cli.FlagPairings(cmd.Flags)
 	cli.VisitVisibleFlags(cmd.Flags, func(f *flag.Flag) {
-		s := &spec{
+		s := spec{
+			name:    f.Name,
 			usage:   f.Usage,
 			isBool:  f.DefValue == "true" || f.DefValue == "false",
 			forms:   []string{dashed(f.Name)},
@@ -241,15 +243,15 @@ func zshFlagSpecs(cmd *cli.Command) []string {
 				s.valKind = kind
 			}
 		}
+		// Sort by ASCII: -- sorts before -, so long form lists first.
+		// Cosmetic only — zsh treats mutex group members as a set.
 		sort.Strings(s.forms)
-		specs[f.Name] = s
-		order = append(order, f.Name)
+		specs = append(specs, s)
 	})
-	sort.Strings(order)
+	slices.SortFunc(specs, func(a, b spec) int { return strings.Compare(a.name, b.name) })
 
-	out := make([]string, 0, len(order))
-	for _, name := range order {
-		s := specs[name]
+	out := make([]string, 0, len(specs))
+	for _, s := range specs {
 		desc := "[" + zshEscBracket(s.usage) + "]"
 		action := zshAction(s.isBool, s.valKind)
 		if len(s.forms) > 1 {
