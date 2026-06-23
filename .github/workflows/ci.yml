@@ -35,7 +35,6 @@ jobs:
           # untracked-file case explicitly — git diff silently ignores it.
           generated=(
             man/hulak.1
-            docs/cli.md
             completions/hulak.zsh
             completions/hulak.bash
           )

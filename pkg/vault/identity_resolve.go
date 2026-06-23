@@ -156,7 +156,7 @@ func HasAnyIdentity() bool {
 
 // DecryptingIdentity describes one identity source that successfully
 // decrypts a given ciphertext. Returned by SourcesThatDecrypt for the
-// `secrets list-identity` subcommand.
+// `secrets identity list` subcommand.
 type DecryptingIdentity struct {
 	Path      string // file path or "$ENV_VAR"
 	PublicKey string // "age1..." or "ssh-ed25519 AAA..."
@@ -217,7 +217,7 @@ func resolveAndDecrypt(ciphertext []byte) (age.Identity, []byte, error) {
 	return nil, nil, fmt.Errorf(
 		"no available identity could decrypt the store. Tried: %s.\n"+
 			"If you should have access, ask a current vault member to add your public key:\n"+
-			"  hulak secrets add-recipient <your-pubkey>",
+			"  hulak secrets identity add-recipient <your-pubkey>",
 		strings.Join(tried, ", "),
 	)
 }
@@ -249,7 +249,7 @@ func noIdentityError() error {
 		"Set up an identity using one of these methods",
 		[]string{
 			"Run 'hulak init' to generate an age keypair",
-			"Import an existing key with 'hulak secrets import-key'",
+			"Import an existing key with 'hulak secrets identity import'",
 			fmt.Sprintf("Set %s to an AGE-SECRET-KEY- value (for CI)", utils.MasterKey),
 			fmt.Sprintf("Set %s to point at your SSH private key", utils.SSHIdentityEnvVar),
 			"Place an ed25519 SSH key at ~/.ssh/id_ed25519 (auto-detected)",

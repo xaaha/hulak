@@ -98,7 +98,6 @@ Hulak validates timeouts up front so a typo cannot silently fall back to the def
 >
 > 1. `timeout: 0s` and negative durations are rejected. There is no "no timeout" mode. Set a value high enough for the slowest request you expect.
 > 2. The timeout covers the whole request (connect + send + read). It is not a connect-only or read-only timeout.
-> 3. Each retry attempt uses the same timeout independently; the value is per-attempt, not a total budget across retries.
 
 ### Body
 

@@ -86,7 +86,7 @@ body:
 
 | Flag   | Description                                                                                                     | Usage       |
 | ------ | --------------------------------------------------------------------------------------------------------------- | ----------- |
-| `-env` | Specify the environment file you want to use for Api Call. If the user flag is absent, it defaults to `global`. | `-env prod` |
+| `-env` | Specify the environment file you want to use for the API call. If omitted, an interactive picker opens. | `-env prod` |
 
 ## Subcommands
 

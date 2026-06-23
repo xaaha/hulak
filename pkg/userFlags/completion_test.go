@@ -72,7 +72,7 @@ func TestCompletionScripts(t *testing.T) {
 				"while IFS= read -r f",
 				"compopt -o filenames",
 				// Chain paths the walker checks against
-				"hulak:run", "hulak:secrets:set", "hulak:env:get",
+				"hulak:run", "hulak:secrets:keys:set", "hulak:env:keys:get",
 				"hulak:run)",
 				"hulak:secrets|hulak:env)",
 				"hulak:init:classic|hulak:init:plain|hulak:init:no-vault)",
@@ -115,8 +115,8 @@ func TestCompletionScripts(t *testing.T) {
 }
 
 // TestNoFileCompletionForOpaquePositionals catches the regression where
-// secrets crud commands (set/get/delete) suggested filesystem paths for
-// their KEY/VALUE positionals. zsh leaves no _hulak_secrets_set function
+// secrets crud commands (keys set/get/delete) suggested filesystem paths for
+// their KEY/VALUE positionals. zsh leaves no _hulak_secrets_keys_set function
 // at all (no flag-only specs hit the empty-leaf skip path); bash falls
 // through to its default case (no completion). We verify the absence of
 // the misleading `_files` / `_hulak_path_files` dispatch for these chains.
@@ -128,8 +128,8 @@ func TestNoFileCompletionForOpaquePositionals(t *testing.T) {
 	// Bash: the secrets:set case clause must not call _hulak_path_files.
 	bashStr := bash.String()
 	for _, chain := range []string{
-		"hulak:secrets:set", "hulak:secrets:get", "hulak:secrets:delete",
-		"hulak:secrets:add-recipient", "hulak:secrets:remove-recipient",
+		"hulak:secrets:keys:set", "hulak:secrets:keys:get", "hulak:secrets:keys:delete",
+		"hulak:secrets:identity:add-recipient", "hulak:secrets:identity:remove-recipient",
 	} {
 		// Find the case clause and confirm it dispatches to compgen -W only.
 		idx := strings.Index(bashStr, chain)
@@ -145,11 +145,11 @@ func TestNoFileCompletionForOpaquePositionals(t *testing.T) {
 		}
 	}
 
-	// Zsh: the _hulak_secrets_set function must not include a `*:file:_files`
+	// Zsh: the _hulak_secrets_keys_set function must not include a `*:file:_files`
 	// positional spec. Either the function doesn't exist or it has no positional.
 	zshStr := zsh.String()
 	for _, fn := range []string{
-		"_hulak_secrets_set()", "_hulak_secrets_get()", "_hulak_secrets_delete()",
+		"_hulak_secrets_keys_set()", "_hulak_secrets_keys_get()", "_hulak_secrets_keys_delete()",
 	} {
 		idx := strings.Index(zshStr, fn)
 		if idx < 0 {
@@ -211,7 +211,7 @@ printf '%s' "$chain"
 	}{
 		{"flag-with-value", []string{"hulak", "run", "--env", "prod", ""}, "hulak:run"},
 		{"positional-then-flag", []string{"hulak", "run", "file.yaml", "--"}, "hulak:run"},
-		{"secrets-alias", []string{"hulak", "env", "get", ""}, "hulak:env:get"},
+		{"secrets-alias", []string{"hulak", "env", "keys", "get", ""}, "hulak:env:keys:get"},
 		{"nested-alias", []string{"hulak", "init", "classic", ""}, "hulak:init:classic"},
 	}
 

@@ -24,7 +24,7 @@ Your `.gitignore` should already contain `env/` if you started with classic mode
 
 ```bash
 # Edit a secret
-hulak secrets set STRIPE_SECRET_KEY sk_live_new_value --env prod
+hulak secrets keys set STRIPE_SECRET_KEY sk_live_new_value --env prod
 
 # Stage and commit
 git add .hulak/store.age
@@ -46,7 +46,7 @@ git log --oneline -- .hulak/store.age
 git checkout <sha> -- .hulak/store.age
 
 # Read the value as of that commit
-hulak secrets get STRIPE_SECRET_KEY --env prod
+hulak secrets keys get STRIPE_SECRET_KEY --env prod
 
 # Put HEAD back
 git checkout HEAD -- .hulak/store.age
@@ -69,7 +69,7 @@ Author, date, message. The diff itself is opaque. So commit messages do all the 
 ```bash
 # Resolve recipients.txt by keeping the union of both branches
 git checkout --theirs .hulak/store.age
-hulak secrets rotate                     # re-encrypt to merged recipients
+hulak secrets sync                       # re-encrypt to merged recipients
 git add .hulak/store.age .hulak/recipients.txt
 git commit
 ```
@@ -80,7 +80,7 @@ A PR that touches `store.age` should describe the change in plain English. Revie
 
 - Title: `secrets: rotate prod STRIPE_SECRET_KEY` (or similar)
 - Description: which env, which keys, why
-- Optionally: `hulak secrets keys --env <env>` output before and after in the PR description, so reviewers can verify keys-added vs keys-removed without decrypting
+- Optionally: `hulak secrets keys list --env <env>` output before and after in the PR description, so reviewers can verify keys-added vs keys-removed without decrypting
 
 ## Backup beyond git
 

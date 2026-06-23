@@ -19,8 +19,8 @@ const DefaultTablePadding = 2
 // blobs don't wrap or wreck the terminal; loose enough that typical URLs
 // and IDs print in full.
 //
-// Users who need the full value should run `hulak secrets get KEY` — the table
-// view is for scanning, the get command is for reading.
+// Users who need the full value should run `hulak secrets keys get KEY` — the
+// table view is for scanning, the get command is for reading.
 const DefaultTableMaxCellWidth = 60
 
 // tableHeaderStyle wraps header cells in bold + italic + bright yellow.

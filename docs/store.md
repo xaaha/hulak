@@ -76,7 +76,7 @@ hulak init
 #   Identity file: ~/.config/hulak/identity.txt
 # ⚠ Back up the identity file — losing it means losing access to the vault.
 
-hulak secrets set API_KEY --env prod
+hulak secrets keys set API_KEY --env prod
 # Enter value for API_KEY: ▊
 # ✓ Set API_KEY in prod
 
@@ -130,7 +130,7 @@ The single biggest pitfall is losing your private key. Two ways to protect again
 ### 1. Export to a password manager
 
 ```bash
-hulak secrets export-key
+hulak secrets identity export
 # AGE-SECRET-KEY-1QF...
 # (paste into 1Password / Bitwarden / etc.)
 ```
@@ -142,7 +142,7 @@ A second recipient (a backup keypair you keep on a USB stick, or a teammate) mea
 To restore on a new machine:
 
 ```bash
-hulak secrets import-key ~/Downloads/identity-backup.txt
+hulak secrets identity import ~/Downloads/identity-backup.txt
 # ✓ Identity imported to ~/.config/hulak/identity.txt
 ```
 
@@ -156,7 +156,7 @@ If the new member uses SSH for git, they already have keys published on GitHub. 
 
 ```bash
 # === Existing team member ===
-hulak secrets add-recipient --github alice --name Alice
+hulak secrets identity add-recipient --github alice --name Alice
 # ✓ Fetched 2 ssh-ed25519 keys from https://github.com/alice.keys
 # ✓ Added 2 recipients
 
@@ -166,36 +166,36 @@ git push
 
 # === New member (Alice) ===
 git pull
-hulak secrets get API_KEY --env prod
+hulak secrets keys get API_KEY --env prod
 # Just works — her ~/.ssh/id_ed25519 matches one of the recipients
 ```
 
 This also works with self-hosted GitLab, Forgejo, or any server that publishes keys at `/<username>.keys`:
 
 ```bash
-hulak secrets add-recipient --github alice --keyserver https://gitlab.company.com --name Alice
+hulak secrets identity add-recipient --github alice --keyserver https://gitlab.company.com --name Alice
 ```
 
 ### Joining a team (with age keys)
 
-If the new member prefers a dedicated age keypair (or is on a new machine and doesn't want `hulak init`'s vault-scaffolding side effects), use `gen-identity`:
+If the new member prefers a dedicated age keypair (or is on a new machine and doesn't want `hulak init`'s vault-scaffolding side effects), use `secrets identity generate`:
 
 ```bash
 # === New member's machine ===
-hulak secrets gen-identity
+hulak secrets identity generate
 # ✓ Identity written to ~/.config/hulak/identity.txt
 # Send your public key to a vault member and have them run:
-#   hulak secrets add-recipient age1bob...
+#   hulak secrets identity add-recipient age1bob...
 # age1bob...   ← printed to stdout, pipe-friendly
 ```
 
-Unlike `hulak init`, `gen-identity` only creates the global identity file — no `.hulak/` files in the current directory, so cloning the repo later works without conflicts.
+Unlike `hulak init`, `secrets identity generate` only creates the global identity file — no `.hulak/` files in the current directory, so cloning the repo later works without conflicts.
 
 The new member sends their **public key** (`age1bob...`) to an existing team member via Slack, email, or a PR. **Public keys are not secret.** Never share the private key from `~/.config/hulak/identity.txt`.
 
 ```bash
 # === Existing team member ===
-hulak secrets add-recipient age1bob... --name Bob
+hulak secrets identity add-recipient age1bob... --name Bob
 # ✓ Added 1 recipient
 
 git add .hulak/recipients.txt .hulak/store.age
@@ -210,7 +210,7 @@ hulak secrets list   # ✓ works — Bob's identity can decrypt
 ### Leaving a team
 
 ```bash
-hulak secrets remove-recipient Alice
+hulak secrets identity remove-recipient Alice
 # ✓ Removed recipient
 # ⚠ Note: Alice can still decrypt copies of store.age from before this point.
 #   Rotate upstream secrets if compromise is suspected.
@@ -226,9 +226,9 @@ Removing a recipient prevents them from decrypting **future** versions of `store
 
 To truly revoke access:
 
-1. `hulak secrets remove-recipient <pubkey>`
+1. `hulak secrets identity remove-recipient <pubkey>`
 2. Rotate every secret the leaver could have read (API keys, DB passwords, OAuth client secrets, etc.) on the upstream service
-3. `hulak secrets set <KEY> <new-value>` for each rotated secret
+3. `hulak secrets keys set <KEY> <new-value>` for each rotated secret
 4. Commit and push
 
 This is a fundamental property of asymmetric encryption. True of age, GPG, SOPS, git-crypt, and every similar tool. There is no scheme that can un-show plaintext.
@@ -238,7 +238,7 @@ This is a fundamental property of asymmetric encryption. True of age, GPG, SOPS,
 You cannot remove yourself if you are the only recipient. That would brick the store.
 
 ```bash
-hulak secrets remove-recipient age1ql3z...
+hulak secrets identity remove-recipient age1ql3z...
 # error: refusing to remove the last recipient — the store would become
 # unrecoverable. Add another recipient first, or delete .hulak/store.age manually
 ```
@@ -267,12 +267,12 @@ After merging the text side cleanly, regenerate `store.age` to match the merged 
 ```bash
 # Resolve recipients.txt manually so it's the union you want
 git checkout --theirs .hulak/store.age   # pick one ciphertext to start from
-hulak secrets rotate                     # re-encrypt to the current (merged) recipients.txt
+hulak secrets sync                     # re-encrypt to the current (merged) recipients.txt
 git add .hulak/store.age .hulak/recipients.txt
 git commit
 ```
 
-`hulak secrets rotate` re-encrypts the store to the current `recipients.txt` without changing keys. Exactly what you need after a merge.
+`hulak secrets sync` re-encrypts the store to the current `recipients.txt` without changing keys. Exactly what you need after a merge.
 
 > [!Tip]
 > For frequent recipient churn (large teams), consider squashing multiple `add-recipient` / `remove-recipient` commits into one to reduce merge surface area.
@@ -325,7 +325,7 @@ Treat a leaked private key (laptop stolen, accidental commit, etc.) like a leake
 
 1. **Rotate the keypair atomically.** From any machine that still has access:
    ```bash
-   hulak secrets rotate-key
+   hulak secrets identity rotate
    ```
    This generates a fresh keypair, swaps it in `recipients.txt`, re-encrypts the store, and backs up the old key to `identity.txt.old` (in case you need to read past backups).
 2. **Rotate every secret in the store upstream.** API keys, DB passwords, OAuth client secrets. Anything the leaker may have read. The leaker still has copies of `store.age` and the old identity from before the rotation; the only way to invalidate that data is to make it useless by changing the upstream values.
@@ -372,8 +372,8 @@ Yes. `store.age` is an encrypted blob; without a private key in the recipient li
 **What if I lose my private key?**
 If you have no backup and no second recipient, the data is gone. Mitigations:
 
-- `hulak secrets export-key` → save in a password manager
-- `hulak secrets add-recipient <backup-key>` → second recipient as redundancy
+- `hulak secrets identity export` → save in a password manager
+- `hulak secrets identity add-recipient <backup-key>` → second recipient as redundancy
 - `cp .hulak/store.age my-backup.age` → snapshot the encrypted store (still needs a key to decrypt)
 
 **Can I have both `env/` and `store.age`?**

@@ -41,7 +41,7 @@ _hulak_complete_value() {
 
 _hulak_is_path() {
   case "$1" in
-    hulak|hulak:completion|hulak:completion:bash|hulak:completion:zsh|hulak:doctor|hulak:env|hulak:env:add|hulak:env:add-recipient|hulak:env:backup|hulak:env:backup:list|hulak:env:backup:ls|hulak:env:del|hulak:env:delete|hulak:env:edit|hulak:env:export-identity|hulak:env:export-key|hulak:env:g|hulak:env:gen-identity|hulak:env:generate-identity|hulak:env:get|hulak:env:import-identity|hulak:env:import-key|hulak:env:key|hulak:env:keys|hulak:env:l|hulak:env:list|hulak:env:list-identity|hulak:env:list-recipients|hulak:env:ls|hulak:env:migrate|hulak:env:reencrypt|hulak:env:remove|hulak:env:remove-recipient|hulak:env:restore|hulak:env:rm|hulak:env:rotate|hulak:env:rotate-identity|hulak:env:rotate-key|hulak:env:set|hulak:env:show|hulak:env:sync|hulak:env:view|hulak:example|hulak:gql|hulak:graphql|hulak:help|hulak:init|hulak:init:classic|hulak:init:no-vault|hulak:init:plain|hulak:migrate|hulak:run|hulak:secrets|hulak:secrets:add|hulak:secrets:add-recipient|hulak:secrets:backup|hulak:secrets:backup:list|hulak:secrets:backup:ls|hulak:secrets:del|hulak:secrets:delete|hulak:secrets:edit|hulak:secrets:export-identity|hulak:secrets:export-key|hulak:secrets:g|hulak:secrets:gen-identity|hulak:secrets:generate-identity|hulak:secrets:get|hulak:secrets:import-identity|hulak:secrets:import-key|hulak:secrets:key|hulak:secrets:keys|hulak:secrets:l|hulak:secrets:list|hulak:secrets:list-identity|hulak:secrets:list-recipients|hulak:secrets:ls|hulak:secrets:migrate|hulak:secrets:reencrypt|hulak:secrets:remove|hulak:secrets:remove-recipient|hulak:secrets:restore|hulak:secrets:rm|hulak:secrets:rotate|hulak:secrets:rotate-identity|hulak:secrets:rotate-key|hulak:secrets:set|hulak:secrets:show|hulak:secrets:sync|hulak:secrets:view|hulak:version) return 0 ;;
+    hulak|hulak:completion|hulak:completion:bash|hulak:completion:zsh|hulak:doctor|hulak:env|hulak:env:backup|hulak:env:backup:list|hulak:env:backup:ls|hulak:env:create|hulak:env:delete|hulak:env:edit|hulak:env:identity|hulak:env:identity:add-recipient|hulak:env:identity:export|hulak:env:identity:gen|hulak:env:identity:generate|hulak:env:identity:import|hulak:env:identity:list|hulak:env:identity:list-recipients|hulak:env:identity:ls|hulak:env:identity:remove-recipient|hulak:env:identity:rotate|hulak:env:key|hulak:env:key:add|hulak:env:key:delete|hulak:env:key:get|hulak:env:key:list|hulak:env:key:ls|hulak:env:key:rm|hulak:env:key:set|hulak:env:keys|hulak:env:keys:add|hulak:env:keys:delete|hulak:env:keys:get|hulak:env:keys:list|hulak:env:keys:ls|hulak:env:keys:rm|hulak:env:keys:set|hulak:env:list|hulak:env:ls|hulak:env:migrate|hulak:env:mv|hulak:env:rename|hulak:env:restore|hulak:env:rm|hulak:env:sync|hulak:example|hulak:gql|hulak:graphql|hulak:help|hulak:init|hulak:init:classic|hulak:init:no-vault|hulak:init:plain|hulak:migrate|hulak:run|hulak:secrets|hulak:secrets:backup|hulak:secrets:backup:list|hulak:secrets:backup:ls|hulak:secrets:create|hulak:secrets:delete|hulak:secrets:edit|hulak:secrets:identity|hulak:secrets:identity:add-recipient|hulak:secrets:identity:export|hulak:secrets:identity:gen|hulak:secrets:identity:generate|hulak:secrets:identity:import|hulak:secrets:identity:list|hulak:secrets:identity:list-recipients|hulak:secrets:identity:ls|hulak:secrets:identity:remove-recipient|hulak:secrets:identity:rotate|hulak:secrets:key|hulak:secrets:key:add|hulak:secrets:key:delete|hulak:secrets:key:get|hulak:secrets:key:list|hulak:secrets:key:ls|hulak:secrets:key:rm|hulak:secrets:key:set|hulak:secrets:keys|hulak:secrets:keys:add|hulak:secrets:keys:delete|hulak:secrets:keys:get|hulak:secrets:keys:list|hulak:secrets:keys:ls|hulak:secrets:keys:rm|hulak:secrets:keys:set|hulak:secrets:list|hulak:secrets:ls|hulak:secrets:migrate|hulak:secrets:mv|hulak:secrets:rename|hulak:secrets:restore|hulak:secrets:rm|hulak:secrets:sync|hulak:version) return 0 ;;
   esac
   return 1
 }
@@ -75,6 +75,9 @@ _hulak() {
     hulak:example)
       COMPREPLY=( $(compgen -W "--out -o" -- "$cur") )
       ;;
+    hulak:completion)
+      COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
+      ;;
     hulak:doctor)
       COMPREPLY=( $(compgen -W "--fix --json --yes" -- "$cur") )
       ;;
@@ -83,35 +86,47 @@ _hulak() {
       else _hulak_yaml_files "$cur"; fi
       ;;
     hulak:secrets|hulak:env)
-      COMPREPLY=( $(compgen -W "add add-recipient backup del delete edit export-identity export-key g gen-identity generate-identity get import-identity import-key key keys l list list-identity list-recipients ls migrate reencrypt remove remove-recipient restore rm rotate rotate-identity rotate-key set show sync view" -- "$cur") )
+      COMPREPLY=( $(compgen -W "backup create delete edit identity key keys list ls migrate mv rename restore rm sync" -- "$cur") )
       ;;
-    hulak:secrets:set|hulak:secrets:add|hulak:env:set|hulak:env:add)
-      COMPREPLY=( $(compgen -W "--env --environment --stdin --type -t" -- "$cur") )
-      ;;
-    hulak:secrets:get|hulak:secrets:g|hulak:secrets:show|hulak:secrets:view|hulak:env:get|hulak:env:g|hulak:env:show|hulak:env:view)
+    hulak:secrets:create|hulak:env:create)
       COMPREPLY=( $(compgen -W "--env --environment" -- "$cur") )
       ;;
+    hulak:secrets:delete|hulak:secrets:rm|hulak:env:delete|hulak:env:rm)
+      COMPREPLY=( $(compgen -W "--env --environment --yes -y" -- "$cur") )
+      ;;
     hulak:secrets:keys|hulak:secrets:key|hulak:env:keys|hulak:env:key)
+      COMPREPLY=( $(compgen -W "--env --environment --search --show add delete get list ls rm set" -- "$cur") )
+      ;;
+    hulak:secrets:keys:list|hulak:secrets:keys:ls|hulak:secrets:key:list|hulak:secrets:key:ls|hulak:env:keys:list|hulak:env:keys:ls|hulak:env:key:list|hulak:env:key:ls)
       COMPREPLY=( $(compgen -W "--env --environment --search --show" -- "$cur") )
       ;;
-    hulak:secrets:delete|hulak:secrets:rm|hulak:secrets:remove|hulak:secrets:del|hulak:env:delete|hulak:env:rm|hulak:env:remove|hulak:env:del)
+    hulak:secrets:keys:set|hulak:secrets:keys:add|hulak:secrets:key:set|hulak:secrets:key:add|hulak:env:keys:set|hulak:env:keys:add|hulak:env:key:set|hulak:env:key:add)
+      COMPREPLY=( $(compgen -W "--env --environment --stdin --type -t" -- "$cur") )
+      ;;
+    hulak:secrets:keys:get|hulak:secrets:key:get|hulak:env:keys:get|hulak:env:key:get)
+      COMPREPLY=( $(compgen -W "--env --environment" -- "$cur") )
+      ;;
+    hulak:secrets:keys:delete|hulak:secrets:keys:rm|hulak:secrets:key:delete|hulak:secrets:key:rm|hulak:env:keys:delete|hulak:env:keys:rm|hulak:env:key:delete|hulak:env:key:rm)
       COMPREPLY=( $(compgen -W "--env --environment" -- "$cur") )
       ;;
     hulak:secrets:edit|hulak:env:edit)
       COMPREPLY=( $(compgen -W "--env --environment" -- "$cur") )
       ;;
-    hulak:secrets:import-key|hulak:secrets:import-identity|hulak:env:import-key|hulak:env:import-identity)
-      if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--force --name --stdin" -- "$cur") )
-      else _hulak_path_files "$cur"; fi
+    hulak:secrets:identity|hulak:env:identity)
+      COMPREPLY=( $(compgen -W "add-recipient export gen generate import list list-recipients ls remove-recipient rotate" -- "$cur") )
       ;;
-    hulak:secrets:export-key|hulak:secrets:export-identity|hulak:env:export-key|hulak:env:export-identity)
+    hulak:secrets:identity:add-recipient|hulak:env:identity:add-recipient)
+      COMPREPLY=( $(compgen -W "--allow-rsa --github --keyserver --name --stdin" -- "$cur") )
+      ;;
+    hulak:secrets:identity:export|hulak:env:identity:export)
       COMPREPLY=( $(compgen -W "--out -o" -- "$cur") )
       ;;
-    hulak:secrets:gen-identity|hulak:secrets:generate-identity|hulak:env:gen-identity|hulak:env:generate-identity)
+    hulak:secrets:identity:generate|hulak:secrets:identity:gen|hulak:env:identity:generate|hulak:env:identity:gen)
       COMPREPLY=( $(compgen -W "--name" -- "$cur") )
       ;;
-    hulak:secrets:add-recipient|hulak:env:add-recipient)
-      COMPREPLY=( $(compgen -W "--allow-rsa --github --keyserver --name --stdin" -- "$cur") )
+    hulak:secrets:identity:import|hulak:env:identity:import)
+      if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--force --name --stdin" -- "$cur") )
+      else _hulak_path_files "$cur"; fi
       ;;
     hulak:secrets:backup|hulak:env:backup)
       COMPREPLY=( $(compgen -W "--force --out -f -o list ls" -- "$cur") )
@@ -119,9 +134,6 @@ _hulak() {
     hulak:secrets:restore|hulak:env:restore)
       if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--force -f" -- "$cur") )
       else _hulak_path_files "$cur"; fi
-      ;;
-    hulak:completion)
-      COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
       ;;
     *) COMPREPLY=() ;;
   esac

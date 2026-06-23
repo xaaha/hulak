@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"os"
 	"strconv"
 	"strings"
 
@@ -288,11 +289,38 @@ func RunSelector(
 	emptyErr error,
 	helpMessage ...string,
 ) (string, error) {
+	return runSelector(items, prompt, emptyErr, nil, helpMessage...)
+}
+
+// RunSelectorOnTTY is RunSelector with input and output explicitly routed to
+// the given file (typically /dev/tty). Use this when stdin or stdout is being
+// used as a data channel — e.g. `pbpaste | hulak secrets set TOKEN --stdin` —
+// so the picker can still reach a real terminal without competing with the
+// pipe. The caller owns tty and must Close it after RunSelectorOnTTY returns.
+func RunSelectorOnTTY(
+	items []string,
+	prompt string,
+	emptyErr error,
+	tty *os.File,
+	helpMessage ...string,
+) (string, error) {
+	opts := []tea.ProgramOption{tea.WithInput(tty), tea.WithOutput(tty)}
+	return runSelector(items, prompt, emptyErr, opts, helpMessage...)
+}
+
+func runSelector(
+	items []string,
+	prompt string,
+	emptyErr error,
+	extraOpts []tea.ProgramOption,
+	helpMessage ...string,
+) (string, error) {
 	if len(items) == 0 {
 		return "", emptyErr
 	}
 	model := NewSelector(items, prompt, helpMessage...)
-	m, err := tea.NewProgram(&model, tea.WithMouseCellMotion()).Run()
+	opts := append([]tea.ProgramOption{tea.WithMouseCellMotion()}, extraOpts...)
+	m, err := tea.NewProgram(&model, opts...).Run()
 	if err != nil {
 		return "", err
 	}

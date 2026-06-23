@@ -1,7 +1,7 @@
 // Generates zsh and bash shell completion from the live command tree.
 // Source of truth: the command tree (subcommands, aliases, flags) plus two
-// per-command annotations — argDef.Kind for positional value completion and
-// pathFlagNames (in command.go) for flag-value completion. New commands and
+// per-command annotations — cli.ArgDef.Kind for positional value completion and
+// cli.PathFlagNames for flag-value completion. New commands and
 // flags appear automatically; only path/yaml hints need declaration.
 package userflags
 
@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -20,8 +21,8 @@ import (
 // installing via `go install`, where there's no package manager to drop the
 // script in the right path. Homebrew users don't need this — the cask
 // installs completions directly.
-func newCompletionCmd() *command {
-	zsh := &command{
+func newCompletionCmd() *cli.Command {
+	zsh := &cli.Command{
 		Name:  "zsh",
 		Short: "Print the zsh completion script",
 		Long: "Print the zsh completion script to stdout.\n\n" +
@@ -30,7 +31,7 @@ func newCompletionCmd() *command {
 			"Then restart your shell. Requires `autoload -Uz compinit && compinit` in your zshrc.",
 		Run: func(_ []string) error { generateZshCompletion(os.Stdout); return nil },
 	}
-	bash := &command{
+	bash := &cli.Command{
 		Name:  "bash",
 		Short: "Print the bash completion script",
 		Long: "Print the bash completion script to stdout.\n\n" +
@@ -40,7 +41,7 @@ func newCompletionCmd() *command {
 			"  hulak completion bash | sudo tee /etc/bash_completion.d/hulak >/dev/null",
 		Run: func(_ []string) error { generateBashCompletion(os.Stdout); return nil },
 	}
-	return &command{
+	return &cli.Command{
 		Name:  "completion",
 		Short: "Print a shell completion script (for go-install users)",
 		Long: "Print a completion script for the given shell.\n\n" +
@@ -61,13 +62,13 @@ func newCompletionCmd() *command {
 				Description: "bash on Linux (system bash-completion)",
 			},
 		},
-		SubCommands: []*command{bash, zsh},
+		SubCommands: []*cli.Command{bash, zsh},
 	}
 }
 
 // --- shared helpers ---
 
-func allNames(cmd *command) []string {
+func allNames(cmd *cli.Command) []string {
 	return append([]string{cmd.Name}, cmd.Aliases...)
 }
 
@@ -80,7 +81,7 @@ func dashed(name string) string {
 
 // argKind returns the completion kind for the first positional ("yaml",
 // "file", or "" for none). Commands with no Args have nothing to complete.
-func argKind(cmd *command) string {
+func argKind(cmd *cli.Command) string {
 	if len(cmd.Args) == 0 {
 		return ""
 	}
@@ -109,8 +110,8 @@ func generateZshCompletion(w io.Writer) {
 // emitZshCmd writes the completer for cmd and recurses into its visible
 // subcommands. Function name carries the path (e.g. _hulak_secrets_set).
 // Leaf commands with nothing to complete emit no function and no dispatch.
-func emitZshCmd(p func(string, ...any), cmd *command, fn string) {
-	subs := cmd.visibleSubs()
+func emitZshCmd(p func(string, ...any), cmd *cli.Command, fn string) {
+	subs := cmd.VisibleSubs()
 	specs := zshFlagSpecs(cmd)
 
 	if len(subs) == 0 {
@@ -124,7 +125,7 @@ func emitZshCmd(p func(string, ...any), cmd *command, fn string) {
 		return
 	}
 
-	var dispatchSubs []*command
+	var dispatchSubs []*cli.Command
 	for _, sub := range subs {
 		if zshSubHasCompleter(sub) {
 			dispatchSubs = append(dispatchSubs, sub)
@@ -178,8 +179,8 @@ func emitZshCmd(p func(string, ...any), cmd *command, fn string) {
 
 // zshSubHasCompleter reports whether emitZshCmd would emit a function for
 // sub. Used to skip dispatch lines that would call into nothing.
-func zshSubHasCompleter(sub *command) bool {
-	if len(sub.visibleSubs()) > 0 {
+func zshSubHasCompleter(sub *cli.Command) bool {
+	if len(sub.VisibleSubs()) > 0 {
 		return true
 	}
 	return len(zshFlagSpecs(sub)) > 0 || zshPositionalSpec(sub) != ""
@@ -199,7 +200,7 @@ func emitZshArgs(p func(string, ...any), fn string, specs []string) {
 	p("")
 }
 
-func zshPositionalSpec(cmd *command) string {
+func zshPositionalSpec(cmd *cli.Command) string {
 	switch argKind(cmd) {
 	case "yaml":
 		return `'*:file or directory:_files -g "*.(yaml|yml|hk.yaml|hk.yml)"'`
@@ -210,9 +211,9 @@ func zshPositionalSpec(cmd *command) string {
 }
 
 // zshFlagSpecs returns one `_arguments` spec per visible flag. Aliased
-// pairs (per flagAliases) merge into a single mutex spec like
+// pairs (per cli.FlagAliases) merge into a single mutex spec like
 // `(-o --out){-o,--out}'[desc]:path:_files'`.
-func zshFlagSpecs(cmd *command) []string {
+func zshFlagSpecs(cmd *cli.Command) []string {
 	if cmd.Flags == nil {
 		return nil
 	}
@@ -226,8 +227,8 @@ func zshFlagSpecs(cmd *command) []string {
 	specs := map[string]*spec{}
 	var order []string
 
-	longFor := flagPairings(cmd.Flags)
-	visitVisibleFlags(cmd.Flags, func(f *flag.Flag) {
+	longFor := cli.FlagPairings(cmd.Flags)
+	cli.VisitVisibleFlags(cmd.Flags, func(f *flag.Flag) {
 		s := &spec{
 			usage:   f.Usage,
 			isBool:  f.DefValue == "true" || f.DefValue == "false",
@@ -263,12 +264,12 @@ func zshFlagSpecs(cmd *command) []string {
 
 // flagValueKind returns "env", "path", or "" based on the flag name.
 // Env flags are detected by name (registerEnvFlag enforces the convention).
-// Path flags come from the explicit pathFlagNames allowlist.
+// Path flags come from the explicit cli.PathFlagNames allowlist.
 func flagValueKind(name string) string {
 	if name == "env" || name == "environment" {
 		return "env"
 	}
-	if pathFlagNames[name] {
+	if cli.PathFlagNames[name] {
 		return "path"
 	}
 	return ""
@@ -317,7 +318,7 @@ type bashCtx struct {
 	pathFlags  map[string]bool // subset whose value completes a filesystem path
 }
 
-func collectBashCtx(root *command) bashCtx {
+func collectBashCtx(root *cli.Command) bashCtx {
 	ctx := bashCtx{
 		valueFlags: map[string]bool{},
 		envFlags:   map[string]bool{},
@@ -329,12 +330,12 @@ func collectBashCtx(root *command) bashCtx {
 			set["--"+name] = true
 		}
 	}
-	var walk func(cmd *command, patterns []string)
-	walk = func(cmd *command, patterns []string) {
+	var walk func(cmd *cli.Command, patterns []string)
+	walk = func(cmd *cli.Command, patterns []string) {
 		ctx.validPaths = append(ctx.validPaths, patterns...)
 		if cmd.Flags != nil {
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
-				if hiddenFlags[f.Name] || f.DefValue == "true" || f.DefValue == "false" {
+				if cli.HiddenFlags[f.Name] || f.DefValue == "true" || f.DefValue == "false" {
 					return
 				}
 				addForm(ctx.valueFlags, f.Name)
@@ -346,7 +347,7 @@ func collectBashCtx(root *command) bashCtx {
 				}
 			})
 		}
-		for _, sub := range cmd.visibleSubs() {
+		for _, sub := range cmd.VisibleSubs() {
 			next := make([]string, 0, len(patterns)*len(allNames(sub)))
 			for _, base := range patterns {
 				for _, name := range allNames(sub) {
@@ -458,15 +459,15 @@ func generateBashCompletion(w io.Writer) {
 // bashEmitCases walks the tree emitting one case clause per visible command
 // path. patterns is every alias-expanded path leading to cmd; extended as
 // we recurse so we never re-resolve aliases.
-func bashEmitCases(p func(string, ...any), cmd *command, patterns []string) {
-	subs := cmd.visibleSubs()
+func bashEmitCases(p func(string, ...any), cmd *cli.Command, patterns []string) {
+	subs := cmd.VisibleSubs()
 	var sugg []string
 	for _, sub := range subs {
 		sugg = append(sugg, allNames(sub)...)
 	}
 	if cmd.Flags != nil {
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
-			if !hiddenFlags[f.Name] {
+			if !cli.HiddenFlags[f.Name] {
 				sugg = append(sugg, dashed(f.Name))
 			}
 		})

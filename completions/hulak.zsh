@@ -21,10 +21,10 @@ _hulak() {
     init) _hulak_init && ret=0 ;;
     example) _hulak_example && ret=0 ;;
     migrate) _hulak_migrate && ret=0 ;;
+    completion) _hulak_completion && ret=0 ;;
     doctor) _hulak_doctor && ret=0 ;;
     gql|graphql) _hulak_gql && ret=0 ;;
     secrets|env) _hulak_secrets && ret=0 ;;
-    completion) _hulak_completion && ret=0 ;;
   esac
   return ret
 }
@@ -36,12 +36,12 @@ _hulak_subs() {
     'init:Initialize a hulak project'
     'example:Scaffold an example request file'
     'migrate:Migrate Postman collections to hulak format'
+    'completion:Print a shell completion script (for go-install users)'
     'doctor:Check project health'
     'gql:Open the GraphQL explorer'
     'graphql:Open the GraphQL explorer'
     'secrets:Manage encrypted environment secrets'
     'env:Manage encrypted environment secrets'
-    'completion:Print a shell completion script (for go-install users)'
     'help:Show help for hulak'
   )
   _describe -t commands 'hulak subcommand' subs
@@ -98,6 +98,19 @@ _hulak_migrate() {
     '*:file:_files'
 }
 
+_hulak_completion() {
+  _arguments \
+    '1: :_hulak_completion_subs'
+}
+
+_hulak_completion_subs() {
+  local -a subs=(
+    'bash:Print the bash completion script'
+    'zsh:Print the zsh completion script'
+  )
+  _describe -t commands 'completion subcommand' subs
+}
+
 _hulak_doctor() {
   _arguments \
     '--fix[Auto-repair safe issues (chmod, .gitignore)]' \
@@ -117,15 +130,11 @@ _hulak_secrets() {
     '1: :_hulak_secrets_subs' \
     '*::arg:->args' && ret=0
   [[ $state == args ]] && case $words[1] in
-    set|add) _hulak_secrets_set && ret=0 ;;
-    get|g|show|view) _hulak_secrets_get && ret=0 ;;
+    create) _hulak_secrets_create && ret=0 ;;
+    delete|rm) _hulak_secrets_delete && ret=0 ;;
     keys|key) _hulak_secrets_keys && ret=0 ;;
-    delete|rm|remove|del) _hulak_secrets_delete && ret=0 ;;
     edit) _hulak_secrets_edit && ret=0 ;;
-    import-key|import-identity) _hulak_secrets_import_key && ret=0 ;;
-    export-key|export-identity) _hulak_secrets_export_key && ret=0 ;;
-    gen-identity|generate-identity) _hulak_secrets_gen_identity && ret=0 ;;
-    add-recipient) _hulak_secrets_add_recipient && ret=0 ;;
+    identity) _hulak_secrets_identity && ret=0 ;;
     backup) _hulak_secrets_backup && ret=0 ;;
     restore) _hulak_secrets_restore && ret=0 ;;
   esac
@@ -134,37 +143,18 @@ _hulak_secrets() {
 
 _hulak_secrets_subs() {
   local -a subs=(
-    'set:Set a key-value pair'
-    'add:Set a key-value pair'
-    'get:Get a value by key'
-    'g:Get a value by key'
-    'show:Get a value by key'
-    'view:Get a value by key'
+    'create:Create a new empty environment'
+    'delete:Delete an environment'
+    'rm:Delete an environment'
     'list:List environment names'
     'ls:List environment names'
-    'l:List environment names'
-    'keys:List keys in an environment'
-    'key:List keys in an environment'
-    'delete:Delete a key'
-    'rm:Delete a key'
-    'remove:Delete a key'
-    'del:Delete a key'
+    'keys:Manage keys within an environment'
+    'key:Manage keys within an environment'
     'edit:Edit secrets interactively'
-    'import-key:Import an age identity (private key)'
-    'import-identity:Import an age identity (private key)'
-    'export-key:Export the age identity (private key)'
-    'export-identity:Export the age identity (private key)'
-    'gen-identity:Generate a new age keypair without creating a vault'
-    'generate-identity:Generate a new age keypair without creating a vault'
-    'list-identity:List identities that can decrypt the vault'
-    'add-recipient:Add a recipient for shared vault access'
-    'remove-recipient:Remove a recipient'
-    'list-recipients:List all recipients'
-    'rotate:Re-encrypt the store to current recipients'
+    'identity:Manage age identities and recipients'
+    'rename:Rename an environment (unix-style mv)'
+    'mv:Rename an environment (unix-style mv)'
     'sync:Re-encrypt the store to current recipients'
-    'reencrypt:Re-encrypt the store to current recipients'
-    'rotate-key:Rotate your age identity (keypair)'
-    'rotate-identity:Rotate your age identity (keypair)'
     'migrate:Migrate env/*.env files to the encrypted vault'
     'backup:Create a backup of the encrypted store'
     'restore:Restore the encrypted store from a backup'
@@ -172,26 +162,68 @@ _hulak_secrets_subs() {
   _describe -t commands 'secrets subcommand' subs
 }
 
-_hulak_secrets_set() {
+_hulak_secrets_create() {
   _arguments \
-    '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs' \
-    '--stdin[Read value from stdin]' \
-    '(--type -t)'{--type,-t}'[Value type\: string|int|float|bool|json]:value:'
+    '(--env --environment)'{--env,--environment}'[Name of the new environment to create (required)]:env:_hulak_envs'
 }
 
-_hulak_secrets_get() {
+_hulak_secrets_delete() {
   _arguments \
-    '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs'
+    '(--env --environment)'{--env,--environment}'[Environment to delete (omit to pick interactively)]:env:_hulak_envs' \
+    '-y[Skip the destructive confirm prompt]' \
+    '--yes[Skip the destructive confirm prompt]'
 }
 
 _hulak_secrets_keys() {
+  local state ret=1
+  _arguments -C \
+    '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs' \
+    '--search[Filter keys by case-insensitive substring or glob pattern]:value:' \
+    '--show[Reveal values instead of masking them]' \
+    '1: :_hulak_secrets_keys_subs' \
+    '*::arg:->args' && ret=0
+  [[ $state == args ]] && case $words[1] in
+    list|ls) _hulak_secrets_keys_list && ret=0 ;;
+    set|add) _hulak_secrets_keys_set && ret=0 ;;
+    get) _hulak_secrets_keys_get && ret=0 ;;
+    delete|rm) _hulak_secrets_keys_delete && ret=0 ;;
+  esac
+  return ret
+}
+
+_hulak_secrets_keys_subs() {
+  local -a subs=(
+    'list:List keys in an environment'
+    'ls:List keys in an environment'
+    'set:Set a key-value pair'
+    'add:Set a key-value pair'
+    'get:Get a value by key'
+    'delete:Delete a key from an environment'
+    'rm:Delete a key from an environment'
+  )
+  _describe -t commands 'keys subcommand' subs
+}
+
+_hulak_secrets_keys_list() {
   _arguments \
     '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs' \
     '--search[Filter keys by case-insensitive substring or glob pattern]:value:' \
     '--show[Reveal values instead of masking them]'
 }
 
-_hulak_secrets_delete() {
+_hulak_secrets_keys_set() {
+  _arguments \
+    '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs' \
+    '--stdin[Read value from stdin]' \
+    '(--type -t)'{--type,-t}'[Value type\: string|int|float|bool|json]:value:'
+}
+
+_hulak_secrets_keys_get() {
+  _arguments \
+    '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs'
+}
+
+_hulak_secrets_keys_delete() {
   _arguments \
     '(--env --environment)'{--env,--environment}'[Environment to operate on]:env:_hulak_envs'
 }
@@ -201,31 +233,61 @@ _hulak_secrets_edit() {
     '(--env --environment)'{--env,--environment}'[Environment to edit (omit to pick interactively)]:env:_hulak_envs'
 }
 
-_hulak_secrets_import_key() {
-  _arguments \
-    '--force[Overwrite existing identity file]' \
-    '--name[Auto-register the imported key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)]:value:' \
-    '--stdin[Read key from stdin]' \
-    '*:file:_files'
+_hulak_secrets_identity() {
+  local state ret=1
+  _arguments -C \
+    '1: :_hulak_secrets_identity_subs' \
+    '*::arg:->args' && ret=0
+  [[ $state == args ]] && case $words[1] in
+    add-recipient) _hulak_secrets_identity_add_recipient && ret=0 ;;
+    export) _hulak_secrets_identity_export && ret=0 ;;
+    generate|gen) _hulak_secrets_identity_generate && ret=0 ;;
+    import) _hulak_secrets_identity_import && ret=0 ;;
+  esac
+  return ret
 }
 
-_hulak_secrets_export_key() {
-  _arguments \
-    '(--out -o)'{--out,-o}'[Write key to file instead of stdout (mode 0600). Directory inputs append '\''identity.txt'\''.]:path:_files'
+_hulak_secrets_identity_subs() {
+  local -a subs=(
+    'add-recipient:Add a recipient for shared vault access'
+    'export:Export the age identity (private key)'
+    'generate:Generate a new age keypair without creating a vault'
+    'gen:Generate a new age keypair without creating a vault'
+    'import:Import an age identity (private key)'
+    'list:List identities that can decrypt the vault'
+    'ls:List identities that can decrypt the vault'
+    'list-recipients:List all recipients'
+    'remove-recipient:Remove a recipient'
+    'rotate:Rotate your age identity (keypair)'
+  )
+  _describe -t commands 'identity subcommand' subs
 }
 
-_hulak_secrets_gen_identity() {
-  _arguments \
-    '--name[Auto-register the new key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)]:value:'
-}
-
-_hulak_secrets_add_recipient() {
+_hulak_secrets_identity_add_recipient() {
   _arguments \
     '--allow-rsa[Also accept ssh-rsa keys (lower security margin)]' \
     '--github[Fetch ed25519 keys from GitHub (username)]:value:' \
     '--keyserver[Base URL of keyserver (e.g. https\://gitlab.com)]:value:' \
     '--name[Human-readable label for the recipient (defaults to OS username)]:value:' \
     '--stdin[Read keys from stdin (one per line)]'
+}
+
+_hulak_secrets_identity_export() {
+  _arguments \
+    '(--out -o)'{--out,-o}'[Write key to file instead of stdout (mode 0600). Directory inputs append '\''identity.txt'\''.]:path:_files'
+}
+
+_hulak_secrets_identity_generate() {
+  _arguments \
+    '--name[Auto-register the new key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)]:value:'
+}
+
+_hulak_secrets_identity_import() {
+  _arguments \
+    '--force[Overwrite existing identity file]' \
+    '--name[Auto-register the imported key as a recipient with this label (requires an existing decrypt path; defaults label to OS username)]:value:' \
+    '--stdin[Read key from stdin]' \
+    '*:file:_files'
 }
 
 _hulak_secrets_backup() {
@@ -249,19 +311,6 @@ _hulak_secrets_restore() {
     '-f[Skip confirmation prompt]' \
     '--force[Skip confirmation prompt]' \
     '*:file:_files'
-}
-
-_hulak_completion() {
-  _arguments \
-    '1: :_hulak_completion_subs'
-}
-
-_hulak_completion_subs() {
-  local -a subs=(
-    'bash:Print the bash completion script'
-    'zsh:Print the zsh completion script'
-  )
-  _describe -t commands 'completion subcommand' subs
 }
 
 _hulak_envs() {

@@ -1,4 +1,3 @@
-// Package userflags have everything related to user's flags & subcommands
 package userflags
 
 import (

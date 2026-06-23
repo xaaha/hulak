@@ -70,59 +70,86 @@ Zsh requires `autoload -Uz compinit && compinit` in your `.zshrc`.
 
 ```bash
 mkdir my-apis && cd my-apis
-hulak init                                            # creates .hulak/store.age + identity
-hulak secrets set Url https://api.example.com/v1 --env prod
+hulak init # creates .hulak/store.age + identity
 ```
 
-Scaffold a starter request (runs as-is against a public test API):
+Scaffold a starter request, to quickly check how a request file looks run:
 
 ```bash
-hulak example api                                     # writes example-api.hk.yaml
+hulak example api  # writes example-api.hk.yaml you can run
 ```
 
-Other types: `hulak example formdata`, `hulak example graphql` (alias `gql`), `hulak example auth`, `hulak example options` (reference card).
+> [!Note]
+> For Other types run: `hulak example`. `example` sub-command gives you a quick way to write a request file you can modify. For more info run `hulak example -h`
 
-Or write your own:
+To set up a secret you can run:
+
+```bash
+hulak secrets keys set placeholder  https://jsonplaceholder.typicode.com/posts -env prod
+
+```
+
+Now, in your `example-api.hk.yaml` file, you can reference this secret:
 
 ```yaml
-# test.hk.yaml
-method: Get
-url: "{{.Url}}/health"
+method: POST
+url: "{{.placeholder}}"
+# rest of the body of the file remains same
 ```
 
-Run it:
+Run the request:
 
 ```bash
-hulak run test.hk.yaml --env prod
-hulak run ./requests/                                 # whole directory, concurrent
-hulak                                                 # interactive picker
+hulak run example-api.hk.yaml --env prod
 ```
 
-See [docs/store.md](./docs/store.md) for the full encryption model.
-
-### Path B. Just the secrets store
-
-If you only want the vault piece, the same `init` command works. Skip writing `.hk.yaml` files:
-
-```bash
-mkdir my-secrets && cd my-secrets
-hulak init
-hulak secrets set DATABASE_URL postgres://... --env prod
-hulak secrets add-recipient --github alice --name Alice   # share with a teammate
-git add .hulak/ && git commit -m "add prod secrets"
-```
-
-### Migrating from an older `env/` setup?
-
-See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
-
-### Prefer plaintext `env/` files?
+### Prefer plaintext `env/*.env` files instead of encrypted secrets?
 
 ```bash
 hulak init classic
 ```
 
-Plaintext mode is fully supported for throwaway projects, or when secrets live entirely outside hulak. See [docs/environment.md](./docs/environment.md).
+Plaintext mode is fully supported. See [docs/environment.md](./docs/environment.md) for more info
+
+## Encrypted Secrets Vault Or Plaintext `.env` files
+
+Hulak runs in two modes. Pick once during `hulak init`. You can migrate later.
+
+- **Vault (default):** secrets live in `.hulak/store.age`, encrypted with an age or SSH keypair. Safe to commit. Teams share via a recipients file. See [docs/store.md](./docs/store.md).
+- **Plaintext:** secrets live in plaintext `env/*.env` files. Simpler, no encryption. Add `env/` to `.gitignore`. See [docs/environment.md](./docs/environment.md).
+
+Running classic and want to switch? See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
+
+## Commands
+
+| Command   | Purpose                                | Read more                                                  |
+| --------- | -------------------------------------- | ---------------------------------------------------------- |
+| `run`     | Execute request file(s) or a directory | [body.md](./docs/body.md), [actions.md](./docs/actions.md) |
+| `gql`     | GraphQL explorer TUI                   | [graphql-explorer.md](./docs/graphql-explorer.md)          |
+| `secrets` | Encrypted vault CRUD                   | [store.md](./docs/store.md)                                |
+| `init`    | Initialize a hulak project             | [store.md](./docs/store.md)                                |
+| `migrate` | Postman to hulak conversion            | [migrating-to-vault.md](./docs/migrating-to-vault.md)      |
+| `example` | Scaffold sample request files          | —                                                          |
+| `doctor`  | Check project health                   | —                                                          |
+| `version` | Print version                          | —                                                          |
+
+Run `hulak <command> --help` for flags and per-command examples.
+
+### Picker behavior
+
+Omitting `--env` opens an interactive picker.
+
+- `hulak run` and `hulak gql` only prompt when files reference `{{.key}}`.
+- `hulak secrets` subcommands prompt every time (except `secrets list`).
+- Non-interactive shells require `--env <name>`.
+
+## Common Pitfalls
+
+- **Never commit `~/.config/hulak/identity.txt`.** That is your private key. Mode 0600. Back it up first. See [docs/store.md#identity-backup](./docs/store.md#identity-backup).
+- **On `hulak init`, `-env` creates env files. It is a setup flag, not a runtime selector.** `hulak init -env staging prod` scaffolds two envs.
+- **`env` is an alias for `secrets`.** `hulak env list` works the same as `hulak secrets list`.
+- **GUI editors need a wait flag for `secrets edit`.** Use `EDITOR="code -w"` or `EDITOR="zed --wait"`. Without it the editor returns immediately and changes are lost.
+- **Merge conflicts on `store.age` need a recipe.** See [docs/versioning.md#merge-conflicts](./docs/versioning.md#merge-conflicts).
 
 ## Project layout
 
@@ -156,7 +183,6 @@ Read the full guide in [docs/graphql-explorer.md](./docs/graphql-explorer.md).
 
 Start here for the full reference:
 
-- [CLI Reference](./docs/cli.md)
 - [Encrypted Store](./docs/store.md). Encryption model, team sharing, CI.
 - [Migrating to the Vault](./docs/migrating-to-vault.md). From `env/` to `.hulak/`.
 - [Versioning Your Vault](./docs/versioning.md). Git workflow for secrets.
