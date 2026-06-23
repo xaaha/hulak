@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // TestCompletionScripts asserts the user-visible surface of both shells in
@@ -179,7 +181,7 @@ func TestBashChainWalker(t *testing.T) {
 
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "hulak.bash")
-	if err := os.WriteFile(scriptPath, script.Bytes(), 0o600); err != nil {
+	if err := os.WriteFile(scriptPath, script.Bytes(), utils.FilePer); err != nil {
 		t.Fatal(err)
 	}
 

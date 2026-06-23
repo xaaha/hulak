@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // GeneratedOutput is an additional generated artifact written by gendocs.
@@ -60,7 +61,7 @@ func NewGenDocs(rootFn func() *cli.Command, extraOutputs ...GeneratedOutput) *cl
 }
 
 func writeFile(path string, fn func(io.Writer)) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), utils.DirPer); err != nil {
 		return err
 	}
 	f, err := os.Create(path)
@@ -71,7 +72,10 @@ func writeFile(path string, fn func(io.Writer)) error {
 	return f.Close()
 }
 
-// findRepoRoot walks up from cwd looking for go.mod.
+// findRepoRoot walks up from cwd looking for go.mod — the hulak source
+// repo, not a user's project. (utils.FindProjectRoot is the runtime
+// equivalent that looks for .hulak/ or env/ in a user's tree; gendocs
+// only runs from inside this repo at codegen time.)
 func findRepoRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
