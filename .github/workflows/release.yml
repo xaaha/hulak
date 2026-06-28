@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - name: Regenerate docs and completions
+        # Belt-and-suspenders: even if the tag was cut without committed
+        # generated files, the archive references man/ and completions/.
+        # CI's docs-freshness job blocks PRs missing these, but tags
+        # cut by hand can skip CI — so generate here too.
+        run: go generate ./pkg/userFlags/...
       - name: Generate token for Homebrew tap
         uses: actions/create-github-app-token@v2
         id: app-token
@@ -34,3 +40,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PAT: ${{ steps.app-token.outputs.token }}
+      - name: Refresh release notes from .github/release.yml
+        # goreleaser creates the release with an empty body (its own
+        # changelog is disabled). This step regenerates the body using
+        # GitHub's auto-notes API, which groups merged PRs by label per
+        # .github/release.yml. Skipped on workflow_dispatch — that path
+        # uses --snapshot and doesn't publish a release.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --generate-notes

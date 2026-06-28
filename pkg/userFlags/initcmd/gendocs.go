@@ -12,18 +12,26 @@ import (
 	"strings"
 
 	"github.com/xaaha/hulak/pkg/userFlags/cli"
+	"github.com/xaaha/hulak/pkg/utils"
 )
+
+// GeneratedOutput is an additional generated artifact written by gendocs.
+type GeneratedOutput struct {
+	RelPath string
+	Write   func(io.Writer)
+}
 
 // NewGenDocs builds the hidden `hulak gendocs` command. The rootFn closure
 // is the top-level dispatcher's tree builder. gendocs walks it to render the
 // man page. Passed as a closure (rather than a baked-in *cli.Command) so the
-// page reflects the live tree at run time.
-func NewGenDocs(rootFn func() *cli.Command) *cli.Command {
+// page reflects the live tree at run time. extraOutputs lets the top-level
+// package register generated artifacts that depend on its command tree.
+func NewGenDocs(rootFn func() *cli.Command, extraOutputs ...GeneratedOutput) *cli.Command {
 	return &cli.Command{
 		Name:   "gendocs",
 		Hidden: true,
-		Short:  "Regenerate the hulak man page",
-		Long:   "Regenerate man/hulak.1 from the live command tree.\n\nRun this before tagging a release to keep the man page in sync with code.",
+		Short:  "Regenerate generated CLI artifacts",
+		Long:   "Regenerate man/hulak.1 and other generated CLI artifacts from the live command tree.\n\nRun this before tagging a release to keep generated files in sync with code.",
 		Run: func(_ []string) error {
 			repoRoot, err := findRepoRoot()
 			if err != nil {
@@ -31,12 +39,21 @@ func NewGenDocs(rootFn func() *cli.Command) *cli.Command {
 			}
 
 			cmdRoot := rootFn()
-			manPath := filepath.Join(repoRoot, "man", "hulak.1")
-
-			if err := writeFile(manPath, func(w io.Writer) { generateManPage(w, cmdRoot) }); err != nil {
-				return fmt.Errorf("writing %s: %w", manPath, err)
+			outputs := []GeneratedOutput{
+				{
+					RelPath: filepath.Join("man", "hulak.1"),
+					Write:   func(w io.Writer) { generateManPage(w, cmdRoot) },
+				},
 			}
-			fmt.Fprintf(os.Stderr, "wrote %s\n", manPath)
+			outputs = append(outputs, extraOutputs...)
+
+			for _, output := range outputs {
+				path := filepath.Join(repoRoot, output.RelPath)
+				if err := writeFile(path, output.Write); err != nil {
+					return fmt.Errorf("writing %s: %w", path, err)
+				}
+				fmt.Fprintf(os.Stderr, "wrote %s\n", path)
+			}
 
 			return nil
 		},
@@ -44,6 +61,9 @@ func NewGenDocs(rootFn func() *cli.Command) *cli.Command {
 }
 
 func writeFile(path string, fn func(io.Writer)) error {
+	if err := os.MkdirAll(filepath.Dir(path), utils.DirPer); err != nil {
+		return err
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -52,7 +72,10 @@ func writeFile(path string, fn func(io.Writer)) error {
 	return f.Close()
 }
 
-// findRepoRoot walks up from cwd looking for go.mod.
+// findRepoRoot walks up from cwd looking for go.mod — the hulak source
+// repo, not a user's project. (utils.FindProjectRoot is the runtime
+// equivalent that looks for .hulak/ or env/ in a user's tree; gendocs
+// only runs from inside this repo at codegen time.)
 func findRepoRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {

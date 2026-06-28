@@ -39,14 +39,35 @@ Browse schemas from multiple endpoints. Search operations. Build queries interac
 
 ### Install
 
+Hulak ships via [xaaha/tap](https://github.com/xaaha/homebrew-tap). Homebrew 6.0+ requires explicit trust for third-party taps; without it, `brew upgrade` silently skips hulak. One-time step per machine:
+
 ```bash
-brew install xaaha/tap/hulak
+brew trust xaaha/tap
+brew install --cask xaaha/tap/hulak
 ```
 
 Other install options:
 
 - `go install github.com/xaaha/hulak@latest`
 - Build from source with `go build -o hulak`
+
+#### Shell completion (go install / source builds)
+
+Homebrew installs completion automatically. If you installed via `go install`
+or built from source, opt in once:
+
+```bash
+# zsh
+hulak completion zsh > "${fpath[1]}/_hulak"        # then restart your shell
+
+# bash (macOS, Homebrew bash-completion)
+hulak completion bash > $(brew --prefix)/etc/bash_completion.d/hulak
+
+# bash (Linux)
+hulak completion bash | sudo tee /etc/bash_completion.d/hulak >/dev/null
+```
+
+Zsh requires `autoload -Uz compinit && compinit` in your `.zshrc`.
 
 ### Path A. API client with encrypted secrets (default)
 

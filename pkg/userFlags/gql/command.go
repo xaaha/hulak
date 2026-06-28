@@ -41,6 +41,7 @@ func New() *cli.Command {
 				Name:     "path",
 				Required: true,
 				Desc:     "File or directory containing GraphQL definitions",
+				Kind:     "yaml",
 			},
 		},
 	}

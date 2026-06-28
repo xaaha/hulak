@@ -77,7 +77,7 @@ func New() *cli.Command {
 		},
 		Flags: fs,
 		Args: []cli.ArgDef{
-			{Name: "path", Required: true, Desc: "File or directory to run"},
+			{Name: "path", Required: true, Desc: "File or directory to run", Kind: "yaml"},
 		},
 	}
 

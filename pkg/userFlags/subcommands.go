@@ -55,10 +55,15 @@ func subCommands() *cli.Command {
 		initcmd.New(),
 		example.New(),
 		newMigrateCmd(),
+		newCompletionCmd(),
 		doctor.New(),
 		gql.New(),
 		secrets.New(),
-		initcmd.NewGenDocs(subCommands),
+		initcmd.NewGenDocs(
+			subCommands,
+			initcmd.GeneratedOutput{RelPath: "completions/hulak.zsh", Write: generateZshCompletion},
+			initcmd.GeneratedOutput{RelPath: "completions/hulak.bash", Write: generateBashCompletion},
+		),
 		newHelpCmd(root),
 	}
 
@@ -95,7 +100,7 @@ func newMigrateCmd() *cli.Command {
 			},
 		},
 		Args: []cli.ArgDef{
-			{Name: "files", Required: true, Desc: "Postman JSON export files"},
+			{Name: "files", Required: true, Desc: "Postman JSON export files", Kind: "file"},
 		},
 		Run: migration.CompleteMigration,
 	}
