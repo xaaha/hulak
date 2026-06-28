@@ -40,3 +40,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_PAT: ${{ steps.app-token.outputs.token }}
+      - name: Refresh release notes from .github/release.yml
+        # goreleaser creates the release with an empty body (its own
+        # changelog is disabled). This step regenerates the body using
+        # GitHub's auto-notes API, which groups merged PRs by label per
+        # .github/release.yml. Skipped on workflow_dispatch — that path
+        # uses --snapshot and doesn't publish a release.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --generate-notes

@@ -52,9 +52,8 @@ homebrew_casks:
     caveats: |
       The binary is not signed or notarized. macOS quarantine has been automatically removed.
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+  # GitHub generates the release body from .github/release.yml after this
+  # workflow runs (see the "Refresh release notes" step in release.yml).
+  # Disable goreleaser's own commit-based changelog so it doesn't get
+  # overwritten on every release.
+  disable: true
