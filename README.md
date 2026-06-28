@@ -39,8 +39,11 @@ Browse schemas from multiple endpoints. Search operations. Build queries interac
 
 ### Install
 
+Hulak ships via [xaaha/tap](https://github.com/xaaha/homebrew-tap). Homebrew 6.0+ requires explicit trust for third-party taps; without it, `brew upgrade` silently skips hulak. One-time step per machine:
+
 ```bash
-brew install xaaha/tap/hulak
+brew trust xaaha/tap
+brew install --cask xaaha/tap/hulak
 ```
 
 Other install options:
