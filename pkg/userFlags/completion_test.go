@@ -2,12 +2,14 @@ package userflags
 
 import (
 	"bytes"
+	"flag"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cli"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -164,6 +166,88 @@ func TestNoFileCompletionForOpaquePositionals(t *testing.T) {
 		body := zshStr[idx : idx+end]
 		if strings.Contains(body, "*:file:_files") || strings.Contains(body, "_files -g") {
 			t.Errorf("zsh %s should not suggest filesystem paths: %s", fn, body)
+		}
+	}
+}
+
+// TestNoFlagNameTypeCollisions guards the bash chain walker's single global
+// value-flag set. New collisions must be renamed or allowlisted below.
+func TestNoFlagNameTypeCollisions(t *testing.T) {
+	allowlist := map[string]string{
+		"f":   "root --file (string) vs secrets backup/restore --force (bool); next slot wants file completion anyway",
+		"env": "init --env (bool) vs run/gql/secrets --env (string); harmless because _hulak_envs returns empty pre-init",
+	}
+
+	seen := map[string]map[string][]string{} // name -> kind -> command paths
+
+	var walk func(cmd *cli.Command, path string)
+	walk = func(cmd *cli.Command, path string) {
+		if cmd.Flags != nil {
+			cmd.Flags.VisitAll(func(f *flag.Flag) {
+				if cli.HiddenFlags[f.Name] {
+					return
+				}
+				kind := "value"
+				if f.DefValue == "true" || f.DefValue == "false" {
+					kind = "bool"
+				}
+				if seen[f.Name] == nil {
+					seen[f.Name] = map[string][]string{}
+				}
+				seen[f.Name][kind] = append(seen[f.Name][kind], path)
+			})
+		}
+		for _, sub := range cmd.VisibleSubs() {
+			walk(sub, path+" "+sub.Name)
+		}
+	}
+	walk(subCommands(), "hulak")
+
+	for name, kinds := range seen {
+		if len(kinds) < 2 {
+			continue
+		}
+		if _, ok := allowlist[name]; ok {
+			continue
+		}
+		t.Errorf(
+			"flag %q registered as both bool %v and value-taker %v; "+
+				"bash walker uses one global value-flag set so the wrong "+
+				"type will be assumed in one scope. Rename one site or "+
+				"add %q to the allowlist in this test with a justification.",
+			name, kinds["bool"], kinds["value"], name,
+		)
+	}
+}
+
+// TestBashCompgenPayloadsAreSafe guards against shell-meta characters
+// (`$`, backtick, backslash) leaking into compgen -W word lists. The
+// generator uses Go's %q which produces double-quoted strings; bash
+// expands $ and backtick inside double quotes, so any name containing
+// those would either mangle or execute at tab time.
+func TestBashCompgenPayloadsAreSafe(t *testing.T) {
+	var buf bytes.Buffer
+	generateBashCompletion(&buf)
+
+	for i, line := range strings.Split(buf.String(), "\n") {
+		idx := strings.Index(line, `compgen -W "`)
+		if idx < 0 {
+			continue
+		}
+		start := idx + len(`compgen -W "`)
+		end := strings.Index(line[start:], `"`)
+		if end < 0 {
+			continue
+		}
+		payload := line[start : start+end]
+		// _hulak_envs uses $(...) substitution by design; not a literal payload.
+		if strings.Contains(payload, "_hulak_envs") {
+			continue
+		}
+		for _, bad := range []string{"$", "`", "\\"} {
+			if strings.Contains(payload, bad) {
+				t.Errorf("line %d: compgen -W payload contains %q (shell-meta): %s", i+1, bad, payload)
+			}
 		}
 	}
 }
