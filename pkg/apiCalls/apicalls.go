@@ -21,7 +21,11 @@ var DefaultClient httpclient.HTTPClient = httpclient.New()
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
-func StandardCall(ctx context.Context, apiInfo yamlparser.APIInfo, debug bool) (CustomResponse, error) {
+func StandardCall(
+	ctx context.Context,
+	apiInfo yamlparser.APIInfo,
+	debug bool,
+) (CustomResponse, error) {
 	return StandardCallWithClient(ctx, apiInfo, debug, DefaultClient)
 }
 
@@ -116,11 +120,16 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 		return nil, "", err
 	}
 
-	respBytes, saveErr := SerializeAndSaveResp(&resp, opts.Path)
 	status := ""
 	if resp.Response != nil {
 		status = resp.Response.Status
 	}
+
+	if opts.NoSave {
+		return SerializeResp(&resp), status, nil
+	}
+
+	respBytes, saveErr := SerializeAndSaveResp(&resp, opts.Path)
 	return respBytes, status, saveErr
 }
 
@@ -136,25 +145,32 @@ func PrintAndSaveFinalResp(resp *CustomResponse, path string) error {
 	return saveErr
 }
 
+// SerializeResp returns the response bytes used for output and saving,
+// without touching disk. Callers that only want the response in-hand (e.g.
+// the MCP call_request tool with NoSave) use this directly.
+//
+// Default: raw response body (JSON pretty-printed, others byte-perfect).
+// --debug: full CustomResponse marshaled as JSON, falling back to a %+v dump
+// if marshaling fails so the caller still gets something useful.
+func SerializeResp(resp *CustomResponse) []byte {
+	if resp.isDebug() {
+		jsonData, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			utils.PrintWarningStderr("serializing response: " + err.Error())
+			return []byte(fmt.Sprintf("%+v", resp))
+		}
+		return jsonData
+	}
+	return defaultBodyForOutput(resp.rawBody)
+}
+
 // SerializeAndSaveResp writes the response to disk next to the request
 // file and returns the bytes. Does not print.
 //
 // Default: raw response body (JSON pretty-printed, others byte-perfect).
 // --debug: full CustomResponse (request, response, http_info, duration).
 func SerializeAndSaveResp(resp *CustomResponse, path string) ([]byte, error) {
-	if resp.isDebug() {
-		jsonData, err := json.MarshalIndent(resp, "", "  ")
-		if err != nil {
-			utils.PrintWarningStderr("serializing response: " + err.Error())
-			// Fallback so the disk write still has something useful.
-			strBody := fmt.Sprintf("%+v", resp)
-			return []byte(strBody), evalAndWriteRes(strBody, resp.contentType, path)
-		}
-		strBody := string(jsonData)
-		return jsonData, evalAndWriteRes(strBody, resp.contentType, path)
-	}
-
-	body := defaultBodyForOutput(resp.rawBody)
+	body := SerializeResp(resp)
 	if len(body) == 0 {
 		// 204 No Content and friends: nothing to print or save.
 		return body, nil

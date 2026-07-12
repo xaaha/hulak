@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -767,4 +768,55 @@ func readFile(t *testing.T, path string) (string, error) {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	return string(b), err
+}
+
+// TestSendAndSaveAPIRequest_NoSave verifies NoSave returns the response bytes
+// without writing the {name}_response.json file, while the default still
+// writes it. Runs against a local httptest server via the real HTTP path.
+func TestSendAndSaveAPIRequest_NoSave(t *testing.T) {
+	server := NewMockServer(http.StatusOK, `{"ok":true}`)
+	defer server.Close()
+
+	tests := []struct {
+		name     string
+		noSave   bool
+		wantFile bool
+	}{
+		{"NoSave skips response file", true, false},
+		{"default writes response file", false, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "req.hk.yaml")
+			doc := "---\nkind: API\nmethod: GET\nurl: " + server.URL + "\n"
+			if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			respBytes, status, err := SendAndSaveAPIRequest(context.Background(), RequestOptions{
+				Secrets: map[string]any{},
+				Path:    path,
+				NoSave:  tc.noSave,
+			})
+			if err != nil {
+				t.Fatalf("SendAndSaveAPIRequest: %v", err)
+			}
+			if status != "200 OK" {
+				t.Errorf("status = %q, want 200 OK", status)
+			}
+			if !strings.Contains(string(respBytes), `"ok": true`) {
+				t.Errorf("response bytes should contain the (pretty-printed) body, got:\n%s", respBytes)
+			}
+
+			matches, err := filepath.Glob(filepath.Join(dir, "*_response.*"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gotFile := len(matches) > 0; gotFile != tc.wantFile {
+				t.Errorf("response file written = %v, want %v (matches: %v)", gotFile, tc.wantFile, matches)
+			}
+		})
+	}
 }
