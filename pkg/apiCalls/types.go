@@ -10,6 +10,10 @@ type RequestOptions struct {
 	Debug   bool
 	DryRun  bool
 	Show    bool
+	// NoSave skips writing the {name}_response.json file after a successful
+	// call. The response bytes are still returned. Used by callers that only
+	// want the response in-hand (e.g. the MCP call_request tool), not on disk.
+	NoSave bool
 }
 
 // CustomResponse is structure of the result to print and save
