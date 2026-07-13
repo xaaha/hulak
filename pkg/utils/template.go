@@ -36,22 +36,74 @@ func fileHasTemplateVars(filePath string, visited map[string]bool) bool {
 		return true
 	}
 
-	parentDir := filepath.Dir(resolvedPath)
-	for _, path := range extractGetFileArgs(string(content)) {
-		if path == "" {
-			continue
-		}
-		// Resolve getFile paths relative to the parent file's directory
-		refPath := path
-		if !filepath.IsAbs(path) {
-			refPath = filepath.Join(parentDir, path)
-		}
+	for _, refPath := range getFileRefs(string(content), resolvedPath) {
 		if fileHasTemplateVars(refPath, visited) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// getFileRefs returns the {{getFile "path"}} references in content, resolved
+// relative to currentFile's directory. Absolute paths and empty args pass
+// through unchanged. #150's {{queryFile}} extends this.
+func getFileRefs(content, currentFile string) []string {
+	parentDir := filepath.Dir(currentFile)
+	args := extractGetFileArgs(content)
+	refs := make([]string, 0, len(args))
+	for _, path := range args {
+		if path == "" {
+			continue
+		}
+		if filepath.IsAbs(path) {
+			refs = append(refs, path)
+			continue
+		}
+		refs = append(refs, filepath.Join(parentDir, path))
+	}
+	return refs
+}
+
+// ReferencedFiles returns the files a request pulls in via {{getFile}},
+// resolved to absolute paths, followed transitively, and de-duplicated in
+// first-seen order. Surfaces the query/body files (e.g. a GraphQL .gql) that
+// live apart from the request.
+//
+// Errors only when filePath itself can't be resolved or read. A referenced
+// file that doesn't exist yet is still listed but not recursed into.
+func ReferencedFiles(filePath string) ([]string, error) {
+	resolvedPath, err := resolveFilePath(filePath)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{resolvedPath: true}
+	var deps []string
+	collectFileRefs(resolvedPath, seen, &deps)
+	return deps, nil
+}
+
+// collectFileRefs appends resolvedPath's referenced files to deps and recurses
+// into readable ones. seen guards against cycles and duplicates.
+func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) {
+	content, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		return
+	}
+	for _, refPath := range getFileRefs(string(content), resolvedPath) {
+		// Resolve so dedup and recursion key on the real file; fall back to
+		// the cleaned ref when the file does not exist yet.
+		resolved, err := resolveFilePath(refPath)
+		if err != nil {
+			resolved = filepath.Clean(refPath)
+		}
+		if seen[resolved] {
+			continue
+		}
+		seen[resolved] = true
+		*deps = append(*deps, resolved)
+		collectFileRefs(resolved, seen, deps)
+	}
 }
 
 // MapHasEnvVars recursively checks if any string value in the map

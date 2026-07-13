@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -129,6 +130,89 @@ func buildGetFileContentNoQuotes(path string) string {
 
 func buildGetValueOfContent(key, fileName string) string {
 	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"" + key + "\" \"" + fileName + "\"}}'\n"
+}
+
+func TestReferencedFiles(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// A request referencing a separate .gql query file.
+	writeFile(t, filepath.Join(tempDir, "queries", "GetUser.gql"), "query { user { id } }")
+	reqWithGql := filepath.Join(tempDir, "getUser.hk.yaml")
+	writeFile(t, reqWithGql, buildGetFileContent("queries/GetUser.gql"))
+
+	// A request with no getFile references.
+	reqNoDeps := filepath.Join(tempDir, "plain.hk.yaml")
+	writeFile(t, reqNoDeps, "---\nkind: API\nmethod: GET\nurl: http://example.com\n")
+
+	// A request whose .gql itself references another file (transitive).
+	writeFile(t, filepath.Join(tempDir, "frag", "inner.gql"), "fragment F on User { id }")
+	writeFile(t, filepath.Join(tempDir, "frag", "outer.gql"),
+		"query { ...F } {{"+TemplateFuncGetFile+" \"inner.gql\"}}")
+	reqNested := filepath.Join(tempDir, "nested.hk.yaml")
+	writeFile(t, reqNested, buildGetFileContent("frag/outer.gql"))
+
+	// A request referencing a .gql that does not exist yet.
+	reqMissing := filepath.Join(tempDir, "missing.hk.yaml")
+	writeFile(t, reqMissing, buildGetFileContent("queries/DoesNotExist.gql"))
+
+	tests := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{
+			name: "single gql dependency",
+			path: reqWithGql,
+			want: []string{filepath.Join(tempDir, "queries", "GetUser.gql")},
+		},
+		{
+			name: "no dependencies",
+			path: reqNoDeps,
+			want: nil,
+		},
+		{
+			name: "transitive dependency is followed",
+			path: reqNested,
+			want: []string{
+				filepath.Join(tempDir, "frag", "outer.gql"),
+				filepath.Join(tempDir, "frag", "inner.gql"),
+			},
+		},
+		{
+			name: "missing referenced file is still surfaced",
+			path: reqMissing,
+			want: []string{filepath.Join(tempDir, "queries", "DoesNotExist.gql")},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ReferencedFiles(tc.path)
+			if err != nil {
+				t.Fatalf("ReferencedFiles(%q): unexpected error: %v", tc.path, err)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("ReferencedFiles(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestReferencedFiles_NonexistentRequestFile(t *testing.T) {
+	if _, err := ReferencedFiles("/nonexistent/path/req.hk.yaml"); err == nil {
+		t.Error("expected error for nonexistent request file, got nil")
+	}
+}
+
+// writeFile writes content to path, creating parent directories as needed.
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), DirPer); err != nil {
+		t.Fatalf("MkdirAll %q: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), FilePer); err != nil {
+		t.Fatalf("WriteFile %q: %v", path, err)
+	}
 }
 
 func TestResolveFilePath(t *testing.T) {
