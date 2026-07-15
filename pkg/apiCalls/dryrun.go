@@ -15,6 +15,22 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
+// DryRun builds the request at opts.Path (resolving templates with
+// opts.Secrets) and returns its formatted wire representation as a string,
+// without sending anything. opts.Show controls sensitive-header masking. Used
+// by non-terminal callers such as the MCP dry_run tool.
+func DryRun(opts RequestOptions) (string, error) {
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return "", err
+	}
+	apiInfo, err := apiConfig.PrepareStruct()
+	if err != nil {
+		return "", err
+	}
+	return FormatDryRun(&apiInfo, opts.Show)
+}
+
 // PrintDryRun writes the fully-built request to stdout and returns. It
 // performs no I/O — no transport, no response file, no follow-up. Use to
 // verify the wire shape of a request before sending it.

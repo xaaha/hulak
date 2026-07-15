@@ -7,8 +7,10 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -22,6 +24,7 @@ type Server struct {
 	projects       map[string]string // name -> absolute project directory
 	defaultProject string            // name in projects, or "" if unset
 	srv            *mcpsdk.Server
+	mu             sync.Mutex // serializes withProjectDir
 }
 
 // Match is a resolved request: the file and the project it was found in.
@@ -58,7 +61,26 @@ func NewServer(projects map[string]string, defaultProject, version string) (*Ser
 	}, nil)
 	s := &Server{projects: resolved, defaultProject: defaultProject, srv: srv}
 	s.registerListRequests()
+	s.registerDryRun()
 	return s, nil
+}
+
+// withProjectDir runs fn with the process working directory set to root,
+// restoring it afterward. Serialized by mu: hulak's secret loading and
+// getFile/getValueOf resolution key off the working directory, so only one
+// request may hold it at a time.
+func (s *Server) withProjectDir(root string, fn func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prev, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := os.Chdir(root); err != nil {
+		return fmt.Errorf("entering project %s: %w", root, err)
+	}
+	defer func() { _ = os.Chdir(prev) }()
+	return fn()
 }
 
 // Projects returns the resolved name->path map. Used for the startup identity
