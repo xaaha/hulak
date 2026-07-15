@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandleCallRequest(t *testing.T) {
@@ -44,23 +45,23 @@ func TestHandleCallRequest(t *testing.T) {
 		}
 	})
 
-	t.Run("no_save skips the response file", func(t *testing.T) {
-		api, s := newProjectWithReq(t)
-		if _, _, err := s.handleCallRequest(ctx, nil, callRequestInput{Name: "ping", Env: "global", NoSave: true}); err != nil {
-			t.Fatal(err)
-		}
-		if matches, _ := filepath.Glob(filepath.Join(api, "*_response.*")); len(matches) != 0 {
-			t.Errorf("no_save should write no response file, found: %v", matches)
-		}
-	})
-
-	t.Run("default saves the response file", func(t *testing.T) {
+	t.Run("does not save by default", func(t *testing.T) {
 		api, s := newProjectWithReq(t)
 		if _, _, err := s.handleCallRequest(ctx, nil, callRequestInput{Name: "ping", Env: "global"}); err != nil {
 			t.Fatal(err)
 		}
+		if matches, _ := filepath.Glob(filepath.Join(api, "*_response.*")); len(matches) != 0 {
+			t.Errorf("agent call should not write a response file by default, found: %v", matches)
+		}
+	})
+
+	t.Run("save=true writes the response file", func(t *testing.T) {
+		api, s := newProjectWithReq(t)
+		if _, _, err := s.handleCallRequest(ctx, nil, callRequestInput{Name: "ping", Env: "global", Save: true}); err != nil {
+			t.Fatal(err)
+		}
 		if matches, _ := filepath.Glob(filepath.Join(api, "*_response.*")); len(matches) == 0 {
-			t.Error("default should write a response file")
+			t.Error("save=true should write a response file")
 		}
 	})
 
@@ -88,7 +89,7 @@ func TestHandleCallRequest_Debug(t *testing.T) {
 	}
 
 	_, out, err := s.handleCallRequest(context.Background(), nil,
-		callRequestInput{Name: "ping", Env: "global", Debug: true, NoSave: true})
+		callRequestInput{Name: "ping", Env: "global", Debug: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,4 +99,47 @@ func TestHandleCallRequest_Debug(t *testing.T) {
 			t.Errorf("debug body missing %s, got:\n%s", want, out.Body)
 		}
 	}
+}
+
+func TestHandleCallRequest_Timeout(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer slow.Close()
+
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "slow.hk.yaml"), "kind: API\nmethod: GET\nurl: "+slow.URL+"\n")
+	s, err := NewServer(map[string]string{"api": api}, "", "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	t.Run("short timeout aborts the call", func(t *testing.T) {
+		_, _, err := s.handleCallRequest(ctx, nil,
+			callRequestInput{Name: "slow", Env: "global", Timeout: "50ms"})
+		if err == nil {
+			t.Error("expected timeout error for a slow request")
+		}
+	})
+
+	t.Run("ample timeout succeeds", func(t *testing.T) {
+		_, out, err := s.handleCallRequest(ctx, nil,
+			callRequestInput{Name: "slow", Env: "global", Timeout: "5s"})
+		if err != nil {
+			t.Fatalf("expected success with ample timeout, got: %v", err)
+		}
+		if out.Status == "" {
+			t.Error("expected a status")
+		}
+	})
+
+	t.Run("invalid timeout string errors", func(t *testing.T) {
+		_, _, err := s.handleCallRequest(ctx, nil,
+			callRequestInput{Name: "slow", Env: "global", Timeout: "nope"})
+		if err == nil {
+			t.Error("expected error for invalid timeout")
+		}
+	})
 }
