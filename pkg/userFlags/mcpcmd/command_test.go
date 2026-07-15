@@ -8,7 +8,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	cmd := New("v1.2.3")
+	cmd := New("v1.2.3", nil)
 	if cmd.Name != "mcp" {
 		t.Errorf("Name = %q, want mcp", cmd.Name)
 	}

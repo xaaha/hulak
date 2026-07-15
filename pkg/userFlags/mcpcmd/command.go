@@ -42,8 +42,9 @@ func (p projectMap) Set(v string) error {
 }
 
 // New builds the `hulak mcp` command. version threads the build version into
-// the MCP handshake so clients can report it.
-func New(version string) *cli.Command {
+// the MCP handshake; schemaJSON is the request schema used to validate
+// write_request content.
+func New(version string, schemaJSON []byte) *cli.Command {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	projects := projectMap{}
 	fs.Var(
@@ -85,6 +86,7 @@ func New(version string) *cli.Command {
 		if err != nil {
 			return err
 		}
+		srv.SetRequestSchema(schemaJSON)
 		if err := requireIdentity(srv.Projects()); err != nil {
 			return err
 		}

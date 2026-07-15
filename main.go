@@ -2,6 +2,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 
@@ -13,7 +14,15 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
+// requestSchemaJSON is the canonical hulak request schema, embedded so the
+// MCP write_request tool can validate content without a filesystem lookup.
+//
+//go:embed assets/schema.json
+var requestSchemaJSON []byte
+
 func main() {
+	userflags.SetRequestSchema(requestSchemaJSON)
+
 	// Subcommands and root file/dir flags handle execution directly
 	// inside ParseFlagsSubcmds. It only returns here for interactive mode.
 	flags, err := userflags.ParseFlagsSubcmds()

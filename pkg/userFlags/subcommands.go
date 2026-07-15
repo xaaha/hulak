@@ -59,7 +59,7 @@ func subCommands() *cli.Command {
 		newCompletionCmd(),
 		doctor.New(),
 		gql.New(),
-		mcpcmd.New(version),
+		mcpcmd.New(version, requestSchema),
 		secrets.New(),
 		initcmd.NewGenDocs(
 			subCommands,

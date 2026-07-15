@@ -6,12 +6,14 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -24,7 +26,29 @@ type Server struct {
 	projects       map[string]string // name -> absolute project directory
 	defaultProject string            // name in projects, or "" if unset
 	srv            *mcpsdk.Server
-	mu             sync.Mutex // serializes withProjectDir
+	reqSchema      *jsonschema.Resolved // request-file schema; nil = skip schema validation
+	mu             sync.Mutex           // serializes withProjectDir
+}
+
+// SetRequestSchema compiles schemaJSON (the hulak request JSON Schema) and uses
+// it to validate write_request content. Best-effort: an empty or unparseable
+// schema is skipped with a warning rather than failing startup — write_request
+// then falls back to a basic YAML-mapping check.
+func (s *Server) SetRequestSchema(schemaJSON []byte) {
+	if len(schemaJSON) == 0 {
+		return
+	}
+	var sc jsonschema.Schema
+	if err := json.Unmarshal(schemaJSON, &sc); err != nil {
+		utils.PrintWarningStderr("mcp: request schema ignored (unparseable): " + err.Error())
+		return
+	}
+	resolved, err := sc.Resolve(nil)
+	if err != nil {
+		utils.PrintWarningStderr("mcp: request schema ignored (unresolvable): " + err.Error())
+		return
+	}
+	s.reqSchema = resolved
 }
 
 // Match is a resolved request: the file and the project it was found in.
@@ -63,6 +87,7 @@ func NewServer(projects map[string]string, defaultProject, version string) (*Ser
 	s.registerListRequests()
 	s.registerDryRun()
 	s.registerCallRequest()
+	s.registerWriteRequest()
 	return s, nil
 }
 
