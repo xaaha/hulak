@@ -3,6 +3,7 @@ package yamlparser
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -67,6 +68,23 @@ func (c *ConfigType) ParsedTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("timeout must be positive, got %q", c.Timeout)
 	}
 	return d, nil
+}
+
+// PeekKind reads only the `kind` field from a request file, without resolving
+// templates or secrets. Returns the normalized Kind (defaulting to API when
+// absent). Use it to classify a file for listing/routing without a full parse.
+func PeekKind(filePath string) (Kind, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	var meta struct {
+		Kind Kind `yaml:"kind"`
+	}
+	if err := yaml.Unmarshal(content, &meta); err != nil {
+		return "", err
+	}
+	return meta.Kind.normalize(), nil
 }
 
 // normalize resolves case insensitivity and defaulting.
