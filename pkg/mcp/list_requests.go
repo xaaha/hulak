@@ -3,14 +3,13 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/goccy/go-yaml"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // RequestSummary describes one request file for the list_requests tool.
@@ -89,25 +88,20 @@ func listProjectRequests(project, root string) ([]RequestSummary, error) {
 			Name:    utils.RequestStem(filepath.Base(f)),
 			Project: project,
 			Path:    f,
-			Kind:    readKind(f),
+			Kind:    requestKind(f),
 			Deps:    deps,
 		})
 	}
 	return out, nil
 }
 
-// readKind extracts the top-level `kind` field without full template
-// resolution. Returns "" when absent or unreadable — kind is informational.
-func readKind(path string) string {
-	content, err := os.ReadFile(path)
+// requestKind returns the file's kind (API/GraphQL/Auth), best-effort: "" when
+// it can't be read. PeekKind reads only the kind field, so template vars and
+// getFile references do not block the listing.
+func requestKind(path string) string {
+	k, err := yamlparser.PeekKind(path)
 	if err != nil {
 		return ""
 	}
-	var meta struct {
-		Kind string `yaml:"kind"`
-	}
-	if err := yaml.Unmarshal(content, &meta); err != nil {
-		return ""
-	}
-	return meta.Kind
+	return string(k)
 }
