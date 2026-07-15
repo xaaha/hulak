@@ -123,6 +123,27 @@ Hulak runs in two modes. Pick once during `hulak init`. You can migrate later.
 
 Running classic and want to switch? See [docs/migrating-to-vault.md](./docs/migrating-to-vault.md).
 
+## Use it from an AI agent (MCP)
+
+Hulak ships a built-in [MCP](https://modelcontextprotocol.io) server, so agents like Claude Code, Cursor, and Zed can drive your API collection in plain language — "list the requests", "dry-run `login` against staging", "call `getUser` and show the response".
+
+Point your client at hulak:
+
+```json
+{
+  "mcpServers": {
+    "hulak": {
+      "command": "hulak",
+      "args": ["mcp", "--project", "api=~/work/api-tests"]
+    }
+  }
+}
+```
+
+Secrets never leave your machine: the agent works with request and environment **names**, never decrypted values. Reads and dry-runs are read-only; writes are schema-validated; response files aren't saved unless asked.
+
+Full setup, tool reference, and safety model: [docs/mcp.md](./docs/mcp.md).
+
 ## Commands
 
 | Command   | Purpose                                | Read more                                                  |
@@ -134,6 +155,7 @@ Running classic and want to switch? See [docs/migrating-to-vault.md](./docs/migr
 | `migrate` | Postman to hulak conversion            | [migrating-to-vault.md](./docs/migrating-to-vault.md)      |
 | `example` | Scaffold sample request files          | —                                                          |
 | `doctor`  | Check project health                   | —                                                          |
+| `mcp`     | Serve requests to AI agents over MCP   | [mcp.md](./docs/mcp.md)                                    |
 | `version` | Print version                          | —                                                          |
 
 Run `hulak <command> --help` for flags and per-command examples.
@@ -196,6 +218,7 @@ Start here for the full reference:
 - [Response Files](./docs/response.md)
 - [GraphQL Explorer](./docs/graphql-explorer.md)
 - [Auth 2.0](./docs/auth20.md)
+- [MCP Server](./docs/mcp.md). Expose your requests to AI agents.
 
 For the live command surface, run:
 
