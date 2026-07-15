@@ -192,12 +192,14 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 
 	fileExtensions := []string{YAML, YML, JSON}
 
-	// Get base name by removing any supported extension
+	// Get base name by removing any supported extension. The .hk marker is
+	// stripped after the yaml/yml suffix so "login.hk.yaml" reduces to "login"
+	// and `-f login` finds it (not just `-f login.hk`).
 	baseName := matchFile
 	for _, ext := range fileExtensions {
 		baseName = strings.TrimSuffix(baseName, ext)
 	}
-	baseName = strings.ToLower(baseName)
+	baseName = strings.TrimSuffix(strings.ToLower(baseName), ProjectExt)
 
 	// Determine the start path
 	startPath := ""
@@ -237,6 +239,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			for _, ext := range fileExtensions {
 				fileBaseName = strings.TrimSuffix(fileBaseName, ext)
 			}
+			fileBaseName = strings.TrimSuffix(fileBaseName, ProjectExt)
 
 			// If base names match, add to results
 			if fileBaseName == baseName {

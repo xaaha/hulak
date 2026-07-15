@@ -412,6 +412,7 @@ func TestListMatchingFiles(t *testing.T) {
 		{filepath.Join(tempDir, "regular_dir", "nested_dir", "config.yml"), "deeply nested yml"},
 		{filepath.Join(tempDir, ".hidden_dir", "config.json"), "hidden json"},
 		{filepath.Join(tempDir, ".config.json"), "hidden json file"},
+		{filepath.Join(tempDir, "login.hk.yaml"), "hk request"},
 	}
 
 	for _, tf := range testFiles {
@@ -429,6 +430,30 @@ func TestListMatchingFiles(t *testing.T) {
 		expectedError  bool
 		checkFilePaths func(t *testing.T, paths []string)
 	}{
+		{
+			name:          "Match .hk.yaml by bare stem",
+			matchFile:     "login",
+			initialPath:   tempDir,
+			expectedCount: 1,
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if len(paths) == 1 && !strings.HasSuffix(paths[0], "login.hk.yaml") {
+					t.Errorf("expected login.hk.yaml, got %v", paths)
+				}
+			},
+		},
+		{
+			name:          "Match .hk.yaml by full .hk stem",
+			matchFile:     "login.hk",
+			initialPath:   tempDir,
+			expectedCount: 1,
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if len(paths) == 1 && !strings.HasSuffix(paths[0], "login.hk.yaml") {
+					t.Errorf("expected login.hk.yaml, got %v", paths)
+				}
+			},
+		},
 		{
 			name:          "Match config files",
 			matchFile:     "config",
