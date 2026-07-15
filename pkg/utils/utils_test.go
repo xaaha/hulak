@@ -995,3 +995,65 @@ func TestAtomicWriteFile(t *testing.T) {
 		}
 	})
 }
+
+func TestExpandPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+
+	t.Run("tilde slash expands to home", func(t *testing.T) {
+		got, err := ExpandPath("~/work/api")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := filepath.Join(home, "work", "api"); got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("bare tilde expands to home", func(t *testing.T) {
+		got, err := ExpandPath("~")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != home {
+			t.Errorf("got %q, want %q", got, home)
+		}
+	})
+
+	t.Run("absolute path unchanged", func(t *testing.T) {
+		got, err := ExpandPath("/etc/hosts")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "/etc/hosts" {
+			t.Errorf("got %q, want /etc/hosts", got)
+		}
+	})
+
+	t.Run("relative path made absolute", func(t *testing.T) {
+		got, err := ExpandPath("sub/dir")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !filepath.IsAbs(got) {
+			t.Errorf("got %q, want absolute", got)
+		}
+	})
+}
+
+func TestExpandPath_TildeWithoutSeparatorIsLiteral(t *testing.T) {
+	// "~data" has no separator after ~, so it is a literal filename, not home.
+	got, err := ExpandPath("~data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	if got == filepath.Join(home, "data") {
+		t.Errorf("~data should not expand to home, got %q", got)
+	}
+	if !strings.HasSuffix(got, "~data") {
+		t.Errorf("~data should stay literal, got %q", got)
+	}
+}

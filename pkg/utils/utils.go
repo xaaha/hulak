@@ -261,6 +261,27 @@ func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
+// ExpandPath resolves a leading ~ to the home directory and returns an
+// absolute, cleaned path.
+//
+// ~ is not native on Windows — hulak supports it as a convention. A separator
+// must follow (~/ always, plus the native ~\ on Windows) so a real file named
+// "~data" is left alone. os.UserHomeDir yields %USERPROFILE% on Windows.
+func ExpandPath(path string) (string, error) {
+	tilde := path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		strings.HasPrefix(path, "~"+string(os.PathSeparator))
+
+	if tilde {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("expanding ~: %w", err)
+		}
+		path = filepath.Join(home, path[1:])
+	}
+	return filepath.Abs(path)
+}
+
 // MergeMaps merges the secondary map into the main map.
 // If keys are repeated, values from the secondary map replace those in the main map.
 func MergeMaps(main, sec map[string]string) map[string]string {
