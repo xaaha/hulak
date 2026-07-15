@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -116,9 +117,9 @@ func TestResolveRequest(t *testing.T) {
 	})
 }
 
-// TestNewServer_HandshakeNoTools verifies the bare server completes the MCP
-// handshake and advertises zero tools (nothing registered yet).
-func TestNewServer_HandshakeNoTools(t *testing.T) {
+// TestNewServer_HandshakeAdvertisesTools verifies the server completes the MCP
+// handshake and advertises list_requests.
+func TestNewServer_HandshakeAdvertisesTools(t *testing.T) {
 	ctx := context.Background()
 	serverT, clientT := mcpsdk.NewInMemoryTransports()
 
@@ -143,7 +144,11 @@ func TestNewServer_HandshakeNoTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(res.Tools) != 0 {
-		t.Errorf("expected 0 tools, got %d", len(res.Tools))
+	var names []string
+	for _, tool := range res.Tools {
+		names = append(names, tool.Name)
+	}
+	if !slices.Contains(names, "list_requests") {
+		t.Errorf("expected list_requests to be advertised, got %v", names)
 	}
 }

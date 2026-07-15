@@ -56,7 +56,9 @@ func NewServer(projects map[string]string, defaultProject, version string) (*Ser
 		Name:    utils.ProjectName,
 		Version: version,
 	}, nil)
-	return &Server{projects: resolved, defaultProject: defaultProject, srv: srv}, nil
+	s := &Server{projects: resolved, defaultProject: defaultProject, srv: srv}
+	s.registerListRequests()
+	return s, nil
 }
 
 // Projects returns the resolved name->path map. Used for the startup identity
