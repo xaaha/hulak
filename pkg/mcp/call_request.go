@@ -16,6 +16,7 @@ type callRequestInput struct {
 	Env     string `json:"env"               jsonschema:"environment to resolve secrets against, e.g. staging (required)"`
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
 	NoSave  bool   `json:"no_save,omitempty" jsonschema:"do not write the {name}_response.json file; return the response only"`
+	Debug   bool   `json:"debug,omitempty"   jsonschema:"return full request, response headers, and TLS details; use to diagnose a failing request"`
 }
 
 type callRequestOutput struct {
@@ -63,6 +64,7 @@ func (s *Server) handleCallRequest(
 			Secrets: secrets,
 			Path:    m.Path,
 			NoSave:  in.NoSave,
+			Debug:   in.Debug,
 		})
 		if err != nil {
 			return err

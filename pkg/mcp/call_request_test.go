@@ -71,3 +71,31 @@ func TestHandleCallRequest(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleCallRequest_Debug(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "ping.hk.yaml"), "kind: API\nmethod: GET\nurl: "+srv.URL+"\n")
+	s, err := NewServer(map[string]string{"api": api}, "", "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, out, err := s.handleCallRequest(context.Background(), nil,
+		callRequestInput{Name: "ping", Env: "global", Debug: true, NoSave: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Debug body is the full CustomResponse: includes request + http_info keys.
+	for _, want := range []string{`"request"`, `"http_info"`} {
+		if !strings.Contains(out.Body, want) {
+			t.Errorf("debug body missing %s, got:\n%s", want, out.Body)
+		}
+	}
+}
