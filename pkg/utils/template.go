@@ -47,7 +47,7 @@ func fileHasTemplateVars(filePath string, visited map[string]bool) bool {
 
 // getFileRefs returns the {{getFile "path"}} references in content, resolved
 // relative to currentFile's directory. Absolute paths and empty args pass
-// through unchanged. #150's {{queryFile}} extends this.
+// through unchanged.
 func getFileRefs(content, currentFile string) []string {
 	parentDir := filepath.Dir(currentFile)
 	args := extractGetFileArgs(content)
