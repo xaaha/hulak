@@ -62,6 +62,7 @@ func NewServer(projects map[string]string, defaultProject, version string) (*Ser
 	s := &Server{projects: resolved, defaultProject: defaultProject, srv: srv}
 	s.registerListRequests()
 	s.registerDryRun()
+	s.registerCallRequest()
 	return s, nil
 }
 
