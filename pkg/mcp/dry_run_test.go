@@ -23,8 +23,6 @@ func TestHandleDryRun(t *testing.T) {
 	writeFileAt(t, filepath.Join(api, "env", "staging.env"), "baseUrl=https://api.example.com\n")
 	writeFileAt(t, filepath.Join(api, "getUsers.hk.yaml"),
 		"kind: API\nmethod: GET\nurl: \"{{.baseUrl}}/users\"\n")
-	writeFileAt(t, filepath.Join(api, "oauth.hk.yaml"),
-		"kind: Auth\nmethod: POST\nurl: https://auth.example.com/token\n")
 
 	s, err := NewServer(map[string]string{"api": api}, "api", "v")
 	if err != nil {
@@ -48,16 +46,6 @@ func TestHandleDryRun(t *testing.T) {
 	t.Run("env is required", func(t *testing.T) {
 		if _, _, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "getUsers"}); err == nil {
 			t.Error("expected error when env is missing")
-		}
-	})
-
-	t.Run("rejects Auth kind", func(t *testing.T) {
-		_, _, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "oauth", Env: "staging"})
-		if err == nil {
-			t.Fatal("expected Auth kind to be rejected")
-		}
-		if !strings.Contains(err.Error(), "API and GraphQL") {
-			t.Errorf("error should explain the scope, got: %v", err)
 		}
 	})
 

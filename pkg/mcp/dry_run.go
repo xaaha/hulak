@@ -9,7 +9,6 @@ import (
 
 	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
 	"github.com/xaaha/hulak/pkg/envparser"
-	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 type dryRunInput struct {
@@ -51,13 +50,6 @@ func (s *Server) handleDryRun(
 	m, err := s.ResolveRequest(in.Project, in.Name)
 	if err != nil {
 		return nil, out, err
-	}
-	if k := readKind(m.Path); strings.EqualFold(k, string(yamlparser.KindAuth)) {
-		return nil, out, fmt.Errorf(
-			"dry_run supports API and GraphQL requests only; %q is kind %s (OAuth2 is out of scope)",
-			in.Name,
-			k,
-		)
 	}
 
 	var text string
