@@ -9,6 +9,7 @@ import (
 	"filippo.io/age"
 	"golang.org/x/term"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
 )
@@ -46,7 +47,7 @@ func TestEnvItemsWithEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "prod.env", "staging.env"})
 	defer cleanup()
 
-	items, err := envItems()
+	items, err := envparser.ListEnvironments()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestEnvItemsWithNoEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{})
 	defer cleanup()
 
-	items, err := envItems()
+	items, err := envparser.ListEnvironments()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestEnvItemsIgnoresNonEnvFiles(t *testing.T) {
 	cleanup := setupTestEnvDir(t, []string{"dev.env", "readme.txt", "config.yaml"})
 	defer cleanup()
 
-	items, err := envItems()
+	items, err := envparser.ListEnvironments()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestEnvItemsFromVault(t *testing.T) {
 		t.Fatalf("WriteStore() error: %v", err)
 	}
 
-	items, err := envItems()
+	items, err := envparser.ListEnvironments()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -334,7 +335,7 @@ func TestEnvItems_VaultErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		items, err := envItems()
+		items, err := envparser.ListEnvironments()
 		if err == nil {
 			t.Fatalf("expected error, got items=%v", items)
 		}
@@ -363,7 +364,7 @@ func TestEnvItems_VaultErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		items, err := envItems()
+		items, err := envparser.ListEnvironments()
 		if err == nil {
 			t.Fatalf("expected error, got items=%v", items)
 		}
