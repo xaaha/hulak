@@ -6,6 +6,7 @@ import (
 
 const (
 	ProjectName       = "hulak"
+	ProjectExt        = ".hk"
 	HiddenProjectName = "." + ProjectName
 )
 
@@ -59,6 +60,10 @@ const (
 	YML  = ".yml"
 	JSON = ".json"
 )
+
+// requestExts are the request-file suffixes, longest first so stemming strips
+// the full extension (getUser.hk.yaml -> getUser, not getUser.hk).
+var RequestExts = []string{ProjectExt + YAML, ProjectExt + YML, YAML, YML}
 
 // OptionsReference is the filename of the reference card scaffolded by
 // `hulak example options`. It lists every available request field with
