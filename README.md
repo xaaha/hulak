@@ -127,18 +127,13 @@ Running classic and want to switch? See [docs/migrating-to-vault.md](./docs/migr
 
 Hulak ships a built-in [MCP](https://modelcontextprotocol.io) server, so agents like Claude Code, Cursor, and Zed can drive your API collection in plain language — "list the requests", "dry-run `login` against staging", "call `getUser` and show the response".
 
-Point your client at hulak:
+For Claude Code, add it with one command:
 
-```json
-{
-  "mcpServers": {
-    "hulak": {
-      "command": "hulak",
-      "args": ["mcp", "--project", "api=~/work/api-tests"]
-    }
-  }
-}
+```bash
+claude mcp add hulak -s user -- hulak mcp --project api=~/work/api-tests
 ```
+
+Cursor, Zed, Codex, opencode, and Pi use a small config file instead. See [docs/mcp.md](./docs/mcp.md) for each.
 
 Secrets never leave your machine: the agent works with request and environment **names**, never decrypted values. Reads and dry-runs are read-only; writes are schema-validated; response files aren't saved unless asked.
 
