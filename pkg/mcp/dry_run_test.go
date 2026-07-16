@@ -24,7 +24,7 @@ func TestHandleDryRun(t *testing.T) {
 	writeFileAt(t, filepath.Join(api, "getUsers.hk.yaml"),
 		"kind: API\nmethod: GET\nurl: \"{{.baseUrl}}/users\"\n")
 
-	s, err := NewServer(map[string]string{"api": api}, "api", "v")
+	s, err := NewServer(map[string]string{"api": api}, "v")
 	if err != nil {
 		t.Fatal(err)
 	}

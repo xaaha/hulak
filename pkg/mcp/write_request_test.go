@@ -13,7 +13,7 @@ func TestHandleWriteRequest(t *testing.T) {
 
 	t.Run("creates new file, appends extension", func(t *testing.T) {
 		api := projectDir(t)
-		s, _ := NewServer(map[string]string{"api": api}, "", "v")
+		s, _ := NewServer(map[string]string{"api": api}, "v")
 		_, out, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "login", YamlContent: body})
 		if err != nil {
 			t.Fatal(err)
@@ -33,7 +33,7 @@ func TestHandleWriteRequest(t *testing.T) {
 
 	t.Run("refuses to overwrite without flag", func(t *testing.T) {
 		api := projectDir(t)
-		s, _ := NewServer(map[string]string{"api": api}, "", "v")
+		s, _ := NewServer(map[string]string{"api": api}, "v")
 		if _, _, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "x", YamlContent: body}); err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +45,7 @@ func TestHandleWriteRequest(t *testing.T) {
 
 	t.Run("overwrite=true replaces and reports it", func(t *testing.T) {
 		api := projectDir(t)
-		s, _ := NewServer(map[string]string{"api": api}, "", "v")
+		s, _ := NewServer(map[string]string{"api": api}, "v")
 		_, _, _ = s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "x", YamlContent: body})
 		_, out, err := s.handleWriteRequest(ctx, nil, writeRequestInput{
 			Name: "x", YamlContent: "kind: GraphQL\nurl: http://y\n", Overwrite: true,
@@ -64,14 +64,14 @@ func TestHandleWriteRequest(t *testing.T) {
 
 	t.Run("rejects invalid yaml", func(t *testing.T) {
 		api := projectDir(t)
-		s, _ := NewServer(map[string]string{"api": api}, "", "v")
+		s, _ := NewServer(map[string]string{"api": api}, "v")
 		if _, _, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "bad", YamlContent: "just a scalar"}); err == nil {
 			t.Error("expected error for non-mapping YAML")
 		}
 	})
 
 	t.Run("multiple projects require explicit project", func(t *testing.T) {
-		s, _ := NewServer(map[string]string{"api": projectDir(t), "mob": projectDir(t)}, "api", "v")
+		s, _ := NewServer(map[string]string{"api": projectDir(t), "mob": projectDir(t)}, "v")
 		if _, _, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "x", YamlContent: body}); err == nil {
 			t.Error("expected error when project omitted with multiple projects")
 		}
@@ -79,7 +79,7 @@ func TestHandleWriteRequest(t *testing.T) {
 
 	t.Run("rejects path traversal", func(t *testing.T) {
 		api := projectDir(t)
-		s, _ := NewServer(map[string]string{"api": api}, "", "v")
+		s, _ := NewServer(map[string]string{"api": api}, "v")
 		if _, _, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "../escape", YamlContent: body}); err == nil {
 			t.Error("expected error for traversal outside project")
 		}
@@ -95,7 +95,7 @@ func TestHandleWriteRequest_SchemaValidation(t *testing.T) {
 
 	newServer := func(t *testing.T) *Server {
 		t.Helper()
-		s, err := NewServer(map[string]string{"api": projectDir(t)}, "", "v")
+		s, err := NewServer(map[string]string{"api": projectDir(t)}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -135,8 +135,8 @@ func TestHandleWriteRequest_SchemaValidation(t *testing.T) {
 	})
 
 	t.Run("without schema, structurally-thin yaml still allowed", func(t *testing.T) {
-		s, _ := NewServer(map[string]string{"api": projectDir(t)}, "", "v") // no SetRequestSchema
-		content := "kind: API\nmethod: GET\n"                               // no url
+		s, _ := NewServer(map[string]string{"api": projectDir(t)}, "v") // no SetRequestSchema
+		content := "kind: API\nmethod: GET\n"                           // no url
 		if _, _, err := s.handleWriteRequest(ctx, nil, writeRequestInput{Name: "ok", YamlContent: content}); err != nil {
 			t.Errorf("without schema this should pass the mapping-only check, got: %v", err)
 		}

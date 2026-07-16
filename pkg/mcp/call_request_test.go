@@ -22,7 +22,7 @@ func TestHandleCallRequest(t *testing.T) {
 		api := projectDir(t)
 		writeFileAt(t, filepath.Join(api, "ping.hk.yaml"),
 			"kind: API\nmethod: GET\nurl: "+srv.URL+"\n")
-		s, err := NewServer(map[string]string{"api": api}, "api", "v")
+		s, err := NewServer(map[string]string{"api": api}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +83,7 @@ func TestHandleCallRequest_Debug(t *testing.T) {
 
 	api := projectDir(t)
 	writeFileAt(t, filepath.Join(api, "ping.hk.yaml"), "kind: API\nmethod: GET\nurl: "+srv.URL+"\n")
-	s, err := NewServer(map[string]string{"api": api}, "", "v")
+	s, err := NewServer(map[string]string{"api": api}, "v")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestHandleCallRequest_Timeout(t *testing.T) {
 
 	api := projectDir(t)
 	writeFileAt(t, filepath.Join(api, "slow.hk.yaml"), "kind: API\nmethod: GET\nurl: "+slow.URL+"\n")
-	s, err := NewServer(map[string]string{"api": api}, "", "v")
+	s, err := NewServer(map[string]string{"api": api}, "v")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,10 +12,8 @@ func TestNew(t *testing.T) {
 	if cmd.Name != "mcp" {
 		t.Errorf("Name = %q, want mcp", cmd.Name)
 	}
-	for _, f := range []string{"project", "default-project"} {
-		if cmd.Flags.Lookup(f) == nil {
-			t.Errorf("expected a --%s flag", f)
-		}
+	if cmd.Flags.Lookup("project") == nil {
+		t.Error("expected a --project flag")
 	}
 	if cmd.Run == nil {
 		t.Error("Run must be set")

@@ -14,7 +14,7 @@ func TestHandleListEnvs(t *testing.T) {
 		api := projectDir(t)
 		writeFileAt(t, filepath.Join(api, "env", "global.env"), "A=1\n")
 		writeFileAt(t, filepath.Join(api, "env", "test.env"), "B=2\n")
-		s, err := NewServer(map[string]string{"api": api}, "", "v")
+		s, err := NewServer(map[string]string{"api": api}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,7 +42,7 @@ func TestHandleListEnvs(t *testing.T) {
 		mob := projectDir(t)
 		writeFileAt(t, filepath.Join(api, "env", "prod.env"), "A=1\n")
 		writeFileAt(t, filepath.Join(mob, "env", "dev.env"), "B=2\n")
-		s, err := NewServer(map[string]string{"api": api, "mob": mob}, "api", "v")
+		s, err := NewServer(map[string]string{"api": api, "mob": mob}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,7 +68,7 @@ func TestHandleListEnvs(t *testing.T) {
 		mob := projectDir(t)
 		writeFileAt(t, filepath.Join(api, "env", "prod.env"), "A=1\n")
 		writeFileAt(t, filepath.Join(mob, "env", "dev.env"), "B=2\n")
-		s, err := NewServer(map[string]string{"api": api, "mob": mob}, "api", "v")
+		s, err := NewServer(map[string]string{"api": api, "mob": mob}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +83,7 @@ func TestHandleListEnvs(t *testing.T) {
 	})
 
 	t.Run("unknown project errors", func(t *testing.T) {
-		s, err := NewServer(map[string]string{"api": projectDir(t)}, "", "v")
+		s, err := NewServer(map[string]string{"api": projectDir(t)}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}

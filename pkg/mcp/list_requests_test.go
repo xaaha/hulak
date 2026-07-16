@@ -30,6 +30,14 @@ func TestHandleListRequests(t *testing.T) {
 	if err := os.WriteFile(gqlReq, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// A request in a SUB-DIRECTORY referencing a root-relative .gql. Guards the
+	// project-root resolution wired via withProjectDir: the old file-dir-relative
+	// rule doubled the sub-dir here (api/svc/svc/query.gql).
+	subGqlPath := filepath.Join(api, "collection", "users.gql")
+	writeFileAt(t, subGqlPath, "query { users { id } }")
+	subReq := filepath.Join(api, "svc", "getUsers.hk.yaml")
+	writeFileAt(t, subReq,
+		"kind: GraphQL\nmethod: POST\nurl: http://x\nbody:\n  graphql:\n    query: '{{getFile \"collection/users.gql\"}}'\n")
 	// A request in mobile + noise files that must be excluded.
 	writeReq(t, mobile, "signup.hk.yaml")
 	if err := os.WriteFile(filepath.Join(mobile, "options.yaml"), []byte("kind: API\n"), 0o600); err != nil {
@@ -39,7 +47,7 @@ func TestHandleListRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "api", "v")
+	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "v")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,14 +66,26 @@ func TestHandleListRequests(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := byName(out)
-		for _, want := range []string{"getuser", "listposts", "signup"} {
+		for _, want := range []string{"getuser", "getusers", "listposts", "signup"} {
 			if _, ok := got[want]; !ok {
 				t.Errorf("missing request %q in %v", want, keys(got))
 			}
 		}
-		if len(out.Requests) != 3 {
-			t.Errorf("expected 3 requests (options.yaml + _response.json excluded), got %d: %v",
+		if len(out.Requests) != 4 {
+			t.Errorf("expected 4 requests (options.yaml + _response.json excluded), got %d: %v",
 				len(out.Requests), keys(got))
+		}
+	})
+
+	t.Run("subdir request resolves root-relative dep without doubling", func(t *testing.T) {
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Project: "api"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		gu := byName(out)["getusers"]
+		if len(gu.Deps) != 1 || gu.Deps[0] != subGqlPath {
+			t.Errorf("deps = %v, want [%s] (a doubled path means project-root resolution regressed)",
+				gu.Deps, subGqlPath)
 		}
 	})
 

@@ -47,26 +47,17 @@ func writeReq(t *testing.T, dir, name string) string {
 
 func TestNewServer_Validation(t *testing.T) {
 	t.Run("empty projects", func(t *testing.T) {
-		if _, err := NewServer(map[string]string{}, "", "v"); err == nil {
+		if _, err := NewServer(map[string]string{}, "v"); err == nil {
 			t.Error("expected error for empty projects")
 		}
 	})
 	t.Run("rejects non-project dir", func(t *testing.T) {
-		_, err := NewServer(map[string]string{"api": t.TempDir()}, "", "v")
+		_, err := NewServer(map[string]string{"api": t.TempDir()}, "v")
 		if err == nil {
 			t.Fatal("expected error for a dir that is not a hulak project")
 		}
 		if !strings.Contains(err.Error(), "not a hulak project") {
 			t.Errorf("error should say it is not a hulak project, got: %v", err)
-		}
-	})
-	t.Run("default not a project name", func(t *testing.T) {
-		_, err := NewServer(map[string]string{"api": projectDir(t)}, "mobile", "v")
-		if err == nil {
-			t.Fatal("expected error when default-project is not a configured name")
-		}
-		if !strings.Contains(err.Error(), "default-project") {
-			t.Errorf("error should reference --default-project, got: %v", err)
 		}
 	})
 }
@@ -79,7 +70,7 @@ func TestResolveRequest(t *testing.T) {
 	writeReq(t, mobile, "login.hk.yaml")  // in both
 	writeReq(t, mobile, "signup.hk.yaml") // unique to mobile
 
-	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "api", "v")
+	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "v")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +95,7 @@ func TestResolveRequest(t *testing.T) {
 		}
 	})
 
-	t.Run("ambiguous name always asks (even with default)", func(t *testing.T) {
+	t.Run("ambiguous name always asks", func(t *testing.T) {
 		_, err := s.ResolveRequest("", "login")
 		if err == nil {
 			t.Fatal("expected ambiguity error")
@@ -120,7 +111,7 @@ func TestResolveRequest(t *testing.T) {
 		dup := projectDir(t)
 		writeReq(t, filepath.Join(dup, "auth"), "token.hk.yaml")
 		writeReq(t, filepath.Join(dup, "billing"), "token.hk.yaml")
-		ds, err := NewServer(map[string]string{"dup": dup}, "", "v")
+		ds, err := NewServer(map[string]string{"dup": dup}, "v")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -154,7 +145,7 @@ func TestNewServer_HandshakeAdvertisesTools(t *testing.T) {
 	ctx := context.Background()
 	serverT, clientT := mcpsdk.NewInMemoryTransports()
 
-	s, err := NewServer(map[string]string{"api": projectDir(t)}, "", "test")
+	s, err := NewServer(map[string]string{"api": projectDir(t)}, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
