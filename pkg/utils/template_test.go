@@ -9,6 +9,13 @@ import (
 
 func TestFileHasTemplateVars(t *testing.T) {
 	tempDir := t.TempDir()
+	// getFile refs resolve against the project root (the working directory), so
+	// mark tempDir a project and run from it — mirroring a real run.
+	if err := os.Mkdir(filepath.Join(tempDir, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(tempDir)
+
 	gqlPath := filepath.Join(tempDir, "query.graphql")
 	err := os.WriteFile(gqlPath, []byte("query { user(id: {{.userId}}) { id } }"), 0o600)
 	if err != nil {
@@ -133,26 +140,39 @@ func buildGetValueOfContent(key, fileName string) string {
 }
 
 func TestReferencedFiles(t *testing.T) {
-	tempDir := t.TempDir()
+	// getFile paths are project-root-relative, resolved against the working
+	// directory (as a real run does), so mark the temp dir a project and run
+	// from it. EvalSymlinks so absolute paths compare equal on macOS.
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
 
-	// A request referencing a separate .gql query file.
-	writeFile(t, filepath.Join(tempDir, "queries", "GetUser.gql"), "query { user { id } }")
-	reqWithGql := filepath.Join(tempDir, "getUser.hk.yaml")
-	writeFile(t, reqWithGql, buildGetFileContent("queries/GetUser.gql"))
+	// A request in a SUB-DIRECTORY referencing a root-relative .gql. This is the
+	// case that used to double the sub-dir ("user_service/user_service/...").
+	writeFile(t, filepath.Join(root, "collection", "users.gql"), "query { user { id } }")
+	reqSubdir := filepath.Join(root, "user_service", "getUser.hk.yaml")
+	writeFile(t, reqSubdir, buildGetFileContent("collection/users.gql"))
 
 	// A request with no getFile references.
-	reqNoDeps := filepath.Join(tempDir, "plain.hk.yaml")
+	reqNoDeps := filepath.Join(root, "plain.hk.yaml")
 	writeFile(t, reqNoDeps, "---\nkind: API\nmethod: GET\nurl: http://example.com\n")
 
-	// A request whose .gql itself references another file (transitive).
-	writeFile(t, filepath.Join(tempDir, "frag", "inner.gql"), "fragment F on User { id }")
-	writeFile(t, filepath.Join(tempDir, "frag", "outer.gql"),
-		"query { ...F } {{"+TemplateFuncGetFile+" \"inner.gql\"}}")
-	reqNested := filepath.Join(tempDir, "nested.hk.yaml")
+	// A request whose .gql itself references another file (transitive), also
+	// root-relative.
+	writeFile(t, filepath.Join(root, "frag", "inner.gql"), "fragment F on User { id }")
+	writeFile(t, filepath.Join(root, "frag", "outer.gql"),
+		"query { ...F } {{"+TemplateFuncGetFile+" \"frag/inner.gql\"}}")
+	reqNested := filepath.Join(root, "nested.hk.yaml")
 	writeFile(t, reqNested, buildGetFileContent("frag/outer.gql"))
 
 	// A request referencing a .gql that does not exist yet.
-	reqMissing := filepath.Join(tempDir, "missing.hk.yaml")
+	reqMissing := filepath.Join(root, "missing.hk.yaml")
 	writeFile(t, reqMissing, buildGetFileContent("queries/DoesNotExist.gql"))
 
 	tests := []struct {
@@ -161,9 +181,9 @@ func TestReferencedFiles(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "single gql dependency",
-			path: reqWithGql,
-			want: []string{filepath.Join(tempDir, "queries", "GetUser.gql")},
+			name: "subdir request resolves root-relative gql",
+			path: reqSubdir,
+			want: []string{filepath.Join(root, "collection", "users.gql")},
 		},
 		{
 			name: "no dependencies",
@@ -174,14 +194,14 @@ func TestReferencedFiles(t *testing.T) {
 			name: "transitive dependency is followed",
 			path: reqNested,
 			want: []string{
-				filepath.Join(tempDir, "frag", "outer.gql"),
-				filepath.Join(tempDir, "frag", "inner.gql"),
+				filepath.Join(root, "frag", "outer.gql"),
+				filepath.Join(root, "frag", "inner.gql"),
 			},
 		},
 		{
 			name: "missing referenced file is still surfaced",
 			path: reqMissing,
-			want: []string{filepath.Join(tempDir, "queries", "DoesNotExist.gql")},
+			want: []string{filepath.Join(root, "queries", "DoesNotExist.gql")},
 		},
 	}
 

@@ -36,33 +36,13 @@ func fileHasTemplateVars(filePath string, visited map[string]bool) bool {
 		return true
 	}
 
-	for _, refPath := range getFileRefs(string(content), resolvedPath) {
-		if fileHasTemplateVars(refPath, visited) {
+	for _, arg := range extractGetFileArgs(string(content)) {
+		if fileHasTemplateVars(arg, visited) {
 			return true
 		}
 	}
 
 	return false
-}
-
-// getFileRefs returns the {{getFile "path"}} references in content, resolved
-// relative to currentFile's directory. Absolute paths and empty args pass
-// through unchanged.
-func getFileRefs(content, currentFile string) []string {
-	parentDir := filepath.Dir(currentFile)
-	args := extractGetFileArgs(content)
-	refs := make([]string, 0, len(args))
-	for _, path := range args {
-		if path == "" {
-			continue
-		}
-		if filepath.IsAbs(path) {
-			refs = append(refs, path)
-			continue
-		}
-		refs = append(refs, filepath.Join(parentDir, path))
-	}
-	return refs
 }
 
 // ReferencedFiles returns the files a request pulls in via {{getFile}},
@@ -90,12 +70,14 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) 
 	if err != nil {
 		return
 	}
-	for _, refPath := range getFileRefs(string(content), resolvedPath) {
-		// Resolve so dedup and recursion key on the real file; fall back to
-		// the cleaned ref when the file does not exist yet.
-		resolved, err := resolveFilePath(refPath)
+	for _, arg := range extractGetFileArgs(string(content)) {
+		// Resolve exactly like the runtime getFile (actions.GetFile): relative
+		// to the project root. Dedup and recursion key on the real file; a
+		// not-yet-created file is still surfaced, anchored to the project root
+		// so the reported path is where a run would look for it.
+		resolved, err := resolveFilePath(arg)
 		if err != nil {
-			resolved = filepath.Clean(refPath)
+			resolved = projectRootRel(arg)
 		}
 		if seen[resolved] {
 			continue
@@ -104,6 +86,21 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) 
 		*deps = append(*deps, resolved)
 		collectFileRefs(resolved, seen, deps)
 	}
+}
+
+// projectRootRel anchors a getFile arg that does not resolve to an existing
+// file. Absolute args pass through; relative args join the project root — the
+// same base actions.GetFile uses — falling back to the cleaned arg when the
+// root cannot be found.
+func projectRootRel(arg string) string {
+	clean := filepath.Clean(arg)
+	if filepath.IsAbs(clean) {
+		return clean
+	}
+	if root, ok := FindProjectRoot(); ok {
+		return filepath.Join(root, clean)
+	}
+	return clean
 }
 
 // MapHasEnvVars recursively checks if any string value in the map

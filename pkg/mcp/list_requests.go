@@ -61,7 +61,15 @@ func (s *Server) handleListRequests(
 
 	var out listRequestsOutput
 	for _, name := range projectNames(targets) {
-		reqs, err := listProjectRequests(name, targets[name])
+		var reqs []RequestSummary
+		// Run inside the project dir: dependency resolution (utils.ReferencedFiles
+		// -> getFile) is project-root-relative and keys off the working
+		// directory, exactly as a real run does.
+		err := s.withProjectDir(targets[name], func() error {
+			var err error
+			reqs, err = listProjectRequests(name, targets[name])
+			return err
+		})
 		if err != nil {
 			return nil, listRequestsOutput{}, err
 		}

@@ -21,6 +21,18 @@ func projectDir(t *testing.T) string {
 	return dir
 }
 
+// evalSymlinks resolves symlinks in path (macOS /var -> /private/var) so
+// absolute paths built in a test compare equal to those returned from inside a
+// chdir'd project dir.
+func evalSymlinks(t *testing.T, path string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
 func writeReq(t *testing.T, dir, name string) string {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

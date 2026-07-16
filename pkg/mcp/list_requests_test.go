@@ -8,8 +8,11 @@ import (
 )
 
 func TestHandleListRequests(t *testing.T) {
-	api := projectDir(t)
-	mobile := projectDir(t)
+	// Resolve symlinks (macOS /var -> /private/var) so the absolute dep paths
+	// returned by getFile resolution — run from inside the project dir — compare
+	// equal to the paths built here.
+	api := evalSymlinks(t, projectDir(t))
+	mobile := evalSymlinks(t, projectDir(t))
 
 	// API request in api.
 	writeReq(t, api, "getUser.hk.yaml")
