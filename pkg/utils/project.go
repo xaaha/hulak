@@ -23,12 +23,7 @@ func FindProjectRoot() (string, bool) {
 
 	dir := cwd
 	for home == "" || dir != home {
-		// .hulak/ is the primary marker (encrypted store)
-		if DirExists(filepath.Join(dir, HiddenProjectName)) {
-			return dir, true
-		}
-		// env/ is the legacy marker (plaintext .env files)
-		if DirExists(filepath.Join(dir, EnvironmentFolder)) {
+		if IsProjectDir(dir) {
 			return dir, true
 		}
 
@@ -40,6 +35,13 @@ func FindProjectRoot() (string, bool) {
 	}
 
 	return cwd, false
+}
+
+// IsProjectDir reports whether dir is a hulak project root: it holds a .hulak/
+// (encrypted vault) or env/ (legacy plaintext) marker directory.
+func IsProjectDir(dir string) bool {
+	return DirExists(filepath.Join(dir, HiddenProjectName)) ||
+		DirExists(filepath.Join(dir, EnvironmentFolder))
 }
 
 // IsHulakProject checks whether an env/ directory exists anywhere between the

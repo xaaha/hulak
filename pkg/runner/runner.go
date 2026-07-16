@@ -95,7 +95,7 @@ func Execute(f *Flags) error {
 
 	// Resolve the flag/env layer of the timeout chain up front so a malformed
 	// HULAK_TIMEOUT fails fast before any request work begins.
-	baseTimeout, err := resolveBaseTimeout(f.Timeout)
+	baseTimeout, err := ResolveBaseTimeout(f.Timeout)
 	if err != nil {
 		return err
 	}
@@ -157,19 +157,20 @@ func ExecuteSingleFile(
 	filePath string,
 	flagTimeout time.Duration,
 ) error {
-	baseTimeout, err := resolveBaseTimeout(flagTimeout)
+	baseTimeout, err := ResolveBaseTimeout(flagTimeout)
 	if err != nil {
 		return err
 	}
 	return handleAPIRequests(envMap, false, runOptions{Debug: debug}, []string{filePath}, nil, baseTimeout)
 }
 
-// resolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
-// into a single duration the runner uses when no per-file YAML override is
-// set. Precedence: flag > env > DefaultTimeout. A non-empty but invalid env
-// var returns an error so the user sees the typo instead of getting a silent
-// fallback.
-func resolveBaseTimeout(flagT time.Duration) (time.Duration, error) {
+// ResolveBaseTimeout combines the --timeout flag and HULAK_TIMEOUT env var
+// into a single duration used when no per-file YAML override is set.
+// Precedence: flag > env > DefaultTimeout. A non-empty but invalid env var
+// returns an error so the user sees the typo instead of getting a silent
+// fallback. Exported so other entry points (e.g. the MCP call_request tool)
+// resolve timeouts identically to `hulak run`.
+func ResolveBaseTimeout(flagT time.Duration) (time.Duration, error) {
 	if flagT > 0 {
 		return flagT, nil
 	}

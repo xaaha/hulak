@@ -460,7 +460,7 @@ func TestResolveBaseTimeout(t *testing.T) {
 			} else {
 				t.Setenv(HulakTimeoutEnv, tc.env)
 			}
-			got, err := resolveBaseTimeout(tc.flag)
+			got, err := ResolveBaseTimeout(tc.flag)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("error = %v, wantErr = %v", err, tc.wantErr)
 			}

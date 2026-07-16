@@ -47,7 +47,9 @@ func setEnvironment(envFromFlag string, isCli bool) (bool, error) {
 	if !slices.Contains(envFromFiles, envFromFlag) {
 		// Prompts go to stderr so they never leak into $() capture.
 		fmt.Fprintf(os.Stderr, "'%v.env' not found in the env directory\n", envFromFlag)
-		confirmed, confirmErr := utils.ConfirmAction(fmt.Sprintf("Create '%v.env'? [y/N] ", envFromFlag))
+		confirmed, confirmErr := utils.ConfirmAction(
+			fmt.Sprintf("Create '%v.env'? [y/N] ", envFromFlag),
+		)
 		if confirmErr != nil {
 			return fileCreationSkipped, fmt.Errorf("failed to read input: %w", confirmErr)
 		}
@@ -362,4 +364,31 @@ func LoadSecretsMap(envName string) (map[string]any, error) {
 	}
 
 	return resultMap, nil
+}
+
+// ListEnvironments returns environment names for the current project, reading
+// the encrypted vault when present and falling back to env/*.env stems
+// otherwise. An empty-but-healthy vault and a missing env/ directory both return nil so
+// callers can treat "no environments configured" as an empty list rather than
+// an error.
+func ListEnvironments() ([]string, error) {
+	if vault.DetectStore() == vault.StoreAge {
+		store, err := vault.ReadStore()
+		if err != nil {
+			return nil, fmt.Errorf("vault: reading store: %w", err)
+		}
+		return store.ListEnvs(), nil
+	}
+
+	var names []string
+	files, err := utils.GetEnvFiles()
+	if err != nil {
+		return nil, nil
+	}
+	for _, file := range files {
+		if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
+			names = append(names, name)
+		}
+	}
+	return names, nil
 }

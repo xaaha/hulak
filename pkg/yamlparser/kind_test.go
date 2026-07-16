@@ -207,3 +207,42 @@ func TestParsedTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestPeekKind(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	cases := []struct {
+		name string
+		body string
+		want Kind
+	}{
+		{"graphql.hk.yaml", "kind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{getFile \"q.gql\"}}'\n", KindGraphQL},
+		{"api.hk.yaml", "kind: API\nurl: http://x\n", KindAPI},
+		{"lower.hk.yaml", "kind: graphql\nurl: http://x\n", KindGraphQL},
+		{"nokind.hk.yaml", "url: http://x\n", KindAPI}, // defaults to API
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := PeekKind(write(tc.name, tc.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("PeekKind = %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("missing file errors", func(t *testing.T) {
+		if _, err := PeekKind(filepath.Join(dir, "nope.yaml")); err == nil {
+			t.Error("expected error for missing file")
+		}
+	})
+}

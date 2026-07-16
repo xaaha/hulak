@@ -13,6 +13,7 @@ import (
 	"github.com/xaaha/hulak/pkg/userFlags/example"
 	"github.com/xaaha/hulak/pkg/userFlags/gql"
 	"github.com/xaaha/hulak/pkg/userFlags/initcmd"
+	"github.com/xaaha/hulak/pkg/userFlags/mcpcmd"
 	"github.com/xaaha/hulak/pkg/userFlags/runcmd"
 	"github.com/xaaha/hulak/pkg/userFlags/secrets"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -58,6 +59,7 @@ func subCommands() *cli.Command {
 		newCompletionCmd(),
 		doctor.New(),
 		gql.New(),
+		mcpcmd.New(version, requestSchema),
 		secrets.New(),
 		initcmd.NewGenDocs(
 			subCommands,

@@ -15,18 +15,52 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
+// DryRun builds the request at opts.Path (resolving templates with
+// opts.Secrets) and returns its formatted wire representation as a string,
+// without sending anything. opts.Show controls sensitive-header masking. Used
+// by non-terminal callers such as the MCP dry_run tool.
+func DryRun(opts RequestOptions) (string, error) {
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return "", err
+	}
+	apiInfo, err := apiConfig.PrepareStruct()
+	if err != nil {
+		return "", err
+	}
+	return FormatDryRun(&apiInfo, opts.Show)
+}
+
 // PrintDryRun writes the fully-built request to stdout and returns. It
 // performs no I/O — no transport, no response file, no follow-up. Use to
 // verify the wire shape of a request before sending it.
+//
+// Body is read from apiInfo.Body, which consumes the reader. Callers must
+// not rely on apiInfo.Body after this call.
+func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
+	out, err := FormatDryRun(apiInfo, show)
+	if err != nil {
+		return err
+	}
+	fmt.Print(out)
+	return nil
+}
+
+// FormatDryRun builds the fully-resolved request into a printable string and
+// returns it. It performs no transport and writes no files — use it to
+// inspect the wire shape of a request before sending it, whether that's for
+// stdout (PrintDryRun) or a non-terminal caller like the MCP dry_run tool.
 //
 // Sensitive headers (Authorization, Cookie, etc.) are masked unless show
 // is true. Body is pretty-printed when JSON, otherwise written verbatim.
 //
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
-func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
+func FormatDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
+	var b strings.Builder
+
 	reqURL := PrepareURL(apiInfo.URL, apiInfo.URLParams)
-	fmt.Printf("%s %s\n", apiInfo.Method, reqURL)
+	fmt.Fprintf(&b, "%s %s\n", apiInfo.Method, reqURL)
 
 	headers := utils.RedactHeaders(apiInfo.Headers, show)
 	names := make([]string, 0, len(headers))
@@ -35,32 +69,34 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
 	}
 	sort.Strings(names)
 	for _, k := range names {
-		fmt.Printf("%s: %s\n", k, headers[k])
+		fmt.Fprintf(&b, "%s: %s\n", k, headers[k])
 	}
 
 	body, err := readBody(apiInfo.Body)
 	if err != nil {
-		return fmt.Errorf("reading request body: %w", err)
+		return "", fmt.Errorf("reading request body: %w", err)
 	}
 	if len(body) == 0 {
-		return nil
+		return b.String(), nil
 	}
 
-	fmt.Println()
+	b.WriteByte('\n')
 	ct := contentTypeOf(apiInfo.Headers)
 	if pretty, ok := prettyFormBody(body, ct); ok {
-		fmt.Print(pretty)
-		return nil
+		b.WriteString(pretty)
+		return b.String(), nil
 	}
 	if isJSONContentType(ct) || IsJSON(string(body)) {
 		var pretty bytes.Buffer
 		if err := json.Indent(&pretty, body, "", "  "); err == nil {
-			fmt.Println(pretty.String())
-			return nil
+			b.WriteString(pretty.String())
+			b.WriteByte('\n')
+			return b.String(), nil
 		}
 	}
-	fmt.Println(string(body))
-	return nil
+	b.WriteString(string(body))
+	b.WriteByte('\n')
+	return b.String(), nil
 }
 
 // isJSONContentType reports whether contentType is a JSON media type

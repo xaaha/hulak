@@ -10,6 +10,93 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
+func TestFormatDryRun_ReturnsBuiltRequest(t *testing.T) {
+	info := &yamlparser.APIInfo{
+		Method:    "POST",
+		URL:       "https://api.example.com/users",
+		URLParams: map[string]string{"limit": "10"},
+		Headers: map[string]string{
+			"Authorization": "Bearer secret123",
+			"Accept":        "application/json",
+		},
+		Body: strings.NewReader(`{"name":"alice"}`),
+	}
+	out, err := FormatDryRun(info, false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.HasPrefix(out, "POST https://api.example.com/users?limit=10\n") {
+		t.Errorf("expected method + URL with params on first line, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Authorization: ••••") {
+		t.Errorf("Authorization should be masked with show=false, got:\n%s", out)
+	}
+	if strings.Contains(out, "Bearer secret123") {
+		t.Errorf("Bearer token leaked into output:\n%s", out)
+	}
+	if !strings.Contains(out, "\"name\": \"alice\"") {
+		t.Errorf("JSON body should be pretty-printed, got:\n%s", out)
+	}
+}
+
+func TestFormatDryRun_ShowRevealsSecrets(t *testing.T) {
+	info := &yamlparser.APIInfo{
+		Method:  "GET",
+		URL:     "https://api.example.com/x",
+		Headers: map[string]string{"Authorization": "Bearer secret123"},
+	}
+	out, err := FormatDryRun(info, true)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.Contains(out, "Authorization: Bearer secret123") {
+		t.Errorf("show=true should reveal Authorization, got:\n%s", out)
+	}
+	if strings.Contains(out, "••••") {
+		t.Errorf("show=true should not mask anything, got:\n%s", out)
+	}
+}
+
+func TestFormatDryRun_NilBodyNoTrailingBlock(t *testing.T) {
+	info := &yamlparser.APIInfo{
+		Method: "GET",
+		URL:    "https://api.example.com/x",
+		Body:   nil,
+	}
+	out, err := FormatDryRun(info, false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if out != "GET https://api.example.com/x\n" {
+		t.Errorf("nil body should yield only the request line, got:\n%q", out)
+	}
+}
+
+// TestFormatDryRun_MatchesPrintDryRun locks the wrapper to the formatter:
+// PrintDryRun must emit exactly what FormatDryRun returns.
+func TestFormatDryRun_MatchesPrintDryRun(t *testing.T) {
+	newInfo := func() *yamlparser.APIInfo {
+		return &yamlparser.APIInfo{
+			Method:  "POST",
+			URL:     "https://api.example.com/x",
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    strings.NewReader(`{"a":1,"b":2}`),
+		}
+	}
+	want, err := FormatDryRun(newInfo(), false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	got := testutil.CaptureStdout(t, func() {
+		if err := PrintDryRun(newInfo(), false); err != nil {
+			t.Fatalf("PrintDryRun: %v", err)
+		}
+	})
+	if got != want {
+		t.Errorf("PrintDryRun output diverges from FormatDryRun:\nwant %q\ngot  %q", want, got)
+	}
+}
+
 func TestPrintDryRun_MethodAndURL(t *testing.T) {
 	info := &yamlparser.APIInfo{
 		Method:    "POST",

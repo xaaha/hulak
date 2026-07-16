@@ -192,12 +192,14 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 
 	fileExtensions := []string{YAML, YML, JSON}
 
-	// Get base name by removing any supported extension
+	// Get base name by removing any supported extension. The .hk marker is
+	// stripped after the yaml/yml suffix so "login.hk.yaml" reduces to "login"
+	// and `-f login` finds it (not just `-f login.hk`).
 	baseName := matchFile
 	for _, ext := range fileExtensions {
 		baseName = strings.TrimSuffix(baseName, ext)
 	}
-	baseName = strings.ToLower(baseName)
+	baseName = strings.TrimSuffix(strings.ToLower(baseName), ProjectExt)
 
 	// Determine the start path
 	startPath := ""
@@ -237,6 +239,7 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 			for _, ext := range fileExtensions {
 				fileBaseName = strings.TrimSuffix(fileBaseName, ext)
 			}
+			fileBaseName = strings.TrimSuffix(fileBaseName, ProjectExt)
 
 			// If base names match, add to results
 			if fileBaseName == baseName {
@@ -259,6 +262,27 @@ func ListMatchingFiles(matchFile string, initialPath ...string) ([]string, error
 // FileNameWithoutExtension takes in filepath and returns the name of the file
 func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
+// ExpandPath resolves a leading ~ to the home directory and returns an
+// absolute, cleaned path.
+//
+// ~ is not native on Windows — hulak supports it as a convention. A separator
+// must follow (~/ always, plus the native ~\ on Windows) so a real file named
+// "~data" is left alone. os.UserHomeDir yields %USERPROFILE% on Windows.
+func ExpandPath(path string) (string, error) {
+	tilde := path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		strings.HasPrefix(path, "~"+string(os.PathSeparator))
+
+	if tilde {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("expanding ~: %w", err)
+		}
+		path = filepath.Join(home, path[1:])
+	}
+	return filepath.Abs(path)
 }
 
 // MergeMaps merges the secondary map into the main map.

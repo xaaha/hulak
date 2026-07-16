@@ -412,6 +412,7 @@ func TestListMatchingFiles(t *testing.T) {
 		{filepath.Join(tempDir, "regular_dir", "nested_dir", "config.yml"), "deeply nested yml"},
 		{filepath.Join(tempDir, ".hidden_dir", "config.json"), "hidden json"},
 		{filepath.Join(tempDir, ".config.json"), "hidden json file"},
+		{filepath.Join(tempDir, "login.hk.yaml"), "hk request"},
 	}
 
 	for _, tf := range testFiles {
@@ -429,6 +430,30 @@ func TestListMatchingFiles(t *testing.T) {
 		expectedError  bool
 		checkFilePaths func(t *testing.T, paths []string)
 	}{
+		{
+			name:          "Match .hk.yaml by bare stem",
+			matchFile:     "login",
+			initialPath:   tempDir,
+			expectedCount: 1,
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if len(paths) == 1 && !strings.HasSuffix(paths[0], "login.hk.yaml") {
+					t.Errorf("expected login.hk.yaml, got %v", paths)
+				}
+			},
+		},
+		{
+			name:          "Match .hk.yaml by full .hk stem",
+			matchFile:     "login.hk",
+			initialPath:   tempDir,
+			expectedCount: 1,
+			expectedError: false,
+			checkFilePaths: func(t *testing.T, paths []string) {
+				if len(paths) == 1 && !strings.HasSuffix(paths[0], "login.hk.yaml") {
+					t.Errorf("expected login.hk.yaml, got %v", paths)
+				}
+			},
+		},
 		{
 			name:          "Match config files",
 			matchFile:     "config",
@@ -994,4 +1019,66 @@ func TestAtomicWriteFile(t *testing.T) {
 			t.Errorf("file size = %d, want 0", info.Size())
 		}
 	})
+}
+
+func TestExpandPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+
+	t.Run("tilde slash expands to home", func(t *testing.T) {
+		got, err := ExpandPath("~/work/api")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := filepath.Join(home, "work", "api"); got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("bare tilde expands to home", func(t *testing.T) {
+		got, err := ExpandPath("~")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != home {
+			t.Errorf("got %q, want %q", got, home)
+		}
+	})
+
+	t.Run("absolute path unchanged", func(t *testing.T) {
+		got, err := ExpandPath("/etc/hosts")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "/etc/hosts" {
+			t.Errorf("got %q, want /etc/hosts", got)
+		}
+	})
+
+	t.Run("relative path made absolute", func(t *testing.T) {
+		got, err := ExpandPath("sub/dir")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !filepath.IsAbs(got) {
+			t.Errorf("got %q, want absolute", got)
+		}
+	})
+}
+
+func TestExpandPath_TildeWithoutSeparatorIsLiteral(t *testing.T) {
+	// "~data" has no separator after ~, so it is a literal filename, not home.
+	got, err := ExpandPath("~data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	if got == filepath.Join(home, "data") {
+		t.Errorf("~data should not expand to home, got %q", got)
+	}
+	if !strings.HasSuffix(got, "~data") {
+		t.Errorf("~data should stay literal, got %q", got)
+	}
 }

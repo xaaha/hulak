@@ -26,7 +26,7 @@ _hulak_yaml_files() {
 
 _hulak_takes_value() {
   case "$1" in
-    --dir|--dirseq|--env|--environment|--file|--file-path|--fp|--github|--keyserver|--name|--out|--search|--ssh-identity|--timeout|--type|-dir|-dirseq|-env|-environment|-f|-file|-file-path|-fp|-github|-keyserver|-name|-o|-out|-search|-ssh-identity|-t|-timeout|-type) return 0 ;;
+    --dir|--dirseq|--env|--environment|--file|--file-path|--fp|--github|--keyserver|--name|--out|--project|--search|--ssh-identity|--timeout|--type|-dir|-dirseq|-env|-environment|-f|-file|-file-path|-fp|-github|-keyserver|-name|-o|-out|-project|-search|-ssh-identity|-t|-timeout|-type) return 0 ;;
   esac
   return 1
 }
@@ -41,7 +41,7 @@ _hulak_complete_value() {
 
 _hulak_is_path() {
   case "$1" in
-    hulak|hulak:completion|hulak:completion:bash|hulak:completion:zsh|hulak:doctor|hulak:env|hulak:env:backup|hulak:env:backup:list|hulak:env:backup:ls|hulak:env:create|hulak:env:delete|hulak:env:edit|hulak:env:identity|hulak:env:identity:add-recipient|hulak:env:identity:export|hulak:env:identity:gen|hulak:env:identity:generate|hulak:env:identity:import|hulak:env:identity:list|hulak:env:identity:list-recipients|hulak:env:identity:ls|hulak:env:identity:remove-recipient|hulak:env:identity:rotate|hulak:env:key|hulak:env:key:add|hulak:env:key:delete|hulak:env:key:get|hulak:env:key:list|hulak:env:key:ls|hulak:env:key:rm|hulak:env:key:set|hulak:env:keys|hulak:env:keys:add|hulak:env:keys:delete|hulak:env:keys:get|hulak:env:keys:list|hulak:env:keys:ls|hulak:env:keys:rm|hulak:env:keys:set|hulak:env:list|hulak:env:ls|hulak:env:migrate|hulak:env:mv|hulak:env:rename|hulak:env:restore|hulak:env:rm|hulak:env:sync|hulak:example|hulak:gql|hulak:graphql|hulak:help|hulak:init|hulak:init:classic|hulak:init:no-vault|hulak:init:plain|hulak:migrate|hulak:run|hulak:secrets|hulak:secrets:backup|hulak:secrets:backup:list|hulak:secrets:backup:ls|hulak:secrets:create|hulak:secrets:delete|hulak:secrets:edit|hulak:secrets:identity|hulak:secrets:identity:add-recipient|hulak:secrets:identity:export|hulak:secrets:identity:gen|hulak:secrets:identity:generate|hulak:secrets:identity:import|hulak:secrets:identity:list|hulak:secrets:identity:list-recipients|hulak:secrets:identity:ls|hulak:secrets:identity:remove-recipient|hulak:secrets:identity:rotate|hulak:secrets:key|hulak:secrets:key:add|hulak:secrets:key:delete|hulak:secrets:key:get|hulak:secrets:key:list|hulak:secrets:key:ls|hulak:secrets:key:rm|hulak:secrets:key:set|hulak:secrets:keys|hulak:secrets:keys:add|hulak:secrets:keys:delete|hulak:secrets:keys:get|hulak:secrets:keys:list|hulak:secrets:keys:ls|hulak:secrets:keys:rm|hulak:secrets:keys:set|hulak:secrets:list|hulak:secrets:ls|hulak:secrets:migrate|hulak:secrets:mv|hulak:secrets:rename|hulak:secrets:restore|hulak:secrets:rm|hulak:secrets:sync|hulak:version) return 0 ;;
+    hulak|hulak:completion|hulak:completion:bash|hulak:completion:zsh|hulak:doctor|hulak:env|hulak:env:backup|hulak:env:backup:list|hulak:env:backup:ls|hulak:env:create|hulak:env:delete|hulak:env:edit|hulak:env:identity|hulak:env:identity:add-recipient|hulak:env:identity:export|hulak:env:identity:gen|hulak:env:identity:generate|hulak:env:identity:import|hulak:env:identity:list|hulak:env:identity:list-recipients|hulak:env:identity:ls|hulak:env:identity:remove-recipient|hulak:env:identity:rotate|hulak:env:key|hulak:env:key:add|hulak:env:key:delete|hulak:env:key:get|hulak:env:key:list|hulak:env:key:ls|hulak:env:key:rm|hulak:env:key:set|hulak:env:keys|hulak:env:keys:add|hulak:env:keys:delete|hulak:env:keys:get|hulak:env:keys:list|hulak:env:keys:ls|hulak:env:keys:rm|hulak:env:keys:set|hulak:env:list|hulak:env:ls|hulak:env:migrate|hulak:env:mv|hulak:env:rename|hulak:env:restore|hulak:env:rm|hulak:env:sync|hulak:example|hulak:gql|hulak:graphql|hulak:help|hulak:init|hulak:init:classic|hulak:init:no-vault|hulak:init:plain|hulak:mcp|hulak:migrate|hulak:run|hulak:secrets|hulak:secrets:backup|hulak:secrets:backup:list|hulak:secrets:backup:ls|hulak:secrets:create|hulak:secrets:delete|hulak:secrets:edit|hulak:secrets:identity|hulak:secrets:identity:add-recipient|hulak:secrets:identity:export|hulak:secrets:identity:gen|hulak:secrets:identity:generate|hulak:secrets:identity:import|hulak:secrets:identity:list|hulak:secrets:identity:list-recipients|hulak:secrets:identity:ls|hulak:secrets:identity:remove-recipient|hulak:secrets:identity:rotate|hulak:secrets:key|hulak:secrets:key:add|hulak:secrets:key:delete|hulak:secrets:key:get|hulak:secrets:key:list|hulak:secrets:key:ls|hulak:secrets:key:rm|hulak:secrets:key:set|hulak:secrets:keys|hulak:secrets:keys:add|hulak:secrets:keys:delete|hulak:secrets:keys:get|hulak:secrets:keys:list|hulak:secrets:keys:ls|hulak:secrets:keys:rm|hulak:secrets:keys:set|hulak:secrets:list|hulak:secrets:ls|hulak:secrets:migrate|hulak:secrets:mv|hulak:secrets:rename|hulak:secrets:restore|hulak:secrets:rm|hulak:secrets:sync|hulak:version) return 0 ;;
   esac
   return 1
 }
@@ -60,7 +60,7 @@ _hulak() {
   done
   case "$chain" in
     hulak)
-      COMPREPLY=( $(compgen -W "--debug --dir --dirseq --dry-run --env --environment --file --file-path --fp --help --quiet --show --timeout --version -f -q completion doctor env example gql graphql help init migrate run secrets version" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--debug --dir --dirseq --dry-run --env --environment --file --file-path --fp --help --quiet --show --timeout --version -f -q completion doctor env example gql graphql help init mcp migrate run secrets version" -- "$cur") )
       ;;
     hulak:run)
       if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--debug --dry-run --env --environment --quiet --seq --sequential --show --ssh-identity --timeout -q" -- "$cur") )
@@ -84,6 +84,9 @@ _hulak() {
     hulak:gql|hulak:graphql)
       if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--env --environment" -- "$cur") )
       else _hulak_yaml_files "$cur"; fi
+      ;;
+    hulak:mcp)
+      COMPREPLY=( $(compgen -W "--project" -- "$cur") )
       ;;
     hulak:secrets|hulak:env)
       COMPREPLY=( $(compgen -W "backup create delete edit identity key keys list ls migrate mv rename restore rm sync" -- "$cur") )

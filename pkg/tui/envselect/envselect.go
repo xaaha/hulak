@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"golang.org/x/term"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/tui"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -49,33 +49,6 @@ func noEnvFilesError() error {
 	)
 }
 
-// envItems returns available environment names.
-// Reads from encrypted store when available, otherwise from env/ directory.
-//
-// Returns a non-nil error only when the vault is broken (missing identity,
-// decrypt failure, recipient drift). An empty-but-healthy vault and a missing
-// env/ directory both return (nil, nil) so the caller falls through to the
-// "no envs configured" prompt instead of an alarming error.
-func envItems() ([]string, error) {
-	if vault.DetectStore() == vault.StoreAge {
-		store, err := vault.ReadStore()
-		if err != nil {
-			return nil, fmt.Errorf("vault: reading store: %w", err)
-		}
-		return store.ListEnvs(), nil
-	}
-
-	var items []string
-	if files, err := utils.GetEnvFiles(); err == nil {
-		for _, file := range files {
-			if name, ok := strings.CutSuffix(file, utils.DefaultEnvFileSuffix); ok {
-				items = append(items, name)
-			}
-		}
-	}
-	return items, nil
-}
-
 // RunEnvSelector runs the environment selector and reports whether the user
 // cancelled (Esc/Ctrl+C). Surfaces vault-layer errors verbatim so the user
 // sees the actual problem (e.g. "identity file is corrupt") instead of an
@@ -102,7 +75,7 @@ func envItems() ([]string, error) {
 // The empty-items path skips the TTY logic entirely so the more helpful
 // "no envs configured" error still wins when the store is empty.
 func RunEnvSelector() (env string, cancelled bool, err error) {
-	items, err := envItems()
+	items, err := envparser.ListEnvironments()
 	if err != nil {
 		return "", false, err
 	}

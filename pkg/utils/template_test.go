@@ -3,11 +3,19 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
 func TestFileHasTemplateVars(t *testing.T) {
 	tempDir := t.TempDir()
+	// getFile refs resolve against the project root (the working directory), so
+	// mark tempDir a project and run from it — mirroring a real run.
+	if err := os.Mkdir(filepath.Join(tempDir, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(tempDir)
+
 	gqlPath := filepath.Join(tempDir, "query.graphql")
 	err := os.WriteFile(gqlPath, []byte("query { user(id: {{.userId}}) { id } }"), 0o600)
 	if err != nil {
@@ -129,6 +137,102 @@ func buildGetFileContentNoQuotes(path string) string {
 
 func buildGetValueOfContent(key, fileName string) string {
 	return "---\nkind: GraphQL\nurl: http://example.com/graphql\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"" + key + "\" \"" + fileName + "\"}}'\n"
+}
+
+func TestReferencedFiles(t *testing.T) {
+	// getFile paths are project-root-relative, resolved against the working
+	// directory (as a real run does), so mark the temp dir a project and run
+	// from it. EvalSymlinks so absolute paths compare equal on macOS.
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	// A request in a SUB-DIRECTORY referencing a root-relative .gql. This is the
+	// case that used to double the sub-dir ("user_service/user_service/...").
+	writeFile(t, filepath.Join(root, "collection", "users.gql"), "query { user { id } }")
+	reqSubdir := filepath.Join(root, "user_service", "getUser.hk.yaml")
+	writeFile(t, reqSubdir, buildGetFileContent("collection/users.gql"))
+
+	// A request with no getFile references.
+	reqNoDeps := filepath.Join(root, "plain.hk.yaml")
+	writeFile(t, reqNoDeps, "---\nkind: API\nmethod: GET\nurl: http://example.com\n")
+
+	// A request whose .gql itself references another file (transitive), also
+	// root-relative.
+	writeFile(t, filepath.Join(root, "frag", "inner.gql"), "fragment F on User { id }")
+	writeFile(t, filepath.Join(root, "frag", "outer.gql"),
+		"query { ...F } {{"+TemplateFuncGetFile+" \"frag/inner.gql\"}}")
+	reqNested := filepath.Join(root, "nested.hk.yaml")
+	writeFile(t, reqNested, buildGetFileContent("frag/outer.gql"))
+
+	// A request referencing a .gql that does not exist yet.
+	reqMissing := filepath.Join(root, "missing.hk.yaml")
+	writeFile(t, reqMissing, buildGetFileContent("queries/DoesNotExist.gql"))
+
+	tests := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{
+			name: "subdir request resolves root-relative gql",
+			path: reqSubdir,
+			want: []string{filepath.Join(root, "collection", "users.gql")},
+		},
+		{
+			name: "no dependencies",
+			path: reqNoDeps,
+			want: nil,
+		},
+		{
+			name: "transitive dependency is followed",
+			path: reqNested,
+			want: []string{
+				filepath.Join(root, "frag", "outer.gql"),
+				filepath.Join(root, "frag", "inner.gql"),
+			},
+		},
+		{
+			name: "missing referenced file is still surfaced",
+			path: reqMissing,
+			want: []string{filepath.Join(root, "queries", "DoesNotExist.gql")},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ReferencedFiles(tc.path)
+			if err != nil {
+				t.Fatalf("ReferencedFiles(%q): unexpected error: %v", tc.path, err)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("ReferencedFiles(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestReferencedFiles_NonexistentRequestFile(t *testing.T) {
+	if _, err := ReferencedFiles("/nonexistent/path/req.hk.yaml"); err == nil {
+		t.Error("expected error for nonexistent request file, got nil")
+	}
+}
+
+// writeFile writes content to path, creating parent directories as needed.
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), DirPer); err != nil {
+		t.Fatalf("MkdirAll %q: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), FilePer); err != nil {
+		t.Fatalf("WriteFile %q: %v", path, err)
+	}
 }
 
 func TestResolveFilePath(t *testing.T) {

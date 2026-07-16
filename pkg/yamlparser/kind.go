@@ -3,6 +3,7 @@ package yamlparser
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -67,6 +68,33 @@ func (c *ConfigType) ParsedTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("timeout must be positive, got %q", c.Timeout)
 	}
 	return d, nil
+}
+
+// PeekConfig reads a request file's top-level config (kind, timeout) without
+// resolving templates or secrets. Other request fields (url, body, ...) are
+// ignored, so a file with unresolved template vars still peeks cleanly. Kind
+// is normalized (defaulting to API). Use it to classify or time a file
+// without a full parse.
+func PeekConfig(filePath string) (*ConfigType, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg ConfigType
+	if err := yaml.Unmarshal(content, &cfg); err != nil {
+		return nil, err
+	}
+	cfg.Kind = cfg.Kind.normalize()
+	return &cfg, nil
+}
+
+// PeekKind reads only the `kind` field from a request file (see PeekConfig).
+func PeekKind(filePath string) (Kind, error) {
+	cfg, err := PeekConfig(filePath)
+	if err != nil {
+		return "", err
+	}
+	return cfg.Kind, nil
 }
 
 // normalize resolves case insensitivity and defaulting.
