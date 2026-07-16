@@ -24,6 +24,7 @@ _hulak() {
     completion) _hulak_completion && ret=0 ;;
     doctor) _hulak_doctor && ret=0 ;;
     gql|graphql) _hulak_gql && ret=0 ;;
+    mcp) _hulak_mcp && ret=0 ;;
     secrets|env) _hulak_secrets && ret=0 ;;
   esac
   return ret
@@ -40,6 +41,7 @@ _hulak_subs() {
     'doctor:Check project health'
     'gql:Open the GraphQL explorer'
     'graphql:Open the GraphQL explorer'
+    'mcp:Serve requests to AI agents over MCP'
     'secrets:Manage encrypted environment secrets'
     'env:Manage encrypted environment secrets'
     'help:Show help for hulak'
@@ -122,6 +124,12 @@ _hulak_gql() {
   _arguments \
     '(--env --environment)'{--env,--environment}'[Environment to use (skips interactive selector)]:env:_hulak_envs' \
     '*:file or directory:_files -g "*.(yaml|yml|hk.yaml|hk.yml)"'
+}
+
+_hulak_mcp() {
+  _arguments \
+    '--default-project[Project assumed when a request name is unambiguous but no project is given]:value:' \
+    '--project[Named project as name=path (repeatable, e.g. api=~/work/api-tests)]:value:'
 }
 
 _hulak_secrets() {
