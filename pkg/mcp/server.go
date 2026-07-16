@@ -152,37 +152,33 @@ func validateDefaultProject(defaultProject string, resolved map[string]string) e
 // listing the choices so the client can ask the user and retry with a
 // project. The AI must not guess beyond this resolver.
 func (s *Server) ResolveRequest(project, name string) (Match, error) {
+	searchProjects := projectNames(s.projects)
 	if project != "" {
-		path, ok := s.projects[project]
-		if !ok {
+		if _, ok := s.projects[project]; !ok {
 			return Match{}, fmt.Errorf(
 				"unknown project %q; configured projects: %s",
 				project, strings.Join(projectNames(s.projects), ", "),
 			)
 		}
-		file, found, err := findRequest(path, name)
-		if err != nil {
-			return Match{}, err
-		}
-		if !found {
-			return Match{}, fmt.Errorf("request %q not found in project %q", name, project)
-		}
-		return Match{Project: project, Path: file}, nil
+		searchProjects = []string{project}
 	}
 
 	var matches []Match
-	for _, proj := range projectNames(s.projects) {
-		file, found, err := findRequest(s.projects[proj], name)
+	for _, proj := range searchProjects {
+		files, err := utils.FindRequestFiles(s.projects[proj], name)
 		if err != nil {
 			return Match{}, err
 		}
-		if found {
+		for _, file := range files {
 			matches = append(matches, Match{Project: proj, Path: file})
 		}
 	}
 
 	switch len(matches) {
 	case 0:
+		if project != "" {
+			return Match{}, fmt.Errorf("request %q not found in project %q", name, project)
+		}
 		return Match{}, fmt.Errorf(
 			"request %q not found in any project (%s)",
 			name, strings.Join(projectNames(s.projects), ", "),
@@ -190,36 +186,32 @@ func (s *Server) ResolveRequest(project, name string) (Match, error) {
 	case 1:
 		return matches[0], nil
 	default:
-		var b strings.Builder
-		fmt.Fprintf(
-			&b,
-			"request %q exists in multiple projects; pass `project` to pick one:\n",
-			name,
-		)
-		for _, m := range matches {
-			fmt.Fprintf(&b, "  - %s (%s)\n", m.Project, m.Path)
-		}
-		return Match{}, fmt.Errorf("%s", strings.TrimRight(b.String(), "\n"))
+		return Match{}, ambiguousError(name, project, matches)
 	}
+}
+
+// ambiguousError builds the error for a name that matches more than one
+// request file. The name may collide across projects, or within a single
+// project (same stem in different sub-directories); the hint differs so the
+// caller knows whether `project` can disambiguate.
+func ambiguousError(name, project string, matches []Match) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "request %q is ambiguous; it matches %d files:\n", name, len(matches))
+	for _, m := range matches {
+		fmt.Fprintf(&b, "  - %s (%s)\n", m.Project, m.Path)
+	}
+	if project == "" {
+		b.WriteString("pass `project` to narrow, or rename so the stem is unique")
+	} else {
+		b.WriteString("rename so the stem is unique within the project")
+	}
+	return fmt.Errorf("%s", strings.TrimRight(b.String(), "\n"))
 }
 
 // Serve runs the server over stdio until the client disconnects or ctx is
 // cancelled.
 func (s *Server) Serve(ctx context.Context) error {
 	return s.srv.Run(ctx, &mcpsdk.StdioTransport{})
-}
-
-// findRequest returns the first request file whose stem matches name within
-// root. found is false (nil error) when nothing matches.
-func findRequest(root, name string) (string, bool, error) {
-	matches, err := utils.FindRequestFiles(root, name)
-	if err != nil {
-		return "", false, err
-	}
-	if len(matches) == 0 {
-		return "", false, nil
-	}
-	return matches[0], true, nil
 }
 
 // projectNames returns the map keys sorted, for deterministic output.

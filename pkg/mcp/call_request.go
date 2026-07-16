@@ -38,7 +38,8 @@ func (s *Server) registerCallRequest() {
 		Name: "call_request",
 		Description: "Send a hulak request against an environment and return the " +
 			"response status and body. This performs a real network call. The " +
-			"response is saved as {name}_response.json unless no_save is true.",
+			"response is not saved to disk unless save is true, in which case it " +
+			"is written to {name}_response.json.",
 		Annotations: &mcpsdk.ToolAnnotations{DestructiveHint: &destructive},
 	}, s.handleCallRequest)
 }

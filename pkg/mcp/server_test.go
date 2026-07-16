@@ -98,9 +98,28 @@ func TestResolveRequest(t *testing.T) {
 			t.Fatal("expected ambiguity error")
 		}
 		msg := err.Error()
-		if !strings.Contains(msg, "multiple projects") ||
+		if !strings.Contains(msg, "ambiguous") ||
 			!strings.Contains(msg, "api") || !strings.Contains(msg, "mobile") {
 			t.Errorf("ambiguity error should list both projects, got: %v", err)
+		}
+	})
+
+	t.Run("duplicate stem within one project is ambiguous", func(t *testing.T) {
+		dup := projectDir(t)
+		writeReq(t, filepath.Join(dup, "auth"), "token.hk.yaml")
+		writeReq(t, filepath.Join(dup, "billing"), "token.hk.yaml")
+		ds, err := NewServer(map[string]string{"dup": dup}, "", "v")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Even with the project pinned, two files share the stem, so the
+		// resolver must refuse rather than silently pick one.
+		_, err = ds.ResolveRequest("dup", "token")
+		if err == nil {
+			t.Fatal("expected ambiguity error for duplicate stem in one project")
+		}
+		if !strings.Contains(err.Error(), "ambiguous") {
+			t.Errorf("error should call out ambiguity, got: %v", err)
 		}
 	})
 
