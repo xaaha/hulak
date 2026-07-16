@@ -128,7 +128,6 @@ _hulak_gql() {
 
 _hulak_mcp() {
   _arguments \
-    '--default-project[Project assumed when a request name is unambiguous but no project is given]:value:' \
     '--project[Named project as name=path (repeatable, e.g. api=~/work/api-tests)]:value:'
 }
 

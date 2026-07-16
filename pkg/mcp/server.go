@@ -23,11 +23,10 @@ import (
 // Every tool resolves a request within a project; when the caller omits the project,
 // the resolver searches all of them and reports ambiguity rather than guessing.
 type Server struct {
-	projects       map[string]string // name -> absolute project directory
-	defaultProject string            // name in projects, or "" if unset
-	srv            *mcpsdk.Server
-	reqSchema      *jsonschema.Resolved // request-file schema; nil = skip schema validation
-	mu             sync.Mutex           // serializes withProjectDir
+	projects  map[string]string // name -> absolute project directory
+	srv       *mcpsdk.Server
+	reqSchema *jsonschema.Resolved // request-file schema; nil = skip schema validation
+	mu        sync.Mutex           // serializes withProjectDir
 }
 
 // SetRequestSchema compiles schemaJSON (the hulak request JSON Schema) and uses
@@ -58,9 +57,8 @@ type Match struct {
 }
 
 // NewServer builds an MCP server over the named projects. Paths are ~- and abs-expanded.
-// Errors when projects is empty, a path can't be resolved, or
-// defaultProject (when set) is not one of the projects.
-func NewServer(projects map[string]string, defaultProject, version string) (*Server, error) {
+// Errors when projects is empty or a path can't be resolved.
+func NewServer(projects map[string]string, version string) (*Server, error) {
 	if len(projects) == 0 {
 		return nil, fmt.Errorf("at least one project is required")
 	}
@@ -75,15 +73,12 @@ func NewServer(projects map[string]string, defaultProject, version string) (*Ser
 	if err := validateProjectDirs(resolved); err != nil {
 		return nil, err
 	}
-	if err := validateDefaultProject(defaultProject, resolved); err != nil {
-		return nil, err
-	}
 
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    utils.ProjectName,
 		Version: version,
 	}, nil)
-	s := &Server{projects: resolved, defaultProject: defaultProject, srv: srv}
+	s := &Server{projects: resolved, srv: srv}
 	s.registerListRequests()
 	s.registerListEnvs()
 	s.registerDryRun()
@@ -128,22 +123,6 @@ func validateProjectDirs(resolved map[string]string) error {
 		}
 	}
 	return nil
-}
-
-// validateDefaultProject checks that --default-project names one of the
-// configured --project entries.
-func validateDefaultProject(defaultProject string, resolved map[string]string) error {
-	if defaultProject == "" {
-		return nil
-	}
-	if _, ok := resolved[defaultProject]; ok {
-		return nil
-	}
-	return fmt.Errorf(
-		"--default-project %q does not match any --project name.\n"+
-			"Configured project names: %s",
-		defaultProject, strings.Join(projectNames(resolved), ", "),
-	)
 }
 
 // ResolveRequest locates the request file named name. When project is given,

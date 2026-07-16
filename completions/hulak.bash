@@ -26,7 +26,7 @@ _hulak_yaml_files() {
 
 _hulak_takes_value() {
   case "$1" in
-    --default-project|--dir|--dirseq|--env|--environment|--file|--file-path|--fp|--github|--keyserver|--name|--out|--project|--search|--ssh-identity|--timeout|--type|-default-project|-dir|-dirseq|-env|-environment|-f|-file|-file-path|-fp|-github|-keyserver|-name|-o|-out|-project|-search|-ssh-identity|-t|-timeout|-type) return 0 ;;
+    --dir|--dirseq|--env|--environment|--file|--file-path|--fp|--github|--keyserver|--name|--out|--project|--search|--ssh-identity|--timeout|--type|-dir|-dirseq|-env|-environment|-f|-file|-file-path|-fp|-github|-keyserver|-name|-o|-out|-project|-search|-ssh-identity|-t|-timeout|-type) return 0 ;;
   esac
   return 1
 }
@@ -86,7 +86,7 @@ _hulak() {
       else _hulak_yaml_files "$cur"; fi
       ;;
     hulak:mcp)
-      COMPREPLY=( $(compgen -W "--default-project --project" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--project" -- "$cur") )
       ;;
     hulak:secrets|hulak:env)
       COMPREPLY=( $(compgen -W "backup create delete edit identity key keys list ls migrate mv rename restore rm sync" -- "$cur") )

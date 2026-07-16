@@ -52,11 +52,6 @@ func New(version string, schemaJSON []byte) *cli.Command {
 		"project",
 		"Named project as name=path (repeatable, e.g. api=~/work/api-tests)",
 	)
-	defaultProject := fs.String(
-		"default-project",
-		"",
-		"Project assumed when a request name is unambiguous but no project is given",
-	)
 
 	cmd := &cli.Command{
 		Name:  "mcp",
@@ -72,8 +67,8 @@ func New(version string, schemaJSON []byte) *cli.Command {
 				Description: "Serve a single named project",
 			},
 			{
-				Command:     "hulak mcp --project api=~/work/api --project mob=~/work/mob --default-project api",
-				Description: "Serve multiple projects with a default",
+				Command:     "hulak mcp --project api=~/work/api --project mob=~/work/mob",
+				Description: "Serve multiple projects",
 			},
 		},
 	}
@@ -82,7 +77,7 @@ func New(version string, schemaJSON []byte) *cli.Command {
 		if len(projects) == 0 {
 			return fmt.Errorf("at least one --project name=path is required")
 		}
-		srv, err := mcp.NewServer(projects, *defaultProject, version)
+		srv, err := mcp.NewServer(projects, version)
 		if err != nil {
 			return err
 		}
