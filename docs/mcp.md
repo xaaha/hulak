@@ -10,9 +10,11 @@ So you can ask an agent to work with your API collection in plain language — "
 
 ## Configure your client
 
-An MCP client launches the server as a subprocess. Point it at the `hulak` binary with the `mcp` subcommand and one or more projects.
+An MCP client launches the server as a subprocess. Point it at the `hulak` binary with the `mcp` subcommand and one or more `--project name=path` flags. The blocks below are equivalent — same command, different config file per client. Copy the one for your client.
 
-Single project:
+### Claude Code, Cursor, Zed, and other standard MCP clients
+
+They share the standard MCP JSON (in `~/.claude.json`, `.cursor/mcp.json`, `.mcp.json`, and similar):
 
 ```json
 {
@@ -25,7 +27,51 @@ Single project:
 }
 ```
 
-Multiple projects with a default:
+### Codex
+
+`~/.codex/config.toml` (or `.codex/config.toml` in a project):
+
+```toml
+[mcp_servers.hulak]
+command = "hulak"
+args = ["mcp", "--project", "api=~/work/api-tests"]
+```
+
+### opencode
+
+`opencode.json`. Note opencode folds the command and its args into a single `command` array:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "hulak": {
+      "type": "local",
+      "command": ["hulak", "mcp", "--project", "api=~/work/api-tests"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### Pi
+
+`~/.pi/agent/mcp.json` (or `.pi/mcp.json` in a project):
+
+```json
+{
+  "mcpServers": {
+    "hulak": {
+      "command": "hulak",
+      "args": ["mcp", "--project", "api=~/work/api-tests"]
+    }
+  }
+}
+```
+
+### Multiple projects
+
+Repeat `--project`. For example, in the standard JSON:
 
 ```json
 {
@@ -35,20 +81,20 @@ Multiple projects with a default:
       "args": [
         "mcp",
         "--project", "api=~/work/api",
-        "--project", "mob=~/work/mobile",
-        "--default-project", "api"
+        "--project", "mob=~/work/mobile"
       ]
     }
   }
 }
 ```
 
+No default project is needed. When a tool is called without a `project`, the server searches every configured project: a request name that exists in exactly one resolves automatically; a name in more than one returns an error listing the matches so the agent retries with an explicit `project`. Reads and dry-runs only need a `project` when the name is ambiguous; `write_request` always needs an explicit `project` when more than one is configured.
+
 ### Flags
 
-| Flag                | Meaning                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| `--project`         | A named project as `name=path` (repeatable). Path accepts `~`. Must be a hulak project dir. |
-| `--default-project` | Project assumed when a request name is unambiguous but the agent passes no `project`.       |
+| Flag        | Meaning                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `--project` | A named project as `name=path` (repeatable). Path accepts `~`. Must be a hulak project dir. |
 
 At least one `--project` is required. Each path must be a real hulak project (contains `.hulak/` or `env/`) or the server refuses to start — a mistyped path fails loudly instead of serving empty lists.
 
@@ -75,7 +121,7 @@ The agent discovers all of this — every tool, every argument — from the MCP 
 | `name`    | —       | Request name, with or without extension.                                     |
 | `env`     | —       | Required. Environment to resolve secrets against.                            |
 | `project` | —       | Optional; see ambiguity rules above.                                         |
-| `save`    | `false` | The response is always returned. Set `true` to also write `{name}_response.json`. |
+| `save`    | `false` | The response is always returned. Set `true` to also write a `{name}_response` file next to the request; its extension follows the response content type (e.g. `.json` or `.txt`). |
 | `debug`   | `false` | Include full request, response headers, and TLS details.                     |
 | `timeout` | `60s`   | Go duration. A `timeout:` field in the request file wins over this.          |
 

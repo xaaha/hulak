@@ -18,7 +18,7 @@ type callRequestInput struct {
 	Name    string `json:"name"              jsonschema:"request name, e.g. login (with or without extension)"`
 	Env     string `json:"env"               jsonschema:"environment to resolve secrets against, e.g. staging (required)"`
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
-	Save    bool   `json:"save,omitempty"    jsonschema:"also write the response to {name}_response.json; off by default (the response is always returned)"`
+	Save    bool   `json:"save,omitempty"    jsonschema:"also write the response next to the request as a {name}_response file (extension from the response content type, e.g. .json or .txt); off by default (the response is always returned)"`
 	Debug   bool   `json:"debug,omitempty"   jsonschema:"return full request, response headers, and TLS details; use to diagnose a failing request"`
 	Timeout string `json:"timeout,omitempty" jsonschema:"per-request timeout as a Go duration, e.g. 30s or 2m; a timeout field in the request file wins; default 60s"`
 }
@@ -39,7 +39,8 @@ func (s *Server) registerCallRequest() {
 		Description: "Send a hulak request against an environment and return the " +
 			"response status and body. This performs a real network call. The " +
 			"response is not saved to disk unless save is true, in which case it " +
-			"is written to {name}_response.json.",
+			"is written next to the request as a {name}_response file whose " +
+			"extension follows the response content type (e.g. .json or .txt).",
 		Annotations: &mcpsdk.ToolAnnotations{DestructiveHint: &destructive},
 	}, s.handleCallRequest)
 }
