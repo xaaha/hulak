@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,7 +76,7 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) 
 		// to the project root. Dedup and recursion key on the real file; a
 		// not-yet-created file is still surfaced, anchored to the project root
 		// so the reported path is where a run would look for it.
-		resolved, err := resolveFilePath(arg)
+		resolved, err := ResolveProjectFile(arg)
 		if err != nil {
 			resolved = projectRootRel(arg)
 		}
@@ -172,31 +173,82 @@ func parseTemplateArg(input string) string {
 	}
 }
 
+// resolveFilePath locates a file for static analysis (env-var detection, dep
+// listing). Unlike ResolveProjectFile it enforces no project containment and
+// tolerates a caller-supplied absolute path outside any project, since the
+// caller has already located the file. Relative paths are project-root-relative
+// (never cwd-relative), matching the runtime getFile rule.
 func resolveFilePath(filePath string) (string, error) {
 	if filePath == "" {
 		return "", errors.New("file path cannot be empty")
 	}
 
 	cleanPath := filepath.Clean(filePath)
-	absPath, err := filepath.Abs(cleanPath)
-	if err != nil {
-		return "", err
+	if filepath.IsAbs(cleanPath) {
+		if _, err := os.Stat(cleanPath); err != nil {
+			return "", err
+		}
+		return cleanPath, nil
 	}
 
-	_, statErr := os.Stat(absPath)
-	if statErr == nil {
-		return absPath, nil
-	}
-	if !os.IsNotExist(statErr) {
-		return "", statErr
-	}
-
-	projectRoot, _ := FindProjectRoot()
-	relPath := filepath.Join(projectRoot, cleanPath)
+	root, _ := FindProjectRoot()
+	relPath := filepath.Join(root, cleanPath)
 	if _, err := os.Stat(relPath); err != nil {
 		return "", err
 	}
 	return relPath, nil
+}
+
+// ResolveProjectFile resolves a getFile path to an absolute path inside the
+// project root. It is the single source of truth for getFile resolution, used
+// by both the runtime (actions.GetFile) and the dependency lister.
+//
+// A relative path is always project-root-relative, never cwd-relative, so
+// resolution is identical no matter where hulak is invoked from. An absolute
+// path is used as-is. Either way the result must live inside the project root
+// and point at an existing regular file.
+func ResolveProjectFile(filePath string) (string, error) {
+	if filePath == "" {
+		return "", errors.New("file path cannot be empty")
+	}
+
+	projectRoot, found := FindProjectRoot()
+	if !found {
+		return "", errors.New("not a hulak project: could not find project root")
+	}
+
+	cleanPath := filepath.Clean(filePath)
+	absPath := cleanPath
+	if !filepath.IsAbs(cleanPath) {
+		absPath = filepath.Join(projectRoot, cleanPath)
+	}
+
+	if !withinRoot(absPath, projectRoot) {
+		return "", fmt.Errorf("access denied: file path %s is outside the project root", filePath)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("file does not exist %s", absPath)
+		}
+		return "", err
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("%s is a directory, not a file", filePath)
+	}
+	return absPath, nil
+}
+
+// withinRoot reports whether absPath is root itself or nested under it, using a
+// path-segment comparison so a sibling like /project-evil does not count as
+// being inside /project.
+func withinRoot(absPath, root string) bool {
+	rel, err := filepath.Rel(root, absPath)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func hasEnvVar(val any) bool {

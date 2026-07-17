@@ -317,19 +317,19 @@ func TestResolveFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := resolveFilePath(tt.input)
+			got, err := ResolveProjectFile(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("resolveFilePath(%q) expected error, got nil", tt.input)
+					t.Errorf("ResolveProjectFile(%q) expected error, got nil", tt.input)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("resolveFilePath(%q) unexpected error: %v", tt.input, err)
+				t.Errorf("ResolveProjectFile(%q) unexpected error: %v", tt.input, err)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("resolveFilePath(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("ResolveProjectFile(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -372,12 +372,62 @@ func TestResolveFilePath_FromChildDir(t *testing.T) {
 	}
 
 	// Relative path "root.txt" should resolve via project root, not cwd
-	got, err := resolveFilePath("root.txt")
+	got, err := ResolveProjectFile("root.txt")
 	if err != nil {
-		t.Fatalf("resolveFilePath(\"root.txt\") from child dir: unexpected error: %v", err)
+		t.Fatalf("ResolveProjectFile(\"root.txt\") from child dir: unexpected error: %v", err)
 	}
 	if got != rootFile {
-		t.Errorf("resolveFilePath(\"root.txt\") from child dir = %q, want %q", got, rootFile)
+		t.Errorf("ResolveProjectFile(\"root.txt\") from child dir = %q, want %q", got, rootFile)
+	}
+}
+
+// TestResolveProjectFile_ChildCollision is the issue #239 regression: a
+// relative getFile path must resolve against the project root even when a
+// same-named file also exists under the cwd. The old cwd-first resolver picked
+// the child copy and silently returned the wrong file.
+func TestResolveProjectFile_ChildCollision(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(oldDir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	tmpDir := t.TempDir()
+	tmpDir, err = filepath.EvalSymlinks(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(tmpDir, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+
+	// Same relative name at both the project root and a child dir.
+	rootFile := filepath.Join(tmpDir, "data.json")
+	if err := os.WriteFile(rootFile, []byte("root"), FilePer); err != nil {
+		t.Fatalf("failed to write root file: %v", err)
+	}
+	childDir := filepath.Join(tmpDir, "child")
+	if err := os.Mkdir(childDir, DirPer); err != nil {
+		t.Fatalf("failed to create child dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(childDir, "data.json"), []byte("child"), FilePer); err != nil {
+		t.Fatalf("failed to write child file: %v", err)
+	}
+	if err := os.Chdir(childDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	got, err := ResolveProjectFile("data.json")
+	if err != nil {
+		t.Fatalf("ResolveProjectFile(\"data.json\") from child dir: unexpected error: %v", err)
+	}
+	if got != rootFile {
+		t.Errorf("ResolveProjectFile(\"data.json\") = %q, want the project-root copy %q (cwd copy wrongly picked)",
+			got, rootFile)
 	}
 }
 
