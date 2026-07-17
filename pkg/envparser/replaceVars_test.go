@@ -145,6 +145,41 @@ func TestSubstituteVariables_SiblingGetFile(t *testing.T) {
 	})
 }
 
+// TestSubstituteVariables_SiblingRelativeFromSubdir guards that the "*" sibling
+// resolves next to the request file even when it is passed as a relative path
+// from a working directory below the project root. A decoy file with the same
+// name at the project root would be picked if the sibling were re-rooted there
+// instead of resolved next to the request file.
+func TestSubstituteVariables_SiblingRelativeFromSubdir(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	genesis := filepath.Join(root, "genesis")
+	if err := os.MkdirAll(genesis, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same basename in two places: the real neighbor in genesis/ and a decoy at
+	// the project root. Re-rooting would read the decoy.
+	if err := os.WriteFile(filepath.Join(genesis, "getUser.gql"), []byte("REAL"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "getUser.gql"), []byte("DECOY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd is the subdir, and the request file is given as a bare relative name.
+	t.Chdir(genesis)
+	got, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, "getUser.hk.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "REAL" {
+		t.Errorf("got %q, want %q (sibling re-rooted to the project root instead of the request dir)", got, "REAL")
+	}
+}
+
 // TestSubstituteVariablesWithJSONNumber guards against a regression where the
 // vault decoded numbers as json.Number (to preserve int/float distinction) but
 // prepareMap rejected the type with "unsupported type for key '...': json.Number".

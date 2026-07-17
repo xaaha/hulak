@@ -182,7 +182,15 @@ func getFileFor(currentFile string) func(string) (string, error) {
 		if arg == "*" {
 			return "", fmt.Errorf(`getFile %q needs an extension, e.g. "*.gql"`, arg)
 		}
-		content, err := actions.GetFile(sibling)
+		// Resolve against the cwd so the sibling is read from the request file's
+		// own directory. A relative currentFile makes SiblingPath return a
+		// relative path, which actions.GetFile would otherwise re-root at the
+		// project root instead of next to the request file.
+		abs, err := filepath.Abs(sibling)
+		if err != nil {
+			return "", err
+		}
+		content, err := actions.GetFile(abs)
 		if err != nil {
 			return "", fmt.Errorf(
 				"no sibling file %s next to %s: %w",
