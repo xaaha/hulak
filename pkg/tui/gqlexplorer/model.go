@@ -1170,7 +1170,7 @@ func (m *Model) saveResponse() tea.Cmd {
 	fileName := op.Name + "-" + stamp + utils.ResponseBase + ".json"
 	fullPath := filepath.Join(dir, fileName)
 
-	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.FilePer); err != nil {
+	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.SecretPer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
 	}
 	return m.enqueueNotification(tui.NotificationInfo, "Saved "+relativePath(fullPath))
@@ -1219,7 +1219,8 @@ func (m *Model) responseHeader() string {
 	}
 	saveColor := focusColor(focused, badgeColor[TypeMutation])
 	saveChip := tui.RenderChip(saveLabel, tui.ChipVariantBadge, saveColor)
-	parts = append(parts,
+	parts = append(
+		parts,
 		tui.HelpStyle.Render(formatResponseSize(len(m.responseBody))),
 		m.mouse.Mark(m.saveZoneID(), saveChip),
 	)
