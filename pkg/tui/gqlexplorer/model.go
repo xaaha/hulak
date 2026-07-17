@@ -1170,9 +1170,6 @@ func (m *Model) saveResponse() tea.Cmd {
 	fileName := op.Name + "-" + stamp + utils.ResponseBase + ".json"
 	fullPath := filepath.Join(dir, fileName)
 
-	// Response bodies routinely echo tokens/PII. Save owner-only (0o600),
-	// matching the CLI response writer, not the world-readable FilePer used for
-	// shareable source files.
 	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.SecretPer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
 	}
@@ -1222,7 +1219,8 @@ func (m *Model) responseHeader() string {
 	}
 	saveColor := focusColor(focused, badgeColor[TypeMutation])
 	saveChip := tui.RenderChip(saveLabel, tui.ChipVariantBadge, saveColor)
-	parts = append(parts,
+	parts = append(
+		parts,
 		tui.HelpStyle.Render(formatResponseSize(len(m.responseBody))),
 		m.mouse.Mark(m.saveZoneID(), saveChip),
 	)
