@@ -72,68 +72,21 @@ func BasicAuth(username, password string) string {
 	return "Basic " + encoded
 }
 
-// GetFile reads the content of a file given its relative or absolute path
+// GetFile reads the content of a file referenced by a {{getFile}} template.
+// Resolution is delegated to utils.ResolveProjectFile: relative paths are
+// project-root-relative (never cwd-relative), absolute paths are used as-is,
+// and either way the file must live inside the project root.
 func GetFile(filePath string) (string, error) {
-	// Check if file path is empty
-	if filePath == "" {
-		return "", fmt.Errorf("file path cannot be empty")
-	}
-
-	cleanPath := filepath.Clean(filePath)
-
-	// Use project root as the base allowed directory
-	projectRoot, found := utils.FindProjectRoot()
-	if !found {
-		return "", fmt.Errorf("not a hulak project: could not find project root")
-	}
-
-	// Try to resolve as absolute path first
-	absPath, err := filepath.Abs(cleanPath)
+	absPath, err := utils.ResolveProjectFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path %s: %w", cleanPath, err)
+		return "", err
 	}
 
-	// Check if file exists and is readable
-	fileInfo, err := os.Stat(absPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Try relative to working directory if absolute path doesn't exist
-			relPath := filepath.Join(projectRoot, cleanPath)
-			fileInfo, err = os.Stat(relPath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					return "", fmt.Errorf("file does not exist %s", absPath)
-				}
-				return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
-			}
-			absPath = relPath
-		} else {
-			return "", fmt.Errorf("error accessing file %s: %w", filePath, err)
-		}
-	}
-
-	// ensure the file is within the working directory or explicitly allowed directories
-	if !strings.HasPrefix(absPath, projectRoot) {
-		// If you want to allow specific directories outside the working dir, add checks here
-		// For example, checking if it's in an allowed config directory
-		return "", fmt.Errorf(
-			"access denied: file path %s is outside the allowed directory",
-			filePath,
-		)
-	}
-
-	// Check if it's a regular file (not a directory)
-	if fileInfo.IsDir() {
-		return "", fmt.Errorf("%s is a directory, not a file", filePath)
-	}
-
-	// Read the file content preserving all formatting
 	content, err := os.ReadFile(absPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
-	// Return the content as is, preserving all newlines and formatting
 	return string(content), nil
 }
 
@@ -151,7 +104,9 @@ func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintErrorStderr(fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf))
+			utils.PrintErrorStderr(
+				fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf),
+			)
 		} else {
 			utils.PrintErrorStderr(
 				fmt.Sprintf(
@@ -237,7 +192,9 @@ func resolveJSONFilePath(fileName string) (string, error) {
 
 	// Handle multiple matches warning
 	if len(yamlPathList) > 1 {
-		utils.PrintWarningStderr(fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]))
+		utils.PrintWarningStderr(
+			fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]),
+		)
 	}
 
 	singlePath := yamlPathList[0]
