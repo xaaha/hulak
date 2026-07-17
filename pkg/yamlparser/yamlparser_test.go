@@ -123,7 +123,7 @@ func TestStringVariableSubstitution(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := replaceVarsWithValues(tc.input, tc.envVars)
+			result, err := replaceVarsWithValues(tc.input, tc.envVars, "")
 			if err != nil {
 				t.Fatalf("replaceVarsWithValues returned an error: %v", err)
 			}

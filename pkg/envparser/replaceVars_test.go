@@ -4,9 +4,67 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// TestSubstituteVariables_SiblingGetFile exercises the getFile "*" sibling
+// shorthand end to end: it resolves a file next to the current request file,
+// errors clearly when the sibling is missing, and rejects misuse.
+func TestSubstituteVariables_SiblingGetFile(t *testing.T) {
+	// A hulak project (env/ marker) so actions.GetFile can find the root.
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+
+	reqDir := filepath.Join(root, "genesis")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	currentFile := filepath.Join(reqDir, "getUser.hk.yaml")
+	gqlBody := "query { user { id } }"
+	if err := os.WriteFile(filepath.Join(reqDir, "getUser.gql"), []byte(gqlBody), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("resolves sibling next to current file", func(t *testing.T) {
+		got, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, currentFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != gqlBody {
+			t.Errorf("got %q, want %q", got, gqlBody)
+		}
+	})
+
+	t.Run("missing sibling gives a clear error", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*.json"}}`, map[string]any{}, currentFile)
+		if err == nil {
+			t.Fatal("expected error for missing sibling")
+		}
+		if !strings.Contains(err.Error(), "getUser.json") ||
+			!strings.Contains(err.Error(), "getUser.hk.yaml") {
+			t.Errorf("error should name both files, got: %v", err)
+		}
+	})
+
+	t.Run("bare star needs an extension", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*"}}`, map[string]any{}, currentFile)
+		if err == nil || !strings.Contains(err.Error(), "extension") {
+			t.Errorf("expected an extension-required error, got: %v", err)
+		}
+	})
+
+	t.Run("sibling shorthand outside a file context errors", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, "")
+		if err == nil || !strings.Contains(err.Error(), "request file") {
+			t.Errorf("expected a file-context error, got: %v", err)
+		}
+	})
+}
 
 // TestSubstituteVariablesWithJSONNumber guards against a regression where the
 // vault decoded numbers as json.Number (to preserve int/float distinction) but
@@ -17,7 +75,7 @@ func TestSubstituteVariablesWithJSONNumber(t *testing.T) {
 		"application_id": json.Number("12345"),
 		"url":            "https://api.example.com/apps/{{.application_id}}",
 	}
-	got, err := SubstituteVariables("{{.url}}", secretsMap)
+	got, err := SubstituteVariables("{{.url}}", secretsMap, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -269,7 +327,7 @@ func TestSubstituteVariables(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := SubstituteVariables(tc.stringToChange, tc.varMap)
+			output, err := SubstituteVariables(tc.stringToChange, tc.varMap, "")
 
 			// Compare output
 			if output != tc.expectedOutput {
@@ -478,7 +536,7 @@ func TestSubstituteVariablesWithImprovedErrors(t *testing.T) {
 				defer os.Unsetenv("hulakEnv")
 			}
 
-			_, err := SubstituteVariables(tc.stringToChange, tc.varMap)
+			_, err := SubstituteVariables(tc.stringToChange, tc.varMap, "")
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")
