@@ -104,7 +104,9 @@ func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintErrorStderr(fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf))
+			utils.PrintErrorStderr(
+				fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf),
+			)
 		} else {
 			utils.PrintErrorStderr(
 				fmt.Sprintf(
@@ -190,7 +192,9 @@ func resolveJSONFilePath(fileName string) (string, error) {
 
 	// Handle multiple matches warning
 	if len(yamlPathList) > 1 {
-		utils.PrintWarningStderr(fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]))
+		utils.PrintWarningStderr(
+			fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]),
+		)
 	}
 
 	singlePath := yamlPathList[0]
