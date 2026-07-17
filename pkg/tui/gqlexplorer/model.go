@@ -1170,7 +1170,10 @@ func (m *Model) saveResponse() tea.Cmd {
 	fileName := op.Name + "-" + stamp + utils.ResponseBase + ".json"
 	fullPath := filepath.Join(dir, fileName)
 
-	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.FilePer); err != nil {
+	// Response bodies routinely echo tokens/PII. Save owner-only (0o600),
+	// matching the CLI response writer, not the world-readable FilePer used for
+	// shareable source files.
+	if err := os.WriteFile(fullPath, []byte(m.responseBody), utils.SecretPer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
 	}
 	return m.enqueueNotification(tui.NotificationInfo, "Saved "+relativePath(fullPath))
