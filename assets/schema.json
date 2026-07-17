@@ -263,9 +263,9 @@
               "properties": {
                 "query": {
                   "type": "string",
-                  "description": "GraphQL query string",
+                  "description": "GraphQL query string. Use {{getFile \"*.gql\"}} to read the sibling .gql file with the same basename as this request.",
                   "minLength": 1,
-                  "default": "{{getFile `path/to/file.gql`}}"
+                  "default": "{{getFile \"*.gql\"}}"
                 },
                 "variables": {
                   "type": "object",

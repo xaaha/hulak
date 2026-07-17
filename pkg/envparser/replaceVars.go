@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -59,6 +60,27 @@ func formatMissingKeyError(keyName string) error {
 	)
 }
 
+// actionTokenRe matches the command identifier at the start of a template
+// action ("{{", optional trim marker, optional spaces, then the identifier).
+// Field accessors ({{.key}}) and variables ({{$x}}) don't match — they don't
+// start with an identifier char — so only function-position tokens are touched.
+var actionTokenRe = regexp.MustCompile(`(\{\{-?[ \t]*)([A-Za-z_][A-Za-z0-9_]*)`)
+
+// canonicalizeActionNames rewrites the leading command token of each template
+// action to its canonical spelling when it is a known action, so getfile,
+// GetFile, and get_file all resolve to getFile. Only tokens whose normalized
+// form is a known action are rewritten; every other identifier is left as-is.
+func canonicalizeActionNames(s string) string {
+	return actionTokenRe.ReplaceAllStringFunc(s, func(match string) string {
+		groups := actionTokenRe.FindStringSubmatch(match)
+		prefix, token := groups[1], groups[2]
+		if canonical, ok := utils.CanonicalActionName(token); ok {
+			return prefix + canonical
+		}
+		return match
+	})
+}
+
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]any,
@@ -78,7 +100,7 @@ func replaceVariables(
 	tmpl, err := template.New("template").
 		Funcs(funcMap).
 		Option("missingkey=error").
-		Parse(strToChange)
+		Parse(canonicalizeActionNames(strToChange))
 	if err != nil {
 		return "", err
 	}

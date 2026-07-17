@@ -1,5 +1,8 @@
 # How to access variables?
 
+> [!Note]
+> Action names are case and underscore insensitive. `{{getFile}}`, `{{getfile}}`, `{{GetFile}}`, and `{{get_file}}` all call the same function. This applies to every action below (`getValueOf`, `getFile`, `basicAuth`, `os`). Your `{{.key}}` values stay case sensitive.
+
 ## 1. Accessing secrets from the vault
 
 Hulak resolves `{{.key}}` template values from the encrypted vault (`.hulak/store.age`). Set a secret once with `hulak secrets keys set`. Then reference it in your request files.
@@ -127,6 +130,25 @@ body:
 ```
 
 `getFile` gets the entire file content and dumps it in context. For example, in the above example, it dumps the content in the query section of grapqhl
+
+### Sibling shorthand: `getFile "*.ext"`
+
+When the file you want sits next to the request file and shares its name, use `*` as the name. The `*` stands for the current request file's basename. Whatever follows `*` is appended.
+
+```yaml
+# in genesis/getUser.hk.yaml
+body:
+  graphql:
+    query: '{{getFile "*.gql"}}' # reads genesis/getUser.gql
+```
+
+This works for any extension.
+
+```yaml
+body: '{{getFile "*.json"}}' # reads <thisfile>.json next to the request
+```
+
+The basename is the request file name without its `.hk.yaml`, `.hk.yml`, `.yaml`, or `.yml` suffix. The lookup is always the same directory as the request file, so renaming or moving the pair keeps the link intact. If the sibling file is missing, hulak reports the exact name it looked for. Regular path arguments (anything not starting with `*`) resolve from the project root as before.
 
 ## 3. Using `basicAuth`
 

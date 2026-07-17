@@ -9,6 +9,85 @@ import (
 	"testing"
 )
 
+func TestCanonicalizeActionNames(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "lowercase getfile canonicalized",
+			in:   `{{getfile "*.gql"}}`,
+			want: `{{getFile "*.gql"}}`,
+		},
+		{
+			name: "underscore variant canonicalized",
+			in:   `{{get_file "*.gql"}}`,
+			want: `{{getFile "*.gql"}}`,
+		},
+		{
+			name: "uppercase with spaces and trim marker",
+			in:   `{{- GET_VALUE_OF "token" "auth.json" }}`,
+			want: `{{- getValueOf "token" "auth.json" }}`,
+		},
+		{
+			name: "field access is untouched",
+			in:   `{{.getfile}}`,
+			want: `{{.getfile}}`,
+		},
+		{
+			name: "unknown function is untouched",
+			in:   `{{someOther "x"}}`,
+			want: `{{someOther "x"}}`,
+		},
+		{
+			name: "arg contents are untouched",
+			in:   `{{getFile "get_file/getfile.gql"}}`,
+			want: `{{getFile "get_file/getfile.gql"}}`,
+		},
+		{
+			name: "no template syntax unchanged",
+			in:   `plain string get_file`,
+			want: `plain string get_file`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := canonicalizeActionNames(tt.in); got != tt.want {
+				t.Errorf("canonicalizeActionNames(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSubstituteVariables_ActionNameTolerance drives case/underscore-insensitive
+// action names end to end through the template executor.
+func TestSubstituteVariables_ActionNameTolerance(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	body := "query { user { id } }"
+	if err := os.WriteFile(filepath.Join(root, "q.gql"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	currentFile := filepath.Join(root, "q.hk.yaml")
+
+	for _, spelling := range []string{"getFile", "getfile", "GetFile", "get_file", "GET_FILE"} {
+		t.Run(spelling, func(t *testing.T) {
+			got, err := SubstituteVariables(`{{`+spelling+` "*.gql"}}`, map[string]any{}, currentFile)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != body {
+				t.Errorf("got %q, want %q", got, body)
+			}
+		})
+	}
+}
+
 // TestSubstituteVariables_SiblingGetFile exercises the getFile "*" sibling
 // shorthand end to end: it resolves a file next to the current request file,
 // errors clearly when the sibling is missing, and rejects misuse.
