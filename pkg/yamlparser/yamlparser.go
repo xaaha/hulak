@@ -24,16 +24,19 @@ import (
 func replaceVarsWithValues(
 	dict map[string]any,
 	secretsMap map[string]any,
+	currentFile string,
 ) (map[string]any, error) {
-	return replaceVarsWithPrefix(dict, secretsMap, "")
+	return replaceVarsWithPrefix(dict, secretsMap, "", currentFile)
 }
 
 // replaceVarsWithPrefix is the recursive helper. prefix is the dotted path
 // of the parent map; the empty string at the root suppresses a leading dot.
+// currentFile anchors the getFile "*" sibling shorthand.
 func replaceVarsWithPrefix(
 	dict map[string]any,
 	secretsMap map[string]any,
 	prefix string,
+	currentFile string,
 ) (map[string]any, error) {
 	changedMap := make(map[string]any)
 
@@ -45,7 +48,7 @@ func replaceVarsWithPrefix(
 
 		switch valTyped := val.(type) {
 		case map[string]any:
-			nestedMap, err := replaceVarsWithPrefix(valTyped, secretsMap, fullKey)
+			nestedMap, err := replaceVarsWithPrefix(valTyped, secretsMap, fullKey, currentFile)
 			if err != nil {
 				return nil, err
 			}
@@ -57,7 +60,7 @@ func replaceVarsWithPrefix(
 				changedMap[key] = valTyped
 				continue
 			}
-			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap)
+			finalChangedValue, err := envparser.SubstituteVariables(valTyped, secretsMap, currentFile)
 			if err != nil {
 				return nil, fmt.Errorf("substituting %q: %w", fullKey, err)
 			}
@@ -70,7 +73,7 @@ func replaceVarsWithPrefix(
 					innerMap[k] = v
 					continue
 				}
-				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap)
+				finalChangedValue, err := envparser.SubstituteVariables(v, secretsMap, currentFile)
 				if err != nil {
 					return nil, fmt.Errorf("substituting %q: %w", fullKey+"."+k, err)
 				}
@@ -112,7 +115,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	data = utils.ConvertKeysToLowerCase(data)
 
 	// parse all the values to with {{.key}} from .env folder
-	parsedMap, err := replaceVarsWithValues(data, secretsMap)
+	parsedMap, err := replaceVarsWithValues(data, secretsMap, filepath)
 	if err != nil {
 		return nil, err
 	}

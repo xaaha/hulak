@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -58,9 +60,31 @@ func formatMissingKeyError(keyName string) error {
 	)
 }
 
+// actionTokenRe matches the command identifier at the start of a template
+// action ("{{", optional trim marker, optional spaces, then the identifier).
+// Field accessors ({{.key}}) and variables ({{$x}}) don't match — they don't
+// start with an identifier char — so only function-position tokens are touched.
+var actionTokenRe = regexp.MustCompile(`(\{\{-?[ \t]*)([A-Za-z_][A-Za-z0-9_]*)`)
+
+// canonicalizeActionNames rewrites the leading command token of each template
+// action to its canonical spelling when it is a known action, so getfile,
+// GetFile, and get_file all resolve to getFile. Only tokens whose normalized
+// form is a known action are rewritten; every other identifier is left as-is.
+func canonicalizeActionNames(s string) string {
+	return actionTokenRe.ReplaceAllStringFunc(s, func(match string) string {
+		groups := actionTokenRe.FindStringSubmatch(match)
+		prefix, token := groups[1], groups[2]
+		if canonical, ok := utils.CanonicalActionName(token); ok {
+			return prefix + canonical
+		}
+		return match
+	})
+}
+
 func replaceVariables(
 	strToChange string,
 	secretsMap map[string]any,
+	currentFile string,
 ) (string, error) {
 	if len(strToChange) == 0 {
 		return "", nil
@@ -68,7 +92,7 @@ func replaceVariables(
 
 	funcMap := template.FuncMap{
 		utils.TemplateFuncGetValueOf: actions.GetValueOf,
-		utils.TemplateFuncGetFile:    actions.GetFile,
+		utils.TemplateFuncGetFile:    getFileFor(currentFile),
 		utils.TemplateFuncBasicAuth:  actions.BasicAuth,
 		utils.TemplateFuncOs:         os.Getenv,
 	}
@@ -76,7 +100,7 @@ func replaceVariables(
 	tmpl, err := template.New("template").
 		Funcs(funcMap).
 		Option("missingkey=error").
-		Parse(strToChange)
+		Parse(canonicalizeActionNames(strToChange))
 	if err != nil {
 		return "", err
 	}
@@ -97,12 +121,12 @@ func replaceVariables(
 // containing template variables using the replaceVariables function.
 // It ensures that non-string values (e.g., booleans, integers) are preserved and validates against unsupported types.
 // Returns a new map with resolved values or an error if any resolution fails.
-func prepareMap(secretsMap map[string]any) (map[string]any, error) {
+func prepareMap(secretsMap map[string]any, currentFile string) (map[string]any, error) {
 	updatedMap := make(map[string]any)
 	for key, val := range secretsMap {
 		switch v := val.(type) {
 		case string:
-			changedValue, err := replaceVariables(v, secretsMap)
+			changedValue, err := replaceVariables(v, secretsMap, currentFile)
 			if err != nil {
 				return nil, err
 			}
@@ -119,20 +143,60 @@ func prepareMap(secretsMap map[string]any) (map[string]any, error) {
 // SubstituteVariables Substitutes template variables in a given string strToChange using the secretsMap.
 // It first prepares the map by resolving all nested variables using prepareMap
 // and then applies replaceVariables to the input string.
+// currentFile is the path of the request file being processed; it anchors the
+// getFile "*" sibling shorthand. Pass "" when there is no file context.
 // Returns the final substituted string or an error if any step fails.
 func SubstituteVariables(
 	strToChange string,
 	secretsMap map[string]any,
+	currentFile string,
 ) (any, error) {
-	finalMap, err := prepareMap(secretsMap)
+	finalMap, err := prepareMap(secretsMap, currentFile)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := replaceVariables(strToChange, finalMap)
+	result, err := replaceVariables(strToChange, finalMap, currentFile)
 	if err != nil {
 		return nil, err
 	}
 
 	return result, nil
+}
+
+// getFileFor returns a getFile template function bound to the request file
+// currently being processed. When the arg uses the "*" sibling shorthand it is
+// expanded relative to currentFile (see utils.SiblingPath); otherwise it falls
+// through to the normal path-based actions.GetFile unchanged.
+func getFileFor(currentFile string) func(string) (string, error) {
+	return func(arg string) (string, error) {
+		sibling, ok := utils.SiblingPath(currentFile, arg)
+		if !ok {
+			return actions.GetFile(arg)
+		}
+		if currentFile == "" {
+			return "", fmt.Errorf(
+				`getFile %q sibling shorthand is only valid inside a request file`, arg,
+			)
+		}
+		if arg == "*" {
+			return "", fmt.Errorf(`getFile %q needs an extension, e.g. "*.gql"`, arg)
+		}
+		// Resolve against the cwd so the sibling is read from the request file's
+		// own directory. A relative currentFile makes SiblingPath return a
+		// relative path, which actions.GetFile would otherwise re-root at the
+		// project root instead of next to the request file.
+		abs, err := filepath.Abs(sibling)
+		if err != nil {
+			return "", err
+		}
+		content, err := actions.GetFile(abs)
+		if err != nil {
+			return "", fmt.Errorf(
+				"no sibling file %s next to %s: %w",
+				filepath.Base(sibling), filepath.Base(currentFile), err,
+			)
+		}
+		return content, nil
+	}
 }

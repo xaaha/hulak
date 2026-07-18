@@ -4,9 +4,181 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestCanonicalizeActionNames(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "lowercase getfile canonicalized",
+			in:   `{{getfile "*.gql"}}`,
+			want: `{{getFile "*.gql"}}`,
+		},
+		{
+			name: "underscore variant canonicalized",
+			in:   `{{get_file "*.gql"}}`,
+			want: `{{getFile "*.gql"}}`,
+		},
+		{
+			name: "uppercase with spaces and trim marker",
+			in:   `{{- GET_VALUE_OF "token" "auth.json" }}`,
+			want: `{{- getValueOf "token" "auth.json" }}`,
+		},
+		{
+			name: "field access is untouched",
+			in:   `{{.getfile}}`,
+			want: `{{.getfile}}`,
+		},
+		{
+			name: "unknown function is untouched",
+			in:   `{{someOther "x"}}`,
+			want: `{{someOther "x"}}`,
+		},
+		{
+			name: "arg contents are untouched",
+			in:   `{{getFile "get_file/getfile.gql"}}`,
+			want: `{{getFile "get_file/getfile.gql"}}`,
+		},
+		{
+			name: "no template syntax unchanged",
+			in:   `plain string get_file`,
+			want: `plain string get_file`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := canonicalizeActionNames(tt.in); got != tt.want {
+				t.Errorf("canonicalizeActionNames(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSubstituteVariables_ActionNameTolerance drives case/underscore-insensitive
+// action names end to end through the template executor.
+func TestSubstituteVariables_ActionNameTolerance(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	body := "query { user { id } }"
+	if err := os.WriteFile(filepath.Join(root, "q.gql"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	currentFile := filepath.Join(root, "q.hk.yaml")
+
+	for _, spelling := range []string{"getFile", "getfile", "GetFile", "get_file", "GET_FILE"} {
+		t.Run(spelling, func(t *testing.T) {
+			got, err := SubstituteVariables(`{{`+spelling+` "*.gql"}}`, map[string]any{}, currentFile)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != body {
+				t.Errorf("got %q, want %q", got, body)
+			}
+		})
+	}
+}
+
+// TestSubstituteVariables_SiblingGetFile exercises the getFile "*" sibling
+// shorthand end to end: it resolves a file next to the current request file,
+// errors clearly when the sibling is missing, and rejects misuse.
+func TestSubstituteVariables_SiblingGetFile(t *testing.T) {
+	// A hulak project (env/ marker) so actions.GetFile can find the root.
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+
+	reqDir := filepath.Join(root, "genesis")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	currentFile := filepath.Join(reqDir, "getUser.hk.yaml")
+	gqlBody := "query { user { id } }"
+	if err := os.WriteFile(filepath.Join(reqDir, "getUser.gql"), []byte(gqlBody), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("resolves sibling next to current file", func(t *testing.T) {
+		got, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, currentFile)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != gqlBody {
+			t.Errorf("got %q, want %q", got, gqlBody)
+		}
+	})
+
+	t.Run("missing sibling gives a clear error", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*.json"}}`, map[string]any{}, currentFile)
+		if err == nil {
+			t.Fatal("expected error for missing sibling")
+		}
+		if !strings.Contains(err.Error(), "getUser.json") ||
+			!strings.Contains(err.Error(), "getUser.hk.yaml") {
+			t.Errorf("error should name both files, got: %v", err)
+		}
+	})
+
+	t.Run("bare star needs an extension", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*"}}`, map[string]any{}, currentFile)
+		if err == nil || !strings.Contains(err.Error(), "extension") {
+			t.Errorf("expected an extension-required error, got: %v", err)
+		}
+	})
+
+	t.Run("sibling shorthand outside a file context errors", func(t *testing.T) {
+		_, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, "")
+		if err == nil || !strings.Contains(err.Error(), "request file") {
+			t.Errorf("expected a file-context error, got: %v", err)
+		}
+	})
+}
+
+// TestSubstituteVariables_SiblingRelativeFromSubdir guards that the "*" sibling
+// resolves next to the request file even when it is passed as a relative path
+// from a working directory below the project root. A decoy file with the same
+// name at the project root would be picked if the sibling were re-rooted there
+// instead of resolved next to the request file.
+func TestSubstituteVariables_SiblingRelativeFromSubdir(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	genesis := filepath.Join(root, "genesis")
+	if err := os.MkdirAll(genesis, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same basename in two places: the real neighbor in genesis/ and a decoy at
+	// the project root. Re-rooting would read the decoy.
+	if err := os.WriteFile(filepath.Join(genesis, "getUser.gql"), []byte("REAL"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "getUser.gql"), []byte("DECOY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd is the subdir, and the request file is given as a bare relative name.
+	t.Chdir(genesis)
+	got, err := SubstituteVariables(`{{getFile "*.gql"}}`, map[string]any{}, "getUser.hk.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "REAL" {
+		t.Errorf("got %q, want %q (sibling re-rooted to the project root instead of the request dir)", got, "REAL")
+	}
+}
 
 // TestSubstituteVariablesWithJSONNumber guards against a regression where the
 // vault decoded numbers as json.Number (to preserve int/float distinction) but
@@ -17,7 +189,7 @@ func TestSubstituteVariablesWithJSONNumber(t *testing.T) {
 		"application_id": json.Number("12345"),
 		"url":            "https://api.example.com/apps/{{.application_id}}",
 	}
-	got, err := SubstituteVariables("{{.url}}", secretsMap)
+	got, err := SubstituteVariables("{{.url}}", secretsMap, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -269,7 +441,7 @@ func TestSubstituteVariables(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output, err := SubstituteVariables(tc.stringToChange, tc.varMap)
+			output, err := SubstituteVariables(tc.stringToChange, tc.varMap, "")
 
 			// Compare output
 			if output != tc.expectedOutput {
@@ -478,7 +650,7 @@ func TestSubstituteVariablesWithImprovedErrors(t *testing.T) {
 				defer os.Unsetenv("hulakEnv")
 			}
 
-			_, err := SubstituteVariables(tc.stringToChange, tc.varMap)
+			_, err := SubstituteVariables(tc.stringToChange, tc.varMap, "")
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")

@@ -70,14 +70,17 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 		return m.enqueueNotification(tui.NotificationError, "Empty query")
 	}
 
-	var stamp string
-	gqlFileName := op.Name + ".gql"
-	gqlPath := filepath.Join(dir, gqlFileName)
-	if fileExists(gqlPath) {
-		stamp = time.Now().Format("20060102-150405")
-		gqlFileName = op.Name + "-" + stamp + ".gql"
-		gqlPath = filepath.Join(dir, gqlFileName)
+	// The request and its query file share one basename so the getFile "*.gql"
+	// sibling shorthand in the generated YAML always resolves. If either name is
+	// taken, stamp both together to keep the pair matched.
+	base := op.Name
+	if fileExists(filepath.Join(dir, base+".gql")) ||
+		fileExists(filepath.Join(dir, base+".hk.yaml")) {
+		base = op.Name + "-" + time.Now().Format("20060102-150405")
 	}
+	gqlPath := filepath.Join(dir, base+".gql")
+	yamlPath := filepath.Join(dir, base+".hk.yaml")
+
 	if err := os.WriteFile(gqlPath, []byte(query), utils.FilePer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save .gql failed: "+err.Error())
 	}
@@ -87,26 +90,14 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 		raw, _ = readRawParentFields(parentPath) // best-effort; zero-value falls back to resolved
 	}
 
-	gqlRelPath := relativePath(gqlPath)
-	yamlContent := buildHkYaml(op, m.detailForm, m.apiInfos, gqlRelPath, raw)
-
-	yamlFileName := op.Name + ".hk.yaml"
-	yamlPath := filepath.Join(dir, yamlFileName)
-	if fileExists(yamlPath) {
-		if stamp == "" {
-			stamp = time.Now().Format("20060102-150405")
-		}
-		yamlFileName = op.Name + "-" + stamp + ".hk.yaml"
-		yamlPath = filepath.Join(dir, yamlFileName)
-	}
-
+	yamlContent := buildHkYaml(op, m.detailForm, m.apiInfos, raw)
 	if err := os.WriteFile(yamlPath, []byte(yamlContent), utils.FilePer); err != nil {
 		return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
 	}
 
 	return m.enqueueNotification(
 		tui.NotificationInfo,
-		fmt.Sprintf("Created %s and %s", relativePath(yamlPath), gqlRelPath),
+		fmt.Sprintf("Created %s and %s", relativePath(yamlPath), relativePath(gqlPath)),
 	)
 }
 
@@ -114,7 +105,6 @@ func buildHkYaml(
 	op *UnifiedOperation,
 	df *DetailForm,
 	apiInfos map[string]yamlparser.APIInfo,
-	gqlRelPath string,
 	raw rawParentFields,
 ) string {
 	var sb strings.Builder
@@ -147,7 +137,9 @@ func buildHkYaml(
 	}
 
 	sb.WriteString("body:\n  graphql:\n")
-	fmt.Fprintf(&sb, "    query: '{{getFile %q}}'\n", gqlRelPath)
+	// The generated .gql sits next to this request file with the same basename,
+	// so the "*" sibling shorthand keeps the pair rename/move-safe.
+	sb.WriteString("    query: '{{getFile \"*.gql\"}}'\n")
 
 	varsMap := BuildVariablesMap(op, df)
 	if len(varsMap) > 0 {
