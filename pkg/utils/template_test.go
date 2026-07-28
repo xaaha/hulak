@@ -58,14 +58,31 @@ func TestFileHasTemplateVars(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "getFile_with_env_vars_in_referenced_file",
+			// getFile dumps the referenced file's raw content into context and
+			// hulak never re-templates it (single-pass substitution), so an env
+			// var inside the referenced file can never resolve. It must not force
+			// env resolution.
+			name:     "getFile_body_env_vars_do_not_count",
 			content:  buildGetFileContent("query.graphql"),
-			expected: true,
+			expected: false,
 		},
 		{
-			name:     "getFile_unquoted_with_env_vars_in_referenced_file",
+			name:     "getFile_unquoted_body_env_vars_do_not_count",
 			content:  buildGetFileContentNoQuotes("unquoted.graphql"),
-			expected: true,
+			expected: false,
+		},
+		{
+			// A template var living only in a YAML comment never reaches runtime
+			// substitution (the decoder drops comments), so it must not force env
+			// resolution.
+			name:     "env_var_only_in_full_line_comment",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql\n# Authorization: Bearer {{.token}}\n",
+			expected: false,
+		},
+		{
+			name:     "env_var_only_in_inline_comment",
+			content:  "---\nkind: GraphQL\nurl: http://example.com/graphql # {{.token}}\n",
+			expected: false,
 		},
 		{
 			name:     "only_getValueOf_no_env_vars",

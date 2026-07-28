@@ -8,42 +8,39 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	yaml "github.com/goccy/go-yaml"
 )
 
+// templateVarPattern matches a dot-access template reference like {{.token}}
+// or {{ .token }}, tolerating whitespace between the braces and the dot the
+// same way Go's template engine does at substitution time.
 var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
 
-// FileHasTemplateVars checks if a file contains Go template variable references
-// (e.g., {{.token}}) that require environment variable resolution.
-// It checks {{getFile ...}} references and inspects the referenced files as well.
+// FileHasTemplateVars reports whether a request file's YAML values contain env
+// variable references (e.g. {{.token}}) that require environment resolution.
+//
+// It decodes the YAML so comments never count — they are dropped by the decoder
+// and never reach runtime substitution. It does not follow {{getFile ...}}
+// references either: getFile dumps the referenced file's raw content into
+// context and hulak never re-templates it (single-pass substitution), so an env
+// var inside a referenced file can never resolve and must not force env loading.
 func FileHasTemplateVars(filePath string) bool {
-	return fileHasTemplateVars(filePath, map[string]bool{})
-}
-
-func fileHasTemplateVars(filePath string, visited map[string]bool) bool {
 	resolvedPath, err := resolveFilePath(filePath)
 	if err != nil {
 		return false
 	}
-	if visited[resolvedPath] {
-		return false
-	}
-	visited[resolvedPath] = true
 
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return false
 	}
-	if templateVarPattern.Match(content) {
-		return true
-	}
 
-	for _, arg := range extractGetFileArgs(string(content)) {
-		if fileHasTemplateVars(arg, visited) {
-			return true
-		}
+	var data map[string]any
+	if err := yaml.Unmarshal(content, &data); err != nil {
+		return false
 	}
-
-	return false
+	return MapHasEnvVars(data)
 }
 
 // ReferencedFiles returns the files a request pulls in via {{getFile}},
@@ -111,8 +108,9 @@ func projectRootRel(arg string) string {
 	return anchorToRoot(clean, root)
 }
 
-// MapHasEnvVars recursively checks if any string value in the map
-// contains "{{." which indicates an env variable reference.
+// MapHasEnvVars recursively checks whether any string value in the map holds a
+// dot-access template reference ({{.key}} or {{ .key }}), which indicates an
+// env variable reference.
 func MapHasEnvVars(data map[string]any) bool {
 	for _, val := range data {
 		if hasEnvVar(val) {
@@ -248,7 +246,7 @@ func withinRoot(absPath, root string) bool {
 func hasEnvVar(val any) bool {
 	switch v := val.(type) {
 	case string:
-		return strings.Contains(v, "{{.")
+		return templateVarPattern.MatchString(v)
 	case map[string]any:
 		return MapHasEnvVars(v)
 	case []any:
