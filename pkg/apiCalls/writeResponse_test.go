@@ -52,7 +52,7 @@ func TestEvalAndWriteRes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			filePath := filepath.Join(tempDir, "test")
 
-			if err := evalAndWriteRes(tc.resBody, tc.contentType, filePath); err != nil {
+			if err := evalAndWriteRes(tc.resBody, tc.contentType, filePath, ""); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
@@ -67,11 +67,51 @@ func TestEvalAndWriteRes(t *testing.T) {
 	}
 
 	t.Run("Invalid inputs should not create files", func(t *testing.T) {
-		err := evalAndWriteRes("", "", "")
+		err := evalAndWriteRes("", "", "", "")
 		if err == nil {
 			t.Fatal("Expected Error but did not get it")
 		}
 	})
+}
+
+func TestWriteFile_OutPath(t *testing.T) {
+	dir := t.TempDir()
+	// requestPath drives the canonical name: <base>_response<ext>.
+	requestPath := filepath.Join(dir, "req.hk.yaml")
+
+	tests := []struct {
+		name    string
+		outPath string
+		wantRel string // path relative to dir that must exist after the write
+	}{
+		{
+			name:    "file mode writes verbatim",
+			outPath: filepath.Join(dir, "custom", "out.json"),
+			wantRel: filepath.Join("custom", "out.json"),
+		},
+		{
+			name:    "empty outPath falls back to canonical next to request",
+			outPath: "",
+			wantRel: "req.hk_response.json",
+		},
+		{
+			name:    "dir mode appends canonical name",
+			outPath: filepath.Join(dir, "into") + string(filepath.Separator),
+			wantRel: filepath.Join("into", "req.hk_response.json"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := writeFile(requestPath, ".json", `{"ok":true}`, tc.outPath); err != nil {
+				t.Fatalf("writeFile: %v", err)
+			}
+			want := filepath.Join(dir, tc.wantRel)
+			if _, err := os.Stat(want); err != nil {
+				t.Errorf("expected file at %s, stat error: %v", want, err)
+			}
+		})
+	}
 }
 
 // TestEvalAndWriteRes_ReadOnlyDir is a regression for #205 — write failures
@@ -92,7 +132,7 @@ func TestEvalAndWriteRes_ReadOnlyDir(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(tempDir, 0o755) })
 
-	err := evalAndWriteRes(`{"ok":true}`, "application/json", filepath.Join(tempDir, "req"))
+	err := evalAndWriteRes(`{"ok":true}`, "application/json", filepath.Join(tempDir, "req"), "")
 	if err == nil {
 		t.Fatal("expected error writing to read-only dir, got nil")
 	}

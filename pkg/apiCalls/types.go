@@ -3,7 +3,7 @@ package apicalls
 
 // RequestOptions bundles the per-request flags SendAndSaveAPIRequest needs
 // from the runner. Keeps the call site readable when more flags get added
-// (next likely additions: timeout overrides, output redirection).
+// (next likely additions: timeout overrides).
 type RequestOptions struct {
 	Secrets map[string]any
 	Path    string
@@ -14,6 +14,10 @@ type RequestOptions struct {
 	// call. The response bytes are still returned. Used by callers that only
 	// want the response in-hand (e.g. the MCP call_request tool), not on disk.
 	NoSave bool
+	// OutPath, when set, redirects the saved response to this path (resolved
+	// by utils.ResolveOutputPath) instead of {name}_response.<ext> next to the
+	// request file. Empty means the default location. Ignored when NoSave is set.
+	OutPath string
 }
 
 // CustomResponse is structure of the result to print and save

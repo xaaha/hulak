@@ -129,7 +129,7 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 		return SerializeResp(&resp), status, nil
 	}
 
-	respBytes, saveErr := SerializeAndSaveResp(&resp, opts.Path)
+	respBytes, saveErr := SerializeAndSaveResp(&resp, opts.Path, opts.OutPath)
 	return respBytes, status, saveErr
 }
 
@@ -138,7 +138,7 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 // the caller can fail the task. A successful HTTP request with a missing
 // response file should not look like a success to the user.
 func PrintAndSaveFinalResp(resp *CustomResponse, path string) error {
-	respBytes, saveErr := SerializeAndSaveResp(resp, path)
+	respBytes, saveErr := SerializeAndSaveResp(resp, path, "")
 	if respBytes != nil {
 		PrintRespBytes(respBytes)
 	}
@@ -169,13 +169,13 @@ func SerializeResp(resp *CustomResponse) []byte {
 //
 // Default: raw response body (JSON pretty-printed, others byte-perfect).
 // --debug: full CustomResponse (request, response, http_info, duration).
-func SerializeAndSaveResp(resp *CustomResponse, path string) ([]byte, error) {
+func SerializeAndSaveResp(resp *CustomResponse, path, outPath string) ([]byte, error) {
 	body := SerializeResp(resp)
 	if len(body) == 0 {
 		// 204 No Content and friends: nothing to print or save.
 		return body, nil
 	}
-	return body, evalAndWriteRes(string(body), resp.contentType, path)
+	return body, evalAndWriteRes(string(body), resp.contentType, path, outPath)
 }
 
 // defaultBodyForOutput returns the bytes used for default-mode save and

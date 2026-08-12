@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/xaaha/hulak/pkg/userFlags/cliflags"
 	"github.com/xaaha/hulak/pkg/utils"
 	"golang.org/x/net/html"
 )
@@ -122,12 +123,27 @@ func extensionForMediaType(media string) (string, bool) {
 }
 
 // Write the content to the specified path with the appropriate file extension.
+// When outPath is set, the response lands at cliflags.ResolveOutputPath(outPath,
+// canonical) instead of next to the request file, and any missing parent
+// directories are created. Overwrites on collision, same as the default path.
 // Returns an error if the disk write fails so the caller can fail the task
 // instead of silently losing the response file.
-func writeFile(path, suffixType, contentBody string) error {
+func writeFile(path, suffixType, contentBody, outPath string) error {
 	fileName := utils.FileNameWithoutExtension(path) + utils.ResponseBase
 	dir := filepath.Dir(path)
 	fullFilePath := filepath.Join(dir, fileName+suffixType)
+
+	if outPath != "" {
+		resolved, err := cliflags.ResolveOutputPath(outPath, fileName+suffixType)
+		if err != nil {
+			return err
+		}
+		fullFilePath = resolved
+		if err := os.MkdirAll(filepath.Dir(fullFilePath), utils.DirPer); err != nil {
+			return fmt.Errorf("creating output dir for %s: %w", fullFilePath, err)
+		}
+	}
+
 	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0o600); err != nil {
 		return fmt.Errorf("saving response %s: %w", fullFilePath, err)
 	}
@@ -135,10 +151,10 @@ func writeFile(path, suffixType, contentBody string) error {
 }
 
 // evalAndWriteRes picks the file extension via Content-Type (with body-sniff
-// fallback) and writes resBody next to path.
-func evalAndWriteRes(resBody, contentType, path string) error {
+// fallback) and writes resBody to outPath (or next to path when outPath is "").
+func evalAndWriteRes(resBody, contentType, path, outPath string) error {
 	if resBody == "" || path == "" {
 		return errors.New("invalid input: file path and resBody cannot be empty")
 	}
-	return writeFile(path, extensionFor(contentType, resBody), resBody)
+	return writeFile(path, extensionFor(contentType, resBody), resBody, outPath)
 }
