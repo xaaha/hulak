@@ -3,6 +3,7 @@ package runcmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -173,6 +174,37 @@ func TestParseRunArgsTimeoutPlumbed(t *testing.T) {
 	}
 	if f.Timeout != want {
 		t.Errorf("Timeout = %v, want %v", f.Timeout, want)
+	}
+}
+
+// TestParseRunArgsOutPlumbed verifies -o value lands on runner.Flags.Out for a
+// single-file target.
+func TestParseRunArgsOutPlumbed(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.hk.yaml")
+	if err := os.WriteFile(tmpFile, []byte("kind: API"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := parseRunArgs(runCmdArgs{Out: "responses/out.json", Args: []string{tmpFile}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.Out != "responses/out.json" {
+		t.Errorf("Out = %q, want %q", f.Out, "responses/out.json")
+	}
+}
+
+// TestParseRunArgsOutWithDirErrors verifies -o combined with a directory target
+// is rejected — -o names a single response file.
+func TestParseRunArgsOutWithDirErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, err := parseRunArgs(runCmdArgs{Out: "somewhere.json", Args: []string{tmpDir}})
+	if err == nil {
+		t.Fatal("expected an error for --out with a directory target, got nil")
+	}
+	if !strings.Contains(err.Error(), "only valid when running a single file") {
+		t.Errorf("error = %q, want it to mention single-file restriction", err.Error())
 	}
 }
 

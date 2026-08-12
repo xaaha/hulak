@@ -4,6 +4,7 @@
 package runcmd
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -33,6 +34,10 @@ func New() *cli.Command {
 	show := cliflags.RegisterShow(
 		fs,
 		"Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output",
+	)
+	out := cliflags.RegisterOutput(
+		fs,
+		"Write the response to this path instead of <name>_response.<ext> (single file only)",
 	)
 	fs.DurationVar(
 		&timeout,
@@ -74,6 +79,10 @@ func New() *cli.Command {
 				Command:     "hulak run path/to/file.yaml --dry-run --show",
 				Description: "Same as --dry-run but reveal sensitive headers",
 			},
+			{
+				Command:     "hulak run path/to/file.yaml -o responses/out.json",
+				Description: "Write the response to a specific path (single file only)",
+			},
 		},
 		Flags: fs,
 		Args: []cli.ArgDef{
@@ -99,6 +108,7 @@ func New() *cli.Command {
 			Show:        *show,
 			Timeout:     timeout,
 			SSHIdentity: sshIdentity,
+			Out:         *out,
 			Args:        args,
 		})
 		if err != nil {
@@ -126,17 +136,22 @@ type runCmdArgs struct {
 	Show        bool
 	Timeout     time.Duration
 	SSHIdentity string
+	Out         string
 	Args        []string
 }
 
 // parseRunArgs builds a runner.Flags from the path and parsed flag values.
 // The path routes to FilePath (file), Dir (concurrent), or Dirseq (sequential).
-func parseRunArgs(a runCmdArgs) (*runner.Flags, error) {
+func parseRunArgs(a runCmdArgs) (*runner.Flags, error) { //nolint:gocritic // called once per invocation; by-value keeps call sites' struct literals simple
 	path := a.Args[0]
 
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot access %q: %w", path, err)
+	}
+
+	if info.IsDir() && a.Out != "" {
+		return nil, errors.New("--out is only valid when running a single file, not a directory")
 	}
 
 	f := &runner.Flags{
@@ -146,6 +161,7 @@ func parseRunArgs(a runCmdArgs) (*runner.Flags, error) {
 		Show:        a.Show,
 		Timeout:     a.Timeout,
 		SSHIdentity: a.SSHIdentity,
+		Out:         a.Out,
 	}
 
 	if a.Env != "" {
