@@ -121,14 +121,26 @@ func TestResolveOutputPath_ExpandsHome(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 
 	sep := string(filepath.Separator)
+
+	// Dir mode: trailing separator keeps the canonical filename, expands ~.
 	got, err := ResolveOutputPath("~"+sep+"Desktop"+sep, "response.json")
 	if err != nil {
-		t.Fatalf("ResolveOutputPath: %v", err)
+		t.Fatalf("ResolveOutputPath (dir): %v", err)
 	}
-
 	want := filepath.Join(home, "Desktop", "response.json")
 	if got != want {
-		t.Errorf("ResolveOutputPath with ~ = %q, want %q", got, want)
+		t.Errorf("ResolveOutputPath dir with ~ = %q, want %q", got, want)
+	}
+
+	// File mode: a ~ path with an extension expands and is used verbatim,
+	// canonical is not appended.
+	got, err = ResolveOutputPath("~"+sep+"out.json", "response.json")
+	if err != nil {
+		t.Fatalf("ResolveOutputPath (file): %v", err)
+	}
+	want = filepath.Join(home, "out.json")
+	if got != want {
+		t.Errorf("ResolveOutputPath file with ~ = %q, want %q", got, want)
 	}
 }
 
