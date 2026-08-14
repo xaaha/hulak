@@ -30,6 +30,13 @@ func TestResolveOutputPath(t *testing.T) {
 			want:      filepath.Join("requests", "example.hk.yaml"),
 		},
 		{
+			name:      "trailing slash preserves dir mode for dotted path",
+			outPath:   "requests.v1/",
+			canonical: "response.json",
+			knownExts: nil,
+			want:      filepath.Join("requests.v1", "response.json"),
+		},
+		{
 			name:      "existing dir → dir mode",
 			outPath:   existingSubdir,
 			canonical: "example.hk.yaml",
@@ -93,11 +100,35 @@ func TestResolveOutputPath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ResolveOutputPath: %v", err)
 			}
-			if got != tc.want {
+			want := tc.want
+			if !filepath.IsAbs(want) {
+				want, err = filepath.Abs(want)
+				if err != nil {
+					t.Fatalf("filepath.Abs: %v", err)
+				}
+			}
+			if got != want {
 				t.Errorf("ResolveOutputPath(%q, %q, %v) = %q, want %q",
-					tc.outPath, tc.canonical, tc.knownExts, got, tc.want)
+					tc.outPath, tc.canonical, tc.knownExts, got, want)
 			}
 		})
+	}
+}
+
+func TestResolveOutputPath_ExpandsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	sep := string(filepath.Separator)
+	got, err := ResolveOutputPath("~"+sep+"Desktop"+sep, "response.json")
+	if err != nil {
+		t.Fatalf("ResolveOutputPath: %v", err)
+	}
+
+	want := filepath.Join(home, "Desktop", "response.json")
+	if got != want {
+		t.Errorf("ResolveOutputPath with ~ = %q, want %q", got, want)
 	}
 }
 

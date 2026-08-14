@@ -2,6 +2,7 @@ package cliflags
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -26,12 +27,14 @@ func RegisterOutput(fs *flag.FlagSet, usage string) *string {
 // verbatim), so commands behave consistently no matter how the user wrote
 // the path.
 //
+// Non-default paths are expanded through utils.ExpandPath first, so leading
+// ~ works consistently on Unix and Windows and returned paths are absolute.
 // Rules (first match wins):
 //  1. outPath empty, ".", or "./" → cwd/canonical (absolute)
 //  2. outPath ends in '/' or platform separator → dir mode: outPath/canonical
 //  3. outPath names an existing directory → dir mode: outPath/canonical
-//  4. outPath has an extension matching knownExts (case-insensitive) → file mode: verbatim
-//  5. knownExts is empty AND outPath has any extension → file mode: verbatim
+//  4. outPath has an extension matching knownExts (case-insensitive) → file mode
+//  5. knownExts is empty AND outPath has any extension → file mode
 //  6. otherwise → dir mode (DWIM): outPath/canonical
 //
 // knownExts may include or omit leading dots — both ".yaml" and "yaml" work.
@@ -48,11 +51,18 @@ func ResolveOutputPath(outPath, canonical string, knownExts ...string) (string, 
 		return utils.CreatePath(canonical)
 	}
 
+	// Record explicit directory syntax before ExpandPath cleans the trailing
+	// separator. This matters for non-existent directories containing a dot.
 	sep := string(filepath.Separator)
-	if strings.HasSuffix(outPath, "/") || strings.HasSuffix(outPath, sep) {
-		return filepath.Join(outPath, canonical), nil
+	dirMode := strings.HasSuffix(outPath, "/") || strings.HasSuffix(outPath, sep)
+
+	expanded, err := utils.ExpandPath(outPath)
+	if err != nil {
+		return "", fmt.Errorf("expanding output path: %w", err)
 	}
-	if utils.DirExists(outPath) {
+	outPath = expanded
+
+	if dirMode || utils.DirExists(outPath) {
 		return filepath.Join(outPath, canonical), nil
 	}
 
