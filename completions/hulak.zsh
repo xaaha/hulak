@@ -54,6 +54,7 @@ _hulak_run() {
     '--debug[Enable debug mode]' \
     '--dry-run[Print the built request and exit without sending it]' \
     '(--env --environment)'{--env,--environment}'[Environment to use]:env:_hulak_envs' \
+    '(--out -o)'{--out,-o}'[Write the response to this path instead of <name>_response.<ext> (single file only)]:path:_files' \
     '(--quiet -q)'{--quiet,-q}'[Suppress the end-of-run summary table]' \
     '(--seq --sequential)'{--seq,--sequential}'[Run directory files sequentially]' \
     '--show[Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output]' \

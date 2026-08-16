@@ -52,6 +52,11 @@ type Flags struct {
 	// Show reveals sensitive headers (Authorization, Cookie, etc.) when
 	// printing requests in --dry-run mode. Off by default.
 	Show bool
+	// Out redirects the saved response to this path instead of
+	// <name>_response.<ext> next to the request file. Empty means the default
+	// location. Only valid for single-file runs (the run subcommand rejects
+	// combining it with a directory target).
+	Out string
 }
 
 // runOptions bundles per-run flags that every internal helper needs to
@@ -62,6 +67,7 @@ type runOptions struct {
 	Debug  bool
 	DryRun bool
 	Show   bool
+	Out    string
 }
 
 // DefaultTimeout is the per-request timeout used when no override is set
@@ -135,7 +141,7 @@ func Execute(f *Flags) error {
 		}
 	}
 
-	opts := runOptions{Debug: f.Debug, DryRun: f.DryRun, Show: f.Show}
+	opts := runOptions{Debug: f.Debug, DryRun: f.DryRun, Show: f.Show, Out: f.Out}
 	return handleAPIRequests(
 		envMap,
 		f.Quiet,
@@ -635,6 +641,7 @@ func processTask(
 			Debug:   opts.Debug,
 			DryRun:  opts.DryRun,
 			Show:    opts.Show,
+			OutPath: opts.Out,
 		})
 		return outcome{
 			path:      path,

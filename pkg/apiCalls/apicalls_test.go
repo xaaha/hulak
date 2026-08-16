@@ -667,7 +667,7 @@ func TestSerializeAndSaveResp_Default(t *testing.T) {
 				contentType: tc.contentType,
 				rawBody:     tc.rawBody,
 			}
-			bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+			bytesOut, err := SerializeAndSaveResp(resp, inputPath, "")
 			if err != nil {
 				t.Fatalf("SerializeAndSaveResp returned error: %v", err)
 			}
@@ -703,7 +703,7 @@ func TestSerializeAndSaveResp_EmptyBody(t *testing.T) {
 		contentType: "",
 		rawBody:     []byte{},
 	}
-	bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+	bytesOut, err := SerializeAndSaveResp(resp, inputPath, "")
 	if err != nil {
 		t.Fatalf("empty body should not error, got: %v", err)
 	}
@@ -743,7 +743,7 @@ func TestSerializeAndSaveResp_Debug(t *testing.T) {
 		contentType: "application/json",
 		rawBody:     []byte(`{"ok":true}`),
 	}
-	bytesOut, err := SerializeAndSaveResp(resp, inputPath)
+	bytesOut, err := SerializeAndSaveResp(resp, inputPath, "")
 	if err != nil {
 		t.Fatalf("SerializeAndSaveResp returned error: %v", err)
 	}
@@ -818,5 +818,51 @@ func TestSendAndSaveAPIRequest_NoSave(t *testing.T) {
 				t.Errorf("response file written = %v, want %v (matches: %v)", gotFile, tc.wantFile, matches)
 			}
 		})
+	}
+}
+
+// TestSendAndSaveAPIRequest_OutPath verifies OutPath redirects the response to
+// an exact path (creating parent dirs) and suppresses the default
+// <name>_response.* file next to the request. Runs against a local httptest
+// server via the real HTTP path.
+func TestSendAndSaveAPIRequest_OutPath(t *testing.T) {
+	server := NewMockServer(http.StatusOK, `{"ok":true}`)
+	defer server.Close()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "req.hk.yaml")
+	doc := "---\nkind: API\nmethod: GET\nurl: " + server.URL + "\n"
+	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	outPath := filepath.Join(dir, "custom", "out.json")
+	respBytes, status, err := SendAndSaveAPIRequest(context.Background(), RequestOptions{
+		Secrets: map[string]any{},
+		Path:    path,
+		OutPath: outPath,
+	})
+	if err != nil {
+		t.Fatalf("SendAndSaveAPIRequest: %v", err)
+	}
+	if status != "200 OK" {
+		t.Errorf("status = %q, want 200 OK", status)
+	}
+	if !strings.Contains(string(respBytes), `"ok": true`) {
+		t.Errorf("response bytes should contain the (pretty-printed) body, got:\n%s", respBytes)
+	}
+
+	// The response must land at exactly outPath (nested dir created for us).
+	if _, err := os.Stat(outPath); err != nil {
+		t.Errorf("expected response at %s, stat error: %v", outPath, err)
+	}
+
+	// And the default <name>_response.* next to the request must NOT exist.
+	defaults, err := filepath.Glob(filepath.Join(dir, "*_response.*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(defaults) > 0 {
+		t.Errorf("default response file should not be written when -o is set, found: %v", defaults)
 	}
 }

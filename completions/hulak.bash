@@ -63,7 +63,7 @@ _hulak() {
       COMPREPLY=( $(compgen -W "--debug --dir --dirseq --dry-run --env --environment --file --file-path --fp --help --quiet --show --timeout --version -f -q completion doctor env example gql graphql help init mcp migrate run secrets version" -- "$cur") )
       ;;
     hulak:run)
-      if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--debug --dry-run --env --environment --quiet --seq --sequential --show --ssh-identity --timeout -q" -- "$cur") )
+      if [[ $cur == -* ]]; then COMPREPLY=( $(compgen -W "--debug --dry-run --env --environment --out --quiet --seq --sequential --show --ssh-identity --timeout -o -q" -- "$cur") )
       else _hulak_yaml_files "$cur"; fi
       ;;
     hulak:init)
