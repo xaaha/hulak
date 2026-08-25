@@ -62,6 +62,11 @@ type formItem struct {
 	// the parent argument name, allowing the query builder to map multiple
 	// form items back to a single argument declaration.
 	argName string
+	// path locates this item's value within its top-level argument. It is
+	// empty for a plain scalar argument (the value is the argument itself),
+	// and otherwise a sequence of object-field keys and list indices that the
+	// variables builder walks to place the value inside nested objects/lists.
+	path []varPathSeg
 
 	selected bool // cursor is on this item (set by Focus/Blur)
 
@@ -231,23 +236,29 @@ func newListArgFormItems(
 ) []formItem {
 	itemType := ExtractListItemType(arg.Type)
 	if it, ok := resolveType(inputTypes, endpoint, ExtractBaseType(itemType)); ok {
+		ctx := inputExpandCtx{
+			inputTypes:     inputTypes,
+			enumTypes:      enumTypes,
+			endpoint:       endpoint,
+			argName:        arg.Name,
+			parentPath:     []varPathSeg{{index: group, isIndex: true}},
+			depth:          0,
+			parentEnabled:  false,
+			inTopLevelList: true,
+			listType:       arg.Type,
+			listGroup:      group,
+			visited:        map[string]bool{ExtractBaseType(itemType): true},
+		}
 		items := make([]formItem, 0, len(it.Fields))
 		for _, field := range it.Fields {
-			fi := newInputFieldFormItem(field, enumTypes, endpoint)
-			fi.argName = arg.Name
-			fi.listType = arg.Type
-			fi.listItem = true
-			fi.listGroup = group
-			fi.enabled = false
-			fi.required = strings.HasSuffix(field.Type, "!")
-			fi.label = fmt.Sprintf("%s[%d].%s", arg.Name, group, field.Name)
-			items = append(items, fi)
+			items = append(items, expandInputField(field, &ctx)...)
 		}
 		return items
 	}
 
 	fi := newTypedFormItem(arg.Name, itemType, enumTypes, endpoint)
 	fi.argName = arg.Name
+	fi.path = []varPathSeg{{index: group, isIndex: true}}
 	fi.listType = arg.Type
 	fi.listItem = true
 	fi.listGroup = group
@@ -277,6 +288,132 @@ func newArgFormItem(
 	return newTypedFormItem(arg.Name, arg.Type, enumTypes, endpoint)
 }
 
+// maxInputFormDepth caps how deep the form expands nested input objects. The
+// visited set already terminates cyclic input types; this is a safety net for
+// very deep but acyclic schemas so the form stays usable.
+const maxInputFormDepth = 8
+
+// inputExpandCtx carries the state threaded through recursive expansion of an
+// input-object argument (or list element) into individual form items.
+type inputExpandCtx struct {
+	inputTypes map[string]graphql.InputType
+	enumTypes  map[string]graphql.EnumType
+	endpoint   string
+	argName    string
+	// parentPath is the path from the argument root to the object that owns the
+	// field currently being expanded.
+	parentPath []varPathSeg
+	depth      int
+	// parentEnabled reports whether the owning object contributes by default,
+	// so an optional parent disables its children (mirroring top-level args).
+	parentEnabled bool
+	// inTopLevelList marks that this item belongs to a top-level list argument,
+	// which drives dynamic continuation rows and whole-list enable/disable.
+	inTopLevelList bool
+	listType       string
+	listGroup      int
+	visited        map[string]bool
+}
+
+// expandInputField turns one input field into form items. Scalar, enum and
+// Boolean fields become a single leaf item. Fields whose type is an input
+// object (or a list of input objects) recurse into their own fields, to
+// arbitrary depth, guarded by a visited set (cycles) and a depth cap.
+func expandInputField(field graphql.InputField, ctx *inputExpandCtx) []formItem {
+	fieldPath := appendPathSeg(ctx.parentPath, varPathSeg{key: field.Name})
+	fieldRequired := strings.HasSuffix(field.Type, "!")
+	base := ExtractBaseType(field.Type)
+
+	it, isInput := resolveType(ctx.inputTypes, ctx.endpoint, base)
+	if isInput && !ctx.visited[base] && ctx.depth < maxInputFormDepth && len(it.Fields) > 0 {
+		child := inputExpandCtx{
+			inputTypes:     ctx.inputTypes,
+			enumTypes:      ctx.enumTypes,
+			endpoint:       ctx.endpoint,
+			argName:        ctx.argName,
+			depth:          ctx.depth + 1,
+			inTopLevelList: ctx.inTopLevelList,
+			listType:       ctx.listType,
+			listGroup:      ctx.listGroup,
+			visited:        cloneVisited(ctx.visited, base),
+		}
+		if IsListType(field.Type) {
+			child.parentPath = appendPathSeg(fieldPath, varPathSeg{index: 0, isIndex: true})
+			child.parentEnabled = false
+		} else {
+			child.parentPath = fieldPath
+			child.parentEnabled = ctx.parentEnabled && fieldRequired
+		}
+
+		items := make([]formItem, 0, len(it.Fields))
+		for _, sub := range it.Fields {
+			items = append(items, expandInputField(sub, &child)...)
+		}
+		return items
+	}
+
+	return []formItem{newLeafFormItem(field, fieldPath, fieldRequired, ctx)}
+}
+
+func newLeafFormItem(
+	field graphql.InputField,
+	fieldPath []varPathSeg,
+	fieldRequired bool,
+	ctx *inputExpandCtx,
+) formItem {
+	fi := newTypedFormItem(field.Name, field.Type, ctx.enumTypes, ctx.endpoint)
+	fi.argName = ctx.argName
+	fi.path = fieldPath
+	fi.depth = ctx.depth
+	fi.required = fieldRequired
+	fi.label = labelForPath(ctx.argName, fieldPath)
+	if ctx.inTopLevelList {
+		fi.listType = ctx.listType
+		fi.listItem = true
+		fi.listGroup = ctx.listGroup
+		fi.enabled = false
+	} else {
+		fi.enabled = ctx.parentEnabled && fieldRequired
+	}
+	return fi
+}
+
+// labelForPath builds a display label for a nested field. Direct fields of a
+// top-level input-object argument keep an empty label so only the field name is
+// shown (matching the original single-level behavior); deeper or list-nested
+// fields get a dotted/bracketed path like arg[0].field.subfield.
+func labelForPath(argName string, path []varPathSeg) string {
+	if len(path) == 1 && !path[0].isIndex {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(argName)
+	for _, seg := range path {
+		if seg.isIndex {
+			b.WriteString("[" + strconv.Itoa(seg.index) + "]")
+		} else {
+			b.WriteString("." + seg.key)
+		}
+	}
+	return b.String()
+}
+
+func appendPathSeg(path []varPathSeg, seg varPathSeg) []varPathSeg {
+	out := make([]varPathSeg, len(path)+1)
+	copy(out, path)
+	out[len(path)] = seg
+	return out
+}
+
+func cloneVisited(visited map[string]bool, add string) map[string]bool {
+	out := make(map[string]bool, len(visited)+1)
+	for k := range visited {
+		out[k] = true
+	}
+	out[add] = true
+	return out
+}
+
 func newFieldFormItem(field graphql.ObjectField, selected bool) formItem {
 	return formItem{
 		kind:     formItemToggle,
@@ -297,14 +434,6 @@ func newFragmentFormItem(typeName string) formItem {
 		expandable: true,
 		toggle:     tui.NewToggle(label, false),
 	}
-}
-
-func newInputFieldFormItem(
-	field graphql.InputField,
-	enumTypes map[string]graphql.EnumType,
-	endpoint string,
-) formItem {
-	return newTypedFormItem(field.Name, field.Type, enumTypes, endpoint)
 }
 
 func newTypedFormItem(
@@ -394,15 +523,19 @@ func buildDetailForm(
 				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"),
 			)...)
 		} else if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
-			// if parent is not required, it's child should be optional as well
+			// if parent is not required, its children should be optional as well
 			argRequired := strings.HasSuffix(arg.Type, "!")
+			ctx := inputExpandCtx{
+				inputTypes:    inputTypes,
+				enumTypes:     enumTypes,
+				endpoint:      op.Endpoint,
+				argName:       arg.Name,
+				depth:         0,
+				parentEnabled: argRequired,
+				visited:       map[string]bool{base: true},
+			}
 			for _, field := range it.Fields {
-				fi := newInputFieldFormItem(field, enumTypes, op.Endpoint)
-				fi.argName = arg.Name
-				if !argRequired {
-					fi.enabled = false
-				}
-				items = append(items, fi)
+				items = append(items, expandInputField(field, &ctx)...)
 			}
 		} else {
 			fi := newArgFormItem(arg, enumTypes, op.Endpoint)
