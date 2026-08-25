@@ -53,6 +53,15 @@ type formItem struct {
 	listGroup  int
 	continued  bool
 
+	// listBoundary identifies the nested list-of-input-object element this
+	// item belongs to (an argName plus the path prefix up to that element's
+	// index), for fields nested inside a list-typed field of an object
+	// argument. boundaryGroup is this item's element index within that
+	// boundary. Distinct from listItem/listGroup, which only cover
+	// top-level list arguments.
+	listBoundary  string
+	boundaryGroup int
+
 	// enabled controls whether this argument is included in the generated
 	// query string. Only meaningful for argument items (isField == false).
 	// Required args default to true; optional args default to false.
@@ -233,6 +242,7 @@ func newListArgFormItems(
 	endpoint string,
 	group int,
 	enabled bool,
+	nestedLists map[string]nestedListSpec,
 ) []formItem {
 	itemType := ExtractListItemType(arg.Type)
 	if it, ok := resolveType(inputTypes, endpoint, ExtractBaseType(itemType)); ok {
@@ -248,6 +258,7 @@ func newListArgFormItems(
 			listType:       arg.Type,
 			listGroup:      group,
 			visited:        map[string]bool{ExtractBaseType(itemType): true},
+			nestedLists:    nestedLists,
 		}
 		items := make([]formItem, 0, len(it.Fields))
 		for _, field := range it.Fields {
@@ -313,6 +324,98 @@ type inputExpandCtx struct {
 	listType       string
 	listGroup      int
 	visited        map[string]bool
+
+	// nestedLists accumulates the specs needed to regenerate additional
+	// elements of list-of-input-object fields nested inside this argument,
+	// keyed by pathKey. It is the same underlying map for the whole
+	// expansion of one top-level argument, so a spec registered deep in the
+	// recursion is visible to the DetailForm afterward.
+	nestedLists map[string]nestedListSpec
+	// nestedListBoundary/nestedListGroup identify which nested list element
+	// the field currently being expanded belongs to, if any. They are
+	// inherited unchanged through intermediate non-list objects so a deeply
+	// nested leaf still resolves to the list element that contains it.
+	nestedListBoundary string
+	nestedListGroup    int
+}
+
+// nestedListSpec captures the context present when a list-of-input-object
+// field nested inside another argument is first encountered, so additional
+// elements can be regenerated on demand as the user fills the previous one
+// in (mirroring newListArgFormItems for top-level list arguments).
+//
+// inTopLevelList/listType/listGroup carry the ambient top-level list context
+// (if any) that was active at that point, so a list field nested inside a
+// top-level list argument's element keeps contributing to the outer list's
+// own group accounting (see syncListArgRows) in addition to this field's own
+// nested boundary. Dropping them here would make every regenerated element's
+// leaves report listGroup 0 regardless of which outer element they actually
+// belong to, corrupting the outer list's grow/shrink scan.
+type nestedListSpec struct {
+	argName        string
+	fieldPath      []varPathSeg
+	elementBase    string
+	depth          int
+	visited        map[string]bool
+	inTopLevelList bool
+	listType       string
+	listGroup      int
+}
+
+// expandNestedListGroup builds the form items for one element of a
+// list-of-input-object field nested inside another argument, resolving the
+// element's input type first. Used by syncNestedListBoundary, which only has
+// the spec (not an already-resolved graphql.InputType) on hand.
+func expandNestedListGroup(
+	boundary string,
+	spec *nestedListSpec,
+	group int,
+	inputTypes map[string]graphql.InputType,
+	enumTypes map[string]graphql.EnumType,
+	endpoint string,
+	nestedLists map[string]nestedListSpec,
+) []formItem {
+	it, ok := resolveType(inputTypes, endpoint, spec.elementBase)
+	if !ok || len(it.Fields) == 0 {
+		return nil
+	}
+	return expandNestedListElement(it, boundary, spec, group, inputTypes, enumTypes, endpoint, nestedLists)
+}
+
+// expandNestedListElement builds the form items for one element of a
+// list-of-input-object field, given the element's already-resolved input
+// type.
+func expandNestedListElement(
+	it graphql.InputType,
+	boundary string,
+	spec *nestedListSpec,
+	group int,
+	inputTypes map[string]graphql.InputType,
+	enumTypes map[string]graphql.EnumType,
+	endpoint string,
+	nestedLists map[string]nestedListSpec,
+) []formItem {
+	child := inputExpandCtx{
+		inputTypes:         inputTypes,
+		enumTypes:          enumTypes,
+		endpoint:           endpoint,
+		argName:            spec.argName,
+		parentPath:         appendPathSeg(spec.fieldPath, varPathSeg{index: group, isIndex: true}),
+		depth:              spec.depth,
+		parentEnabled:      false,
+		inTopLevelList:     spec.inTopLevelList,
+		listType:           spec.listType,
+		listGroup:          spec.listGroup,
+		visited:            spec.visited,
+		nestedLists:        nestedLists,
+		nestedListBoundary: boundary,
+		nestedListGroup:    group,
+	}
+	items := make([]formItem, 0, len(it.Fields))
+	for _, sub := range it.Fields {
+		items = append(items, expandInputField(sub, &child)...)
+	}
+	return items
 }
 
 // expandInputField turns one input field into form items. Scalar, enum and
@@ -326,25 +429,44 @@ func expandInputField(field graphql.InputField, ctx *inputExpandCtx) []formItem 
 
 	it, isInput := resolveType(ctx.inputTypes, ctx.endpoint, base)
 	if isInput && !ctx.visited[base] && ctx.depth < maxInputFormDepth && len(it.Fields) > 0 {
-		child := inputExpandCtx{
-			inputTypes:     ctx.inputTypes,
-			enumTypes:      ctx.enumTypes,
-			endpoint:       ctx.endpoint,
-			argName:        ctx.argName,
-			depth:          ctx.depth + 1,
-			inTopLevelList: ctx.inTopLevelList,
-			listType:       ctx.listType,
-			listGroup:      ctx.listGroup,
-			visited:        cloneVisited(ctx.visited, base),
-		}
 		if IsListType(field.Type) {
-			child.parentPath = appendPathSeg(fieldPath, varPathSeg{index: 0, isIndex: true})
-			child.parentEnabled = false
-		} else {
-			child.parentPath = fieldPath
-			child.parentEnabled = ctx.parentEnabled && fieldRequired
+			boundary := pathKey(ctx.argName, fieldPath)
+			spec := nestedListSpec{
+				argName:        ctx.argName,
+				fieldPath:      fieldPath,
+				elementBase:    base,
+				depth:          ctx.depth + 1,
+				visited:        cloneVisited(ctx.visited, base),
+				inTopLevelList: ctx.inTopLevelList,
+				listType:       ctx.listType,
+				listGroup:      ctx.listGroup,
+			}
+			if ctx.nestedLists != nil {
+				if _, exists := ctx.nestedLists[boundary]; !exists {
+					ctx.nestedLists[boundary] = spec
+				}
+			}
+			return expandNestedListElement(
+				it, boundary, &spec, 0, ctx.inputTypes, ctx.enumTypes, ctx.endpoint, ctx.nestedLists,
+			)
 		}
 
+		child := inputExpandCtx{
+			inputTypes:         ctx.inputTypes,
+			enumTypes:          ctx.enumTypes,
+			endpoint:           ctx.endpoint,
+			argName:            ctx.argName,
+			parentPath:         fieldPath,
+			depth:              ctx.depth + 1,
+			parentEnabled:      ctx.parentEnabled && fieldRequired,
+			inTopLevelList:     ctx.inTopLevelList,
+			listType:           ctx.listType,
+			listGroup:          ctx.listGroup,
+			visited:            cloneVisited(ctx.visited, base),
+			nestedLists:        ctx.nestedLists,
+			nestedListBoundary: ctx.nestedListBoundary,
+			nestedListGroup:    ctx.nestedListGroup,
+		}
 		items := make([]formItem, 0, len(it.Fields))
 		for _, sub := range it.Fields {
 			items = append(items, expandInputField(sub, &child)...)
@@ -375,6 +497,8 @@ func newLeafFormItem(
 	} else {
 		fi.enabled = ctx.parentEnabled && fieldRequired
 	}
+	fi.listBoundary = ctx.nestedListBoundary
+	fi.boundaryGroup = ctx.nestedListGroup
 	return fi
 }
 
@@ -386,13 +510,23 @@ func labelForPath(argName string, path []varPathSeg) string {
 	if len(path) == 1 && !path[0].isIndex {
 		return ""
 	}
+	return pathKey(argName, path)
+}
+
+// pathKey renders an argument name and path as a flat string, used both for
+// display labels (via labelForPath) and as the map key identifying a nested
+// list boundary.
+func pathKey(argName string, path []varPathSeg) string {
 	var b strings.Builder
 	b.WriteString(argName)
 	for _, seg := range path {
 		if seg.isIndex {
-			b.WriteString("[" + strconv.Itoa(seg.index) + "]")
+			b.WriteString("[")
+			b.WriteString(strconv.Itoa(seg.index))
+			b.WriteString("]")
 		} else {
-			b.WriteString("." + seg.key)
+			b.WriteString(".")
+			b.WriteString(seg.key)
 		}
 	}
 	return b.String()
@@ -500,6 +634,10 @@ type DetailForm struct {
 	enumTypes   map[string]graphql.EnumType
 	objectTypes map[string]graphql.ObjectType
 	endpoint    string
+	// nestedLists holds the specs needed to regenerate additional elements
+	// of list-of-input-object fields nested inside an argument, keyed by
+	// pathKey.
+	nestedLists map[string]nestedListSpec
 
 	// Search state (vim-style / search)
 	search          tui.PanelSearch
@@ -515,12 +653,13 @@ func buildDetailForm(
 	interfaceTypes map[string]graphql.InterfaceType,
 ) *DetailForm {
 	var items []formItem
+	nestedLists := make(map[string]nestedListSpec)
 
 	for _, arg := range op.Arguments {
 		base := ExtractBaseType(arg.Type)
 		if IsListType(arg.Type) {
 			items = append(items, newListArgFormItems(
-				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"),
+				arg, inputTypes, enumTypes, op.Endpoint, 0, strings.HasSuffix(arg.Type, "!"), nestedLists,
 			)...)
 		} else if it, ok := resolveType(inputTypes, op.Endpoint, base); ok {
 			// if parent is not required, its children should be optional as well
@@ -533,6 +672,7 @@ func buildDetailForm(
 				depth:         0,
 				parentEnabled: argRequired,
 				visited:       map[string]bool{base: true},
+				nestedLists:   nestedLists,
 			}
 			for _, field := range it.Fields {
 				items = append(items, expandInputField(field, &ctx)...)
@@ -585,6 +725,7 @@ func buildDetailForm(
 		enumTypes:   enumTypes,
 		objectTypes: objectTypes,
 		endpoint:    op.Endpoint,
+		nestedLists: nestedLists,
 		search:      tui.NewPanelSearch(),
 	}
 }
@@ -679,13 +820,82 @@ func (df *DetailForm) syncListArgRows(argName string) {
 	if !ok || !df.items[start].listItem {
 		return
 	}
+	enabled := df.items[start].enabled
+	arg, ok := df.argDefinition(argName)
+	if !ok {
+		return
+	}
 
+	df.syncGroupRange(start, end,
+		func(item *formItem) int { return item.listGroup },
+		func(group int) []formItem {
+			return newListArgFormItems(arg, df.inputTypes, df.enumTypes, df.endpoint, group, enabled, df.nestedLists)
+		},
+	)
+}
+
+// boundaryRange locates the contiguous block of argument items belonging to
+// a nested list boundary (see nestedListSpec), mirroring argRange.
+func (df *DetailForm) boundaryRange(boundary string) (int, int, bool) {
+	start := -1
+	end := -1
+	for i := 0; i < df.argCount; i++ {
+		if df.items[i].listBoundary != boundary {
+			if start != -1 {
+				break
+			}
+			continue
+		}
+		if start == -1 {
+			start = i
+		}
+		end = i + 1
+	}
+	if start == -1 {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
+// syncNestedListBoundary grows or shrinks the elements of a list-of-input-
+// object field nested inside another argument, using the same grow/shrink
+// rule as syncListArgRows but scoped to the field's own boundary rather than
+// the whole argument.
+func (df *DetailForm) syncNestedListBoundary(boundary string) {
+	spec, ok := df.nestedLists[boundary]
+	if !ok {
+		return
+	}
+	start, end, ok := df.boundaryRange(boundary)
+	if !ok {
+		return
+	}
+
+	df.syncGroupRange(start, end,
+		func(item *formItem) int { return item.boundaryGroup },
+		func(group int) []formItem {
+			return expandNestedListGroup(boundary, &spec, group, df.inputTypes, df.enumTypes, df.endpoint, df.nestedLists)
+		},
+	)
+}
+
+// syncGroupRange grows or shrinks a contiguous [start, end) run of argument
+// items so it holds exactly one trailing empty group after the last group
+// with a meaningful value (or a single empty group if none has one),
+// regenerating newly added groups via generate. groupOf reports which group
+// an item belongs to; shared by syncListArgRows and syncNestedListBoundary,
+// which differ only in how items are grouped and regenerated.
+func (df *DetailForm) syncGroupRange(
+	start, end int,
+	groupOf func(*formItem) int,
+	generate func(group int) []formItem,
+) {
 	lastNonEmptyGroup := -1
 	currentGroups := 0
 	for i := start; i < end; {
-		group := df.items[i].listGroup
+		group := groupOf(&df.items[i])
 		groupNonEmpty := false
-		for i < end && df.items[i].listGroup == group {
+		for i < end && groupOf(&df.items[i]) == group {
 			if hasMeaningfulListValue(&df.items[i]) {
 				groupNonEmpty = true
 			}
@@ -704,7 +914,7 @@ func (df *DetailForm) syncListArgRows(argName string) {
 
 	if desiredGroups < currentGroups {
 		cut := start
-		for cut < end && df.items[cut].listGroup < desiredGroups {
+		for cut < end && groupOf(&df.items[cut]) < desiredGroups {
 			cut++
 		}
 		removed := end - cut
@@ -720,21 +930,9 @@ func (df *DetailForm) syncListArgRows(argName string) {
 	}
 
 	if desiredGroups > currentGroups {
-		enabled := df.items[start].enabled
-		arg, ok := df.argDefinition(argName)
-		if !ok {
-			return
-		}
 		insertAt := end
 		for group := currentGroups; group < desiredGroups; group++ {
-			next := newListArgFormItems(
-				arg,
-				df.inputTypes,
-				df.enumTypes,
-				df.endpoint,
-				group,
-				enabled,
-			)
+			next := generate(group)
 			df.items = append(df.items[:insertAt], append(next, df.items[insertAt:]...)...)
 			df.argCount += len(next)
 			insertAt += len(next)
@@ -900,8 +1098,14 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	// Pass through to widget
 	cmd := item.HandleKey(msg)
 
+	// Both checks can apply to the same item (a list nested inside a
+	// top-level list argument's element belongs to both), so run
+	// independently rather than else-if.
 	if !item.isField && item.listItem {
 		df.syncListArgRows(item.argName)
+	}
+	if !item.isField && item.listBoundary != "" {
+		df.syncNestedListBoundary(item.listBoundary)
 	}
 
 	// Field toggles: expand/collapse children on Space
@@ -1011,6 +1215,9 @@ func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
 			if item.listItem {
 				df.syncListArgRows(item.argName)
 			}
+			if item.listBoundary != "" {
+				df.syncNestedListBoundary(item.listBoundary)
+			}
 		case formItemDropdown:
 			if !item.dropdown.Expanded() {
 				if !item.isField {
@@ -1033,6 +1240,9 @@ func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
 			}
 			if item.listItem {
 				df.syncListArgRows(item.argName)
+			}
+			if item.listBoundary != "" {
+				df.syncNestedListBoundary(item.listBoundary)
 			}
 		}
 		return true
