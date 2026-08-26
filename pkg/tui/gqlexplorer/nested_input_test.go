@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/xaaha/hulak/pkg/features/graphql"
+	"github.com/xaaha/hulak/pkg/tui"
 )
 
 func findFormItem(df *DetailForm, name string) *formItem {
@@ -551,5 +553,98 @@ func TestNestedListBoundaryFieldAfterDeeperNestedListIsVisible(t *testing.T) {
 		if df.items[i].label != w {
 			t.Errorf("item %d: got label %q want %q", i, df.items[i].label, w)
 		}
+	}
+}
+
+// (k) A boolean-typed nested list element grows past its first element when
+// toggled via keyboard. Regression guard: the Space-toggle branch in
+// HandleKey returned before ever calling syncNestedListBoundary, so a
+// boolean list/nested-list element's checkbox - the only thing that drives
+// hasMeaningfulListValue for a toggle - never triggered growth.
+func TestBooleanNestedListGrowsViaKeyboardToggle(t *testing.T) {
+	inputTypes := map[string]graphql.InputType{
+		"CreateExpenseInput": {
+			Name: "CreateExpenseInput",
+			Fields: []graphql.InputField{
+				{Name: "flags", Type: "[FlagInput!]"},
+			},
+		},
+		"FlagInput": {
+			Name: "FlagInput",
+			Fields: []graphql.InputField{
+				{Name: "active", Type: "Boolean!"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: "ep",
+		Arguments: []graphql.Argument{{Name: "input", Type: "CreateExpenseInput!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+	if actives := findFormItems(df, "active"); len(actives) != 1 {
+		t.Fatalf("expected 1 active item initially, got %d", len(actives))
+	}
+
+	df.cursor = 0
+	df.FocusCurrent()
+	df.HandleKey(tea.KeyMsg{Type: tea.KeySpace})
+
+	actives := findFormItems(df, "active")
+	if len(actives) != 2 {
+		t.Fatalf("expected boolean nested list to grow to 2 after Space toggle, got %d", len(actives))
+	}
+	if !actives[0].enabled {
+		t.Fatal("expected first active item to be enabled after Space toggle")
+	}
+}
+
+// (l) Same as (k), but via a mouse click on the toggle, matching
+// HandleMouse's formItemToggle case.
+func TestBooleanNestedListGrowsViaMouseClick(t *testing.T) {
+	inputTypes := map[string]graphql.InputType{
+		"CreateExpenseInput": {
+			Name: "CreateExpenseInput",
+			Fields: []graphql.InputField{
+				{Name: "flags", Type: "[FlagInput!]"},
+			},
+		},
+		"FlagInput": {
+			Name: "FlagInput",
+			Fields: []graphql.InputField{
+				{Name: "active", Type: "Boolean!"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: "ep",
+		Arguments: []graphql.Argument{{Name: "input", Type: "CreateExpenseInput!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+	if actives := findFormItems(df, "active"); len(actives) != 1 {
+		t.Fatalf("expected 1 active item initially, got %d", len(actives))
+	}
+
+	z := tui.NewMouseZone()
+	prefix := z.ID("detail")
+	view, _ := df.ViewMarked(op, prefix, z.Mark)
+	_ = tui.ScanMouseZones(view)
+
+	x, y := waitForMouseZone(t, df.itemZoneID(prefix, 0))
+	ok := df.HandleMouse(prefix, tea.MouseMsg{
+		X: x, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease,
+	})
+	if !ok {
+		t.Fatal("expected toggle click to be handled")
+	}
+
+	actives := findFormItems(df, "active")
+	if len(actives) != 2 {
+		t.Fatalf("expected boolean nested list to grow to 2 after mouse toggle, got %d", len(actives))
 	}
 }

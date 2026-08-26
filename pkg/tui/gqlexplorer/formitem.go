@@ -1089,21 +1089,27 @@ func (df *DetailForm) HandleKey(msg tea.KeyMsg) tea.Cmd {
 
 	// ── Argument items: Space toggles the enabled checkbox ──
 	if !item.isField && key == tui.KeySpace && !item.ConsumesTextInput() {
+		var cmd tea.Cmd
+		newValue := !item.enabled
 		if item.kind == formItemToggle {
-			cmd := item.HandleKey(msg)
-			if item.listItem || item.name == item.argName {
-				df.setArgEnabled(item.argName, item.toggle.Value)
-			} else {
-				item.enabled = item.toggle.Value
-			}
-			return cmd
+			cmd = item.HandleKey(msg)
+			newValue = item.toggle.Value
 		}
 		if item.listItem || item.name == item.argName {
-			df.setArgEnabled(item.argName, !item.enabled)
+			df.setArgEnabled(item.argName, newValue)
 		} else {
-			item.enabled = !item.enabled
+			item.enabled = newValue
 		}
-		return nil
+		// A toggle's enabled state drives hasMeaningfulListValue directly, so
+		// list rows must resync here too, or a boolean list/nested list can
+		// never grow past its first element via keyboard.
+		if item.listItem {
+			df.syncListArgRows(item.argName)
+		}
+		if item.listBoundary != "" {
+			df.syncNestedListBoundary(item.listBoundary)
+		}
+		return cmd
 	}
 
 	// Argument text inputs: Enter activates/deactivates editing
@@ -1230,6 +1236,12 @@ func (df *DetailForm) HandleMouse(prefix string, msg tea.MouseMsg) bool {
 					df.setArgEnabled(item.argName, item.toggle.Value)
 				} else {
 					item.enabled = item.toggle.Value
+				}
+				if item.listItem {
+					df.syncListArgRows(item.argName)
+				}
+				if item.listBoundary != "" {
+					df.syncNestedListBoundary(item.listBoundary)
 				}
 			}
 			if item.expandable {
