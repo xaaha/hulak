@@ -834,16 +834,41 @@ func (df *DetailForm) syncListArgRows(argName string) {
 	)
 }
 
-// boundaryRange locates the contiguous block of argument items belonging to
-// a nested list boundary (see nestedListSpec), mirroring argRange.
-func (df *DetailForm) boundaryRange(boundary string) (int, int, bool) {
+// boundaryGroupOf reports which element of a nested list boundary an item
+// belongs to, derived from the item's own path rather than its (innermost
+// only) listBoundary/boundaryGroup fields. This matches not just the
+// boundary's own direct leaves but anything nested further inside one of
+// its elements too (e.g. a list nested inside a nested list), which is what
+// keeps a group's accounting correct even when that group has a field after
+// a deeper nested list.
+func boundaryGroupOf(item *formItem, fieldPath []varPathSeg) (int, bool) {
+	if len(item.path) <= len(fieldPath) {
+		return 0, false
+	}
+	for i, seg := range fieldPath {
+		if item.path[i] != seg {
+			return 0, false
+		}
+	}
+	idxSeg := item.path[len(fieldPath)]
+	if !idxSeg.isIndex {
+		return 0, false
+	}
+	return idxSeg.index, true
+}
+
+// boundaryExtent finds the [start, end) span in df.items covering every item
+// that belongs to a nested list boundary at any depth: its own direct
+// leaves, and anything nested further inside one of its elements. Matching
+// on the boundary's fieldPath (via boundaryGroupOf) rather than stopping at
+// the first item whose innermost listBoundary differs means a group's own
+// field that comes after a deeper nested list is still found, instead of
+// being silently dropped once the scan reaches that inner list's items.
+func (df *DetailForm) boundaryExtent(fieldPath []varPathSeg) (int, int, bool) {
 	start := -1
 	end := -1
 	for i := 0; i < df.argCount; i++ {
-		if df.items[i].listBoundary != boundary {
-			if start != -1 {
-				break
-			}
+		if _, ok := boundaryGroupOf(&df.items[i], fieldPath); !ok {
 			continue
 		}
 		if start == -1 {
@@ -866,13 +891,16 @@ func (df *DetailForm) syncNestedListBoundary(boundary string) {
 	if !ok {
 		return
 	}
-	start, end, ok := df.boundaryRange(boundary)
+	start, end, ok := df.boundaryExtent(spec.fieldPath)
 	if !ok {
 		return
 	}
 
 	df.syncGroupRange(start, end,
-		func(item *formItem) int { return item.boundaryGroup },
+		func(item *formItem) int {
+			group, _ := boundaryGroupOf(item, spec.fieldPath)
+			return group
+		},
 		func(group int) []formItem {
 			return expandNestedListGroup(boundary, &spec, group, df.inputTypes, df.enumTypes, df.endpoint, df.nestedLists)
 		},

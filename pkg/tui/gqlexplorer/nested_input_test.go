@@ -482,3 +482,74 @@ func TestNestedListInsideTopLevelListElementStillGrowsItself(t *testing.T) {
 		t.Fatalf("expected outer list to remain at 1 element (id untouched), got %d", len(ids))
 	}
 }
+
+// (j) A nested list boundary's own field that comes after a deeper nested
+// list (list nested inside a nested list) must still be found by the
+// boundary's grow scan. Regression guard: boundaryExtent used to stop at the
+// first item whose innermost listBoundary differed, so a group's field
+// placed after its own nested list was invisible to the outer boundary's
+// accounting, and growing the outer list inserted the new element in the
+// middle of the previous one instead of after it.
+func TestNestedListBoundaryFieldAfterDeeperNestedListIsVisible(t *testing.T) {
+	inputTypes := map[string]graphql.InputType{
+		"RootInput": {
+			Name: "RootInput",
+			Fields: []graphql.InputField{
+				{Name: "groups", Type: "[GroupInput!]"},
+			},
+		},
+		"GroupInput": {
+			Name: "GroupInput",
+			Fields: []graphql.InputField{
+				{Name: "labelA", Type: "String!"},
+				{Name: "tags", Type: "[TagInput!]"},
+				{Name: "labelB", Type: "String!"},
+			},
+		},
+		"TagInput": {
+			Name: "TagInput",
+			Fields: []graphql.InputField{
+				{Name: "key", Type: "String!"},
+			},
+		},
+	}
+	op := &UnifiedOperation{
+		Name: "Test", Type: TypeQuery, Endpoint: "ep",
+		Arguments: []graphql.Argument{{Name: "input", Type: "RootInput!"}},
+	}
+	df := buildDetailForm(op, inputTypes, nil, nil, nil, nil)
+	if df == nil {
+		t.Fatal("expected detail form")
+	}
+	groupsBoundary := findFormItems(df, "labelA")[0].listBoundary
+
+	// Fill only labelB, which sits after the nested "tags" list in schema
+	// order. The outer "groups" list must still grow from this alone.
+	labelBs := findFormItems(df, "labelB")
+	labelBs[0].enabled = true
+	labelBs[0].input.Model.SetValue("only-labelB-filled")
+	df.syncNestedListBoundary(groupsBoundary)
+
+	if labelAs := findFormItems(df, "labelA"); len(labelAs) != 2 {
+		t.Fatalf("expected groups to grow to 2 after filling only labelB, got %d labelA items", len(labelAs))
+	}
+
+	// Items must stay in schema order per group: labelA, tags[0].key,
+	// labelB, then the next group's items - not split by the new group.
+	want := []string{
+		"input.groups[0].labelA",
+		"input.groups[0].tags[0].key",
+		"input.groups[0].labelB",
+		"input.groups[1].labelA",
+		"input.groups[1].tags[0].key",
+		"input.groups[1].labelB",
+	}
+	if len(df.items) != len(want) {
+		t.Fatalf("expected %d items, got %d", len(want), len(df.items))
+	}
+	for i, w := range want {
+		if df.items[i].label != w {
+			t.Errorf("item %d: got label %q want %q", i, df.items[i].label, w)
+		}
+	}
+}
