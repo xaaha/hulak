@@ -11,6 +11,92 @@ type variableEntry struct {
 	value string
 }
 
+// varPathSeg is one step in the location of a form item's value within its
+// top-level argument. A key segment descends into an input-object field; an
+// index segment descends into a list element. The full path lets the variables
+// builder reconstruct arbitrarily nested objects and lists from the flat list
+// of form items.
+type varPathSeg struct {
+	key     string
+	index   int
+	isIndex bool
+}
+
+// varTree is an ordered value tree assembled from form-item paths. Object key
+// order and list element order follow insertion order, which mirrors the schema
+// field order and list group order of the form items.
+type varTree struct {
+	kind   varTreeKind
+	leaf   string // formatted GraphQL literal for the string builder
+	goLeaf any    // native value for the map builder
+	keys   []string
+	objs   map[string]*varTree
+	list   []*varTree
+	listAt map[int]int // list group index -> position in list
+}
+
+type varTreeKind int
+
+const (
+	varTreeLeaf varTreeKind = iota
+	varTreeObject
+	varTreeList
+)
+
+func (t *varTree) insert(path []varPathSeg, leaf string, goLeaf any) {
+	if len(path) == 0 {
+		t.kind = varTreeLeaf
+		t.leaf = leaf
+		t.goLeaf = goLeaf
+		return
+	}
+	seg := path[0]
+	if seg.isIndex {
+		if t.kind != varTreeList {
+			t.kind = varTreeList
+			t.listAt = make(map[int]int)
+		}
+		pos, ok := t.listAt[seg.index]
+		if !ok {
+			child := &varTree{}
+			t.list = append(t.list, child)
+			pos = len(t.list) - 1
+			t.listAt[seg.index] = pos
+		}
+		t.list[pos].insert(path[1:], leaf, goLeaf)
+		return
+	}
+
+	if t.kind != varTreeObject {
+		t.kind = varTreeObject
+		t.objs = make(map[string]*varTree)
+	}
+	child, ok := t.objs[seg.key]
+	if !ok {
+		child = &varTree{}
+		t.objs[seg.key] = child
+		t.keys = append(t.keys, seg.key)
+	}
+	child.insert(path[1:], leaf, goLeaf)
+}
+
+// argValueTree assembles the value tree for a single argument from its form
+// items. It returns false when no enabled item contributes a value.
+func argValueTree(items []*formItem) (*varTree, bool) {
+	root := &varTree{}
+	filled := false
+	for _, item := range items {
+		strVal, ok := formatVariableValue(item)
+		if !ok {
+			continue
+		}
+		goVal, _ := goValue(item)
+		root.insert(item.path, strVal, goVal)
+		filled = true
+	}
+	return root, filled
+}
+
 // BuildVariablesString renders the GraphQL variables payload implied by the
 // current detail form state. Only enabled arguments with concrete values are
 // included, so empty text inputs are omitted until the user provides a value.
@@ -25,41 +111,13 @@ func BuildVariablesString(op *UnifiedOperation, df *DetailForm) string {
 		if len(argItems) == 0 {
 			continue
 		}
-
-		if IsListType(arg.Type) {
-			values := buildListVariableValues(argItems)
-			if len(values) == 0 {
-				continue
-			}
-			entries = append(entries, variableEntry{
-				key:   arg.Name,
-				value: "[" + strings.Join(values, ", ") + "]",
-			})
-			continue
-		}
-
-		if len(argItems) == 1 && argItems[0].name == arg.Name {
-			if value, ok := formatVariableValue(argItems[0]); ok {
-				entries = append(entries, variableEntry{key: arg.Name, value: value})
-			}
-			continue
-		}
-
-		var objectEntries []variableEntry
-		for _, item := range argItems {
-			if value, ok := formatVariableValue(item); ok {
-				objectEntries = append(objectEntries, variableEntry{
-					key:   item.name,
-					value: value,
-				})
-			}
-		}
-		if len(objectEntries) == 0 {
+		tree, ok := argValueTree(argItems)
+		if !ok {
 			continue
 		}
 		entries = append(entries, variableEntry{
 			key:   arg.Name,
-			value: renderVariablesObject(objectEntries, 1),
+			value: renderVarTreeString(tree, 1),
 		})
 	}
 
@@ -69,43 +127,26 @@ func BuildVariablesString(op *UnifiedOperation, df *DetailForm) string {
 	return renderVariablesObject(entries, 0)
 }
 
-func buildListVariableValues(items []*formItem) []string {
-	if len(items) == 0 {
-		return nil
+func renderVarTreeString(t *varTree, level int) string {
+	switch t.kind {
+	case varTreeObject:
+		entries := make([]variableEntry, 0, len(t.keys))
+		for _, k := range t.keys {
+			entries = append(entries, variableEntry{
+				key:   k,
+				value: renderVarTreeString(t.objs[k], level+1),
+			})
+		}
+		return renderVariablesObject(entries, level)
+	case varTreeList:
+		parts := make([]string, 0, len(t.list))
+		for _, child := range t.list {
+			parts = append(parts, renderVarTreeString(child, level))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	default:
+		return t.leaf
 	}
-
-	var values []string
-	for i := 0; i < len(items); {
-		group := items[i].listGroup
-		groupItems := items[i : i+1]
-		j := i + 1
-		for j < len(items) && items[j].listGroup == group {
-			groupItems = items[i : j+1]
-			j++
-		}
-		if len(groupItems) == 1 {
-			if value, ok := formatVariableValue(groupItems[0]); ok {
-				values = append(values, value)
-			}
-			i = j
-			continue
-		}
-
-		var objectEntries []variableEntry
-		for _, item := range groupItems {
-			if value, ok := formatVariableValue(item); ok {
-				objectEntries = append(objectEntries, variableEntry{
-					key:   item.name,
-					value: value,
-				})
-			}
-		}
-		if len(objectEntries) > 0 {
-			values = append(values, renderVariablesObject(objectEntries, 1))
-		}
-		i = j
-	}
-	return values
 }
 
 func formatVariableValue(item *formItem) (string, bool) {
@@ -208,32 +249,11 @@ func BuildVariablesMap(op *UnifiedOperation, df *DetailForm) map[string]any {
 		if len(argItems) == 0 {
 			continue
 		}
-
-		if IsListType(arg.Type) {
-			values := listGoValues(argItems)
-			if len(values) == 0 {
-				continue
-			}
-			result[arg.Name] = values
+		tree, ok := argValueTree(argItems)
+		if !ok {
 			continue
 		}
-
-		if len(argItems) == 1 && argItems[0].name == arg.Name {
-			if value, ok := goValue(argItems[0]); ok {
-				result[arg.Name] = value
-			}
-			continue
-		}
-
-		obj := make(map[string]any)
-		for _, item := range argItems {
-			if value, ok := goValue(item); ok {
-				obj[item.name] = value
-			}
-		}
-		if len(obj) > 0 {
-			result[arg.Name] = obj
-		}
+		result[arg.Name] = renderVarTreeGo(tree)
 	}
 
 	if len(result) == 0 {
@@ -242,40 +262,23 @@ func BuildVariablesMap(op *UnifiedOperation, df *DetailForm) map[string]any {
 	return result
 }
 
-func listGoValues(items []*formItem) []any {
-	if len(items) == 0 {
-		return nil
+func renderVarTreeGo(t *varTree) any {
+	switch t.kind {
+	case varTreeObject:
+		obj := make(map[string]any, len(t.keys))
+		for _, k := range t.keys {
+			obj[k] = renderVarTreeGo(t.objs[k])
+		}
+		return obj
+	case varTreeList:
+		values := make([]any, 0, len(t.list))
+		for _, child := range t.list {
+			values = append(values, renderVarTreeGo(child))
+		}
+		return values
+	default:
+		return t.goLeaf
 	}
-
-	var values []any
-	for i := 0; i < len(items); {
-		group := items[i].listGroup
-		groupItems := items[i : i+1]
-		j := i + 1
-		for j < len(items) && items[j].listGroup == group {
-			groupItems = items[i : j+1]
-			j++
-		}
-		if len(groupItems) == 1 {
-			if value, ok := goValue(groupItems[0]); ok {
-				values = append(values, value)
-			}
-			i = j
-			continue
-		}
-
-		obj := make(map[string]any)
-		for _, item := range groupItems {
-			if value, ok := goValue(item); ok {
-				obj[item.name] = value
-			}
-		}
-		if len(obj) > 0 {
-			values = append(values, obj)
-		}
-		i = j
-	}
-	return values
 }
 
 func goValue(item *formItem) (any, bool) {

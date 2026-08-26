@@ -1730,7 +1730,7 @@ func TestCheckboxPrefixInView(t *testing.T) {
 }
 
 func TestContinuationListInputViewShowsConnectorWithoutCheckbox(t *testing.T) {
-	fi := newListArgFormItems(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, nil, "ep", 1, true)[0]
+	fi := newListArgFormItems(graphql.Argument{Name: "ids", Type: "[ID!]!"}, nil, nil, "ep", 1, true, nil)[0]
 	v := fi.View()
 	if strings.Contains(v, "[") || strings.Contains(v, "]") {
 		t.Fatal("continuation list input should not render a checkbox prefix")
