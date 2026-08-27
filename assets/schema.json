@@ -225,7 +225,7 @@
           "properties": {
             "raw": {
               "type": "string",
-              "description": "Raw body content as string"
+              "description": "Raw body content as string. Use {{attachFile \"path\"}} to send a file as the entire body."
             }
           },
           "additionalProperties": false
@@ -234,7 +234,7 @@
           "properties": {
             "formdata": {
               "type": "object",
-              "description": "Form data (multipart/form-data)",
+              "description": "Form data (multipart/form-data). A value of {{attachFile \"path\"}} is sent as a file part.",
               "additionalProperties": {
                 "type": "string"
               }
