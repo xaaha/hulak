@@ -1,10 +1,13 @@
 package yamlparser
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestIsValid for HTTPMethodType
@@ -286,4 +289,42 @@ func TestProcessVariable_PreservesUintFamily(t *testing.T) {
 			}
 		})
 	}
+}
+
+// EncodeFormData writes on a goroutine into an unbuffered pipe, so every write
+// blocks until the consumer reads. A consumer that stops early (cancelled
+// request, failed dry-run) must not strand that goroutine forever.
+func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
+	fields := map[string]string{}
+	for i := range 200 {
+		fields[fmt.Sprintf("field%03d", i)] = strings.Repeat("x", 4096)
+	}
+
+	before := runtime.NumGoroutine()
+
+	body, _, err := EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+
+	// Read one byte so the writer is mid-stream and blocked, then abandon it.
+	if _, err := io.ReadFull(body, make([]byte, 1)); err != nil {
+		t.Fatalf("reading first byte: %v", err)
+	}
+	closer, ok := body.(io.Closer)
+	if !ok {
+		t.Fatalf("body %T is not an io.Closer, so a stalled writer cannot be released", body)
+	}
+	if err := closer.Close(); err != nil {
+		t.Fatalf("closing body: %v", err)
+	}
+
+	for range 100 {
+		if runtime.NumGoroutine() <= before {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("writer goroutine still running 1s after close: %d before, %d now",
+		before, runtime.NumGoroutine())
 }
