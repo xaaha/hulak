@@ -248,26 +248,36 @@ func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 }
 
 // EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded,
-// Returns the payload, Content-Type for the headers and error
+// Returns the payload, Content-Type for the headers and error.
+//
+// The payload streams: parts are written on a goroutine as the consumer reads,
+// so a part sourced from disk never has to sit in memory in full.
 func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 	if len(keyValue) == 0 {
 		return nil, "", errors.New("no key-value pairs to encode")
 	}
 
-	payload := &bytes.Buffer{}
-	writer := multipart.NewWriter(payload)
-	defer writer.Close() // Ensure writer is closed
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	// Read the boundary before the goroutine starts so the caller never races it.
+	contentType := writer.FormDataContentType()
 
-	for key, val := range keyValue {
-		if key != "" && val != "" {
+	go func() {
+		for key, val := range keyValue {
+			if key == "" || val == "" {
+				continue
+			}
 			if err := writer.WriteField(key, val); err != nil {
-				return nil, "", err
+				// CloseWithError, not Close: a plain close would surface as a
+				// clean EOF and the consumer would send a truncated body.
+				_ = pw.CloseWithError(err)
+				return
 			}
 		}
-	}
+		_ = pw.CloseWithError(writer.Close())
+	}()
 
-	// Return the payload and the content type for the header
-	return payload, writer.FormDataContentType(), nil
+	return pr, contentType, nil
 }
 
 // EncodeGraphQlBody accepts a query string and variables of any type,
