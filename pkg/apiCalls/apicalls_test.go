@@ -5,12 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -864,5 +868,194 @@ func TestSendAndSaveAPIRequest_OutPath(t *testing.T) {
 	}
 	if len(defaults) > 0 {
 		t.Errorf("default response file should not be written when -o is set, found: %v", defaults)
+	}
+}
+
+// newUploadEcho reports back what the server actually received on the wire.
+type wireRecord struct {
+	contentLength    int64
+	transferEncoding []string
+	path             string
+	fields           map[string]string
+	fileNames        map[string]string
+	fileTypes        map[string]string
+	fileBytes        map[string]int
+}
+
+func recordUpload(t *testing.T, r *http.Request) wireRecord {
+	t.Helper()
+	rec := wireRecord{
+		contentLength:    r.ContentLength,
+		transferEncoding: r.TransferEncoding,
+		path:             r.URL.Path,
+		fields:           map[string]string{},
+		fileNames:        map[string]string{},
+		fileTypes:        map[string]string{},
+		fileBytes:        map[string]int{},
+	}
+	ct := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "multipart/") {
+		return rec
+	}
+	_, params, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return rec
+	}
+	mr := multipart.NewReader(r.Body, params["boundary"])
+	for {
+		part, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+		data, _ := io.ReadAll(part)
+		if part.FileName() != "" {
+			rec.fileNames[part.FormName()] = part.FileName()
+			rec.fileTypes[part.FormName()] = part.Header.Get("Content-Type")
+			rec.fileBytes[part.FormName()] = len(data)
+			continue
+		}
+		rec.fields[part.FormName()] = string(data)
+		_ = part.Close()
+	}
+	return rec
+}
+
+func attachFixture(t *testing.T, name string, size int) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, bytes.Repeat([]byte("A"), size), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// An attached file must go out with a real Content-Length. Without one the
+// request degrades to chunked, which S3 and many upload endpoints reject.
+func TestStandardCall_AttachedFileSendsContentLength(t *testing.T) {
+	got := make(chan wireRecord, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	png := attachFixture(t, "logo.png", 40000)
+	fields := map[string]string{"caption": "hi", "avatar": utils.FileRef(png)}
+
+	body, contentType, err := yamlparser.EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+
+	if _, err = StandardCallWithClient(context.Background(), yamlparser.APIInfo{
+		Method: "POST", URL: server.URL,
+		Headers: map[string]string{"content-type": contentType},
+		Body:    body,
+	}, false, server.Client()); err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+
+	rec := <-got
+	if len(rec.transferEncoding) != 0 {
+		t.Errorf("sent with Transfer-Encoding %v, want a plain Content-Length", rec.transferEncoding)
+	}
+	if rec.contentLength != body.Length {
+		t.Errorf("server saw Content-Length %d, encoder predicted %d", rec.contentLength, body.Length)
+	}
+	if rec.fileBytes["avatar"] != 40000 {
+		t.Errorf("server got %d file bytes, want 40000", rec.fileBytes["avatar"])
+	}
+	if rec.fileNames["avatar"] != "logo.png" {
+		t.Errorf("filename = %q, want logo.png", rec.fileNames["avatar"])
+	}
+	if rec.fileTypes["avatar"] != "image/png" {
+		t.Errorf("part Content-Type = %q, want image/png", rec.fileTypes["avatar"])
+	}
+	if rec.fields["caption"] != "hi" {
+		t.Errorf("text field = %q, want hi", rec.fields["caption"])
+	}
+}
+
+// A 307 preserves method and body only when GetBody can rebuild it. Without it
+// http.Client stops following and returns the redirect as if it were the answer.
+func TestStandardCall_AttachedFileReplaysAcross307(t *testing.T) {
+	got := make(chan wireRecord, 2)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		http.Redirect(w, r, "/final", http.StatusTemporaryRedirect)
+	})
+	mux.HandleFunc("/final", func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	png := attachFixture(t, "logo.png", 2048)
+	call := &yamlparser.APICallFile{
+		Method: "POST",
+		URL:    yamlparser.URL(server.URL + "/start"),
+		Body:   &yamlparser.Body{FormData: map[string]string{"avatar": utils.FileRef(png)}},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	if sb, ok := info.Body.(*yamlparser.StreamedBody); !ok || sb.GetBody == nil {
+		t.Fatal("body is not a StreamedBody with GetBody, so a redirect cannot replay it")
+	}
+
+	resp, err := StandardCallWithClient(context.Background(), info, false, server.Client())
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if resp.Response == nil || resp.Response.StatusCode != http.StatusOK {
+		t.Fatalf("final status = %+v, want 200; the redirect was not followed", resp.Response)
+	}
+
+	close(got)
+	var final *wireRecord
+	for rec := range got {
+		if rec.path == "/final" {
+			r := rec
+			final = &r
+		}
+	}
+	if final == nil {
+		t.Fatal("redirect target never received the request")
+	}
+	if final.fileBytes["avatar"] != 2048 {
+		t.Errorf("replayed body carried %d file bytes, want 2048", final.fileBytes["avatar"])
+	}
+}
+
+// Bodies with no attached file must keep the Content-Length net/http derives
+// from an in-memory reader. Leaving APIInfo.ContentLength at its zero value
+// would read as "unknown" and silently downgrade them to chunked.
+func TestStandardCall_InMemoryBodiesKeepContentLength(t *testing.T) {
+	got := make(chan wireRecord, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	raw := "grant_type=authorization_code&code=abc"
+	if _, err := StandardCallWithClient(context.Background(), yamlparser.APIInfo{
+		Method: "POST", URL: server.URL,
+		Body: strings.NewReader(raw),
+	}, false, server.Client()); err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+
+	rec := <-got
+	if len(rec.transferEncoding) != 0 {
+		t.Errorf("sent chunked %v; an in-memory body should carry a length", rec.transferEncoding)
+	}
+	if rec.contentLength != int64(len(raw)) {
+		t.Errorf("Content-Length = %d, want %d", rec.contentLength, len(raw))
 	}
 }
