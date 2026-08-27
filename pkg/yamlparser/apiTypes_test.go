@@ -311,11 +311,9 @@ func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
 	if _, err := io.ReadFull(body, make([]byte, 1)); err != nil {
 		t.Fatalf("reading first byte: %v", err)
 	}
-	closer, ok := body.(io.Closer)
-	if !ok {
-		t.Fatalf("body %T is not an io.Closer, so a stalled writer cannot be released", body)
-	}
-	if err := closer.Close(); err != nil {
+	// Closeability is guaranteed by the type now; what still needs proving is
+	// that closing actually releases the blocked writer.
+	if err := body.Close(); err != nil {
 		t.Fatalf("closing body: %v", err)
 	}
 

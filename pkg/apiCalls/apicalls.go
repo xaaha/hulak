@@ -31,6 +31,19 @@ func StandardCall(
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
 // This function allows dependency injection for testing purposes
+// debugBodyLimit caps what --debug holds in memory to print. Past this the
+// request still streams and debug reports a size instead of the payload.
+const debugBodyLimit = 1 << 20 // 1 MiB
+
+// closeBody releases a streamed body that net/http never adopted. A multipart
+// body is an io.PipeReader whose writer goroutine blocks until it is drained
+// or closed.
+func closeBody(r io.Reader) {
+	if c, ok := r.(io.Closer); ok {
+		_ = c.Close()
+	}
+}
+
 func StandardCallWithClient(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
@@ -44,24 +57,50 @@ func StandardCallWithClient(
 	urlStr := apiInfo.URL
 	bodyReader := apiInfo.Body
 
-	var bodyBytes []byte
-	var err error
-	if bodyReader != nil {
-		bodyBytes, err = io.ReadAll(bodyReader)
-		if err != nil {
-			return CustomResponse{}, err
+	// A body that knows its own size is one net/http cannot measure, because it
+	// is produced as it is read. Everything else is an in-memory reader that
+	// net/http sizes and replays by itself.
+	streamed, _ := bodyReader.(*yamlparser.StreamedBody)
+
+	// Only debug reads the body back, and only when it is small enough to be
+	// worth printing. Everything else goes straight to the socket, so an
+	// attached file is never held in memory.
+	var reqBodyForDebug []byte
+	if debug && bodyReader != nil {
+		if streamed != nil && streamed.Length > debugBodyLimit {
+			reqBodyForDebug = fmt.Appendf(
+				nil, "<%d bytes, too large to display>", streamed.Length,
+			)
+		} else {
+			buffered, err := io.ReadAll(bodyReader)
+			if err != nil {
+				closeBody(bodyReader)
+				return CustomResponse{}, err
+			}
+			reqBodyForDebug = buffered
+			// Rewound into memory, so net/http can size and replay it itself.
+			bodyReader, streamed = bytes.NewReader(buffered), nil
 		}
-	} else {
-		bodyBytes = []byte{}
 	}
 
-	newBodyReader := bytes.NewReader(bodyBytes)
 	headers := apiInfo.Headers
 	preparedURL := PrepareURL(urlStr, apiInfo.URLParams)
 
-	req, err := http.NewRequestWithContext(ctx, method, preparedURL, newBodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, preparedURL, bodyReader)
 	if err != nil {
+		// net/http never took ownership, so nothing else closes a streamed body
+		// and its writer goroutine would block forever.
+		closeBody(bodyReader)
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
+	}
+
+	if streamed != nil {
+		// Left unset, net/http cannot size a streamed body and degrades the
+		// request to chunked encoding, which many upload endpoints reject.
+		req.ContentLength = streamed.Length
+		// Without GetBody the client silently stops following 307/308 and
+		// returns the redirect as though it were the response.
+		req.GetBody = streamed.GetBody
 	}
 
 	if len(headers) > 0 {
@@ -80,7 +119,7 @@ func StandardCallWithClient(
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug, bodyBytes)
+	return processResponse(req, response, duration, debug, reqBodyForDebug)
 }
 
 // SendAndSaveAPIRequest builds the API request from the file at opts.Path,
