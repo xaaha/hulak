@@ -34,10 +34,11 @@ func FileRefPath(value string) (string, bool) {
 // ResolveAttachPath resolves a path for attachFile.
 //
 // It deliberately differs from ResolveProjectFile: an upload usually comes from
-// outside the repo, so an explicitly absolute or ~-prefixed path is allowed to
-// leave the project root and says so on stderr. A relative path still resolves
-// against the project root and still may not escape it, so no request file can
-// reach out of the repo by traversal alone.
+// outside the repo, so an explicitly absolute or ~-prefixed path may leave the
+// project root. A relative path still resolves against the project root and
+// still may not escape it, because "assets/../../../etc/passwd" reads as
+// innocuous where "/etc/passwd" does not. Leaving the repo has to be spelled
+// out in the path, which is the disclosure; no warning is needed on top.
 func ResolveAttachPath(filePath string) (string, error) {
 	if filePath == "" {
 		return "", fmt.Errorf("attachFile needs a path")
@@ -73,12 +74,6 @@ func ResolveAttachPath(filePath string) (string, error) {
 	}
 	if info.IsDir() {
 		return "", fmt.Errorf("attachFile: %s is a directory", filePath)
-	}
-
-	if explicit {
-		if root, found := FindProjectRoot(); !found || !withinRoot(absPath, root) {
-			PrintWarningStderr("attaching file from outside the project: " + absPath)
-		}
 	}
 
 	return absPath, nil
