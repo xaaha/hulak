@@ -4,9 +4,9 @@ This directory contains Hulak's Bubble Tea user interfaces and shared TUI widget
 
 ## Packages
 
-- `tui` — shared widgets and interaction helpers used by the selector and GraphQL explorer.
-- `tui/envselect` — environment picker.
-- `tui/gqlexplorer` — full-screen GraphQL explorer.
+- `tui`: shared widgets and interaction helpers used by the selector and GraphQL explorer.
+- `tui/envselect`: environment picker.
+- `tui/gqlexplorer`: full-screen GraphQL explorer.
 
 Keep a component in the root `tui` package when it is reusable by more than one screen. Screen-specific state and behavior should remain in that screen's package.
 
@@ -38,8 +38,9 @@ Commands must return messages to `Update`; they should not mutate model state fr
 | Response state, caching, search, headers, or response saving                 | `model_response.go` |
 | Bottom actions, notification enqueueing, or notification action-row state    | `model_actions.go`  |
 | Notification message handling and state                                      | `model.go`          |
-| Notification keyboard interaction and copying                               | `model_keys.go`     |
+| Notification keyboard interaction, including the copy keybinding             | `model_keys.go`     |
 | Notification modal rendering                                                 | `model_view.go`     |
+| Panel clipboard text (yanked content, plain-text conversion, summaries)      | `model_view.go`     |
 | Top-level screen composition and panel synchronization                       | `model_view.go`     |
 | Program startup and exported explorer runners                                | `run.go`            |
 
