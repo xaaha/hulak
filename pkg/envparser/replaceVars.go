@@ -93,6 +93,7 @@ func replaceVariables(
 	funcMap := template.FuncMap{
 		utils.TemplateFuncGetValueOf: actions.GetValueOf,
 		utils.TemplateFuncGetFile:    getFileFor(currentFile),
+		utils.TemplateFuncAttachFile: actions.AttachFile,
 		utils.TemplateFuncBasicAuth:  actions.BasicAuth,
 		utils.TemplateFuncOs:         os.Getenv,
 	}

@@ -300,3 +300,18 @@ func convertNumberToProperType(v any) any {
 	}
 	return v
 }
+
+// AttachFile resolves a file referenced by an {{attachFile}} template and
+// returns a marker naming it, not its contents.
+//
+// getFile inlines what it reads; a file destined for an upload cannot travel
+// that way, because the request map is re-encoded to YAML before the body is
+// built. The body encoder resolves this marker and opens the file itself, so
+// the bytes go straight from disk to the socket.
+func AttachFile(filePath string) (string, error) {
+	absPath, err := utils.ResolveAttachPath(filePath)
+	if err != nil {
+		return "", err
+	}
+	return utils.FileRef(absPath), nil
+}

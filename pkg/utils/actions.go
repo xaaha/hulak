@@ -4,6 +4,7 @@ import "strings"
 
 const (
 	TemplateFuncGetFile    = "getFile"
+	TemplateFuncAttachFile = "attachFile"
 	TemplateFuncGetValueOf = "getValueOf"
 	TemplateFuncBasicAuth  = "basicAuth"
 	TemplateFuncOs         = "os"
@@ -14,6 +15,7 @@ const (
 // here and every case/underscore spelling of it resolves automatically.
 var templateFuncNames = []string{
 	TemplateFuncGetFile,
+	TemplateFuncAttachFile,
 	TemplateFuncGetValueOf,
 	TemplateFuncBasicAuth,
 	TemplateFuncOs,
