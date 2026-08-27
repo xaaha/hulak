@@ -59,9 +59,6 @@ func StandardCallWithClient(
 	headers := apiInfo.Headers
 	preparedURL := PrepareURL(urlStr, apiInfo.URLParams)
 
-	reqBodyForDebug := make([]byte, len(bodyBytes))
-	copy(reqBodyForDebug, bodyBytes)
-
 	req, err := http.NewRequestWithContext(ctx, method, preparedURL, newBodyReader)
 	if err != nil {
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
@@ -83,7 +80,7 @@ func StandardCallWithClient(
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug, reqBodyForDebug)
+	return processResponse(req, response, duration, debug, bodyBytes)
 }
 
 // SendAndSaveAPIRequest builds the API request from the file at opts.Path,
