@@ -1,13 +1,18 @@
 package yamlparser
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // TestIsValid for HTTPMethodType
@@ -325,4 +330,66 @@ func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
 	}
 	t.Fatalf("writer goroutine still running 1s after close: %d before, %d now",
 		before, runtime.NumGoroutine())
+}
+
+// raw: {{attachFile "x"}} sends the file as the whole body. The type is guessed
+// from the extension, but a header the user wrote always wins.
+func TestRawAttachFileBodyAndContentType(t *testing.T) {
+	dir := t.TempDir()
+	pdf := filepath.Join(dir, "report.pdf")
+	payload := []byte("%PDF-1.7 fake")
+	if err := os.WriteFile(pdf, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		headers map[string]string
+		wantCT  string
+	}{
+		{"guesses from extension", nil, "application/pdf"},
+		{"explicit lowercase wins", map[string]string{"content-type": "application/x-custom"}, "application/x-custom"},
+		{"explicit capitalized wins", map[string]string{"Content-Type": "application/x-custom"}, "application/x-custom"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			call := &APICallFile{
+				Method:  POST,
+				URL:     "https://example.com/blobs/1",
+				Headers: tt.headers,
+				Body:    &Body{Raw: utils.FileRef(pdf)},
+			}
+			info, err := call.PrepareStruct()
+			if err != nil {
+				t.Fatalf("PrepareStruct: %v", err)
+			}
+
+			var got string
+			for k, v := range info.Headers {
+				if strings.EqualFold(k, "content-type") {
+					got = v
+				}
+			}
+			if got != tt.wantCT {
+				t.Errorf("content-type = %q, want %q", got, tt.wantCT)
+			}
+
+			streamed, ok := info.Body.(*StreamedBody)
+			if !ok {
+				t.Fatalf("body is %T, want *StreamedBody", info.Body)
+			}
+			if streamed.Length != int64(len(payload)) {
+				t.Errorf("Length = %d, want %d", streamed.Length, len(payload))
+			}
+			data, err := io.ReadAll(streamed)
+			if err != nil {
+				t.Fatalf("reading body: %v", err)
+			}
+			if !bytes.Equal(data, payload) {
+				t.Errorf("body = %q, want %q", data, payload)
+			}
+			_ = streamed.Close()
+		})
+	}
 }

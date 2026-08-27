@@ -74,6 +74,10 @@ type StreamedBody struct {
 	// redirect. Without it the client stops following and returns the redirect
 	// as though it were the answer.
 	GetBody func() (io.ReadCloser, error)
+	// SuggestedContentType is a guess from the file extension. Unlike the
+	// multipart type, which is authoritative because it carries the boundary,
+	// this must never override a content-type the user wrote themselves.
+	SuggestedContentType string
 }
 
 type URL string
@@ -125,6 +129,17 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 	return true, nil
 }
 
+// hasHeader reports whether name is present under any capitalization, since
+// YAML authors write Content-Type as often as content-type.
+func hasHeader(headers map[string]string, name string) bool {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // Returns APIInfo object for the User's API request yaml file
 func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
@@ -137,6 +152,15 @@ func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 			user.Headers = make(map[string]string)
 		}
 		user.Headers["content-type"] = contentType
+	}
+	// A guessed type fills a gap; it never overrules one the user wrote.
+	if streamed, ok := body.(*StreamedBody); ok && streamed.SuggestedContentType != "" {
+		if !hasHeader(user.Headers, "content-type") {
+			if user.Headers == nil {
+				user.Headers = make(map[string]string)
+			}
+			user.Headers["content-type"] = streamed.SuggestedContentType
+		}
 	}
 
 	return APIInfo{
@@ -237,6 +261,16 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 		body, contentType = encodedBody, "application/x-www-form-urlencoded"
 
 	case b.Raw != "":
+		// A whole-value attachFile marker means "send this file as the body",
+		// which is the binary-upload shape: PUT /blobs/1 with the file itself.
+		if path, ok := utils.FileRefPath(b.Raw); ok {
+			streamed, err := streamWholeFile(path)
+			if err != nil {
+				return nil, "", err
+			}
+			body = streamed
+			break
+		}
 		body = strings.NewReader(b.Raw)
 
 	default:
@@ -413,6 +447,29 @@ func formDataLength(parts []formPart, boundary string) (int64, error) {
 		return 0, err
 	}
 	return int64(counter) + fileBytes, nil
+}
+
+// streamWholeFile sends one file as the entire request body, no multipart
+// framing. The size comes from the open descriptor so it cannot drift, and
+// GetBody re-opens by path so a redirect can replay it.
+func streamWholeFile(path string) (*StreamedBody, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	return &StreamedBody{
+		ReadCloser: file,
+		Length:     info.Size(),
+		GetBody: func() (io.ReadCloser, error) {
+			return os.Open(path)
+		},
+		SuggestedContentType: fileContentType(filepath.Base(path)),
+	}, nil
 }
 
 // EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded.
