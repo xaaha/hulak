@@ -6,9 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -247,6 +251,47 @@ func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	return strings.NewReader(formData.Encode()), nil
 }
 
+// quoteEscaper mirrors the unexported escaper in mime/multipart, which applies
+// it to names written into Content-Disposition.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, `\"`)
+
+// fileContentType guesses a part's type from its extension, the same rule curl
+// uses for -F. An unrecognized extension falls back to the generic type rather
+// than guessing from content.
+func fileContentType(path string) string {
+	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
+		return ct
+	}
+	return "application/octet-stream"
+}
+
+// writeFilePart streams one file into the multipart body. The bytes go from
+// disk to the pipe without being held, which is the whole point of attachFile.
+func writeFilePart(writer *multipart.Writer, field, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	defer func() { _ = file.Close() }()
+
+	header := make(textproto.MIMEHeader)
+	// Built by concatenation, not %q: quoteEscaper has already applied MIME
+	// escaping, and %q would escape that again and mangle non-ASCII filenames.
+	header.Set("Content-Disposition",
+		`form-data; name="`+quoteEscaper.Replace(field)+
+			`"; filename="`+quoteEscaper.Replace(filepath.Base(path))+`"`)
+	header.Set("Content-Type", fileContentType(path))
+
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	return nil
+}
+
 // EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded,
 // Returns the payload, Content-Type for the headers and error.
 //
@@ -267,9 +312,23 @@ func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
 			if key == "" || val == "" {
 				continue
 			}
+			// CloseWithError, not Close: a plain close would surface as a clean
+			// EOF and the consumer would send a truncated body believing it whole.
+			if path, ok := utils.FileRefPath(val); ok {
+				if err := writeFilePart(writer, key, path); err != nil {
+					_ = pw.CloseWithError(err)
+					return
+				}
+				continue
+			}
+			if strings.Contains(val, utils.FileRefPrefix) {
+				_ = pw.CloseWithError(fmt.Errorf(
+					"field %q mixes attachFile with other text; a file must be the whole value",
+					key,
+				))
+				return
+			}
 			if err := writer.WriteField(key, val); err != nil {
-				// CloseWithError, not Close: a plain close would surface as a
-				// clean EOF and the consumer would send a truncated body.
 				_ = pw.CloseWithError(err)
 				return
 			}
