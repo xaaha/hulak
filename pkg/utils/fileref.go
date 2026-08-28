@@ -82,12 +82,32 @@ func ResolveAttachPath(filePath string) (string, error) {
 			return "", fmt.Errorf("not a hulak project: could not find project root")
 		}
 		absPath = anchorToRoot(filepath.Clean(filePath), projectRoot)
+
+		escapes := fmt.Errorf(
+			"attachFile %s escapes the project root; pass an absolute or ~ path to attach it deliberately",
+			filePath,
+		)
+		// Lexical check first: rejects "../../etc/passwd" without touching disk.
 		if !withinRoot(absPath, projectRoot) {
-			return "", fmt.Errorf(
-				"attachFile %s escapes the project root; pass an absolute or ~ path to attach it deliberately",
-				filePath,
-			)
+			return "", escapes
 		}
+		// Then resolve symlinks and re-check, so an in-repo symlink pointing
+		// outside the root cannot smuggle a file past the lexical check.
+		resolved, err := filepath.EvalSymlinks(absPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("attachFile: no such file %s", absPath)
+			}
+			return "", err
+		}
+		resolvedRoot, err := filepath.EvalSymlinks(projectRoot)
+		if err != nil {
+			return "", err
+		}
+		if !withinRoot(resolved, resolvedRoot) {
+			return "", escapes
+		}
+		absPath = resolved
 	}
 
 	info, err := os.Stat(absPath)
