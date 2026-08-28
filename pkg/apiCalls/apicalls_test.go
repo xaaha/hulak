@@ -1195,3 +1195,60 @@ func TestStandardCall_DebugRawUploadDoesNotLeakFD(t *testing.T) {
 		t.Errorf("leaked ~%d file descriptors across 30 debug raw uploads", after-before)
 	}
 }
+
+// On a 307 replay, the body must reproduce the ORIGINAL Content-Length even if
+// the file grew on disk between the first send and the replay. Without pinning,
+// the replayed body would exceed the advertised length and the transport aborts.
+func TestStandardCall_ReplayPinsOriginalSizeAcross307(t *testing.T) {
+	png := attachFixture(t, "logo.png", 2048)
+
+	got := make(chan wireRecord, 2)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		// Grow the file before the client rebuilds the body via GetBody.
+		if err := os.WriteFile(png, bytes.Repeat([]byte("A"), 9000), 0o600); err != nil {
+			t.Error(err)
+		}
+		http.Redirect(w, r, "/final", http.StatusTemporaryRedirect)
+	})
+	mux.HandleFunc("/final", func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	call := &yamlparser.APICallFile{
+		Method: "POST",
+		URL:    yamlparser.URL(server.URL + "/start"),
+		Body:   &yamlparser.Body{FormData: map[string]string{"avatar": utils.FileRef(png)}},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	resp, err := StandardCallWithClient(context.Background(), info, false, server.Client())
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if resp.Response == nil || resp.Response.StatusCode != http.StatusOK {
+		t.Fatalf("final status = %+v, want 200", resp.Response)
+	}
+
+	close(got)
+	var final *wireRecord
+	for rec := range got {
+		if rec.path == "/final" {
+			r := rec
+			final = &r
+		}
+	}
+	if final == nil {
+		t.Fatal("redirect target never received the request")
+	}
+	if final.fileBytes["avatar"] != 2048 {
+		t.Errorf("replay carried %d file bytes, want 2048 (original pinned size)", final.fileBytes["avatar"])
+	}
+}

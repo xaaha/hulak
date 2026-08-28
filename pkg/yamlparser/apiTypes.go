@@ -615,24 +615,48 @@ func EncodeFormData(keyValue map[string]string) (*StreamedBody, string, error) {
 		return nil, "", err
 	}
 
+	// Capture the sizes measured now so a redirect replay reproduces the exact
+	// Content-Length even if a file changes on disk in between.
+	sizes := make(map[string]int64, len(parts))
+	for _, p := range parts {
+		if p.isFile() {
+			sizes[p.field] = p.size
+		}
+	}
+
 	streamParts(writer, pw, parts)
 	return &StreamedBody{
 		ReadCloser: pr,
 		Length:     length,
-		// Pinned to the boundary already advertised in contentType: a replay
-		// with a fresh boundary parses as zero parts on the far side.
+		// Pinned to the boundary already advertised in contentType (a replay with
+		// a fresh boundary parses as zero parts on the far side) and to the
+		// original per-part sizes (net/http reuses the original Content-Length).
 		GetBody: func() (io.ReadCloser, error) {
-			return encodeFormDataWith(keyValue, boundary)
+			return encodeFormDataWith(keyValue, boundary, sizes)
 		},
 	}, contentType, nil
 }
 
 // encodeFormDataWith re-encodes under a boundary that is already advertised in
 // a Content-Type header, which a replayed body must match.
-func encodeFormDataWith(keyValue map[string]string, boundary string) (io.ReadCloser, error) {
+func encodeFormDataWith(
+	keyValue map[string]string,
+	boundary string,
+	sizes map[string]int64,
+) (io.ReadCloser, error) {
 	parts, err := resolveFormParts(keyValue)
 	if err != nil {
 		return nil, err
+	}
+	// Restore the sizes from the first encode: writePart streams part.size bytes,
+	// so a file that grew is capped to the advertised length and one that shrank
+	// errors the replay rather than sending a body shorter than Content-Length.
+	for i := range parts {
+		if parts[i].isFile() {
+			if s, ok := sizes[parts[i].field]; ok {
+				parts[i].size = s
+			}
+		}
 	}
 
 	pr, pw := io.Pipe()
