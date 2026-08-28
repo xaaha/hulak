@@ -140,7 +140,7 @@ func TestBodyIsValid(t *testing.T) {
 		},
 		{
 			name:     "non-nil GraphQl with Variables",
-			body:     &Body{Graphql: &GraphQl{Variables: map[string]interface{}{"key": "value"}}},
+			body:     &Body{Graphql: &GraphQl{Variables: map[string]any{"key": "value"}}},
 			expected: true,
 		},
 		{
@@ -198,7 +198,7 @@ func TestEncodeBody(t *testing.T) {
 			body: &Body{
 				Graphql: &GraphQl{
 					Query:     "query content",
-					Variables: map[string]interface{}{"key": "value"},
+					Variables: map[string]any{"key": "value"},
 				},
 			},
 			expectError: false,
@@ -296,6 +296,17 @@ func TestProcessVariable_PreservesUintFamily(t *testing.T) {
 	}
 }
 
+// liveWriterGoroutines counts the running multipart writer goroutines by their
+// closure frame, so the assertion tracks exactly the goroutine under test and
+// not the process-wide total, which unrelated goroutines move either way. The
+// match is streamParts.func1, the closure itself, not any helper whose name
+// merely contains "streamParts".
+func liveWriterGoroutines() int {
+	buf := make([]byte, 1<<20)
+	n := runtime.Stack(buf, true)
+	return strings.Count(string(buf[:n]), "yamlparser.streamParts.func1(")
+}
+
 // EncodeFormData writes on a goroutine into an unbuffered pipe, so every write
 // blocks until the consumer reads. A consumer that stops early (cancelled
 // request, failed dry-run) must not strand that goroutine forever.
@@ -304,8 +315,6 @@ func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
 	for i := range 200 {
 		fields[fmt.Sprintf("field%03d", i)] = strings.Repeat("x", 4096)
 	}
-
-	before := runtime.NumGoroutine()
 
 	body, _, err := EncodeFormData(fields)
 	if err != nil {
@@ -316,20 +325,23 @@ func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
 	if _, err := io.ReadFull(body, make([]byte, 1)); err != nil {
 		t.Fatalf("reading first byte: %v", err)
 	}
-	// Closeability is guaranteed by the type now; what still needs proving is
-	// that closing actually releases the blocked writer.
+	// The goroutine must actually be blocked now, or "gone after close" proves
+	// nothing.
+	if got := liveWriterGoroutines(); got == 0 {
+		t.Fatal("writer goroutine not running while body is mid-stream")
+	}
+
 	if err := body.Close(); err != nil {
 		t.Fatalf("closing body: %v", err)
 	}
 
 	for range 100 {
-		if runtime.NumGoroutine() <= before {
+		if liveWriterGoroutines() == 0 {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("writer goroutine still running 1s after close: %d before, %d now",
-		before, runtime.NumGoroutine())
+	t.Fatal("writer goroutine still running 1s after close")
 }
 
 // raw: {{attachFile "x"}} sends the file as the whole body. The type is guessed
