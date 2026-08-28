@@ -83,6 +83,13 @@ func StandardCallWithClient(
 		}
 	}
 
+	// A non-nil zero-length body makes net/http fall back to chunked encoding.
+	// http.NoBody sends a genuine Content-Length: 0 instead.
+	if streamed != nil && streamed.Length == 0 {
+		closeBody(bodyReader)
+		bodyReader, streamed = http.NoBody, nil
+	}
+
 	headers := apiInfo.Headers
 	preparedURL := PrepareURL(urlStr, apiInfo.URLParams)
 

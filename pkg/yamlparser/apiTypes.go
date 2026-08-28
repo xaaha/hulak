@@ -429,8 +429,14 @@ func writePart(writer *multipart.Writer, part formPart) error {
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(w, part.file)
-	return err
+	// Send exactly the stat'd size we declared as Content-Length: a grown file
+	// is truncated, a shrunk one errors instead of sending a short body.
+	if n, err := io.CopyN(w, part.file, part.size); err != nil {
+		return fmt.Errorf(
+			"attachFile %s: sent %d of %d bytes: %w", part.filename, n, part.size, err,
+		)
+	}
+	return nil
 }
 
 // formDataLength returns the exact byte count the parts will produce.
@@ -488,14 +494,28 @@ func streamWholeFile(path string) (*StreamedBody, error) {
 		_ = file.Close()
 		return nil, fmt.Errorf("attachFile %s: not a regular file", path)
 	}
+	size := info.Size()
 	return &StreamedBody{
-		ReadCloser: file,
-		Length:     info.Size(),
+		// Capped at the stat'd size so a file growing after stat cannot outrun
+		// the declared Content-Length.
+		ReadCloser: limitedFile{Reader: io.LimitReader(file, size), Closer: file},
+		Length:     size,
 		GetBody: func() (io.ReadCloser, error) {
-			return os.Open(path)
+			replay, err := os.Open(path)
+			if err != nil {
+				return nil, err
+			}
+			return limitedFile{Reader: io.LimitReader(replay, size), Closer: replay}, nil
 		},
 		SuggestedContentType: fileContentType(filepath.Base(path)),
 	}, nil
+}
+
+// limitedFile is a ReadCloser whose reads are capped but whose Close reaches the
+// underlying file. io.LimitReader alone is not a Closer.
+type limitedFile struct {
+	io.Reader
+	io.Closer
 }
 
 // EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded.

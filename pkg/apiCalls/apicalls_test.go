@@ -1059,3 +1059,74 @@ func TestStandardCall_InMemoryBodiesKeepContentLength(t *testing.T) {
 		t.Errorf("Content-Length = %d, want %d", rec.contentLength, len(raw))
 	}
 }
+
+// An empty attachment must still send Content-Length: 0, not chunked. A
+// zero-length non-nil body otherwise makes net/http fall back to chunked.
+func TestStandardCall_EmptyRawAttachmentSendsContentLengthZero(t *testing.T) {
+	got := make(chan wireRecord, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	empty := attachFixture(t, "empty.bin", 0)
+	call := &yamlparser.APICallFile{
+		Method: "PUT",
+		URL:    yamlparser.URL(server.URL),
+		Body:   &yamlparser.Body{Raw: utils.FileRef(empty)},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	if _, err := StandardCallWithClient(context.Background(), info, false, server.Client()); err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+
+	rec := <-got
+	if len(rec.transferEncoding) != 0 {
+		t.Errorf("sent with Transfer-Encoding %v, want Content-Length: 0", rec.transferEncoding)
+	}
+	if rec.contentLength != 0 {
+		t.Errorf("Content-Length = %d, want 0", rec.contentLength)
+	}
+}
+
+// A file that grows between size measurement and streaming must be truncated to
+// the declared Content-Length, never sent longer than what was advertised.
+func TestStandardCall_GrownFileTruncatedToContentLength(t *testing.T) {
+	got := make(chan wireRecord, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- recordUpload(t, r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	png := attachFixture(t, "logo.png", 1000)
+	fields := map[string]string{"avatar": utils.FileRef(png)}
+	body, contentType, err := yamlparser.EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+
+	// Grow the file after the encoder measured it.
+	if err := os.WriteFile(png, bytes.Repeat([]byte("A"), 5000), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := StandardCallWithClient(context.Background(), yamlparser.APIInfo{
+		Method: "POST", URL: server.URL,
+		Headers: map[string]string{"content-type": contentType},
+		Body:    body,
+	}, false, server.Client()); err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+
+	rec := <-got
+	if rec.fileBytes["avatar"] != 1000 {
+		t.Errorf("server got %d file bytes, want 1000 (declared length)", rec.fileBytes["avatar"])
+	}
+}
