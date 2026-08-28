@@ -6,9 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -53,6 +57,27 @@ type APIInfo struct {
 	URLParams map[string]string
 	Method    string
 	URL       string
+}
+
+// StreamedBody is a body whose size is known but which net/http cannot measure,
+// because it is produced as it is read rather than held in memory.
+//
+// The size and the regenerator travel with the body rather than on APIInfo, so
+// there is no field a constructor can leave at its zero value. That matters:
+// net/http reads ContentLength == 0 on a non-nil body as "unknown" and quietly
+// downgrades the request to chunked encoding.
+type StreamedBody struct {
+	io.ReadCloser
+	// Length is the exact byte count the reader will produce.
+	Length int64
+	// GetBody rebuilds the body so net/http can replay it across a 307/308
+	// redirect. Without it the client stops following and returns the redirect
+	// as though it were the answer.
+	GetBody func() (io.ReadCloser, error)
+	// SuggestedContentType is a guess from the file extension. Unlike the
+	// multipart type, which is authoritative because it carries the boundary,
+	// this must never override a content-type the user wrote themselves.
+	SuggestedContentType string
 }
 
 type URL string
@@ -104,18 +129,85 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 	return true, nil
 }
 
-// Returns APIInfo object for the User's API request yaml file
+// hasHeader reports whether name is present under any capitalization, since
+// YAML authors write Content-Type as often as content-type.
+func hasHeader(headers map[string]string, name string) bool {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// setHeaderReplacing sets name to value and drops any other-cased entry for the
+// same header, so the caller ends with exactly one. Without this, a YAML author
+// who wrote Content-Type keeps that key while we add content-type, and net/http
+// emits both; a multipart request then advertises a boundary-less type and the
+// server rejects it with "no multipart boundary param".
+func setHeaderReplacing(headers map[string]string, name, value string) {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			delete(headers, key)
+		}
+	}
+	headers[name] = value
+}
+
+// errIfMarkerLeak rejects an attachFile marker anywhere it would be sent to the
+// server as text rather than streamed as a file: the URL, a header, or a URL
+// param. The marker carries this run's nonce, and the nonce is the whole
+// forgery defense, so it must never leave the process on the wire.
+func errIfMarkerLeak(rawURL string, headers, urlParams map[string]string) error {
+	if utils.ContainsFileRef(rawURL) {
+		return errors.New("url cannot use attachFile")
+	}
+	for key, val := range headers {
+		if utils.ContainsFileRef(val) {
+			return fmt.Errorf("header %q cannot use attachFile", key)
+		}
+	}
+	for key, val := range urlParams {
+		if utils.ContainsFileRef(val) {
+			return fmt.Errorf("urlparam %q cannot use attachFile", key)
+		}
+	}
+	return nil
+}
+
+// PrepareStruct returns the APIInfo for the user's request yaml file.
+//
+// When the body is a multipart or whole-file attachment, the returned
+// APIInfo.Body is a *StreamedBody that owns open file handles and, for
+// multipart, a running writer goroutine. The caller must send it (net/http
+// closes it) or Close it directly; discarding it leaks the files and goroutine.
 func (user *APICallFile) PrepareStruct() (APIInfo, error) {
+	if err := errIfMarkerLeak(string(user.URL), user.Headers, user.URLParams); err != nil {
+		return APIInfo{}, err
+	}
+
 	body, contentType, err := user.Body.EncodeBody()
 	if err != nil {
 		return APIInfo{}, fmt.Errorf("%s: %w", utils.ErrBodyEncoding, err)
 	}
 
+	// An encoder-produced type is authoritative: multipart carries the boundary
+	// and urlencoded is fixed, so it replaces any type the user wrote rather
+	// than joining it as a second header.
 	if contentType != "" {
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
-		user.Headers["content-type"] = contentType
+		setHeaderReplacing(user.Headers, "content-type", contentType)
+	}
+	// A guessed type only fills a gap; it never overrules one the user wrote.
+	if streamed, ok := body.(*StreamedBody); ok && streamed.SuggestedContentType != "" {
+		if !hasHeader(user.Headers, "content-type") {
+			if user.Headers == nil {
+				user.Headers = make(map[string]string)
+			}
+			user.Headers["content-type"] = streamed.SuggestedContentType
+		}
 	}
 
 	return APIInfo{
@@ -195,6 +287,9 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 
 	switch {
 	case b.Graphql != nil && b.Graphql.Query != "":
+		if err := errIfGraphqlAttachFile(b.Graphql); err != nil {
+			return nil, "", err
+		}
 		encodedBody, err := EncodeGraphQlBody(b.Graphql.Query, b.Graphql.Variables)
 		if err != nil {
 			return nil, "", fmt.Errorf("error encoding GraphQL body: %w", err)
@@ -216,6 +311,21 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 		body, contentType = encodedBody, "application/x-www-form-urlencoded"
 
 	case b.Raw != "":
+		// A whole-value attachFile marker means "send this file as the body",
+		// which is the binary-upload shape: PUT /blobs/1 with the file itself.
+		if path, ok := utils.FileRefPath(b.Raw); ok {
+			streamed, err := streamWholeFile(path)
+			if err != nil {
+				return nil, "", err
+			}
+			body = streamed
+			break
+		}
+		if utils.ContainsFileRef(b.Raw) {
+			return nil, "", errors.New(
+				"attachFile in raw must be the whole value, not embedded in other text",
+			)
+		}
 		body = strings.NewReader(b.Raw)
 
 	default:
@@ -225,14 +335,34 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 	return body, contentType, nil
 }
 
+// errIfGraphqlAttachFile rejects an attachFile marker in a GraphQL query or in
+// any variable, since a GraphQL request sends JSON, not a file.
+func errIfGraphqlAttachFile(g *GraphQl) error {
+	if utils.ContainsFileRef(g.Query) {
+		return errors.New("attachFile cannot be used in a graphql query; use formdata or raw")
+	}
+	if g.Variables != nil {
+		if raw, err := json.Marshal(g.Variables); err == nil && utils.ContainsFileRef(string(raw)) {
+			return errors.New("attachFile cannot be used in graphql variables; use formdata or raw")
+		}
+	}
+	return nil
+}
+
 // EncodeXwwwFormURLBody encodes key-value pairs as "application/x-www-form-urlencoded" data.
 // Returns an io.Reader containing the encoded data, or an error if the input is empty.
 func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	// Initialize form data
 	formData := url.Values{}
 
-	// Populate form data, using Set to overwrite duplicate keys if any
+	// Populate form data, using Set to overwrite duplicate keys if any. Guard
+	// here rather than in the caller so the OAuth2 flow, which encodes directly,
+	// is covered too: a urlencoded field cannot stream a file, and letting the
+	// marker through would ship this run's nonce to the server as text.
 	for key, val := range keyValue {
+		if utils.ContainsFileRef(val) {
+			return nil, fmt.Errorf("field %q cannot use attachFile; use formdata or raw", key)
+		}
 		if key != "" && val != "" {
 			formData.Set(key, val)
 		}
@@ -247,27 +377,332 @@ func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	return strings.NewReader(formData.Encode()), nil
 }
 
-// EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded,
-// Returns the payload, Content-Type for the headers and error
-func EncodeFormData(keyValue map[string]string) (io.Reader, string, error) {
-	if len(keyValue) == 0 {
-		return nil, "", errors.New("no key-value pairs to encode")
+// quoteEscaper sanitizes names written into a Content-Disposition header. It
+// escapes backslash and quote like mime/multipart, and additionally strips CR
+// and LF so a newline in a field name or filename cannot forge a header line.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, `\"`, "\r", "", "\n", "")
+
+// fileContentType guesses a part's type from its extension, the same rule curl
+// uses for -F. An unrecognized extension falls back to the generic type rather
+// than guessing from content.
+func fileContentType(path string) string {
+	if ct := mime.TypeByExtension(filepath.Ext(path)); ct != "" {
+		return ct
 	}
+	return "application/octet-stream"
+}
 
-	payload := &bytes.Buffer{}
-	writer := multipart.NewWriter(payload)
-	defer writer.Close() // Ensure writer is closed
+// byteCounter tallies what is written to it and discards the bytes.
+type byteCounter int64
 
-	for key, val := range keyValue {
-		if key != "" && val != "" {
-			if err := writer.WriteField(key, val); err != nil {
-				return nil, "", err
+func (c *byteCounter) Write(p []byte) (int, error) {
+	*c += byteCounter(len(p))
+	return len(p), nil
+}
+
+// formPart is one resolved multipart field. A file part holds an already-open
+// handle so its size and its bytes come from the same descriptor: stat-ing a
+// path and opening it later leaves a window where the file changes and the
+// declared Content-Length becomes a lie.
+type formPart struct {
+	field    string
+	value    string
+	file     *os.File
+	size     int64
+	filename string
+}
+
+func (p formPart) isFile() bool { return p.file != nil }
+
+// resolveFormParts walks keyValue once, opening every attachFile reference.
+// One walk means the length and the streamed bytes can never disagree, even if
+// the caller mutates the map afterwards.
+func resolveFormParts(keyValue map[string]string) ([]formPart, error) {
+	parts := make([]formPart, 0, len(keyValue))
+	closeAll := func() {
+		for _, p := range parts {
+			if p.isFile() {
+				_ = p.file.Close()
 			}
 		}
 	}
 
-	// Return the payload and the content type for the header
-	return payload, writer.FormDataContentType(), nil
+	for key, val := range keyValue {
+		if key == "" || val == "" {
+			continue
+		}
+		path, ok := utils.FileRefPath(val)
+		if !ok {
+			if strings.Contains(val, utils.FileRefPrefix) {
+				closeAll()
+				return nil, fmt.Errorf(
+					"field %q mixes attachFile with other text; a file must be the whole value",
+					key,
+				)
+			}
+			parts = append(parts, formPart{field: key, value: val})
+			continue
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			closeAll()
+			return nil, fmt.Errorf("attachFile %s: %w", path, err)
+		}
+		info, err := file.Stat()
+		if err != nil {
+			_ = file.Close()
+			closeAll()
+			return nil, fmt.Errorf("attachFile %s: %w", path, err)
+		}
+		if !info.Mode().IsRegular() {
+			_ = file.Close()
+			closeAll()
+			return nil, fmt.Errorf("attachFile %s: not a regular file", path)
+		}
+		parts = append(parts, formPart{
+			field:    key,
+			file:     file,
+			size:     info.Size(),
+			filename: filepath.Base(path),
+		})
+	}
+	return parts, nil
+}
+
+// writePart emits one part. File contents stream from the open handle.
+// writeTextField writes a non-file part with an escaped Content-Disposition.
+// multipart.Writer.WriteField is not used because its escaper handles only
+// backslash and quote, so a CR or LF in a field name would inject part headers;
+// quoteEscaper strips both.
+func writeTextField(writer *multipart.Writer, field, value string) error {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(field)+`"`)
+	w, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(w, value)
+	return err
+}
+
+func writePart(writer *multipart.Writer, part formPart) error {
+	if !part.isFile() {
+		return writeTextField(writer, part.field, part.value)
+	}
+
+	// Built by concatenation, not %q: quoteEscaper has already applied MIME
+	// escaping, and %q would escape that again and mangle non-ASCII filenames.
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition",
+		`form-data; name="`+quoteEscaper.Replace(part.field)+
+			`"; filename="`+quoteEscaper.Replace(part.filename)+`"`)
+	header.Set("Content-Type", fileContentType(part.filename))
+
+	w, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	// Send exactly the stat'd size we declared as Content-Length: a grown file
+	// is truncated, a shrunk one errors instead of sending a short body.
+	if n, err := io.CopyN(w, part.file, part.size); err != nil {
+		return fmt.Errorf(
+			"attachFile %s: sent %d of %d bytes: %w", part.filename, n, part.size, err,
+		)
+	}
+	return nil
+}
+
+// formDataLength returns the exact byte count the parts will produce.
+//
+// It runs the real multipart writer into a counter rather than modelling the
+// framing, so it cannot drift from what is actually emitted. File contents are
+// added from the descriptor's size instead of being copied, so nothing is read.
+func formDataLength(parts []formPart, boundary string) (int64, error) {
+	var counter byteCounter
+	writer := multipart.NewWriter(&counter)
+	if err := writer.SetBoundary(boundary); err != nil {
+		return 0, err
+	}
+
+	var fileBytes int64
+	for _, part := range parts {
+		if !part.isFile() {
+			if err := writeTextField(writer, part.field, part.value); err != nil {
+				return 0, err
+			}
+			continue
+		}
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition",
+			`form-data; name="`+quoteEscaper.Replace(part.field)+
+				`"; filename="`+quoteEscaper.Replace(part.filename)+`"`)
+		header.Set("Content-Type", fileContentType(part.filename))
+		if _, err := writer.CreatePart(header); err != nil {
+			return 0, err
+		}
+		fileBytes += part.size
+	}
+	// Close unconditionally: it emits the trailing boundary even with zero parts
+	// written, and EncodeFormData closes on that same path.
+	if err := writer.Close(); err != nil {
+		return 0, err
+	}
+	return int64(counter) + fileBytes, nil
+}
+
+// streamWholeFile sends one file as the entire request body, no multipart
+// framing. The size comes from the open descriptor so it cannot drift, and
+// GetBody re-opens by path so a redirect can replay it.
+func streamWholeFile(path string) (*StreamedBody, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, fmt.Errorf("attachFile %s: not a regular file", path)
+	}
+	size := info.Size()
+	return &StreamedBody{
+		// Capped at the stat'd size so a file growing after stat cannot outrun
+		// the declared Content-Length.
+		ReadCloser: limitedFile{Reader: io.LimitReader(file, size), Closer: file},
+		Length:     size,
+		GetBody: func() (io.ReadCloser, error) {
+			replay, err := os.Open(path)
+			if err != nil {
+				return nil, err
+			}
+			return limitedFile{Reader: io.LimitReader(replay, size), Closer: replay}, nil
+		},
+		SuggestedContentType: fileContentType(filepath.Base(path)),
+	}, nil
+}
+
+// limitedFile is a ReadCloser whose reads are capped but whose Close reaches the
+// underlying file. io.LimitReader alone is not a Closer.
+type limitedFile struct {
+	io.Reader
+	io.Closer
+}
+
+// EncodeFormData encodes multipart/form-data other than x-www-form-urlencoded.
+// Returns the payload, the Content-Type header, the exact body length, and an
+// error if any.
+//
+// The payload streams: parts are written on a goroutine as the consumer reads,
+// so an attached file never sits in memory in full. The returned body owns the
+// open files and that goroutine; the caller must read it to EOF or Close it.
+func EncodeFormData(keyValue map[string]string) (*StreamedBody, string, error) {
+	if len(keyValue) == 0 {
+		return nil, "", errors.New("no key-value pairs to encode")
+	}
+
+	parts, err := resolveFormParts(keyValue)
+	if err != nil {
+		return nil, "", err
+	}
+	// Entries with an empty key or value are skipped, so a map of only those
+	// yields no parts. Reject it rather than sending an empty multipart body,
+	// matching EncodeXwwwFormURLBody.
+	if len(parts) == 0 {
+		return nil, "", errors.New("no valid form-data fields to encode")
+	}
+
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	// Read the boundary before the goroutine starts so the caller never races it.
+	contentType := writer.FormDataContentType()
+
+	boundary := writer.Boundary()
+	length, err := formDataLength(parts, boundary)
+	if err != nil {
+		closeParts(parts)
+		return nil, "", err
+	}
+
+	// Capture the sizes measured now so a redirect replay reproduces the exact
+	// Content-Length even if a file changes on disk in between.
+	sizes := make(map[string]int64, len(parts))
+	for _, p := range parts {
+		if p.isFile() {
+			sizes[p.field] = p.size
+		}
+	}
+
+	streamParts(writer, pw, parts)
+	return &StreamedBody{
+		ReadCloser: pr,
+		Length:     length,
+		// Pinned to the boundary already advertised in contentType (a replay with
+		// a fresh boundary parses as zero parts on the far side) and to the
+		// original per-part sizes (net/http reuses the original Content-Length).
+		GetBody: func() (io.ReadCloser, error) {
+			return encodeFormDataWith(keyValue, boundary, sizes)
+		},
+	}, contentType, nil
+}
+
+// encodeFormDataWith re-encodes under a boundary that is already advertised in
+// a Content-Type header, which a replayed body must match.
+func encodeFormDataWith(
+	keyValue map[string]string,
+	boundary string,
+	sizes map[string]int64,
+) (io.ReadCloser, error) {
+	parts, err := resolveFormParts(keyValue)
+	if err != nil {
+		return nil, err
+	}
+	// Restore the sizes from the first encode: writePart streams part.size bytes,
+	// so a file that grew is capped to the advertised length and one that shrank
+	// errors the replay rather than sending a body shorter than Content-Length.
+	for i := range parts {
+		if parts[i].isFile() {
+			if s, ok := sizes[parts[i].field]; ok {
+				parts[i].size = s
+			}
+		}
+	}
+
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	if err := writer.SetBoundary(boundary); err != nil {
+		closeParts(parts)
+		return nil, err
+	}
+
+	streamParts(writer, pw, parts)
+	return pr, nil
+}
+
+func closeParts(parts []formPart) {
+	for _, p := range parts {
+		if p.isFile() {
+			_ = p.file.Close()
+		}
+	}
+}
+
+func streamParts(writer *multipart.Writer, pw *io.PipeWriter, parts []formPart) {
+	go func() {
+		defer closeParts(parts)
+		for _, part := range parts {
+			// CloseWithError, not Close: a plain close would surface as a clean
+			// EOF and the consumer would send a truncated body believing it whole.
+			if err := writePart(writer, part); err != nil {
+				_ = pw.CloseWithError(err)
+				return
+			}
+		}
+		_ = pw.CloseWithError(writer.Close())
+	}()
 }
 
 // EncodeGraphQlBody accepts a query string and variables of any type,

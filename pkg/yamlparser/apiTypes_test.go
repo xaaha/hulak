@@ -1,10 +1,18 @@
 package yamlparser
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // TestIsValid for HTTPMethodType
@@ -132,7 +140,7 @@ func TestBodyIsValid(t *testing.T) {
 		},
 		{
 			name:     "non-nil GraphQl with Variables",
-			body:     &Body{Graphql: &GraphQl{Variables: map[string]interface{}{"key": "value"}}},
+			body:     &Body{Graphql: &GraphQl{Variables: map[string]any{"key": "value"}}},
 			expected: true,
 		},
 		{
@@ -190,7 +198,7 @@ func TestEncodeBody(t *testing.T) {
 			body: &Body{
 				Graphql: &GraphQl{
 					Query:     "query content",
-					Variables: map[string]interface{}{"key": "value"},
+					Variables: map[string]any{"key": "value"},
 				},
 			},
 			expectError: false,
@@ -285,5 +293,247 @@ func TestProcessVariable_PreservesUintFamily(t *testing.T) {
 				t.Errorf("got %v (%T), want %v (%T)", got, got, tc.in, tc.in)
 			}
 		})
+	}
+}
+
+// liveWriterGoroutines counts the running multipart writer goroutines by their
+// closure frame, so the assertion tracks exactly the goroutine under test and
+// not the process-wide total, which unrelated goroutines move either way. The
+// match is streamParts.func1, the closure itself, not any helper whose name
+// merely contains "streamParts".
+func liveWriterGoroutines() int {
+	buf := make([]byte, 1<<20)
+	n := runtime.Stack(buf, true)
+	return strings.Count(string(buf[:n]), "yamlparser.streamParts.func1(")
+}
+
+// EncodeFormData writes on a goroutine into an unbuffered pipe, so every write
+// blocks until the consumer reads. A consumer that stops early (cancelled
+// request, failed dry-run) must not strand that goroutine forever.
+func TestEncodeFormDataReaderCloseReleasesWriter(t *testing.T) {
+	fields := map[string]string{}
+	for i := range 200 {
+		fields[fmt.Sprintf("field%03d", i)] = strings.Repeat("x", 4096)
+	}
+
+	body, _, err := EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+
+	// Read one byte so the writer is mid-stream and blocked, then abandon it.
+	if _, err := io.ReadFull(body, make([]byte, 1)); err != nil {
+		t.Fatalf("reading first byte: %v", err)
+	}
+	// The goroutine must actually be blocked now, or "gone after close" proves
+	// nothing.
+	if got := liveWriterGoroutines(); got == 0 {
+		t.Fatal("writer goroutine not running while body is mid-stream")
+	}
+
+	if err := body.Close(); err != nil {
+		t.Fatalf("closing body: %v", err)
+	}
+
+	for range 100 {
+		if liveWriterGoroutines() == 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("writer goroutine still running 1s after close")
+}
+
+// raw: {{attachFile "x"}} sends the file as the whole body. The type is guessed
+// from the extension, but a header the user wrote always wins.
+func TestRawAttachFileBodyAndContentType(t *testing.T) {
+	dir := t.TempDir()
+	pdf := filepath.Join(dir, "report.pdf")
+	payload := []byte("%PDF-1.7 fake")
+	if err := os.WriteFile(pdf, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		headers map[string]string
+		wantCT  string
+	}{
+		{"guesses from extension", nil, "application/pdf"},
+		{"explicit lowercase wins", map[string]string{"content-type": "application/x-custom"}, "application/x-custom"},
+		{"explicit capitalized wins", map[string]string{"Content-Type": "application/x-custom"}, "application/x-custom"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			call := &APICallFile{
+				Method:  POST,
+				URL:     "https://example.com/blobs/1",
+				Headers: tt.headers,
+				Body:    &Body{Raw: utils.FileRef(pdf)},
+			}
+			info, err := call.PrepareStruct()
+			if err != nil {
+				t.Fatalf("PrepareStruct: %v", err)
+			}
+
+			var got string
+			for k, v := range info.Headers {
+				if strings.EqualFold(k, "content-type") {
+					got = v
+				}
+			}
+			if got != tt.wantCT {
+				t.Errorf("content-type = %q, want %q", got, tt.wantCT)
+			}
+
+			streamed, ok := info.Body.(*StreamedBody)
+			if !ok {
+				t.Fatalf("body is %T, want *StreamedBody", info.Body)
+			}
+			if streamed.Length != int64(len(payload)) {
+				t.Errorf("Length = %d, want %d", streamed.Length, len(payload))
+			}
+			data, err := io.ReadAll(streamed)
+			if err != nil {
+				t.Fatalf("reading body: %v", err)
+			}
+			if !bytes.Equal(data, payload) {
+				t.Errorf("body = %q, want %q", data, payload)
+			}
+			_ = streamed.Close()
+		})
+	}
+}
+
+// A multipart body must advertise exactly one Content-Type, the generated one
+// with its boundary, even when the YAML author also wrote a Content-Type. Two
+// headers make the server pick the boundary-less one and reject the request.
+func TestMultipartContentTypeReplacesUserHeader(t *testing.T) {
+	for _, userKey := range []string{"Content-Type", "content-type", "CONTENT-TYPE"} {
+		t.Run(userKey, func(t *testing.T) {
+			call := &APICallFile{
+				Method:  POST,
+				URL:     "https://example.com/upload",
+				Headers: map[string]string{userKey: "multipart/form-data"},
+				Body:    &Body{FormData: map[string]string{"field": "value"}},
+			}
+			info, err := call.PrepareStruct()
+			if err != nil {
+				t.Fatalf("PrepareStruct: %v", err)
+			}
+
+			var cts []string
+			for k, v := range info.Headers {
+				if strings.EqualFold(k, "content-type") {
+					cts = append(cts, v)
+				}
+			}
+			if len(cts) != 1 {
+				t.Fatalf("got %d content-type headers %v, want 1", len(cts), cts)
+			}
+			if !strings.HasPrefix(cts[0], "multipart/form-data; boundary=") {
+				t.Errorf("content-type = %q, want generated boundary type", cts[0])
+			}
+			if streamed, ok := info.Body.(*StreamedBody); ok {
+				_ = streamed.Close()
+			}
+		})
+	}
+}
+
+// A CR or LF in a field name or filename must not break out of the
+// Content-Disposition line and forge extra headers.
+func TestFormDataStripsHeaderInjection(t *testing.T) {
+	dir := t.TempDir()
+	evil := filepath.Join(dir, "evil.txt")
+	if err := os.WriteFile(evil, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Both a file-part name and a plain text-part name must be sanitized: text
+	// parts go through a different code path than file parts.
+	fields := map[string]string{
+		"file\r\nX-Injected-A: 1": utils.FileRef(evil),
+		"text\r\nX-Injected-B: 1": "value",
+	}
+	body, _, err := EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+	defer func() { _ = body.Close() }()
+
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if strings.Contains(string(raw), "\r\nX-Injected-A") {
+		t.Errorf("file-part name CRLF survived into the body:\n%s", raw)
+	}
+	if strings.Contains(string(raw), "\r\nX-Injected-B") {
+		t.Errorf("text-part name CRLF survived into the body:\n%s", raw)
+	}
+}
+
+// attachFile only streams a file in formdata or as a whole raw body. Anywhere
+// else the marker would reach the server as text, so PrepareStruct/EncodeBody
+// must reject it with a clear error.
+func TestAttachFileRejectedInUnsupportedContexts(t *testing.T) {
+	marker := utils.FileRef("/tmp/whatever.png")
+
+	tests := []struct {
+		name string
+		call *APICallFile
+	}{
+		{"url", &APICallFile{
+			Method: POST, URL: URL(marker),
+			Body: &Body{Raw: "hi"},
+		}},
+		{"header", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Headers: map[string]string{"X-Thing": marker},
+			Body:    &Body{Raw: "hi"},
+		}},
+		{"urlparam", &APICallFile{
+			Method: GET, URL: "https://example.com",
+			URLParams: map[string]string{"q": marker},
+		}},
+		{"urlencoded", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{URLEncodedFormData: map[string]string{"f": marker}},
+		}},
+		{"graphql query", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Graphql: &GraphQl{Query: "query { " + marker + " }"}},
+		}},
+		{"graphql variables", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Graphql: &GraphQl{Query: "query {}", Variables: map[string]any{"v": marker}}},
+		}},
+		{"raw embedded", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Raw: "prefix " + marker},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.call.PrepareStruct(); err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}
+
+// A formdata map whose only entries have an empty key or value must error, not
+// send an empty multipart body. The urlencoded encoder already rejects this.
+func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
+	for _, m := range []map[string]string{
+		{"key": ""},
+		{"": "value"},
+		{"": ""},
+	} {
+		if _, _, err := EncodeFormData(m); err == nil {
+			t.Errorf("EncodeFormData(%v) = nil error; want rejection", m)
+		}
 	}
 }

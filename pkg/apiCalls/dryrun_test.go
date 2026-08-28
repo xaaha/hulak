@@ -3,9 +3,12 @@ package apicalls
 import (
 	"bytes"
 	"mime/multipart"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/utils/testutil"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -343,5 +346,91 @@ func TestPrintDryRun_EmptyBody(t *testing.T) {
 	})
 	if strings.Contains(out, "\n\n") {
 		t.Errorf("empty body should not emit blank line + body block, got:\n%s", out)
+	}
+}
+
+// A dry run of a raw whole-file upload must summarize the file, never dump its
+// bytes into the output.
+func TestFormatDryRun_RawFileBodySummarized(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "blob.bin")
+	if err := os.WriteFile(bin, bytes.Repeat([]byte{0x00, 0xff}, 5000), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	call := &yamlparser.APICallFile{
+		Method: "PUT",
+		URL:    "https://example.com/blobs/1",
+		Body:   &yamlparser.Body{Raw: utils.FileRef(bin)},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	out, err := FormatDryRun(&info, false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.Contains(out, "<file body: 10000 bytes>") {
+		t.Errorf("expected file summary, got:\n%s", out)
+	}
+	if strings.Contains(out, "\x00\xff") {
+		t.Errorf("raw file bytes leaked into dry-run output:\n%s", out)
+	}
+}
+
+// A dry run of a small multipart upload shows field names and a file summary.
+func TestFormatDryRun_MultipartSmallFileSummarized(t *testing.T) {
+	dir := t.TempDir()
+	png := filepath.Join(dir, "logo.png")
+	if err := os.WriteFile(png, bytes.Repeat([]byte("A"), 100), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	call := &yamlparser.APICallFile{
+		Method: "POST",
+		URL:    "https://example.com/upload",
+		Body: &yamlparser.Body{FormData: map[string]string{
+			"caption": "hello",
+			"avatar":  utils.FileRef(png),
+		}},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	out, err := FormatDryRun(&info, false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.Contains(out, "caption: hello") {
+		t.Errorf("expected text field, got:\n%s", out)
+	}
+	if !strings.Contains(out, "<file: logo.png, 100 bytes>") {
+		t.Errorf("expected file part summary, got:\n%s", out)
+	}
+}
+
+// A dry run of a large multipart upload does not read the file into memory; it
+// falls back to a size summary.
+func TestFormatDryRun_MultipartLargeFileSummarized(t *testing.T) {
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.bin")
+	if err := os.WriteFile(big, bytes.Repeat([]byte("A"), (1<<20)+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	call := &yamlparser.APICallFile{
+		Method: "POST",
+		URL:    "https://example.com/upload",
+		Body:   &yamlparser.Body{FormData: map[string]string{"avatar": utils.FileRef(big)}},
+	}
+	info, err := call.PrepareStruct()
+	if err != nil {
+		t.Fatalf("PrepareStruct: %v", err)
+	}
+	out, err := FormatDryRun(&info, false)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.Contains(out, "<multipart/form-data body:") {
+		t.Errorf("expected multipart size summary, got:\n%s", out)
 	}
 }

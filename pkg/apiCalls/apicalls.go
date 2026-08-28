@@ -31,6 +31,19 @@ func StandardCall(
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
 // This function allows dependency injection for testing purposes
+// debugBodyLimit caps what --debug holds in memory to print. Past this the
+// request still streams and debug reports a size instead of the payload.
+const debugBodyLimit = 1 << 20 // 1 MiB
+
+// closeBody releases a streamed body that net/http never adopted. A multipart
+// body is an io.PipeReader whose writer goroutine blocks until it is drained
+// or closed.
+func closeBody(r io.Reader) {
+	if c, ok := r.(io.Closer); ok {
+		_ = c.Close()
+	}
+}
+
 func StandardCallWithClient(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
@@ -44,27 +57,61 @@ func StandardCallWithClient(
 	urlStr := apiInfo.URL
 	bodyReader := apiInfo.Body
 
-	var bodyBytes []byte
-	var err error
-	if bodyReader != nil {
-		bodyBytes, err = io.ReadAll(bodyReader)
-		if err != nil {
-			return CustomResponse{}, err
+	// A body that knows its own size is one net/http cannot measure, because it
+	// is produced as it is read. Everything else is an in-memory reader that
+	// net/http sizes and replays by itself.
+	streamed, _ := bodyReader.(*yamlparser.StreamedBody)
+
+	// Only debug reads the body back, and only when it is small enough to be
+	// worth printing. Everything else goes straight to the socket, so an
+	// attached file is never held in memory.
+	var reqBodyForDebug []byte
+	if debug && bodyReader != nil {
+		if streamed != nil && streamed.Length > debugBodyLimit {
+			reqBodyForDebug = fmt.Appendf(
+				nil, "<%d bytes, too large to display>", streamed.Length,
+			)
+		} else {
+			buffered, err := io.ReadAll(bodyReader)
+			if err != nil {
+				closeBody(bodyReader)
+				return CustomResponse{}, err
+			}
+			reqBodyForDebug = buffered
+			// Buffered, so release the streamed source now: for a whole-file
+			// body this closes the *os.File that io.ReadAll left open, which
+			// would otherwise leak one descriptor per debug upload.
+			closeBody(bodyReader)
+			// Rewound into memory, so net/http can size and replay it itself.
+			bodyReader, streamed = bytes.NewReader(buffered), nil
 		}
-	} else {
-		bodyBytes = []byte{}
 	}
 
-	newBodyReader := bytes.NewReader(bodyBytes)
+	// A non-nil zero-length body makes net/http fall back to chunked encoding.
+	// http.NoBody sends a genuine Content-Length: 0 instead.
+	if streamed != nil && streamed.Length == 0 {
+		closeBody(bodyReader)
+		bodyReader, streamed = http.NoBody, nil
+	}
+
 	headers := apiInfo.Headers
 	preparedURL := PrepareURL(urlStr, apiInfo.URLParams)
 
-	reqBodyForDebug := make([]byte, len(bodyBytes))
-	copy(reqBodyForDebug, bodyBytes)
-
-	req, err := http.NewRequestWithContext(ctx, method, preparedURL, newBodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, preparedURL, bodyReader)
 	if err != nil {
+		// net/http never took ownership, so nothing else closes a streamed body
+		// and its writer goroutine would block forever.
+		closeBody(bodyReader)
 		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
+	}
+
+	if streamed != nil {
+		// Left unset, net/http cannot size a streamed body and degrades the
+		// request to chunked encoding, which many upload endpoints reject.
+		req.ContentLength = streamed.Length
+		// Without GetBody the client silently stops following 307/308 and
+		// returns the redirect as though it were the response.
+		req.GetBody = streamed.GetBody
 	}
 
 	if len(headers) > 0 {

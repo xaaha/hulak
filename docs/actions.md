@@ -1,7 +1,7 @@
 # How to access variables?
 
 > [!Note]
-> Action names are case and underscore insensitive. `{{getFile}}`, `{{getfile}}`, `{{GetFile}}`, and `{{get_file}}` all call the same function. This applies to every action below (`getValueOf`, `getFile`, `basicAuth`, `os`). Your `{{.key}}` values stay case sensitive.
+> Action names are case and underscore insensitive. `{{getFile}}`, `{{getfile}}`, `{{GetFile}}`, and `{{get_file}}` all call the same function. This applies to every action below (`getValueOf`, `getFile`, `attachFile`, `basicAuth`, `os`). Your `{{.key}}` values stay case sensitive.
 
 ## 1. Accessing secrets from the vault
 
@@ -150,7 +150,69 @@ body: '{{getFile "*.json"}}' # reads <thisfile>.json next to the request
 
 The basename is the request file name without its `.hk.yaml`, `.hk.yml`, `.yaml`, or `.yml` suffix. The lookup is always the same directory as the request file, so renaming or moving the pair keeps the link intact. If the sibling file is missing, hulak reports the exact name it looked for. Regular path arguments (anything not starting with `*`) resolve from the project root as before.
 
-## 3. Using `basicAuth`
+## 3. Using `attachFile`
+
+`getFile` reads a file and inlines its contents. `attachFile` sends the file
+itself, which is what you want for an upload.
+
+Inside `formdata`, the file becomes a multipart file part:
+
+```yaml
+method: POST
+url: https://api.example.com/avatars
+body:
+  formdata:
+    caption: profile photo
+    avatar: '{{attachFile "assets/logo.png"}}'
+```
+
+Inside `raw`, the file becomes the entire request body:
+
+```yaml
+method: PUT
+url: https://api.example.com/blobs/1
+body:
+  raw: '{{attachFile "assets/report.pdf"}}'
+```
+
+### Content-Type
+
+Guessed from the file extension, so `logo.png` is sent as `image/png` and
+`report.pdf` as `application/pdf`. An unrecognized extension falls back to
+`application/octet-stream`. A `content-type` header you set yourself always
+wins.
+
+### Paths
+
+Relative paths resolve from the project root, the same as `getFile`, and
+cannot escape it:
+
+```yaml
+avatar: '{{attachFile "assets/logo.png"}}'
+```
+
+Absolute and `~` paths may point outside the project, because an upload
+usually does:
+
+```yaml
+avatar: '{{attachFile "~/Downloads/report.pdf"}}'
+```
+
+`{{attachFile "assets/../../../etc/passwd"}}` is rejected. Reaching outside the
+repo has to be spelled out in the path rather than reached by traversal.
+
+### Notes
+
+On a real request the file streams from disk to the socket, so a large upload
+is never held in memory. `Content-Length` is computed up front from the file
+size, and 307/308 redirects replay correctly. A dry run does not send the file:
+it prints a size summary instead of the bytes.
+
+The whole value must be the action. `caption: "see {{attachFile \"x.png\"}}"` is
+an error, not a literal, because interpolating a file into surrounding text is
+always a mistake.
+
+## 4. Using `basicAuth`
 
 Generates a `Basic` authentication header value. It takes a username and password, joins them with a colon, base64-encodes the result, and returns the full header value `Basic <encoded>`.
 
@@ -186,7 +248,7 @@ This works the same as `curl -u admin:secret123 https://api.example.com/protecte
 
 > Classic env/ users: put the keys in `env/prod.env` as `apiUser = admin` and `apiPassword = secret123` instead. See [environment.md](./environment.md).
 
-## 4. Using `os`
+## 5. Using `os`
 
 Reads an OS environment variable at template execution time. Takes a single argument, the variable name, and returns its value. Returns an empty string if unset.
 
