@@ -69,7 +69,10 @@ func ResolveAttachPath(filePath string) (string, error) {
 		return "", fmt.Errorf("attachFile needs a path")
 	}
 
-	explicit := filepath.IsAbs(filePath) || strings.HasPrefix(filePath, "~")
+	// Must match ExpandPath's tilde test exactly: "~data" is not a home
+	// reference, so treating it as explicit would skip containment while
+	// ExpandPath leaves it a cwd-relative path, reopening the escape.
+	explicit := filepath.IsAbs(filePath) || HasTildePrefix(filePath)
 
 	absPath, err := ExpandPath(filePath)
 	if err != nil {

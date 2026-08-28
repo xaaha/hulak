@@ -76,3 +76,33 @@ func TestResolveAttachPathRejectsSymlinkEscape(t *testing.T) {
 		t.Errorf("in-root symlink rejected: %v", err)
 	}
 }
+
+// A "~name/..." path is not a home reference, so it must be treated as a
+// relative path and subjected to project-root containment. Marking it explicit
+// (any "~" prefix) would skip containment while ExpandPath resolves it from the
+// cwd, reopening the arbitrary-file escape.
+func TestResolveAttachPathTildeNameStaysContained(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "proj")
+	if err := os.MkdirAll(filepath.Join(root, ".hulak"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A real secret one level above the project root.
+	secret := filepath.Join(parent, "secret.txt")
+	if err := os.WriteFile(secret, []byte("SECRET"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cwd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	// "~x/../../secret.txt" cleans to "../secret.txt" and, from the project
+	// root, resolves to the real secret outside it. It must be rejected, not
+	// waved through as an explicit path.
+	if _, err := ResolveAttachPath("~x/../../secret.txt"); err == nil {
+		t.Error("~name traversal reached a file outside the project root; want rejected")
+	}
+}

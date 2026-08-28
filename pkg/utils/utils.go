@@ -264,6 +264,17 @@ func FileNameWithoutExtension(path string) string {
 	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 }
 
+// HasTildePrefix reports whether path uses ~ as a home-directory reference that
+// ExpandPath will expand: exactly "~", or "~/" (plus the native "~\" on
+// Windows). A path like "~data" is a literal relative path, not a home
+// reference, so callers deciding whether a path is explicit must use this same
+// test rather than a bare "~" prefix check.
+func HasTildePrefix(path string) bool {
+	return path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		strings.HasPrefix(path, "~"+string(os.PathSeparator))
+}
+
 // ExpandPath resolves a leading ~ to the home directory and returns an
 // absolute, cleaned path.
 //
@@ -271,11 +282,7 @@ func FileNameWithoutExtension(path string) string {
 // must follow (~/ always, plus the native ~\ on Windows) so a real file named
 // "~data" is left alone. os.UserHomeDir yields %USERPROFILE% on Windows.
 func ExpandPath(path string) (string, error) {
-	tilde := path == "~" ||
-		strings.HasPrefix(path, "~/") ||
-		strings.HasPrefix(path, "~"+string(os.PathSeparator))
-
-	if tilde {
+	if HasTildePrefix(path) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("expanding ~: %w", err)
