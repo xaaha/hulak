@@ -175,7 +175,12 @@ func errIfMarkerLeak(rawURL string, headers, urlParams map[string]string) error 
 	return nil
 }
 
-// Returns APIInfo object for the User's API request yaml file
+// PrepareStruct returns the APIInfo for the user's request yaml file.
+//
+// When the body is a multipart or whole-file attachment, the returned
+// APIInfo.Body is a *StreamedBody that owns open file handles and, for
+// multipart, a running writer goroutine. The caller must send it (net/http
+// closes it) or Close it directly; discarding it leaks the files and goroutine.
 func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 	if err := errIfMarkerLeak(string(user.URL), user.Headers, user.URLParams); err != nil {
 		return APIInfo{}, err
@@ -592,7 +597,8 @@ type limitedFile struct {
 // error if any.
 //
 // The payload streams: parts are written on a goroutine as the consumer reads,
-// so an attached file never sits in memory in full.
+// so an attached file never sits in memory in full. The returned body owns the
+// open files and that goroutine; the caller must read it to EOF or Close it.
 func EncodeFormData(keyValue map[string]string) (*StreamedBody, string, error) {
 	if len(keyValue) == 0 {
 		return nil, "", errors.New("no key-value pairs to encode")
