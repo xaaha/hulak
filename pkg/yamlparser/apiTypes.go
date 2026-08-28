@@ -140,6 +140,20 @@ func hasHeader(headers map[string]string, name string) bool {
 	return false
 }
 
+// setHeaderReplacing sets name to value and drops any other-cased entry for the
+// same header, so the caller ends with exactly one. Without this, a YAML author
+// who wrote Content-Type keeps that key while we add content-type, and net/http
+// emits both; a multipart request then advertises a boundary-less type and the
+// server rejects it with "no multipart boundary param".
+func setHeaderReplacing(headers map[string]string, name, value string) {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			delete(headers, key)
+		}
+	}
+	headers[name] = value
+}
+
 // Returns APIInfo object for the User's API request yaml file
 func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 	body, contentType, err := user.Body.EncodeBody()
@@ -147,13 +161,16 @@ func (user *APICallFile) PrepareStruct() (APIInfo, error) {
 		return APIInfo{}, fmt.Errorf("%s: %w", utils.ErrBodyEncoding, err)
 	}
 
+	// An encoder-produced type is authoritative: multipart carries the boundary
+	// and urlencoded is fixed, so it replaces any type the user wrote rather
+	// than joining it as a second header.
 	if contentType != "" {
 		if user.Headers == nil {
 			user.Headers = make(map[string]string)
 		}
-		user.Headers["content-type"] = contentType
+		setHeaderReplacing(user.Headers, "content-type", contentType)
 	}
-	// A guessed type fills a gap; it never overrules one the user wrote.
+	// A guessed type only fills a gap; it never overrules one the user wrote.
 	if streamed, ok := body.(*StreamedBody); ok && streamed.SuggestedContentType != "" {
 		if !hasHeader(user.Headers, "content-type") {
 			if user.Headers == nil {

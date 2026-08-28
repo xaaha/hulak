@@ -393,3 +393,39 @@ func TestRawAttachFileBodyAndContentType(t *testing.T) {
 		})
 	}
 }
+
+// A multipart body must advertise exactly one Content-Type, the generated one
+// with its boundary, even when the YAML author also wrote a Content-Type. Two
+// headers make the server pick the boundary-less one and reject the request.
+func TestMultipartContentTypeReplacesUserHeader(t *testing.T) {
+	for _, userKey := range []string{"Content-Type", "content-type", "CONTENT-TYPE"} {
+		t.Run(userKey, func(t *testing.T) {
+			call := &APICallFile{
+				Method:  POST,
+				URL:     "https://example.com/upload",
+				Headers: map[string]string{userKey: "multipart/form-data"},
+				Body:    &Body{FormData: map[string]string{"field": "value"}},
+			}
+			info, err := call.PrepareStruct()
+			if err != nil {
+				t.Fatalf("PrepareStruct: %v", err)
+			}
+
+			var cts []string
+			for k, v := range info.Headers {
+				if strings.EqualFold(k, "content-type") {
+					cts = append(cts, v)
+				}
+			}
+			if len(cts) != 1 {
+				t.Fatalf("got %d content-type headers %v, want 1", len(cts), cts)
+			}
+			if !strings.HasPrefix(cts[0], "multipart/form-data; boundary=") {
+				t.Errorf("content-type = %q, want generated boundary type", cts[0])
+			}
+			if streamed, ok := info.Body.(*StreamedBody); ok {
+				_ = streamed.Close()
+			}
+		})
+	}
+}
