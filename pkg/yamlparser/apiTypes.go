@@ -319,9 +319,10 @@ func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	return strings.NewReader(formData.Encode()), nil
 }
 
-// quoteEscaper mirrors the unexported escaper in mime/multipart, which applies
-// it to names written into Content-Disposition.
-var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, `\"`)
+// quoteEscaper sanitizes names written into a Content-Disposition header. It
+// escapes backslash and quote like mime/multipart, and additionally strips CR
+// and LF so a newline in a field name or filename cannot forge a header line.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, `\"`, "\r", "", "\n", "")
 
 // fileContentType guesses a part's type from its extension, the same rule curl
 // uses for -F. An unrecognized extension falls back to the generic type rather

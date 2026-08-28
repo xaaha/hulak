@@ -429,3 +429,30 @@ func TestMultipartContentTypeReplacesUserHeader(t *testing.T) {
 		})
 	}
 }
+
+// A CR or LF in a field name or filename must not break out of the
+// Content-Disposition line and forge extra headers.
+func TestFormDataStripsHeaderInjection(t *testing.T) {
+	dir := t.TempDir()
+	evil := filepath.Join(dir, "evil.txt")
+	if err := os.WriteFile(evil, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fields := map[string]string{
+		"name\r\nX-Injected: 1": utils.FileRef(evil),
+	}
+	body, ct, err := EncodeFormData(fields)
+	if err != nil {
+		t.Fatalf("EncodeFormData: %v", err)
+	}
+	defer func() { _ = body.Close() }()
+
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if strings.Contains(string(raw), "X-Injected") && strings.Contains(string(raw), "\r\nX-Injected") {
+		t.Errorf("field name CRLF survived into the body:\n%s", raw)
+	}
+	_ = ct
+}
