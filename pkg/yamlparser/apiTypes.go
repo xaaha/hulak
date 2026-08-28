@@ -379,6 +379,11 @@ func resolveFormParts(keyValue map[string]string) ([]formPart, error) {
 			closeAll()
 			return nil, fmt.Errorf("attachFile %s: %w", path, err)
 		}
+		if !info.Mode().IsRegular() {
+			_ = file.Close()
+			closeAll()
+			return nil, fmt.Errorf("attachFile %s: not a regular file", path)
+		}
 		parts = append(parts, formPart{
 			field:    key,
 			file:     file,
@@ -461,6 +466,10 @@ func streamWholeFile(path string) (*StreamedBody, error) {
 	if err != nil {
 		_ = file.Close()
 		return nil, fmt.Errorf("attachFile %s: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, fmt.Errorf("attachFile %s: not a regular file", path)
 	}
 	return &StreamedBody{
 		ReadCloser: file,

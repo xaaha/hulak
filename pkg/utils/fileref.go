@@ -89,8 +89,11 @@ func ResolveAttachPath(filePath string) (string, error) {
 		}
 		return "", err
 	}
-	if info.IsDir() {
-		return "", fmt.Errorf("attachFile: %s is a directory", filePath)
+	if !info.Mode().IsRegular() {
+		// Directories, FIFOs, sockets, and device nodes are all rejected here.
+		// A FIFO would block PrepareStruct with no writer, and /dev/zero would
+		// stream without end; only a regular file has a size we can declare.
+		return "", fmt.Errorf("attachFile: %s is not a regular file", filePath)
 	}
 
 	return absPath, nil
