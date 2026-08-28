@@ -456,3 +456,49 @@ func TestFormDataStripsHeaderInjection(t *testing.T) {
 	}
 	_ = ct
 }
+
+// attachFile only streams a file in formdata or as a whole raw body. Anywhere
+// else the marker would reach the server as text, so PrepareStruct/EncodeBody
+// must reject it with a clear error.
+func TestAttachFileRejectedInUnsupportedContexts(t *testing.T) {
+	marker := utils.FileRef("/tmp/whatever.png")
+
+	tests := []struct {
+		name string
+		call *APICallFile
+	}{
+		{"header", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Headers: map[string]string{"X-Thing": marker},
+			Body:    &Body{Raw: "hi"},
+		}},
+		{"urlparam", &APICallFile{
+			Method: GET, URL: "https://example.com",
+			URLParams: map[string]string{"q": marker},
+		}},
+		{"urlencoded", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{URLEncodedFormData: map[string]string{"f": marker}},
+		}},
+		{"graphql query", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Graphql: &GraphQl{Query: "query { " + marker + " }"}},
+		}},
+		{"graphql variables", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Graphql: &GraphQl{Query: "query {}", Variables: map[string]any{"v": marker}}},
+		}},
+		{"raw embedded", &APICallFile{
+			Method: POST, URL: "https://example.com",
+			Body: &Body{Raw: "prefix " + marker},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.call.PrepareStruct(); err == nil {
+				t.Fatal("expected error, got nil")
+			}
+		})
+	}
+}

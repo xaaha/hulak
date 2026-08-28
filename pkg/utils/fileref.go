@@ -48,6 +48,14 @@ func FileRefPath(value string) (string, bool) {
 	return path, true
 }
 
+// ContainsFileRef reports whether s carries an attachFile marker anywhere.
+// The per-run nonce makes a plain substring test safe: only a marker minted
+// this run can match. Contexts that cannot stream a file use it to reject
+// attachFile instead of sending the marker to the server as text.
+func ContainsFileRef(s string) bool {
+	return strings.Contains(s, FileRefPrefix)
+}
+
 // ResolveAttachPath resolves a path for attachFile.
 //
 // It deliberately differs from ResolveProjectFile: an upload usually comes from
