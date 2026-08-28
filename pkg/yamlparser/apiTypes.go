@@ -466,9 +466,24 @@ func resolveFormParts(keyValue map[string]string) ([]formPart, error) {
 }
 
 // writePart emits one part. File contents stream from the open handle.
+// writeTextField writes a non-file part with an escaped Content-Disposition.
+// multipart.Writer.WriteField is not used because its escaper handles only
+// backslash and quote, so a CR or LF in a field name would inject part headers;
+// quoteEscaper strips both.
+func writeTextField(writer *multipart.Writer, field, value string) error {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(field)+`"`)
+	w, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(w, value)
+	return err
+}
+
 func writePart(writer *multipart.Writer, part formPart) error {
 	if !part.isFile() {
-		return writer.WriteField(part.field, part.value)
+		return writeTextField(writer, part.field, part.value)
 	}
 
 	// Built by concatenation, not %q: quoteEscaper has already applied MIME
@@ -508,7 +523,7 @@ func formDataLength(parts []formPart, boundary string) (int64, error) {
 	var fileBytes int64
 	for _, part := range parts {
 		if !part.isFile() {
-			if err := writer.WriteField(part.field, part.value); err != nil {
+			if err := writeTextField(writer, part.field, part.value); err != nil {
 				return 0, err
 			}
 			continue

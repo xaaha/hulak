@@ -450,10 +450,13 @@ func TestFormDataStripsHeaderInjection(t *testing.T) {
 	if err := os.WriteFile(evil, []byte("data"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// Both a file-part name and a plain text-part name must be sanitized: text
+	// parts go through a different code path than file parts.
 	fields := map[string]string{
-		"name\r\nX-Injected: 1": utils.FileRef(evil),
+		"file\r\nX-Injected-A: 1": utils.FileRef(evil),
+		"text\r\nX-Injected-B: 1": "value",
 	}
-	body, ct, err := EncodeFormData(fields)
+	body, _, err := EncodeFormData(fields)
 	if err != nil {
 		t.Fatalf("EncodeFormData: %v", err)
 	}
@@ -463,10 +466,12 @@ func TestFormDataStripsHeaderInjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read body: %v", err)
 	}
-	if strings.Contains(string(raw), "X-Injected") && strings.Contains(string(raw), "\r\nX-Injected") {
-		t.Errorf("field name CRLF survived into the body:\n%s", raw)
+	if strings.Contains(string(raw), "\r\nX-Injected-A") {
+		t.Errorf("file-part name CRLF survived into the body:\n%s", raw)
 	}
-	_ = ct
+	if strings.Contains(string(raw), "\r\nX-Injected-B") {
+		t.Errorf("text-part name CRLF survived into the body:\n%s", raw)
+	}
 }
 
 // attachFile only streams a file in formdata or as a whole raw body. Anywhere
