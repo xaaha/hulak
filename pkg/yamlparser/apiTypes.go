@@ -154,19 +154,31 @@ func setHeaderReplacing(headers map[string]string, name, value string) {
 	headers[name] = value
 }
 
-// Returns APIInfo object for the User's API request yaml file
-func (user *APICallFile) PrepareStruct() (APIInfo, error) {
-	// attachFile streams a file; it has no meaning in a header or URL param, so
-	// reject the marker here rather than sending it to the server as text.
-	for key, val := range user.Headers {
+// errIfMarkerLeak rejects an attachFile marker anywhere it would be sent to the
+// server as text rather than streamed as a file: the URL, a header, or a URL
+// param. The marker carries this run's nonce, and the nonce is the whole
+// forgery defense, so it must never leave the process on the wire.
+func errIfMarkerLeak(rawURL string, headers, urlParams map[string]string) error {
+	if utils.ContainsFileRef(rawURL) {
+		return errors.New("url cannot use attachFile")
+	}
+	for key, val := range headers {
 		if utils.ContainsFileRef(val) {
-			return APIInfo{}, fmt.Errorf("header %q cannot use attachFile", key)
+			return fmt.Errorf("header %q cannot use attachFile", key)
 		}
 	}
-	for key, val := range user.URLParams {
+	for key, val := range urlParams {
 		if utils.ContainsFileRef(val) {
-			return APIInfo{}, fmt.Errorf("urlparam %q cannot use attachFile", key)
+			return fmt.Errorf("urlparam %q cannot use attachFile", key)
 		}
+	}
+	return nil
+}
+
+// Returns APIInfo object for the User's API request yaml file
+func (user *APICallFile) PrepareStruct() (APIInfo, error) {
+	if err := errIfMarkerLeak(string(user.URL), user.Headers, user.URLParams); err != nil {
+		return APIInfo{}, err
 	}
 
 	body, contentType, err := user.Body.EncodeBody()
@@ -287,14 +299,6 @@ func (b *Body) EncodeBody() (io.Reader, string, error) {
 		body, contentType = encodedBody, ct
 
 	case len(b.URLEncodedFormData) > 0:
-		for key, val := range b.URLEncodedFormData {
-			if utils.ContainsFileRef(val) {
-				return nil, "", fmt.Errorf(
-					"field %q uses attachFile, which urlencodedformdata cannot send; use formdata or raw",
-					key,
-				)
-			}
-		}
 		encodedBody, err := EncodeXwwwFormURLBody(b.URLEncodedFormData)
 		if err != nil {
 			return nil, "", fmt.Errorf("error encoding URL-encoded form data: %w", err)
@@ -346,8 +350,14 @@ func EncodeXwwwFormURLBody(keyValue map[string]string) (io.Reader, error) {
 	// Initialize form data
 	formData := url.Values{}
 
-	// Populate form data, using Set to overwrite duplicate keys if any
+	// Populate form data, using Set to overwrite duplicate keys if any. Guard
+	// here rather than in the caller so the OAuth2 flow, which encodes directly,
+	// is covered too: a urlencoded field cannot stream a file, and letting the
+	// marker through would ship this run's nonce to the server as text.
 	for key, val := range keyValue {
+		if utils.ContainsFileRef(val) {
+			return nil, fmt.Errorf("field %q cannot use attachFile; use formdata or raw", key)
+		}
 		if key != "" && val != "" {
 			formData.Set(key, val)
 		}

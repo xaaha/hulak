@@ -3,6 +3,8 @@ package yamlparser
 import (
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestAuth_IsValid(t *testing.T) {
@@ -283,6 +285,49 @@ func TestAuthRequestBody_IsValid(t *testing.T) {
 				)
 			} else if gotErr != nil && !strings.Contains(strings.TrimSpace(gotErr.Error()), strings.TrimSpace(tt.expectedErr)) {
 				t.Errorf("AuthRequestBody.IsValid() error = %v, expected %v", gotErr.Error(), tt.expectedErr)
+			}
+		})
+	}
+}
+
+// The OAuth2 token request is a parallel path that must reject attachFile just
+// like the main flow, or the marker (carrying this run's nonce) is sent to the
+// token endpoint as form text.
+func TestOAuth2PrepareStructRejectsAttachFile(t *testing.T) {
+	marker := utils.FileRef("/tmp/whatever.png")
+
+	tests := []struct {
+		name string
+		req  AuthRequestFile
+	}{
+		{"urlencoded body", AuthRequestFile{
+			Method: POST,
+			Auth:   &Auth{Type: Oauth2type1, AccessTokenURL: "https://auth.example.com/token"},
+			Body:   &Auth2Body{URLEncodedFormData: map[string]string{"scope": marker}},
+		}},
+		{"header", AuthRequestFile{
+			Method:  POST,
+			Auth:    &Auth{Type: Oauth2type1, AccessTokenURL: "https://auth.example.com/token"},
+			Headers: map[string]string{"X-Thing": marker},
+			Body:    &Auth2Body{URLEncodedFormData: map[string]string{"client_id": "x"}},
+		}},
+		{"urlparam", AuthRequestFile{
+			Method:    POST,
+			Auth:      &Auth{Type: Oauth2type1, AccessTokenURL: "https://auth.example.com/token"},
+			URLParams: URLPARAMS{"q": marker},
+			Body:      &Auth2Body{URLEncodedFormData: map[string]string{"client_id": "x"}},
+		}},
+		{"access_token_url", AuthRequestFile{
+			Method: POST,
+			Auth:   &Auth{Type: Oauth2type1, AccessTokenURL: URL(marker)},
+			Body:   &Auth2Body{URLEncodedFormData: map[string]string{"client_id": "x"}},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.req.PrepareStruct("thecode"); err == nil {
+				t.Fatal("expected error, got nil")
 			}
 		})
 	}

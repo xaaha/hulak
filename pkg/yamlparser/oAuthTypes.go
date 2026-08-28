@@ -174,6 +174,14 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 
 // PrepareStruct prepars struct for the standard call
 func (auth2Body *AuthRequestFile) PrepareStruct(code string) (APIInfo, error) {
+	var tokenURL string
+	if auth2Body.Auth != nil {
+		tokenURL = string(auth2Body.Auth.AccessTokenURL)
+	}
+	if err := errIfMarkerLeak(tokenURL, auth2Body.Headers, auth2Body.URLParams); err != nil {
+		return APIInfo{}, err
+	}
+
 	body, contentType, err := auth2Body.Body.EncodeBody(code)
 	if err != nil {
 		return APIInfo{}, fmt.Errorf("%s: %w", utils.ErrBodyEncoding, err)

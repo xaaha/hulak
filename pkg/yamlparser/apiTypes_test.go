@@ -479,6 +479,10 @@ func TestAttachFileRejectedInUnsupportedContexts(t *testing.T) {
 		name string
 		call *APICallFile
 	}{
+		{"url", &APICallFile{
+			Method: POST, URL: URL(marker),
+			Body: &Body{Raw: "hi"},
+		}},
 		{"header", &APICallFile{
 			Method: POST, URL: "https://example.com",
 			Headers: map[string]string{"X-Thing": marker},
