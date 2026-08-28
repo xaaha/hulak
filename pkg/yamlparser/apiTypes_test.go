@@ -523,3 +523,17 @@ func TestAttachFileRejectedInUnsupportedContexts(t *testing.T) {
 		})
 	}
 }
+
+// A formdata map whose only entries have an empty key or value must error, not
+// send an empty multipart body. The urlencoded encoder already rejects this.
+func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
+	for _, m := range []map[string]string{
+		{"key": ""},
+		{"": "value"},
+		{"": ""},
+	} {
+		if _, _, err := EncodeFormData(m); err == nil {
+			t.Errorf("EncodeFormData(%v) = nil error; want rejection", m)
+		}
+	}
+}

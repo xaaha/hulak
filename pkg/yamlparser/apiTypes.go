@@ -602,6 +602,12 @@ func EncodeFormData(keyValue map[string]string) (*StreamedBody, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	// Entries with an empty key or value are skipped, so a map of only those
+	// yields no parts. Reject it rather than sending an empty multipart body,
+	// matching EncodeXwwwFormURLBody.
+	if len(parts) == 0 {
+		return nil, "", errors.New("no valid form-data fields to encode")
+	}
 
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
