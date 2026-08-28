@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +15,22 @@ import (
 // re-encoded to YAML mid-pipeline, so file bytes cannot travel that path.
 // attachFile returns this marker plus an absolute path instead, and the body
 // encoder opens the file itself.
-const FileRefPrefix = "hulak:file:"
+//
+// The prefix carries a per-run random nonce because values reach the body
+// encoder from places an attacker can influence: saved responses via
+// getValueOf, environment variables, secrets. A guessable prefix would let any
+// of those mint a marker and turn "forward this field" into "read and upload
+// any local file". With the nonce, only attachFile in this process can produce
+// a string the encoder honors; anything else stays literal text.
+var FileRefPrefix = "hulak:file:" + refNonce() + ":"
+
+func refNonce() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
 
 // FileRef builds the marker for an already-resolved absolute path.
 func FileRef(absPath string) string {
