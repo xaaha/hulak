@@ -78,6 +78,10 @@ func StandardCallWithClient(
 				return CustomResponse{}, err
 			}
 			reqBodyForDebug = buffered
+			// Buffered, so release the streamed source now: for a whole-file
+			// body this closes the *os.File that io.ReadAll left open, which
+			// would otherwise leak one descriptor per debug upload.
+			closeBody(bodyReader)
 			// Rewound into memory, so net/http can size and replay it itself.
 			bodyReader, streamed = bytes.NewReader(buffered), nil
 		}

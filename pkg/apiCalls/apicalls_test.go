@@ -1130,3 +1130,68 @@ func TestStandardCall_GrownFileTruncatedToContentLength(t *testing.T) {
 		t.Errorf("server got %d file bytes, want 1000 (declared length)", rec.fileBytes["avatar"])
 	}
 }
+
+// openFDCount returns the number of open descriptors for this process, or skips
+// if the platform exposes no fd directory.
+func openFDCount(t *testing.T) int {
+	t.Helper()
+	// Readdirnames, not ReadDir: on macOS /dev/fd, lstat-ing each entry fails
+	// on the directory's own transient handle, so only name listing is reliable.
+	for _, dir := range []string{"/proc/self/fd", "/dev/fd"} {
+		f, err := os.Open(dir)
+		if err != nil {
+			continue
+		}
+		names, err := f.Readdirnames(-1)
+		_ = f.Close()
+		if err == nil {
+			return len(names)
+		}
+	}
+	t.Skip("no fd directory on this platform")
+	return 0
+}
+
+// A raw file upload under --debug must not leak the file descriptor. The debug
+// path buffers the body to print it, then must close the streamed source.
+func TestStandardCall_DebugRawUploadDoesNotLeakFD(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "blob.bin")
+	if err := os.WriteFile(bin, []byte("payload bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	build := func() yamlparser.APIInfo {
+		call := &yamlparser.APICallFile{
+			Method: "PUT",
+			URL:    yamlparser.URL(server.URL),
+			Body:   &yamlparser.Body{Raw: utils.FileRef(bin)},
+		}
+		info, err := call.PrepareStruct()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return info
+	}
+
+	for range 5 {
+		if _, err := StandardCallWithClient(context.Background(), build(), true, server.Client()); err != nil {
+			t.Fatalf("warmup call: %v", err)
+		}
+	}
+	before := openFDCount(t)
+	for range 30 {
+		if _, err := StandardCallWithClient(context.Background(), build(), true, server.Client()); err != nil {
+			t.Fatalf("call: %v", err)
+		}
+	}
+	after := openFDCount(t)
+	if after-before > 10 {
+		t.Errorf("leaked ~%d file descriptors across 30 debug raw uploads", after-before)
+	}
+}
