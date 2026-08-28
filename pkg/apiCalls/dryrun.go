@@ -72,6 +72,17 @@ func FormatDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
 		fmt.Fprintf(&b, "%s: %s\n", k, headers[k])
 	}
 
+	ct := contentTypeOf(apiInfo.Headers)
+
+	// A streamed body carries an attached file. Never read it into memory just
+	// to print it: describe it by size instead, so a dry run of a large upload
+	// stays cheap and never dumps binary to the output.
+	if streamed, ok := apiInfo.Body.(*yamlparser.StreamedBody); ok {
+		b.WriteByte('\n')
+		writeStreamedDryRun(&b, streamed, ct)
+		return b.String(), nil
+	}
+
 	body, err := readBody(apiInfo.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading request body: %w", err)
@@ -81,7 +92,6 @@ func FormatDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
 	}
 
 	b.WriteByte('\n')
-	ct := contentTypeOf(apiInfo.Headers)
 	if pretty, ok := prettyFormBody(body, ct); ok {
 		b.WriteString(pretty)
 		return b.String(), nil
@@ -201,6 +211,34 @@ func formatFormFields(values url.Values) string {
 		}
 	}
 	return b.String()
+}
+
+// writeStreamedDryRun renders an attached-file body without sending it. A
+// whole-file body is summarized by size. A multipart body is expanded into its
+// field and file summaries only when it fits the display cap, so a large
+// attachment is never pulled into memory to be printed.
+func writeStreamedDryRun(b *strings.Builder, sb *yamlparser.StreamedBody, ct string) {
+	defer func() { _ = sb.Close() }()
+
+	if sb.SuggestedContentType != "" {
+		fmt.Fprintf(b, "<file body: %d bytes>\n", sb.Length)
+		return
+	}
+
+	if sb.Length > debugBodyLimit {
+		fmt.Fprintf(b, "<multipart/form-data body: %d bytes>\n", sb.Length)
+		return
+	}
+	data, err := io.ReadAll(sb)
+	if err != nil {
+		fmt.Fprintf(b, "<multipart/form-data body: %d bytes>\n", sb.Length)
+		return
+	}
+	if pretty, ok := prettyFormBody(data, ct); ok {
+		b.WriteString(pretty)
+		return
+	}
+	fmt.Fprintf(b, "<multipart/form-data body: %d bytes>\n", sb.Length)
 }
 
 // readBody consumes an io.Reader and returns its bytes. Returns an empty

@@ -203,9 +203,10 @@ repo has to be spelled out in the path rather than reached by traversal.
 
 ### Notes
 
-The file streams from disk to the socket and is never held in memory, so size
-is not a concern. `Content-Length` is computed up front from the file size, and
-307/308 redirects replay correctly.
+On a real request the file streams from disk to the socket, so a large upload
+is never held in memory. `Content-Length` is computed up front from the file
+size, and 307/308 redirects replay correctly. A dry run does not send the file:
+it prints a size summary instead of the bytes.
 
 The whole value must be the action. `caption: "see {{attachFile \"x.png\"}}"` is
 an error, not a literal, because interpolating a file into surrounding text is
