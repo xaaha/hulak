@@ -2,6 +2,8 @@ module github.com/xaaha/hulak
 
 go 1.25.5
 
+toolchain go1.27.0
+
 require (
 	filippo.io/age v1.3.1
 	github.com/atotto/clipboard v0.1.4
