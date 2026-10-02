@@ -191,13 +191,16 @@ func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 	}
 }
 
-// pathLeakyValues render differently under net/url's path encoding than under
-// PathEscape: they combine one of / ; , with a character both escape.
-var pathLeakyValues = []string{
+// urlLeakyValues each render differently in at least one of net/url's five
+// escaping tables than in all the others.
+var urlLeakyValues = []string{
 	"pa55 word/with slash",
 	"токен/значение",
 	"alpha,beta gamma,delta",
 	`quo"te/and\slash 1234`,
+	"st?te tok!n Value",
+	"p@ss;w0rd=Secret1",
+	"p#ss word-1234",
 }
 
 // requestPositions builds the same secret into each place a request can carry
@@ -213,6 +216,24 @@ func requestPositions(t *testing.T, secret string) map[string]func() yamlparser.
 			return yamlparser.APIInfo{
 				Method: "GET",
 				URL:    "https://api.example.com/v1/" + secret + "/profile",
+			}
+		},
+		"url fragment": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://api.example.com/cb#" + secret,
+			}
+		},
+		"url host": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://" + secret + ".example.com/v1/me",
+			}
+		},
+		"url userinfo": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://admin:" + secret + "@api.example.com/v1/me",
 			}
 		},
 		"json body": func() yamlparser.APIInfo {
@@ -240,7 +261,7 @@ func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
 			return NewMockResponse(200, `{"ok":true}`), nil
 		},
 	}
-	for _, secret := range pathLeakyValues {
+	for _, secret := range urlLeakyValues {
 		t.Run(secret, func(t *testing.T) {
 			newRedactor := func() *utils.ValueRedactor {
 				return utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
@@ -263,7 +284,8 @@ func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
 						context.Background(), newInfo(), true, newRedactor(), client,
 					)
 					if err != nil {
-						t.Fatalf("StandardCallWithClient: %v", err)
+						testutil.AssertNoSecretForm(t, "request build error "+position, err.Error(), secret)
+						return
 					}
 					if resp.Request == nil {
 						t.Fatal("debug call must carry request info")

@@ -211,13 +211,16 @@ func TestHandleCallRequest_SavedTokenVisibleToNextCall(t *testing.T) {
 }
 
 // leakyValues carry characters a rendered request percent- or JSON-escapes.
-// The last two also separate net/url's path encoding from PathEscape.
+// The last five separate net/url's escaping tables from each other.
 var leakyValues = []string{
 	"super-secret-client-value",
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
 	`pa$$w"rd-1234567890`,
 	"pa55 word/with slash",
 	"токен/значение",
+	"st?te tok!n Value",
+	"p@ss;w0rd=Secret1",
+	"p#ss word-1234",
 }
 
 // headerToken is never in the secrets map, so only header-name masking hides it.
@@ -237,6 +240,12 @@ func requestFixtures() map[string]string {
 			"body:\n  raw: '{\"client_secret\": \"{{.client_secret}}\"}'\n",
 		"form body": "kind: API\nmethod: POST\nurl: \"{{.baseUrl}}\"\n" + auth +
 			"body:\n  urlencodedformdata:\n    client_secret: \"{{.client_secret}}\"\n",
+		"url fragment": "kind: API\nmethod: GET\n" +
+			"url: \"{{.baseUrl}}/cb#{{.client_secret}}\"\n" + auth,
+		"url host": "kind: API\nmethod: GET\n" +
+			"url: \"http://{{.client_secret}}.invalid/v1/me\"\n" + auth,
+		"url userinfo": "kind: API\nmethod: GET\n" +
+			"url: \"http://admin:{{.client_secret}}@{{.baseHost}}/v1/me\"\n" + auth,
 	}
 }
 
@@ -254,7 +263,8 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 				t.Run(position, func(t *testing.T) {
 					api := projectDir(t)
 					writeFileAt(t, filepath.Join(api, "env", "staging.env"),
-						"baseUrl="+srv.URL+"\nclient_secret='"+secret+"'\n")
+						"baseUrl="+srv.URL+"\nbaseHost="+strings.TrimPrefix(srv.URL, "http://")+
+							"\nclient_secret='"+secret+"'\n")
 					writeFileAt(t, filepath.Join(api, "token.hk.yaml"), content)
 
 					s, err := NewServer(map[string]string{"api": api}, "v")
@@ -267,7 +277,8 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 					t.Run("dry_run", func(t *testing.T) {
 						_, out, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "token", Env: "staging"})
 						if err != nil {
-							t.Fatal(err)
+							testutil.AssertNoSecretForm(t, "dry_run error "+position, err.Error(), secret)
+							return
 						}
 						testutil.AssertNoSecretForm(t, "dry_run "+position, out.Request, secret)
 						if strings.Contains(out.Request, headerToken) {
@@ -282,7 +293,8 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 						_, out, err := s.handleCallRequest(ctx, nil,
 							callRequestInput{Name: "token", Env: "staging", Debug: true})
 						if err != nil {
-							t.Fatal(err)
+							testutil.AssertNoSecretForm(t, "call_request error "+position, err.Error(), secret)
+							return
 						}
 						testutil.AssertNoSecretForm(t, "call_request debug "+position, out.Body, secret)
 						if strings.Contains(out.Body, headerToken) {
