@@ -713,9 +713,6 @@ func TestRequestVariables_D3_2(t *testing.T) {
 	}
 }
 
-// TestRequestVariables_D3_2_DoesNotFollowGetFile pins the single-pass rule:
-// substitution never re-templates a getFile payload, so an env var inside a
-// referenced file can never resolve and is not a variable this request takes.
 func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {

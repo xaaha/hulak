@@ -347,9 +347,6 @@ func TestPeekRequestKind_D3_1(t *testing.T) {
 	})
 }
 
-// TestPeekKind_D3_1_RuntimeDispatchUnchanged pins runtime dispatch: a graphql
-// body with no kind field still runs through the API path, so the reporting
-// change in PeekRequestKind cannot reroute a request that works today.
 func TestPeekKind_D3_1_RuntimeDispatchUnchanged(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "gqlbody.hk.yaml")
 	body := "url: http://x\nmethod: POST\nbody:\n  graphql:\n    query: '{{getFile \"q.gql\"}}'\n"
@@ -367,9 +364,9 @@ func TestPeekKind_D3_1_RuntimeDispatchUnchanged(t *testing.T) {
 
 	cfg := &ConfigType{Kind: kind}
 	if cfg.IsGraphql() {
-		t.Error("IsGraphql() = true; runtime would switch to FinalStructForGraphQL")
+		t.Error("IsGraphql() = true, want false")
 	}
 	if !cfg.IsAPI() {
-		t.Error("IsAPI() = false; runtime would stop using FinalStructForAPI")
+		t.Error("IsAPI() = false, want true")
 	}
 }
