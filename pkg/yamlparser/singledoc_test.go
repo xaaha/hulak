@@ -62,3 +62,15 @@ func TestD21ReEncodedBufferIsSingleDocument(t *testing.T) {
 		t.Errorf("re-encoded buffer has %d documents, want 1: %s", len(file.Docs), buf.String())
 	}
 }
+
+func TestD22SeparatorsAroundOneDocumentStillLoad(t *testing.T) {
+	path := createTempYAMLFile(t, "---\nmethod: GET\nurl: https://e.com\n---\n")
+
+	file, ok, err := FinalStructForAPI(path, map[string]any{})
+	if err != nil || !ok {
+		t.Fatalf("want a successful parse, got ok=%v err=%v", ok, err)
+	}
+	if file.URL != "https://e.com" {
+		t.Errorf("url = %q, want %q", file.URL, "https://e.com")
+	}
+}
