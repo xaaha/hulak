@@ -1,6 +1,7 @@
 package apicalls
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/httpclient"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -24,25 +26,6 @@ var leakyValues = []string{
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
 	`pa$$w"rd-1234567890`,
 	`with space and \ backslash`,
-}
-
-// assertNoSecretForm rejects every spelling of value, not just the verbatim one.
-func assertNoSecretForm(t *testing.T, where, out, value string) {
-	t.Helper()
-	quoted, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	for form, text := range map[string]string{
-		"raw":         value,
-		"queryEscape": url.QueryEscape(value),
-		"pathEscape":  url.PathEscape(value),
-		"jsonEscape":  string(quoted[1 : len(quoted)-1]),
-	} {
-		if strings.Contains(out, text) {
-			t.Errorf("%s leaked the %s form of the secret:\n%s", where, form, out)
-		}
-	}
 }
 
 // chdirToProject moves into a fresh project root for vault.DetectStore.
@@ -163,7 +146,7 @@ func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 			if !strings.Contains(out, "Authorization: "+utils.MaskedValue+"\n") {
 				t.Errorf("Authorization should stay masked by header name:\n%s", out)
 			}
-			assertNoSecretForm(t, "dry run", out, bodySecret)
+			testutil.AssertNoSecretForm(t, "dry run", out, bodySecret)
 			if !strings.Contains(out, fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(bodySecret))) {
 				t.Errorf("expected the value mask in the output:\n%s", out)
 			}
@@ -177,27 +160,83 @@ var pathLeakyValues = []string{
 	"pa55 word/with slash",
 	"токен/значение",
 	"alpha,beta gamma,delta",
+	`quo"te/and\slash 1234`,
 }
 
-func TestLeak4_SecretInURLPathIsMasked(t *testing.T) {
-	for _, secret := range pathLeakyValues {
-		t.Run(secret, func(t *testing.T) {
-			info := &yamlparser.APIInfo{
+// requestPositions builds the same secret into each place a request can carry
+// one, so no surface is covered only where a fixture happens to put it.
+func requestPositions(t *testing.T, secret string) map[string]func() yamlparser.APIInfo {
+	t.Helper()
+	jsonBody, err := json.Marshal(map[string]string{"client_secret": secret})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return map[string]func() yamlparser.APIInfo{
+		"url path": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
 				Method: "GET",
 				URL:    "https://api.example.com/v1/" + secret + "/profile",
 			}
-			out, err := FormatDryRun(
-				info, false,
-				utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil),
-			)
-			if err != nil {
-				t.Fatalf("FormatDryRun: %v", err)
+		},
+		"json body": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:  "POST",
+				URL:     "https://api.example.com/token",
+				Headers: map[string]string{"Content-Type": "application/json"},
+				Body:    bytes.NewReader(jsonBody),
 			}
-			if rendered := (&url.URL{Path: secret}).EscapedPath(); strings.Contains(out, rendered) {
-				t.Errorf("dry run leaked the URL-path form %q:\n%s", rendered, out)
+		},
+		"form body": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:  "POST",
+				URL:     "https://api.example.com/token",
+				Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+				Body:    strings.NewReader(url.Values{"client_secret": {secret}}.Encode()),
 			}
-			if !strings.Contains(out, fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(secret))) {
-				t.Errorf("expected the value mask in the output:\n%s", out)
+		},
+	}
+}
+
+func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
+	client := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return NewMockResponse(200, `{"ok":true}`), nil
+		},
+	}
+	for _, secret := range pathLeakyValues {
+		t.Run(secret, func(t *testing.T) {
+			newRedactor := func() *utils.ValueRedactor {
+				return utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
+			}
+			wantMask := fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(secret))
+
+			for position, newInfo := range requestPositions(t, secret) {
+				t.Run(position, func(t *testing.T) {
+					info := newInfo()
+					out, err := FormatDryRun(&info, false, newRedactor())
+					if err != nil {
+						t.Fatalf("FormatDryRun: %v", err)
+					}
+					testutil.AssertNoSecretForm(t, "dry run "+position, out, secret)
+					if !strings.Contains(out, wantMask) {
+						t.Errorf("expected the value mask in the dry run output:\n%s", out)
+					}
+
+					resp, err := StandardCallWithClient(
+						context.Background(), newInfo(), true, newRedactor(), client,
+					)
+					if err != nil {
+						t.Fatalf("StandardCallWithClient: %v", err)
+					}
+					if resp.Request == nil {
+						t.Fatal("debug call must carry request info")
+					}
+					echo := resp.Request.URL + "\n" + fmt.Sprint(resp.Request.Body)
+					testutil.AssertNoSecretForm(t, "debug "+position, echo, secret)
+					if !strings.Contains(echo, wantMask) {
+						t.Errorf("expected the value mask in the debug echo:\n%s", echo)
+					}
+				})
 			}
 		})
 	}
@@ -259,7 +298,7 @@ func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 				"authorization": masked.Request.Headers["Authorization"],
 				"body":          fmt.Sprint(masked.Request.Body),
 			} {
-				assertNoSecretForm(t, "debug "+field, got, secret)
+				testutil.AssertNoSecretForm(t, "debug "+field, got, secret)
 			}
 
 			shown, err := StandardCallWithClient(context.Background(), newInfo(), true, nil, client)
@@ -347,7 +386,7 @@ func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected a transport error from an unreachable host")
 		}
-		assertNoSecretForm(t, "transport error", err.Error(), secret)
+		testutil.AssertNoSecretForm(t, "transport error", err.Error(), secret)
 	})
 
 	t.Run("unbuildable request", func(t *testing.T) {
@@ -358,7 +397,7 @@ func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected a request-build error from an unparseable URL")
 		}
-		assertNoSecretForm(t, "build error", err.Error(), secret)
+		testutil.AssertNoSecretForm(t, "build error", err.Error(), secret)
 	})
 
 	t.Run("show leaves the error alone", func(t *testing.T) {
