@@ -42,10 +42,9 @@ homebrew_casks:
     # the cask refuse to install on Linux Homebrew even though it ships a
     # working on_linux block.
 
-    # postflight_steps replaces a hooks.post.install block: goreleaser renders
-    # that one as `postflight`, which Homebrew has deprecated. The staged-path
-    # token below is escaped because goreleaser runs this file through Go's
-    # text/template before Homebrew ever sees it.
+    # The staged-path token is escaped because goreleaser renders this file as a
+    # Go template before Homebrew sees it. Unescaping it fails the release
+    # build, which no CI job runs.
     custom_block: |
       on_macos do
         depends_on macos: :ventura
