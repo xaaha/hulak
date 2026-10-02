@@ -17,8 +17,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      # -race because getValueOf hands one memoized result to every parallel
+      # worker that asks for it, and a converting walk over that shared value
+      # is a data race the suite can only see with the detector on. Costs
+      # about two seconds on the full run.
       - name: Run tests
-        run: go test ./... -timeout 60s
+        run: go test ./... -race -timeout 120s
   docs-freshness:
     runs-on: ubuntu-latest
     steps:

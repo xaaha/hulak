@@ -93,8 +93,10 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 // getFile/getValueOf resolution key off the working directory, so only one
 // request may hold it at a time.
 //
-// Resets the getValueOf cache per call: this process serves tool calls for the
-// life of the editor session, and that cache never invalidates itself.
+// Resets the getValueOf cache per call. A memoized result carries a digest of
+// the file it came from, so it cannot go stale on its own; what it cannot see
+// is the project tree moving around it over the life of an editor session,
+// which is what decides where a bare filename resolves to.
 func (s *Server) withProjectDir(root string, fn func() error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
