@@ -2,6 +2,7 @@
 package actions
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,51 +15,82 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Global cache map with thread-safe access
+// Keyed by contents, not by stat: a refreshed token is often the same length as
+// the one it replaced, and os.SameFile is a no-op on Windows (#251, #253).
 var (
-	valuesCacheMutex sync.RWMutex
-	valuesCache      = make(map[string]any)
+	valueCacheMu sync.RWMutex
+	valueCache   = make(map[string]any)
 
-	// Add file operation mutex
-	fileOpsMutex sync.Map
+	// Keyed by search root, since the MCP server chdirs between projects.
+	// These entries cannot check themselves the way valueCache does: the
+	// response file a name resolves to legitimately may not exist yet.
+	pathCacheMu sync.RWMutex
+	pathCache   = make(map[string]string)
 )
 
-// GetValueOf gets the value of key from a json file with caching
-func GetValueOf(key, fileName string) any {
-	// Create cache key combining file and key
-	cacheKey := fmt.Sprintf("%s:%s", fileName, key)
+// Package-level var so tests can count how often the walk runs.
+var listMatchingFiles = utils.ListMatchingFiles
 
-	// Check cache first
-	valuesCacheMutex.RLock()
-	if cached, exists := valuesCache[cacheKey]; exists {
-		valuesCacheMutex.RUnlock()
-		return cached
-	}
-	valuesCacheMutex.RUnlock()
+// One template reference is resolved several times per file parse, and a
+// directory run repeats that per file, so an unwritten response file printed
+// the same line 240 times on a 40-request run.
+var (
+	reportedMu sync.Mutex
+	reported   = make(map[string]struct{})
+)
 
-	// If not in cache, acquire write lock and process
-	valuesCacheMutex.Lock()
-	defer valuesCacheMutex.Unlock()
-
-	// Double-check pattern in case another goroutine cached while we waited
-	if cached, exists := valuesCache[cacheKey]; exists {
-		return cached
-	}
-
-	// Process the file and get result
-	result := processValueOf(key, fileName)
-
-	valuesCache[cacheKey] = result
-	return result
+func reportErrorOnce(msg string) {
+	reportErrorOnceFor(msg, msg)
 }
 
-// ResetCache drops every memoized getValueOf result. The cache has no
-// invalidation, so any process serving more than one command must call this
-// between them or it will serve a token that has since been rewritten (#251).
+// reportErrorOnceFor dedupes on filePath as well as msg, for the messages that
+// abbreviate the path they name: two same-named response files in different
+// directories render one line, and only one of them would be reported.
+func reportErrorOnceFor(filePath, msg string) {
+	if firstReport("error", filePath+"\x00"+msg) {
+		utils.PrintErrorStderr(msg)
+	}
+}
+
+func reportWarningOnce(msg string) {
+	if firstReport("warning", msg) {
+		utils.PrintWarningStderr(msg)
+	}
+}
+
+func firstReport(kind, msg string) bool {
+	key := kind + ": " + msg
+
+	reportedMu.Lock()
+	defer reportedMu.Unlock()
+
+	if _, seen := reported[key]; seen {
+		return false
+	}
+	reported[key] = struct{}{}
+	return true
+}
+
+// GetValueOf gets the value of key from a json file.
+func GetValueOf(key, fileName string) any {
+	return processValueOf(key, fileName)
+}
+
+// ResetCache exists for the resolved paths. Results carry a digest of their own
+// bytes and cannot go stale; where a bare filename points can still be made
+// wrong by the project tree moving over a long-lived process.
 func ResetCache() {
-	valuesCacheMutex.Lock()
-	defer valuesCacheMutex.Unlock()
-	clear(valuesCache)
+	valueCacheMu.Lock()
+	clear(valueCache)
+	valueCacheMu.Unlock()
+
+	pathCacheMu.Lock()
+	clear(pathCache)
+	pathCacheMu.Unlock()
+
+	reportedMu.Lock()
+	clear(reported)
+	reportedMu.Unlock()
 }
 
 // BasicAuth takes a username and password, joins them with a colon,
@@ -88,11 +120,6 @@ func GetFile(filePath string) (string, error) {
 	return string(content), nil
 }
 
-func getFileMutex(filePath string) *sync.Mutex {
-	mutex, _ := fileOpsMutex.LoadOrStore(filePath, &sync.Mutex{})
-	return mutex.(*sync.Mutex)
-}
-
 // processValueOf processes GetValueOf action — returns the value at key from
 // the resolved JSON file, or "" if anything goes wrong. Errors are printed to
 // stderr; we can't return them because this is invoked as a template function
@@ -102,11 +129,11 @@ func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintErrorStderr(
+			reportErrorOnce(
 				fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf),
 			)
 		} else {
-			utils.PrintErrorStderr(
+			reportErrorOnce(
 				fmt.Sprintf(
 					"provide fileName/path to key for %s action",
 					utils.TemplateFuncGetValueOf,
@@ -118,25 +145,60 @@ func processValueOf(key, fileName string) any {
 
 	jsonResFilePath, err := resolveJSONFilePath(fileName)
 	if err != nil {
-		utils.PrintErrorStderr(err.Error())
+		reportErrorOnce(err.Error())
 		return ""
 	}
 
-	content, err := readJSONFile(jsonResFilePath)
+	raw, err := readResponseFile(jsonResFilePath)
 	if err != nil {
-		utils.PrintErrorStderr(err.Error())
+		reportErrorOnce(err.Error())
+		return ""
+	}
+
+	// Failures are cached too: they are as true of these bytes as a success is,
+	// and the file gaining the key changes the digest.
+	cacheKey := valueCacheKey(jsonResFilePath, raw, key)
+	valueCacheMu.RLock()
+	cached, hit := valueCache[cacheKey]
+	valueCacheMu.RUnlock()
+	if hit {
+		return cached
+	}
+
+	result := extractFromJSON(key, jsonResFilePath, raw)
+
+	valueCacheMu.Lock()
+	valueCache[cacheKey] = result
+	valueCacheMu.Unlock()
+
+	return result
+}
+
+func valueCacheKey(filePath string, raw []byte, key string) string {
+	digest := sha256.Sum256(raw)
+	return filePath + "\x00" + string(digest[:]) + "\x00" + key
+}
+
+func extractFromJSON(key, filePath string, raw []byte) any {
+	var content any
+	if err := json.Unmarshal(raw, &content); err != nil {
+		reportErrorOnceFor(filePath, fmt.Sprintf(
+			"make sure %s has proper json content: %s",
+			filepath.Base(filePath),
+			err.Error(),
+		))
 		return ""
 	}
 
 	result, err := extractValueByKey(key, content)
 	if err != nil {
-		utils.PrintErrorStderr(fmt.Sprintf(
+		reportErrorOnceFor(filePath, fmt.Sprintf(
 			"looking up value '%s': make sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
 				"...",
-				utils.FileNameWithoutExtension(filepath.Dir(jsonResFilePath)),
-				filepath.Base(jsonResFilePath),
+				utils.FileNameWithoutExtension(filepath.Dir(filePath)),
+				filepath.Base(filePath),
 			),
 			key,
 		))
@@ -176,7 +238,20 @@ func resolveJSONFilePath(fileName string) (string, error) {
 	}
 
 	// Handle as a filename to search for
-	yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
+	searchRoot, err := utils.CreatePath("")
+	if err != nil {
+		return "", fmt.Errorf("error getting initial file path for '%s': %s", fileName, err.Error())
+	}
+	cacheKey := searchRoot + string(filepath.Separator) + cleanFileName
+
+	pathCacheMu.RLock()
+	resolved, cached := pathCache[cacheKey]
+	pathCacheMu.RUnlock()
+	if cached {
+		return resolved, nil
+	}
+
+	yamlPathList, err := listMatchingFiles(cleanFileName, searchRoot)
 	if err != nil {
 		return "", fmt.Errorf(
 			"error occurred while grabbing matching paths for '%s': %s",
@@ -190,55 +265,39 @@ func resolveJSONFilePath(fileName string) (string, error) {
 
 	// Handle multiple matches warning
 	if len(yamlPathList) > 1 {
-		utils.PrintWarningStderr(
+		reportWarningOnce(
 			fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]),
 		)
 	}
 
 	singlePath := yamlPathList[0]
-	if strings.HasSuffix(cleanFileName, utils.JSON) {
-		return singlePath, nil
+	resolved = singlePath
+	if !strings.HasSuffix(cleanFileName, utils.JSON) {
+		dirPath := filepath.Dir(singlePath)
+		jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
+		resolved = filepath.Join(dirPath, jsonBaseName)
 	}
 
-	dirPath := filepath.Dir(singlePath)
-	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-	return filepath.Join(dirPath, jsonBaseName), nil
+	pathCacheMu.Lock()
+	pathCache[cacheKey] = resolved
+	pathCacheMu.Unlock()
+
+	return resolved, nil
 }
 
-// readJSONFile reads and parses a JSON file with proper locking
-func readJSONFile(filePath string) (any, error) {
-	// Get file-specific mutex
-	fileMutex := getFileMutex(filePath)
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
-
-	// Check file existence under lock
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("file '%s' does not exist", filePath)
-	}
-
-	// Read the file content
-	fileContent, err := os.ReadFile(filePath)
+func readResponseFile(filePath string) ([]byte, error) {
+	raw, err := os.ReadFile(filePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("file '%s' does not exist", filePath)
+		}
 		return nil, fmt.Errorf(
 			"error occurred while reading the file '%s': %s",
 			filepath.Base(filePath),
 			err.Error(),
 		)
 	}
-
-	// Parse JSON
-	var content any
-	err = json.Unmarshal(fileContent, &content)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"make sure %s has proper json content: %s",
-			filepath.Base(filePath),
-			err.Error(),
-		)
-	}
-
-	return content, nil
+	return raw, nil
 }
 
 // extractValueByKey extracts a value from JSON content using the provided key
@@ -274,19 +333,31 @@ func extractValueByKey(key string, content any) (any, error) {
 	return convertNumberToProperType(result), nil
 }
 
-// convertNumberToProperType converts float64 values to int64 if they represent whole numbers
+// convertNumberToProperType rewrites float64 values that represent whole
+// numbers as int or int64, so a JSON 30 renders as "30" and not "30.0". It
+// rewrites in place, which is safe only because the document it walks was
+// parsed by this call and is shared with no one.
 func convertNumberToProperType(v any) any {
 	switch value := v.(type) {
 	case float64:
-		// Check if it's an integer (no decimal part)
-		if value == float64(int64(value)) {
-			// For small numbers that fit in int, use int
-			if value >= float64(math.MinInt) && value <= float64(math.MaxInt) {
-				return int(value)
-			}
-			// For larger numbers, use int64
-			return int64(value)
+		// math.Trunc rather than a round trip through int64: converting a
+		// float64 that does not fit the destination is implementation-defined
+		// (arm64 saturates, amd64 wraps), so JSON 9223372036854775807
+		// normalized one way on a darwin build and the other on linux.
+		if value != math.Trunc(value) {
+			return v
 		}
+		const int64Limit = 9223372036854775808.0 // 2^63, the first int64 cannot hold
+		if value < -int64Limit || value >= int64Limit {
+			return v
+		}
+		whole := int64(value)
+		// For small numbers that fit in int, use int
+		if whole >= int64(math.MinInt) && whole <= int64(math.MaxInt) {
+			return int(whole)
+		}
+		// For larger numbers, use int64
+		return whole
 	case []any:
 		for i, item := range value {
 			value[i] = convertNumberToProperType(item)
