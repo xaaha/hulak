@@ -404,10 +404,8 @@ func TestGetFile_PreservesFormatting(t *testing.T) {
 	}
 }
 
-// D1: a result is reused while the bytes it came from are unchanged, and
-// dropped the moment they are not. Both halves matter — reusing it past a
-// rewrite is the #253 bug, and parsing on every call is what the cache exists
-// to avoid.
+// D1. Reusing a result past a rewrite is the #253 bug; parsing on every call is
+// what the cache exists to avoid.
 func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -427,9 +425,8 @@ func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
 		t.Fatalf("first read: got %v, want stale-token", got)
 	}
 
-	// Poison the entry those bytes map to. Reading it back is the only
-	// evidence available that the second call answered from the cache instead
-	// of parsing the file again.
+	// Poisoning the entry is the only evidence available that the next call
+	// answered from the cache rather than parsing the file again.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read back: %v", err)
@@ -448,17 +445,13 @@ func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
 	}
 }
 
-// D2: freshness is decided by the file's contents, not by its stat. Every
-// stat-shaped signal has a blind spot — size and mtime miss a same-length
-// rewrite inside one timestamp tick, and os.SameFile is a no-op on Windows,
-// where os.Stat stores only the path and SameFile reopens it at comparison
-// time — and a refreshed token is often exactly as long as the one it replaces.
+// D2. Both rewrites are invisible to a stat: same size, same mtime, and in the
+// second case the inode moves, which os.SameFile cannot see on Windows.
 func TestD2_ContentsDecideFreshnessNotTheStat(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 
 	cases := map[string]func(t *testing.T, path string, replacement []byte){
-		// What a stat cannot see at all: same inode, same size, same mtime.
 		"in place, size and mtime restored": func(t *testing.T, path string, replacement []byte) {
 			t.Helper()
 			before, err := os.Stat(path)
@@ -481,7 +474,6 @@ func TestD2_ContentsDecideFreshnessNotTheStat(t *testing.T) {
 			}
 			assertStatUnchanged(t, path, before)
 		},
-		// What only os.SameFile could see, and only off Windows.
 		"renamed over, size and mtime restored": func(t *testing.T, path string, replacement []byte) {
 			t.Helper()
 			before, err := os.Stat(path)
@@ -523,8 +515,8 @@ func TestD2_ContentsDecideFreshnessNotTheStat(t *testing.T) {
 	}
 }
 
-// assertStatUnchanged fails the test unless the file still reports the size and
-// mtime it had before, which is what makes the rewrite invisible to a stat.
+// assertStatUnchanged guards the setup: without it a rewrite that moved the
+// size or the mtime would pass for the wrong reason.
 func assertStatUnchanged(t *testing.T, path string, before os.FileInfo) {
 	t.Helper()
 
@@ -540,9 +532,8 @@ func assertStatUnchanged(t *testing.T, path string, before os.FileInfo) {
 	}
 }
 
-// D1: the cached result is handed to every caller that asks, including
-// parallel runner workers reading different keys out of one response file.
-// Keys that return a map or a slice are the ones that share structure.
+// D1. Parallel runner workers share one cached result. Only keys returning a
+// map or slice share structure, so scalars alone would not catch a regression.
 func TestD1_ConcurrentLookupsShareNoMutableState(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -570,9 +561,7 @@ func TestD1_ConcurrentLookupsShareNoMutableState(t *testing.T) {
 	wg.Wait()
 }
 
-// D3: a bare filename is walked for once and the resolved path reused, and the
-// cache is keyed by the root the walk started from so the same name in another
-// project resolves to that project's file.
+// D3.
 func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -609,9 +598,7 @@ func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
 	}
 }
 
-// D4: an identical getValueOf diagnostic reaches stderr once, not once per
-// resolution. Without the value cache absorbing repeat failures, a response
-// file that does not exist yet is the common case at the start of a run.
+// D4.
 func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -630,7 +617,7 @@ func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 		t.Errorf("printed the missing-file error %d times, want 1:\n%s", n, out)
 	}
 
-	// ResetCache re-arms it: a fresh tool call should say so again.
+	// A fresh tool call should report the same condition again.
 	again := captureStderr(t, func() {
 		ResetCache()
 		GetValueOf("access_token", missing)
@@ -640,9 +627,7 @@ func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 	}
 }
 
-// D5: when a bare name matches more than one request file the warning still
-// fires, and fires once for that name however many times the name is resolved.
-// The resolved file is the same every time, which is the point of warning.
+// D5.
 func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -664,9 +649,9 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 		}
 	}
 
-	// Drop the resolved path between lookups so the resolver, and with it the
-	// warning, is reached twice. Otherwise the path cache holds the count at
-	// one on its own and the dedupe is never asked to do anything.
+	// Drop the resolved path between lookups so the warning site is reached
+	// twice. Otherwise the path cache holds the count at one by itself and the
+	// dedupe is never asked to do anything.
 	var token, kind any
 	out := captureStderr(t, func() {
 		token = GetValueOf("access_token", "auth")
@@ -687,9 +672,8 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	}
 }
 
-// D4: two response files whose abbreviated paths read the same still each get
-// their diagnostic. The message names ".../api/auth.hk_response.json" for both
-// graphql/api/ and rest/api/, so deduping on the message text alone loses one.
+// D4. The message abbreviates to ".../api/auth.hk_response.json" for both
+// collections, so deduping on the text alone would lose one of them.
 func TestD4_SamePrintedPathStillReportsBothFiles(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -719,8 +703,6 @@ func TestD4_SamePrintedPathStillReportsBothFiles(t *testing.T) {
 	}
 }
 
-// captureStderr swaps os.Stderr for a pipe, runs fn, restores os.Stderr,
-// and returns whatever fn wrote to stderr.
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
 
@@ -745,8 +727,6 @@ func captureStderr(t *testing.T, fn func()) string {
 	return <-done
 }
 
-// newProjectWithResponse builds a hulak project in its own temp dir holding
-// auth.hk_response.json with the given token, and returns the project root.
 func newProjectWithResponse(t *testing.T, token string) string {
 	t.Helper()
 
@@ -769,8 +749,6 @@ func newProjectWithResponse(t *testing.T, token string) string {
 	return root
 }
 
-// enterDir chdirs into dir for the rest of the test, restoring the previous
-// working directory afterwards.
 func enterDir(t *testing.T, dir string) {
 	t.Helper()
 
@@ -788,10 +766,8 @@ func enterDir(t *testing.T, dir string) {
 	})
 }
 
-// ResetCache exists for the one thing a result cannot check for itself: which
-// file a bare name resolves to. A result carries a digest of its own bytes, so
-// it never needs dropping; a resolved path can be made wrong by the project
-// tree moving, which is why the MCP server resets between tool calls.
+// The resolved path is the one thing a result cannot check for itself, so it is
+// the only thing ResetCache is still needed for.
 func TestResetCache_DropsTheResolvedPath(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -830,7 +806,6 @@ func TestResetCache_DropsTheResolvedPath(t *testing.T) {
 		t.Fatalf("first read: got %v, want at-the-root", got)
 	}
 
-	// The project moves underneath the cached mapping.
 	removePair("")
 	writePair("collection", "in-the-subdirectory")
 
@@ -840,8 +815,8 @@ func TestResetCache_DropsTheResolvedPath(t *testing.T) {
 	}
 }
 
-// Diagnostics for the ways a getValueOf call can fail. Each returns "", so the
-// stderr line is the only thing that tells the user which of them happened.
+// Every failure returns "", so the stderr line is the only thing that tells the
+// user which one happened.
 func TestProcessValueOf_ReportsEachFailure(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
@@ -891,8 +866,6 @@ func TestProcessValueOf_ReportsEachFailure(t *testing.T) {
 	}
 }
 
-// A bare name that already carries .json resolves to that file, rather than
-// having _response.json appended to it a second time.
 func TestResolveJSONFilePath_BareNameEndingInJSON(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)

@@ -15,68 +15,48 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// valueCache holds getValueOf results keyed by the file path, a digest of the
-// bytes they were read out of, and the key that was looked up. The digest is
-// what makes an entry safe to keep: a refreshed token file has different
-// contents, so it cannot answer to the same key (#251, #253).
-//
-// Every call reads the file to compute that digest, which is cheap next to
-// parsing it — 160 reads of a 2.6 MB response file cost 0.22s against 2.75s to
-// re-parse it that many times — and unlike a stat it cannot be fooled by a
-// rewrite that lands the same size inside one timestamp tick.
+// Keyed by contents, not by stat: a refreshed token is often the same length as
+// the one it replaced, and os.SameFile is a no-op on Windows (#251, #253).
 var (
 	valueCacheMu sync.RWMutex
 	valueCache   = make(map[string]any)
 
-	// pathCache maps a bare filename to the response file it resolved to,
-	// keyed by the root the search started from. Resolving a bare name means
-	// walking the whole project, and a single template reference is resolved
-	// more than once per file parse — replaceVars and translateType each
-	// resolve it — so a directory run on a large project spends most of its
-	// time in that walk.
-	//
-	// Unlike valueCache these entries cannot check themselves: the response
-	// file a name resolves to legitimately may not exist yet, so "it is gone"
-	// is not evidence the mapping is wrong. ResetCache is the only thing that
-	// drops them.
+	// Keyed by search root, since the MCP server chdirs between projects.
+	// These entries cannot check themselves the way valueCache does: the
+	// response file a name resolves to legitimately may not exist yet.
 	pathCacheMu sync.RWMutex
 	pathCache   = make(map[string]string)
 )
 
-// listMatchingFiles is the project-wide walk behind bare filename resolution.
-// Package-level var so tests can count how often it runs.
+// Package-level var so tests can count how often the walk runs.
 var listMatchingFiles = utils.ListMatchingFiles
 
-// reported remembers which getValueOf diagnostics already reached stderr.
-// A reference is resolved more than once per file parse and a directory run
-// repeats that per file, so a response file that does not exist yet printed the
-// same line 240 times on a 40-request run before this.
+// One template reference is resolved several times per file parse, and a
+// directory run repeats that per file, so an unwritten response file printed
+// the same line 240 times on a 40-request run.
 var (
 	reportedMu sync.Mutex
 	reported   = make(map[string]struct{})
 )
 
-// reportErrorOnce writes an error line to stderr the first time msg is seen.
 func reportErrorOnce(msg string) {
 	reportErrorOnceFor(msg, msg)
 }
 
-// reportErrorOnceFor dedupes on dedupeOn rather than on msg, for the messages
-// that abbreviate the path they name and so are not unique on their own.
+// reportErrorOnceFor dedupes on dedupeOn rather than on msg, for messages that
+// abbreviate the path they name and so are not unique on their own.
 func reportErrorOnceFor(dedupeOn, msg string) {
 	if firstReport("error", dedupeOn) {
 		utils.PrintErrorStderr(msg)
 	}
 }
 
-// reportWarningOnce writes a warning line to stderr the first time msg is seen.
 func reportWarningOnce(msg string) {
 	if firstReport("warning", msg) {
 		utils.PrintWarningStderr(msg)
 	}
 }
 
-// firstReport records a diagnostic and reports whether it is new.
 func firstReport(kind, msg string) bool {
 	key := kind + ": " + msg
 
@@ -91,18 +71,13 @@ func firstReport(kind, msg string) bool {
 }
 
 // GetValueOf gets the value of key from a json file.
-//
-// A result is only ever reused for the exact bytes it was extracted from, so a
-// response file rewritten partway through a run is picked up by every reference
-// after it (#251, #253).
 func GetValueOf(key, fileName string) any {
 	return processValueOf(key, fileName)
 }
 
-// ResetCache drops every memoized result. Results key off a digest of the file
-// they came from and so cannot go stale on their own; what this is for is the
-// staleness the contents cannot show: a process serving tool calls for hours
-// resolves bare filenames against a project tree that changes underneath it.
+// ResetCache exists for the resolved paths. Results carry a digest of their own
+// bytes and cannot go stale; where a bare filename points can still be made
+// wrong by the project tree moving over a long-lived process.
 func ResetCache() {
 	valueCacheMu.Lock()
 	clear(valueCache)
@@ -179,8 +154,8 @@ func processValueOf(key, fileName string) any {
 		return ""
 	}
 
-	// The failure results are cached too. They are as true of these bytes as a
-	// success is, and the file gaining the key changes the digest.
+	// Failures are cached too: they are as true of these bytes as a success is,
+	// and the file gaining the key changes the digest.
 	cacheKey := valueCacheKey(jsonResFilePath, raw, key)
 	valueCacheMu.RLock()
 	cached, hit := valueCache[cacheKey]
@@ -198,15 +173,11 @@ func processValueOf(key, fileName string) any {
 	return result
 }
 
-// valueCacheKey identifies one lookup: which file, which bytes, which key.
 func valueCacheKey(filePath string, raw []byte, key string) string {
 	digest := sha256.Sum256(raw)
 	return filePath + "\x00" + string(digest[:]) + "\x00" + key
 }
 
-// extractFromJSON parses raw and pulls key out of it, reporting to stderr and
-// returning "" on any failure — the template function signature leaves nowhere
-// to return an error to.
 func extractFromJSON(key, filePath string, raw []byte) any {
 	var content any
 	if err := json.Unmarshal(raw, &content); err != nil {
@@ -267,9 +238,7 @@ func resolveJSONFilePath(fileName string) (string, error) {
 		return filepath.Join(dirPath, baseFileName+utils.ResponseFileName), nil
 	}
 
-	// Handle as a filename to search for. The root is part of the cache key,
-	// not just the name: the MCP server chdirs between projects, and the same
-	// bare name means a different file in each.
+	// Handle as a filename to search for
 	searchRoot, err := utils.CreatePath("")
 	if err != nil {
 		return "", fmt.Errorf("error getting initial file path for '%s': %s", fileName, err.Error())
@@ -317,7 +286,6 @@ func resolveJSONFilePath(fileName string) (string, error) {
 	return resolved, nil
 }
 
-// readResponseFile returns the raw bytes at filePath.
 func readResponseFile(filePath string) ([]byte, error) {
 	raw, err := os.ReadFile(filePath)
 	if err != nil {
@@ -367,10 +335,9 @@ func extractValueByKey(key string, content any) (any, error) {
 }
 
 // convertNumberToProperType rewrites float64 values that represent whole
-// numbers as int or int64, so a JSON 30 renders as "30" and not "30.0".
-//
-// It runs on the extracted value, over a document this call parsed for itself,
-// so the maps and slices it rewrites are not shared with another goroutine.
+// numbers as int or int64, so a JSON 30 renders as "30" and not "30.0". It
+// rewrites in place, which is safe only because the document it walks was
+// parsed by this call and is shared with no one.
 func convertNumberToProperType(v any) any {
 	switch value := v.(type) {
 	case float64:
@@ -381,9 +348,7 @@ func convertNumberToProperType(v any) any {
 		if value != math.Trunc(value) {
 			return v
 		}
-		// 2^63 is exactly representable and is the first value int64 cannot
-		// hold, so everything inside this range converts without surprise.
-		const int64Limit = 9223372036854775808.0
+		const int64Limit = 9223372036854775808.0 // 2^63, the first int64 cannot hold
 		if value < -int64Limit || value >= int64Limit {
 			return v
 		}

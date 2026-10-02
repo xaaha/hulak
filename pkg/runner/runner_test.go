@@ -693,11 +693,9 @@ func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
 	}
 }
 
-// D6: a sequential directory run picks up a token the run itself refreshed,
-// with no cache reset anywhere in the runner. This is the #253 reproduction:
-// a-read reads the stale token, auth rewrites the response file, b-read has to
-// send the new one. The cache invalidates itself per file, so adding a reset
-// here would only hand back the project walk it exists to avoid.
+// D6. The #253 reproduction, with no cache reset anywhere in the runner:
+// a-read sends the stale token, auth rewrites the response file, b-read has to
+// send the new one.
 func TestD6_SequentialRunSeesRefreshedToken(t *testing.T) {
 	var mu sync.Mutex
 	var seen []string
@@ -764,10 +762,9 @@ func TestD6_SequentialRunSeesRefreshedToken(t *testing.T) {
 	}
 }
 
-// enterHulakProject creates a temp directory that looks like a hulak project,
-// changes into it for the rest of the test, and returns its path. getValueOf
-// resolves bare filenames by walking from the project root, so the test has to
-// run inside one.
+// enterHulakProject creates a temp directory that looks like a hulak project
+// and changes into it: getValueOf resolves bare filenames by walking from the
+// project root, so the test has to run inside one.
 func enterHulakProject(t *testing.T) string {
 	t.Helper()
 
