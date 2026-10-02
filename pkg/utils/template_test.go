@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -576,5 +577,103 @@ func TestMapHasEnvVars(t *testing.T) {
 				t.Errorf("MapHasEnvVars() = %v, want %v", result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestRequestVariables_D3_2(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name     string
+		content  string
+		wantEnv  []string
+		wantVars []string
+	}{
+		{
+			name: "env vars in first-seen order",
+			content: "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\n" +
+				"headers:\n  Authorization: \"Bearer {{ .token }}\"\n",
+			wantEnv: []string{"domain", "token"},
+		},
+		{
+			name: "repeated env var is deduplicated",
+			content: "---\nurl: \"{{.baseUrl}}/a\"\nheaders:\n  X-One: \"{{.baseUrl}}\"\n" +
+				"  X-Two: \"{{.token}}\"\n",
+			wantEnv: []string{"baseUrl", "token"},
+		},
+		{
+			name: "graphql variable keys in document order",
+			content: "---\nkind: GraphQL\nurl: http://example.com/graphql\n" +
+				"body:\n  graphql:\n    query: 'query Q($last: String) { user { id } }'\n" +
+				"    variables:\n      zebra: \"{{.zebraName}}\"\n      apple: 7\n",
+			wantEnv:  []string{"zebraName"},
+			wantVars: []string{"zebra", "apple"},
+		},
+		{
+			name:    "no variables at all",
+			content: "---\nkind: API\nmethod: GET\nurl: http://example.com\n",
+		},
+		{
+			name:    "template var only in a comment is not resolved",
+			content: "---\nkind: API\nurl: http://example.com # {{.token}}\n",
+		},
+		{
+			name:    "env var inside a list value",
+			content: "---\nurl: http://example.com\nbody:\n  raw: \"{{.first}}\"\n",
+			wantEnv: []string{"first"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(root, strings.ReplaceAll(tc.name, " ", "_")+".hk.yaml")
+			writeFile(t, path, tc.content)
+
+			env, vars, err := RequestVariables(path)
+			if err != nil {
+				t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+			}
+			if !slices.Equal(env, tc.wantEnv) {
+				t.Errorf("env vars = %v, want %v", env, tc.wantEnv)
+			}
+			if !slices.Equal(vars, tc.wantVars) {
+				t.Errorf("graphql variables = %v, want %v", vars, tc.wantVars)
+			}
+		})
+	}
+}
+
+// TestRequestVariables_D3_2_DoesNotFollowGetFile pins the single-pass rule:
+// substitution never re-templates a getFile payload, so an env var inside a
+// referenced file can never resolve and is not a variable this request takes.
+func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	writeFile(t, filepath.Join(root, "query.gql"), "query { user(id: {{.unreachableId}}) { id } }")
+	path := filepath.Join(root, "ref.hk.yaml")
+	writeFile(t, path, "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{"+
+		TemplateFuncGetFile+" \"query.gql\"}}'\n")
+
+	env, _, err := RequestVariables(path)
+	if err != nil {
+		t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+	}
+	want := []string{"baseUrl"}
+	if !slices.Equal(env, want) {
+		t.Errorf("env vars = %v, want %v (a getFile payload is never re-templated)", env, want)
+	}
+}
+
+func TestRequestVariables_D3_2_NonexistentFile(t *testing.T) {
+	if _, _, err := RequestVariables("/nonexistent/path/req.hk.yaml"); err == nil {
+		t.Error("expected error for nonexistent request file, got nil")
 	}
 }
