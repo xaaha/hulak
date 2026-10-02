@@ -106,6 +106,36 @@ func TestFileHasTemplateVars(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "env_var_behind_a_trim_marker",
+			content:  "---\nurl: \"{{- .baseUrl }}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_inside_an_if_action",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Flag: \"{{if .flag}}yes{{end}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_inside_a_range_action",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Tags: \"{{range .items}}x{{end}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "env_var_as_a_printf_argument",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{printf \"Bearer %s\" .token}}'\n",
+			expected: true,
+		},
+		{
+			name:     "dotfile_in_a_quoted_arg_is_not_an_env_var",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"token\" \".secrets.json\"}}'\n",
+			expected: false,
+		},
+		{
+			name:     "printf_precision_verb_is_not_an_env_var",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Amount: '{{printf \"%.2f\" 1.5}}'\n",
+			expected: false,
+		},
+		{
 			name:     "os_func_only_no_env_loading_needed",
 			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{os \"GITHUB_TOKEN\"}}'\n",
 			expected: false,
@@ -636,6 +666,24 @@ func TestRequestVariables_D3_2(t *testing.T) {
 			content: "---\nurl: http://example.com\nheaders:\n  X-Tags:\n" +
 				"    - \"{{.first}}\"\n    - \"{{.second}}\"\n",
 			wantEnv: []string{"first", "second"},
+		},
+		{
+			name:    "env var behind a trim marker",
+			content: "---\nurl: \"{{- .baseUrl }}\"\n",
+			wantEnv: []string{"baseUrl"},
+		},
+		{
+			name: "env vars referenced inside actions",
+			content: "---\nurl: http://example.com\nheaders:\n" +
+				"  X-Flag: \"{{if .flag}}{{.token}}{{end}}\"\n" +
+				"  X-Tags: \"{{range .items}}x{{end}}\"\n" +
+				"  Authorization: '{{printf \"Bearer %s\" .secret}}'\n",
+			wantEnv: []string{"flag", "token", "items", "secret"},
+		},
+		{
+			name:    "a dot chain reports only the key it looks up",
+			content: "---\nurl: \"https://{{.server.host}}/graphql\"\n",
+			wantEnv: []string{"server"},
 		},
 	}
 

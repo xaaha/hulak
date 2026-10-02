@@ -12,12 +12,40 @@ import (
 	yaml "github.com/goccy/go-yaml"
 )
 
-// templateVarPattern matches a dot-access template reference like {{.token}}
-// or {{ .token }}, tolerating whitespace between the braces and the dot the
-// same way Go's template engine does at substitution time.
-var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
+var templateActionPattern = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
 
-var templateVarNamePattern = regexp.MustCompile(`\{\{\s*\.(\w+)`)
+var templateVarNamePattern = regexp.MustCompile(`(^|[^\w.])\.(\w+)`)
+
+func templateVarNames(s string) []string {
+	var names []string
+	for _, action := range templateActionPattern.FindAllString(s, -1) {
+		for _, m := range templateVarNamePattern.FindAllStringSubmatch(stripQuotedArgs(action), -1) {
+			names = append(names, m[2])
+		}
+	}
+	return names
+}
+
+func stripQuotedArgs(action string) string {
+	var out strings.Builder
+	for i := 0; i < len(action); {
+		quote := action[i]
+		if quote != '"' && quote != '\'' && quote != '`' {
+			out.WriteByte(action[i])
+			i++
+			continue
+		}
+		i++
+		for i < len(action) && action[i] != quote {
+			i++
+		}
+		if i < len(action) {
+			i++
+		}
+		out.WriteByte(' ')
+	}
+	return out.String()
+}
 
 // FileHasTemplateVars reports whether a request file's YAML values contain env
 // variable references (e.g. {{.token}}) that require environment resolution.
@@ -77,8 +105,8 @@ func RequestVariables(filePath string) (envVars, graphqlVariables []string, err 
 func collectEnvVars(val any, seen map[string]bool, out *[]string) {
 	switch v := val.(type) {
 	case string:
-		for _, m := range templateVarNamePattern.FindAllStringSubmatch(v, -1) {
-			if name := m[1]; !seen[name] {
+		for _, name := range templateVarNames(v) {
+			if !seen[name] {
 				seen[name] = true
 				*out = append(*out, name)
 			}
@@ -324,7 +352,7 @@ func withinRoot(absPath, root string) bool {
 func hasEnvVar(val any) bool {
 	switch v := val.(type) {
 	case string:
-		return templateVarPattern.MatchString(v)
+		return len(templateVarNames(v)) > 0
 	case map[string]any:
 		return MapHasEnvVars(v)
 	case []any:
