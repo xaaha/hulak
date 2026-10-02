@@ -632,7 +632,7 @@ func processTask(
 
 	switch {
 	case config.IsAuth():
-		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, opts.Debug)
+		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, opts.Debug, opts.Show)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case config.IsAPI() || config.IsGraphql():
 		respBytes, status, err := apicalls.SendAndSaveAPIRequest(ctx, apicalls.RequestOptions{

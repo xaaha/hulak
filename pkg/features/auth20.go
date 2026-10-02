@@ -117,9 +117,27 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	}
 }
 
+// auth2Redactor returns the value masker for the auth2 echo, or nil when show
+// asks for everything in the clear.
+func auth2Redactor(
+	filePath string,
+	secretsMap map[string]any,
+	show bool,
+) (*utils.ValueRedactor, error) {
+	if show {
+		return nil, nil
+	}
+	return apicalls.NewSecretRedactor(filePath, secretsMap)
+}
+
 // SendAPIRequestForAuth2  calls the PrepareStruct using the provided envMap
 // and makes the Api Call with StandardCall and prints the response in console
-func SendAPIRequestForAuth2(ctx context.Context, secretsMap map[string]any, filePath string, debug bool) error {
+func SendAPIRequestForAuth2(
+	ctx context.Context,
+	secretsMap map[string]any,
+	filePath string,
+	debug, show bool,
+) error {
 	code, err := openBrowserAndGetCode(filePath, secretsMap)
 	if err != nil {
 		return err
@@ -134,7 +152,7 @@ func SendAPIRequestForAuth2(ctx context.Context, secretsMap map[string]any, file
 	if err != nil {
 		return err
 	}
-	redact, err := apicalls.NewSecretRedactor(filePath, secretsMap)
+	redact, err := auth2Redactor(filePath, secretsMap, show)
 	if err != nil {
 		return err
 	}
