@@ -788,38 +788,129 @@ func enterDir(t *testing.T, dir string) {
 	})
 }
 
-// ResetCache drops parsed response files wholesale. Entries already invalidate
-// themselves against the file on disk; this is for the staleness a stat can't
-// see, which is why the MCP server calls it between tool calls.
-func TestResetCache(t *testing.T) {
-	setupHulakProject(t)
+// ResetCache exists for the one thing a result cannot check for itself: which
+// file a bare name resolves to. A result carries a digest of its own bytes, so
+// it never needs dropping; a resolved path can be made wrong by the project
+// tree moving, which is why the MCP server resets between tool calls.
+func TestResetCache_DropsTheResolvedPath(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
 
-	const authDir = "auth"
-	if err := os.Mkdir(authDir, utils.DirPer); err != nil {
-		t.Fatalf("failed to create auth dir: %v", err)
-	}
-	relPath := filepath.Join(authDir, "getAuth"+utils.ResponseFileName)
-
-	write := func(token string) {
+	writePair := func(dir, token string) {
 		t.Helper()
-		body := `{"access_token": "` + token + `"}`
-		if err := os.WriteFile(relPath, []byte(body), utils.FilePer); err != nil {
+		if dir != "" {
+			if err := os.MkdirAll(filepath.Join(root, dir), utils.DirPer); err != nil {
+				t.Fatalf("failed to create %s: %v", dir, err)
+			}
+		}
+		request := filepath.Join(root, dir, "auth"+utils.ProjectExt+utils.YAML)
+		if err := os.WriteFile(request, []byte("method: GET\nurl: http://example.com\n"), utils.FilePer); err != nil {
+			t.Fatalf("failed to write request file: %v", err)
+		}
+		response := filepath.Join(root, dir, "auth"+utils.ProjectExt+utils.ResponseFileName)
+		if err := os.WriteFile(response, []byte(`{"access_token": "`+token+`"}`), utils.FilePer); err != nil {
 			t.Fatalf("failed to write response file: %v", err)
 		}
 	}
-
-	t.Cleanup(ResetCache)
-
-	ResetCache()
-	write("stale-token")
-	if got := GetValueOf("access_token", relPath); got != "stale-token" {
-		t.Fatalf("first read: got %v, want stale-token", got)
+	removePair := func(dir string) {
+		t.Helper()
+		for _, name := range []string{
+			"auth" + utils.ProjectExt + utils.YAML,
+			"auth" + utils.ProjectExt + utils.ResponseFileName,
+		} {
+			if err := os.Remove(filepath.Join(root, dir, name)); err != nil {
+				t.Fatalf("failed to remove %s: %v", name, err)
+			}
+		}
 	}
 
-	write("fresh-token")
+	writePair("", "at-the-root")
+	if got := GetValueOf("access_token", "auth"); got != "at-the-root" {
+		t.Fatalf("first read: got %v, want at-the-root", got)
+	}
+
+	// The project moves underneath the cached mapping.
+	removePair("")
+	writePair("collection", "in-the-subdirectory")
 
 	ResetCache()
-	if got := GetValueOf("access_token", relPath); got != "fresh-token" {
-		t.Errorf("after ResetCache: got %v, want fresh-token", got)
+	if got := GetValueOf("access_token", "auth"); got != "in-the-subdirectory" {
+		t.Errorf("after ResetCache: got %v, want in-the-subdirectory", got)
+	}
+}
+
+// Diagnostics for the ways a getValueOf call can fail. Each returns "", so the
+// stderr line is the only thing that tells the user which of them happened.
+func TestProcessValueOf_ReportsEachFailure(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+
+	good := filepath.Join(root, "good.json")
+	if err := os.WriteFile(good, []byte(`{"present": "yes"}`), utils.FilePer); err != nil {
+		t.Fatalf("failed to write json file: %v", err)
+	}
+	malformed := filepath.Join(root, "malformed.json")
+	if err := os.WriteFile(malformed, []byte(`{"broken":`), utils.FilePer); err != nil {
+		t.Fatalf("failed to write malformed file: %v", err)
+	}
+	// A directory fails the read with something other than "does not exist".
+	directory := filepath.Join(root, "a-directory.json")
+	if err := os.Mkdir(directory, utils.DirPer); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		key      string
+		fileName string
+		want     string
+	}{
+		{"no key", "", good, "provide key for getValueOf action"},
+		{"no file", "present", "", "provide fileName/path to key for getValueOf action"},
+		{"missing file", "present", filepath.Join(root, "absent.json"), "does not exist"},
+		{"unreadable file", "present", directory, "error occurred while reading the file"},
+		{"malformed json", "present", malformed, "has proper json content"},
+		{"absent key", "nope", good, "looking up value 'nope'"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ResetCache()
+
+			var got any
+			out := captureStderr(t, func() { got = GetValueOf(tt.key, tt.fileName) })
+
+			if got != "" {
+				t.Errorf("returned %v, want empty", got)
+			}
+			if !strings.Contains(out, tt.want) {
+				t.Errorf("stderr = %q, want it to contain %q", out, tt.want)
+			}
+		})
+	}
+}
+
+// A bare name that already carries .json resolves to that file, rather than
+// having _response.json appended to it a second time.
+func TestResolveJSONFilePath_BareNameEndingInJSON(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	want := filepath.Join(root, "seeded_response.json")
+	if err := os.WriteFile(want, []byte(`{"access_token": "seeded"}`), utils.FilePer); err != nil {
+		t.Fatalf("failed to write response file: %v", err)
+	}
+
+	got, err := resolveJSONFilePath("seeded_response.json")
+	if err != nil {
+		t.Fatalf("resolveJSONFilePath: %v", err)
+	}
+	if got != want {
+		t.Errorf("resolved to %q, want %q", got, want)
+	}
+	if v := GetValueOf("access_token", "seeded_response.json"); v != "seeded" {
+		t.Errorf("GetValueOf = %v, want seeded", v)
 	}
 }
