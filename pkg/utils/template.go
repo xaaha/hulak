@@ -160,7 +160,7 @@ func parseTemplateArg(input string) string {
 	}
 
 	switch input[0] {
-	case '"', '\'':
+	case '"', '\'', '`':
 		quote := input[0]
 		for i := 1; i < len(input); i++ {
 			if input[i] == quote {

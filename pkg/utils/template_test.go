@@ -235,6 +235,47 @@ func TestReferencedFiles(t *testing.T) {
 	}
 }
 
+func TestReferencedFiles_D3_0_ArgQuoting(t *testing.T) {
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name string
+		gql  string
+		expr string
+	}{
+		{name: "backtick raw string", gql: "backtick.gql", expr: "{{" + TemplateFuncGetFile + " `backtick.gql`}}"},
+		{name: "double quoted", gql: "double.gql", expr: "{{" + TemplateFuncGetFile + " \"double.gql\"}}"},
+		{name: "single quoted", gql: "single.gql", expr: "{{" + TemplateFuncGetFile + " 'single.gql'}}"},
+		{name: "bare argument", gql: "bare.gql", expr: "{{" + TemplateFuncGetFile + " bare.gql}}"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			writeFile(t, filepath.Join(root, tc.gql), "query { health }")
+			reqPath := filepath.Join(root, tc.gql+".hk.yaml")
+			writeFile(t, reqPath,
+				"---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: |\n      "+tc.expr+"\n")
+
+			got, err := ReferencedFiles(reqPath)
+			if err != nil {
+				t.Fatalf("ReferencedFiles(%q): unexpected error: %v", reqPath, err)
+			}
+			want := []string{filepath.Join(root, tc.gql)}
+			if !slices.Equal(got, want) {
+				t.Errorf("ReferencedFiles(%q) = %v, want %v", reqPath, got, want)
+			}
+		})
+	}
+}
+
 func TestReferencedFiles_NonexistentRequestFile(t *testing.T) {
 	if _, err := ReferencedFiles("/nonexistent/path/req.hk.yaml"); err == nil {
 		t.Error("expected error for nonexistent request file, got nil")
