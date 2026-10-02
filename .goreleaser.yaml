@@ -36,6 +36,10 @@ homebrew_casks:
     homepage: https://github.com/xaaha/hulak
     description: File based API client for terminal nerds
     license: MIT
+    # postflight_steps replaces a hooks.post.install block: goreleaser renders
+    # that one as `postflight`, which Homebrew has deprecated. The staged-path
+    # token below is escaped because goreleaser runs this file through Go's
+    # text/template before Homebrew ever sees it.
     # Go 1.27 builds target macOS 13. Without this, Homebrew installs happily
     # on 12 and the binary refuses to launch. The on_macos block is load
     # bearing: a top-level depends_on macos: sets macos_required, which makes
@@ -45,6 +49,13 @@ homebrew_casks:
       on_macos do
         depends_on macos: :ventura
       end
+
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "{{ `{{staged_path}}` }}/hulak"]
+        end
+      end
     binaries:
       - hulak
     manpages:
@@ -52,12 +63,6 @@ homebrew_casks:
     completions:
       bash: completions/hulak.bash
       zsh: completions/hulak.zsh
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hulak"]
-          end
     caveats: |
       The binary is not signed or notarized. macOS quarantine has been automatically removed.
 changelog:
