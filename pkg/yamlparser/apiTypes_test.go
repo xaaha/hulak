@@ -538,11 +538,6 @@ func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
 	}
 }
 
-// Rejecting a colon in the host subcomponent comes from net/url, gated on the
-// urlstrictcolons GODEBUG whose default turns on at go 1.26. Lowering the go
-// directive fails this, and so does GODEBUG=urlstrictcolons=0 in the
-// environment. What it cannot see is a //go:debug line in main.go, which
-// applies to the hulak binary and not to this test binary.
 func TestIsValidURL_RejectsColonInHost(t *testing.T) {
 	testCases := []struct {
 		name string
