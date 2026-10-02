@@ -672,34 +672,78 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	}
 }
 
-// D4. The message abbreviates to ".../api/auth.hk_response.json" for both
-// collections, so deduping on the text alone would lose one of them.
+// D4. Every diagnostic that names a file abbreviates the path, so two
+// same-named response files in different collections render identically and
+// deduping on the text alone would report one and swallow the other.
 func TestD4_SamePrintedPathStillReportsBothFiles(t *testing.T) {
-	root := setupHulakProject(t)
-	t.Cleanup(ResetCache)
-	ResetCache()
-
-	var paths []string
-	for _, collection := range []string{"graphql", "rest"} {
-		dir := filepath.Join(root, collection, "api")
-		if err := os.MkdirAll(dir, utils.DirPer); err != nil {
-			t.Fatalf("failed to create %s: %v", dir, err)
-		}
-		path := filepath.Join(dir, "auth"+utils.ResponseFileName)
-		if err := os.WriteFile(path, []byte(`{"other_key": "x"}`), utils.FilePer); err != nil {
-			t.Fatalf("failed to write response file: %v", err)
-		}
-		paths = append(paths, path)
+	tests := []struct {
+		name  string
+		setUp func(t *testing.T, path string)
+		want  string
+	}{
+		{
+			name: "missing key",
+			setUp: func(t *testing.T, path string) {
+				t.Helper()
+				writeResponse(t, path, `{"other_key": "x"}`)
+			},
+			want: "looking up value 'access_token'",
+		},
+		{
+			name: "malformed json",
+			setUp: func(t *testing.T, path string) {
+				t.Helper()
+				writeResponse(t, path, `{"access_token":`)
+			},
+			want: "has proper json content",
+		},
+		{
+			name: "unreadable file",
+			setUp: func(t *testing.T, path string) {
+				t.Helper()
+				if err := os.Mkdir(path, utils.DirPer); err != nil {
+					t.Fatalf("failed to create directory: %v", err)
+				}
+			},
+			want: "error occurred while reading the file",
+		},
 	}
 
-	out := captureStderr(t, func() {
-		for _, path := range paths {
-			GetValueOf("access_token", path)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := setupHulakProject(t)
+			t.Cleanup(ResetCache)
+			ResetCache()
 
-	if n := strings.Count(out, "looking up value 'access_token'"); n != 2 {
-		t.Errorf("reported %d of 2 missing keys, want 2:\n%s", n, out)
+			var paths []string
+			for _, collection := range []string{"graphql", "rest"} {
+				dir := filepath.Join(root, collection, "api")
+				if err := os.MkdirAll(dir, utils.DirPer); err != nil {
+					t.Fatalf("failed to create %s: %v", dir, err)
+				}
+				path := filepath.Join(dir, "auth"+utils.ResponseFileName)
+				tt.setUp(t, path)
+				paths = append(paths, path)
+			}
+
+			out := captureStderr(t, func() {
+				for _, path := range paths {
+					GetValueOf("access_token", path)
+				}
+			})
+
+			if n := strings.Count(out, tt.want); n != 2 {
+				t.Errorf("reported %d of 2 files, want 2:\n%s", n, out)
+			}
+		})
+	}
+}
+
+func writeResponse(t *testing.T, path, body string) {
+	t.Helper()
+
+	if err := os.WriteFile(path, []byte(body), utils.FilePer); err != nil {
+		t.Fatalf("failed to write response file: %v", err)
 	}
 }
 

@@ -43,10 +43,11 @@ func reportErrorOnce(msg string) {
 	reportErrorOnceFor(msg, msg)
 }
 
-// reportErrorOnceFor dedupes on dedupeOn rather than on msg, for messages that
-// abbreviate the path they name and so are not unique on their own.
-func reportErrorOnceFor(dedupeOn, msg string) {
-	if firstReport("error", dedupeOn) {
+// reportErrorOnceFor dedupes on filePath as well as msg, for the messages that
+// abbreviate the path they name: two same-named response files in different
+// directories render one line, and only one of them would be reported.
+func reportErrorOnceFor(filePath, msg string) {
+	if firstReport("error", filePath+"\x00"+msg) {
 		utils.PrintErrorStderr(msg)
 	}
 }
@@ -181,7 +182,7 @@ func valueCacheKey(filePath string, raw []byte, key string) string {
 func extractFromJSON(key, filePath string, raw []byte) any {
 	var content any
 	if err := json.Unmarshal(raw, &content); err != nil {
-		reportErrorOnce(fmt.Sprintf(
+		reportErrorOnceFor(filePath, fmt.Sprintf(
 			"make sure %s has proper json content: %s",
 			filepath.Base(filePath),
 			err.Error(),
@@ -191,9 +192,7 @@ func extractFromJSON(key, filePath string, raw []byte) any {
 
 	result, err := extractValueByKey(key, content)
 	if err != nil {
-		// Dedupe on the full path: the message abbreviates it, so two response
-		// files under same-named directories would collapse into one line.
-		reportErrorOnceFor(filePath+" "+key, fmt.Sprintf(
+		reportErrorOnceFor(filePath, fmt.Sprintf(
 			"looking up value '%s': make sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
