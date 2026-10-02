@@ -641,7 +641,7 @@ func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 }
 
 // D5: when a bare name matches more than one request file the warning still
-// fires, and fires once for that name however many keys are read out of it.
+// fires, and fires once for that name however many times the name is resolved.
 // The resolved file is the same every time, which is the point of warning.
 func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	root := setupHulakProject(t)
@@ -664,9 +664,15 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 		}
 	}
 
+	// Drop the resolved path between lookups so the resolver, and with it the
+	// warning, is reached twice. Otherwise the path cache holds the count at
+	// one on its own and the dedupe is never asked to do anything.
 	var token, kind any
 	out := captureStderr(t, func() {
 		token = GetValueOf("access_token", "auth")
+		pathCacheMu.Lock()
+		clear(pathCache)
+		pathCacheMu.Unlock()
 		kind = GetValueOf("token_type", "auth")
 	})
 
@@ -678,6 +684,38 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	}
 	if kind != "Bearer" {
 		t.Errorf("token_type = %v, want Bearer", kind)
+	}
+}
+
+// D4: two response files whose abbreviated paths read the same still each get
+// their diagnostic. The message names ".../api/auth.hk_response.json" for both
+// graphql/api/ and rest/api/, so deduping on the message text alone loses one.
+func TestD4_SamePrintedPathStillReportsBothFiles(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	var paths []string
+	for _, collection := range []string{"graphql", "rest"} {
+		dir := filepath.Join(root, collection, "api")
+		if err := os.MkdirAll(dir, utils.DirPer); err != nil {
+			t.Fatalf("failed to create %s: %v", dir, err)
+		}
+		path := filepath.Join(dir, "auth"+utils.ResponseFileName)
+		if err := os.WriteFile(path, []byte(`{"other_key": "x"}`), utils.FilePer); err != nil {
+			t.Fatalf("failed to write response file: %v", err)
+		}
+		paths = append(paths, path)
+	}
+
+	out := captureStderr(t, func() {
+		for _, path := range paths {
+			GetValueOf("access_token", path)
+		}
+	})
+
+	if n := strings.Count(out, "looking up value 'access_token'"); n != 2 {
+		t.Errorf("reported %d of 2 missing keys, want 2:\n%s", n, out)
 	}
 }
 
