@@ -144,10 +144,9 @@ func TestHandleCallRequest_Timeout(t *testing.T) {
 	})
 }
 
-// The ticket (#251): one tool call saves a fresh auth response, the next one
-// reads the token out of it with getValueOf. The server is a single process
-// serving both calls, so a getValueOf result held across calls sends the
-// expired token forever.
+// One tool call saves a fresh auth response, the next one reads the token out
+// of it with getValueOf. The server is a single process serving both calls, so
+// a getValueOf result held across calls sends the expired token forever.
 func TestHandleCallRequest_SavedTokenVisibleToNextCall(t *testing.T) {
 	currentToken := "fresh-token"
 

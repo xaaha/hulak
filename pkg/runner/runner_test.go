@@ -693,10 +693,9 @@ func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
 	}
 }
 
-// D6. The #253 reproduction, with no cache reset anywhere in the runner:
-// a-read sends the stale token, auth rewrites the response file, b-read has to
-// send the new one.
-func TestD6_SequentialRunSeesRefreshedToken(t *testing.T) {
+// With no cache reset anywhere in the runner: a-read sends the stale token,
+// auth rewrites the response file, b-read has to send the new one.
+func TestSequentialRunSeesRefreshedToken(t *testing.T) {
 	var mu sync.Mutex
 	var seen []string
 	issued := 0

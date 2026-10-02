@@ -16,7 +16,7 @@ import (
 )
 
 // Keyed by contents, not by stat: a refreshed token is often the same length as
-// the one it replaced, and os.SameFile is a no-op on Windows (#251, #253).
+// the one it replaced, and os.SameFile is a no-op on Windows.
 var (
 	valueCacheMu sync.RWMutex
 	valueCache   = make(map[string]any)
