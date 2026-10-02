@@ -15,7 +15,7 @@ type dryRunInput struct {
 	Name    string `json:"name"              jsonschema:"request name, e.g. login (with or without extension)"`
 	Env     string `json:"env"               jsonschema:"environment to resolve secrets against, e.g. staging (required)"`
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
-	Show    bool   `json:"show,omitempty"    jsonschema:"reveal sensitive headers instead of masking them"`
+	Show    bool   `json:"show,omitempty"    jsonschema:"reveal resolved secret values and sensitive headers instead of masking them"`
 }
 
 type dryRunOutput struct {
