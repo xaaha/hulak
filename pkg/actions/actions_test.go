@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils"
@@ -404,10 +404,11 @@ func TestGetFile_PreservesFormatting(t *testing.T) {
 	}
 }
 
-// D1: a parsed response file is reused only while the file on disk still
-// matches it. Both halves matter — memoizing the value is the #253 bug, and
-// re-reading unconditionally is what the cache exists to avoid.
-func TestD1_ParsedFileReusedUntilRewritten(t *testing.T) {
+// D1: a result is reused while the bytes it came from are unchanged, and
+// dropped the moment they are not. Both halves matter — reusing it past a
+// rewrite is the #253 bug, and parsing on every call is what the cache exists
+// to avoid.
+func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -422,16 +423,23 @@ func TestD1_ParsedFileReusedUntilRewritten(t *testing.T) {
 	}
 
 	write("stale-token")
-	first, err := readJSONFile(path)
-	if err != nil {
-		t.Fatalf("first read: %v", err)
+	if got := GetValueOf("access_token", path); got != "stale-token" {
+		t.Fatalf("first read: got %v, want stale-token", got)
 	}
-	second, err := readJSONFile(path)
+
+	// Poison the entry those bytes map to. Reading it back is the only
+	// evidence available that the second call answered from the cache instead
+	// of parsing the file again.
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("second read: %v", err)
+		t.Fatalf("read back: %v", err)
 	}
-	if !sameParsedTree(first, second) {
-		t.Error("unchanged file was parsed twice — the content cache is not being used")
+	valueCacheMu.Lock()
+	valueCache[valueCacheKey(path, raw, "access_token")] = "from-the-cache"
+	valueCacheMu.Unlock()
+
+	if got := GetValueOf("access_token", path); got != "from-the-cache" {
+		t.Errorf("unchanged file: got %v, want from-the-cache — the result was parsed again", got)
 	}
 
 	write("a-longer-fresh-token")
@@ -440,52 +448,126 @@ func TestD1_ParsedFileReusedUntilRewritten(t *testing.T) {
 	}
 }
 
-// D2: the freshness check includes file identity, so a rewrite that lands the
-// same byte count under the same timestamp is still seen. Response files are
-// renamed into place, so identity is the one signal that always moves.
-func TestD2_RenamedFileSeenDespiteMatchingSizeAndMtime(t *testing.T) {
+// D2: freshness is decided by the file's contents, not by its stat. Every
+// stat-shaped signal has a blind spot — size and mtime miss a same-length
+// rewrite inside one timestamp tick, and os.SameFile is a no-op on Windows,
+// where os.Stat stores only the path and SameFile reopens it at comparison
+// time — and a refreshed token is often exactly as long as the one it replaces.
+func TestD2_ContentsDecideFreshnessNotTheStat(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+
+	cases := map[string]func(t *testing.T, path string, replacement []byte){
+		// What a stat cannot see at all: same inode, same size, same mtime.
+		"in place, size and mtime restored": func(t *testing.T, path string, replacement []byte) {
+			t.Helper()
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("stat: %v", err)
+			}
+			f, err := os.OpenFile(path, os.O_WRONLY, utils.FilePer)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			if _, err := f.WriteAt(replacement, 0); err != nil {
+				f.Close()
+				t.Fatalf("write at: %v", err)
+			}
+			if err := f.Close(); err != nil {
+				t.Fatalf("close: %v", err)
+			}
+			if err := os.Chtimes(path, before.ModTime(), before.ModTime()); err != nil {
+				t.Fatalf("chtimes: %v", err)
+			}
+			assertStatUnchanged(t, path, before)
+		},
+		// What only os.SameFile could see, and only off Windows.
+		"renamed over, size and mtime restored": func(t *testing.T, path string, replacement []byte) {
+			t.Helper()
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("stat: %v", err)
+			}
+			tmp := path + ".replacement"
+			if err := os.WriteFile(tmp, replacement, utils.FilePer); err != nil {
+				t.Fatalf("write replacement: %v", err)
+			}
+			if err := os.Rename(tmp, path); err != nil {
+				t.Fatalf("rename: %v", err)
+			}
+			if err := os.Chtimes(path, before.ModTime(), before.ModTime()); err != nil {
+				t.Fatalf("chtimes: %v", err)
+			}
+			assertStatUnchanged(t, path, before)
+		},
+	}
+
+	for name, rewrite := range cases {
+		t.Run(name, func(t *testing.T) {
+			ResetCache()
+
+			path := filepath.Join(root, utils.SanitizeFileName(name)+utils.ResponseFileName)
+			if err := os.WriteFile(path, []byte(`{"access_token": "aaa"}`), utils.FilePer); err != nil {
+				t.Fatalf("failed to write response file: %v", err)
+			}
+			if got := GetValueOf("access_token", path); got != "aaa" {
+				t.Fatalf("first read: got %v, want aaa", got)
+			}
+
+			rewrite(t, path, []byte(`{"access_token": "bbb"}`))
+
+			if got := GetValueOf("access_token", path); got != "bbb" {
+				t.Errorf("after rewrite: got %v, want bbb", got)
+			}
+		})
+	}
+}
+
+// assertStatUnchanged fails the test unless the file still reports the size and
+// mtime it had before, which is what makes the rewrite invisible to a stat.
+func assertStatUnchanged(t *testing.T, path string, before os.FileInfo) {
+	t.Helper()
+
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat after rewrite: %v", err)
+	}
+	if after.Size() != before.Size() {
+		t.Fatalf("size moved: %d, want %d", after.Size(), before.Size())
+	}
+	if !after.ModTime().Equal(before.ModTime()) {
+		t.Fatalf("mtime moved: %v, want %v", after.ModTime(), before.ModTime())
+	}
+}
+
+// D1: the cached result is handed to every caller that asks, including
+// parallel runner workers reading different keys out of one response file.
+// Keys that return a map or a slice are the ones that share structure.
+func TestD1_ConcurrentLookupsShareNoMutableState(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
 
-	path := filepath.Join(root, "auth"+utils.ResponseFileName)
-	if err := os.WriteFile(path, []byte(`{"access_token": "aaa"}`), utils.FilePer); err != nil {
+	path := filepath.Join(root, "shapes"+utils.ResponseFileName)
+	body := `{"scalar": 1, "obj": {"a": 1, "b": 2}, "arr": [1, 2, 3], "deep": {"in": {"x": 9}}}`
+	if err := os.WriteFile(path, []byte(body), utils.FilePer); err != nil {
 		t.Fatalf("failed to write response file: %v", err)
 	}
-	original, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat: %v", err)
-	}
 
-	if got := GetValueOf("access_token", path); got != "aaa" {
-		t.Fatalf("first read: got %v, want aaa", got)
+	keys := []string{"scalar", "obj", "arr", "deep", "deep.in", "arr[1]", "obj.a"}
+	var wg sync.WaitGroup
+	for range 32 {
+		for _, key := range keys {
+			wg.Add(1)
+			go func(key string) {
+				defer wg.Done()
+				if got := GetValueOf(key, path); got == "" {
+					t.Errorf("key %q came back empty", key)
+				}
+			}(key)
+		}
 	}
-
-	// Same byte count, restored timestamp: size and mtime alone cannot tell
-	// this apart from the file already parsed.
-	tmp := filepath.Join(root, "replacement.json")
-	if err := os.WriteFile(tmp, []byte(`{"access_token": "bbb"}`), utils.FilePer); err != nil {
-		t.Fatalf("failed to write replacement: %v", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		t.Fatalf("rename: %v", err)
-	}
-	if err := os.Chtimes(path, original.ModTime(), original.ModTime()); err != nil {
-		t.Fatalf("chtimes: %v", err)
-	}
-
-	refreshed, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat after rename: %v", err)
-	}
-	if refreshed.Size() != original.Size() || !refreshed.ModTime().Equal(original.ModTime()) {
-		t.Fatalf("setup failed to match size and mtime: %d/%v vs %d/%v",
-			refreshed.Size(), refreshed.ModTime(), original.Size(), original.ModTime())
-	}
-
-	if got := GetValueOf("access_token", path); got != "bbb" {
-		t.Errorf("after rename: got %v, want bbb", got)
-	}
+	wg.Wait()
 }
 
 // D3: a bare filename is walked for once and the resolved path reused, and the
@@ -666,17 +748,6 @@ func enterDir(t *testing.T, dir string) {
 			t.Fatal(err)
 		}
 	})
-}
-
-// sameParsedTree reports whether two parsed JSON documents are the same
-// in-memory map, which is how a cache hit is distinguished from a re-parse
-// that happens to produce an equal value.
-func sameParsedTree(a, b any) bool {
-	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
-	if av.Kind() != reflect.Map || bv.Kind() != reflect.Map {
-		return false
-	}
-	return av.Pointer() == bv.Pointer()
 }
 
 // ResetCache drops parsed response files wholesale. Entries already invalidate
