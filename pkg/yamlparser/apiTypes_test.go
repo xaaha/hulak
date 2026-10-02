@@ -558,13 +558,16 @@ func TestIsValidURL_RejectsColonInHost(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			u := URL(tc.raw)
-			if got := u.IsValidURL(); got != tc.want {
-				t.Errorf(
-					"IsValidURL(%q) = %v, want %v; host-colon rejection needs "+
-						"urlstrictcolons, whose default is on from the go 1.26 directive",
-					tc.raw, got, tc.want,
-				)
+			got := u.IsValidURL()
+			if got == tc.want {
+				return
 			}
+			hint := ""
+			if !tc.want {
+				hint = "; rejection needs urlstrictcolons, whose default is on" +
+					" from the go 1.26 directive"
+			}
+			t.Errorf("IsValidURL(%q) = %v, want %v%s", tc.raw, got, tc.want, hint)
 		})
 	}
 }
