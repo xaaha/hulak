@@ -52,15 +52,9 @@ func GetValueOf(key, fileName string) any {
 	return result
 }
 
-// ResetCache drops every memoized getValueOf result. Call it at the start of
-// each unit of work in a process that outlives one command: the MCP server
-// serves tool calls for hours, so a request that saves a fresh auth response
-// must be visible to the next one that reads it with getValueOf (#251).
-//
-// The CLI does not call this, which leaves one case untouched: in a single
-// `hulak run --sequential <dir>`, a file that reads a token before the file
-// that refreshes it keeps the stale value for the rest of that run. That is
-// long-standing CLI behaviour, not something this cache reset changed.
+// ResetCache drops every memoized getValueOf result. The cache has no
+// invalidation, so any process serving more than one command must call this
+// between them or it will serve a token that has since been rewritten (#251).
 func ResetCache() {
 	valuesCacheMutex.Lock()
 	defer valuesCacheMutex.Unlock()

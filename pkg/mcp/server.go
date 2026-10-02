@@ -93,13 +93,8 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 // getFile/getValueOf resolution key off the working directory, so only one
 // request may hold it at a time.
 //
-// Every tool call that resolves templates starts with an empty getValueOf
-// cache (write_request resolves none and does not come through here). That cache is keyed
-// by file name and key with no project component and no invalidation, which is
-// harmless in a one-shot CLI process but wrong here: this server runs for the
-// life of the editor session, so a token saved by one call would never be seen
-// by the next, and two projects holding the same request name would share an
-// entry (#251).
+// Resets the getValueOf cache per call: this process serves tool calls for the
+// life of the editor session, and that cache never invalidates itself.
 func (s *Server) withProjectDir(root string, fn func() error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
