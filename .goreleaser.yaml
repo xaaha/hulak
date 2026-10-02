@@ -37,9 +37,14 @@ homebrew_casks:
     description: File based API client for terminal nerds
     license: MIT
     # Go 1.27 builds target macOS 13. Without this, Homebrew installs happily
-    # on 12 and the binary refuses to launch.
+    # on 12 and the binary refuses to launch. The on_macos block is load
+    # bearing: a top-level depends_on macos: sets macos_required, which makes
+    # the cask refuse to install on Linux Homebrew even though it ships a
+    # working on_linux block.
     custom_block: |
-      depends_on macos: ">= :ventura"
+      on_macos do
+        depends_on macos: :ventura
+      end
     binaries:
       - hulak
     manpages:

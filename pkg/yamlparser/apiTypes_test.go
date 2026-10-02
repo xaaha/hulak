@@ -539,9 +539,10 @@ func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
 }
 
 // Rejecting a colon in the host subcomponent comes from net/url, gated on the
-// urlstrictcolons GODEBUG whose default turns on at go 1.26. This records which
-// shapes hulak accepts under the directive in go.mod; it cannot see an explicit
-// //go:debug or GODEBUG override, which beat the directive.
+// urlstrictcolons GODEBUG whose default turns on at go 1.26. Lowering the go
+// directive fails this, and so does GODEBUG=urlstrictcolons=0 in the
+// environment. What it cannot see is a //go:debug line in main.go, which
+// applies to the hulak binary and not to this test binary.
 func TestIsValidURL_RejectsColonInHost(t *testing.T) {
 	testCases := []struct {
 		name string
