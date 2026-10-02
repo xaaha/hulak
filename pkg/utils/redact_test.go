@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -130,16 +133,80 @@ func TestRedactHeaders_NilMap(t *testing.T) {
 }
 
 func TestD1_5_MaskShape(t *testing.T) {
-	const value = "s3cr3t-value-0123456789abcd"
-	r := NewValueRedactor(map[string]any{"client_secret": value}, true, nil)
+	for _, tc := range []struct {
+		value string
+		want  string
+	}{
+		{"s3cr3t-value-0123456789abcd", `^body=••••\(27 chars, #[0-9a-f]{4}\)$`},
+		{"токен-значение", `^body=••••\(27 chars, #[0-9a-f]{4}\)$`},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			r := NewValueRedactor(map[string]any{"client_secret": tc.value}, true, nil)
 
-	got := r.Redact("body=" + value)
-	want := fmt.Sprintf("body=%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
-	if got != want {
-		t.Errorf("Redact() = %q, want %q", got, want)
+			got := r.Redact("body=" + tc.value)
+			want := fmt.Sprintf(
+				"body=%s(%d chars, #%s)", MaskedValue, len(tc.value), fingerprint(tc.value),
+			)
+			if got != want {
+				t.Errorf("Redact() = %q, want %q", got, want)
+			}
+			if !regexp.MustCompile(tc.want).MatchString(got) {
+				t.Errorf("mask does not match the agreed shape: %q", got)
+			}
+		})
 	}
-	if !regexp.MustCompile(`^body=••••\(27 chars, #[0-9a-f]{4}\)$`).MatchString(got) {
-		t.Errorf("mask does not match the agreed shape: %q", got)
+}
+
+// fingerprintProbeEnv switches the test binary into its subprocess role.
+const fingerprintProbeEnv = "HULAK_FINGERPRINT_PROBE"
+
+// Several values, so an accidental collision on one 4-hex fingerprint cannot
+// make TestD1_5_SaltIsRandomPerProcess flake.
+var fingerprintProbeValues = []string{
+	"same-secret-value-across-processes",
+	"another-secret-value-entirely",
+	"a-third-secret-value-for-entropy",
+}
+
+// TestFingerprintProbe is the subprocess half of
+// TestD1_5_SaltIsRandomPerProcess. It does nothing in a normal run.
+func TestFingerprintProbe(t *testing.T) {
+	if os.Getenv(fingerprintProbeEnv) == "" {
+		t.Skip("runs only as the fingerprint subprocess")
+	}
+	for _, value := range fingerprintProbeValues {
+		fmt.Printf("FINGERPRINT=%s\n", fingerprint(value))
+	}
+}
+
+func TestD1_5_SaltIsRandomPerProcess(t *testing.T) {
+	if len(fingerprintSalt) != 32 {
+		t.Errorf("salt is %d bytes, want 32", len(fingerprintSalt))
+	}
+	if !slices.ContainsFunc(fingerprintSalt, func(b byte) bool { return b != 0 }) {
+		t.Error("salt is all zero, so it is not from crypto/rand")
+	}
+
+	probe := func() string {
+		//nolint:gosec // G204 re-executing this test binary is the only way to read a second process's salt
+		cmd := exec.Command(os.Args[0], "-test.run=^TestFingerprintProbe$")
+		cmd.Env = append(os.Environ(), fingerprintProbeEnv+"=1")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fingerprint subprocess: %v\n%s", err, out)
+		}
+		found := regexp.MustCompile(`FINGERPRINT=([0-9a-f]{4})`).FindAllSubmatch(out, -1)
+		if len(found) != len(fingerprintProbeValues) {
+			t.Fatalf("subprocess printed %d fingerprints:\n%s", len(found), out)
+		}
+		var all []string
+		for _, match := range found {
+			all = append(all, string(match[1]))
+		}
+		return strings.Join(all, "-")
+	}
+	if first, second := probe(), probe(); first == second {
+		t.Errorf("two processes shared the fingerprints %q, so the salt is compiled in", first)
 	}
 }
 

@@ -86,6 +86,36 @@ func newSecretRedactor(t *testing.T, path string, secrets map[string]any) *utils
 	return r
 }
 
+// A redactor that cannot be built must stop the request, not mask nothing.
+func TestD1_1_RedactorBuildFailsClosed(t *testing.T) {
+	r, err := NewSecretRedactor(
+		filepath.Join(t.TempDir(), "absent.hk.yaml"),
+		map[string]any{"client_secret": "super-secret-client-value"},
+	)
+	if err == nil {
+		t.Error("an unreadable request file must fail the redactor build")
+	}
+	if r != nil {
+		t.Error("a failed build must not hand back a redactor")
+	}
+}
+
+// Both halves of the footer scope meet only here: the names the request file
+// references, and the values that resolved empty.
+func TestD1_4a_FooterNamesOnlyTheReferencedEmptyVariables(t *testing.T) {
+	chdirToProject(t, true)
+	path := writeRequestFile(t, "client_secret", "tenant_id")
+	got := newSecretRedactor(t, path, map[string]any{
+		"client_secret": "",
+		"tenant_id":     "",
+		"unused_token":  "",
+		"api_token":     "a-value-that-resolved",
+	}).UnresolvedLine()
+	if got != "// unresolved: client_secret, tenant_id" {
+		t.Errorf("UnresolvedLine() = %q", got)
+	}
+}
+
 func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 	const plainValue = "https://api.example.com/v1/users"
 	const secretValue = "super-secret-client-value"
