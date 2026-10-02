@@ -89,6 +89,7 @@ func renderedForms(value string) []string {
 	for _, encoded := range []string{
 		url.QueryEscape(value),
 		url.PathEscape(value),
+		(&url.URL{Path: value}).EscapedPath(),
 		jsonStringForm(value),
 	} {
 		if !slices.Contains(forms, encoded) {

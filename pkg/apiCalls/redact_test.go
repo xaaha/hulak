@@ -171,6 +171,38 @@ func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 	}
 }
 
+// pathLeakyValues render differently under net/url's path encoding than under
+// PathEscape: they combine one of / ; , with a character both escape.
+var pathLeakyValues = []string{
+	"pa55 word/with slash",
+	"токен/значение",
+	"alpha,beta gamma,delta",
+}
+
+func TestLeak4_SecretInURLPathIsMasked(t *testing.T) {
+	for _, secret := range pathLeakyValues {
+		t.Run(secret, func(t *testing.T) {
+			info := &yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://api.example.com/v1/" + secret + "/profile",
+			}
+			out, err := FormatDryRun(
+				info, false,
+				utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil),
+			)
+			if err != nil {
+				t.Fatalf("FormatDryRun: %v", err)
+			}
+			if rendered := (&url.URL{Path: secret}).EscapedPath(); strings.Contains(out, rendered) {
+				t.Errorf("dry run leaked the URL-path form %q:\n%s", rendered, out)
+			}
+			if !strings.Contains(out, fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(secret))) {
+				t.Errorf("expected the value mask in the output:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 	client := &MockHTTPClient{
 		DoFunc: func(_ *http.Request) (*http.Response, error) {

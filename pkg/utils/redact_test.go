@@ -235,6 +235,34 @@ func TestLeak1_EncodedFormsAreMasked(t *testing.T) {
 	}
 }
 
+// pathLeakyValues render differently under net/url's path encoding than under
+// PathEscape: they combine one of / ; , with a character both escape.
+var pathLeakyValues = []string{
+	"pa55 word/with slash",
+	"токен/значение",
+	"alpha,beta gamma,delta",
+	`semi;colon and "quote"`,
+}
+
+func TestLeak4_URLPathFormIsMasked(t *testing.T) {
+	for _, value := range pathLeakyValues {
+		t.Run(value, func(t *testing.T) {
+			rendered := (&url.URL{Path: value}).EscapedPath()
+			if rendered == url.PathEscape(value) {
+				t.Fatalf("probe is not distinct from PathEscape: %q", rendered)
+			}
+			got := NewValueRedactor(map[string]any{"client_secret": value}, true, nil).
+				Redact("https://api.example.com/v1/" + rendered + "/profile")
+			if strings.Contains(got, rendered) {
+				t.Errorf("URL-path form left in clear: %q", got)
+			}
+			if !strings.Contains(got, maskFor(value)) {
+				t.Errorf("URL-path form not replaced by the value mask: %q", got)
+			}
+		})
+	}
+}
+
 func TestLeak2_NonStringVaultValuesAreMasked(t *testing.T) {
 	for name, raw := range map[string]any{
 		"json_number_int":   json.Number("987654321098765"),
