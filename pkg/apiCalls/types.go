@@ -53,6 +53,8 @@ type RequestInfo struct {
 	Method  string            `json:"method,omitempty"`
 	Headers map[string]string `json:"headers,omitempty"`
 	Body    any               `json:"body,omitempty"`
+	// The debug counterpart to the dry-run footer, which JSON cannot carry.
+	Unresolved []string `json:"unresolved,omitempty"`
 }
 
 // ResponseInfo has response body info

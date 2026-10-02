@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,9 +18,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// leakyValues exercise the transforms a rendered request applies to a value:
-// percent-encoding in a query string or urlencoded body, and JSON string
-// escaping in a JSON body.
+// leakyValues carry characters a rendered request percent- or JSON-escapes.
 var leakyValues = []string{
 	"super-secret-client-value",
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
@@ -27,8 +26,7 @@ var leakyValues = []string{
 	`with space and \ backslash`,
 }
 
-// assertNoSecretForm fails when out carries value in any spelling a rendered
-// request can produce, not just the verbatim one.
+// assertNoSecretForm rejects every spelling of value, not just the verbatim one.
 func assertNoSecretForm(t *testing.T, where, out, value string) {
 	t.Helper()
 	quoted, err := json.Marshal(value)
@@ -47,8 +45,7 @@ func assertNoSecretForm(t *testing.T, where, out, value string) {
 	}
 }
 
-// chdirToProject moves into a fresh project root so vault.DetectStore sees
-// only what the test puts there.
+// chdirToProject moves into a fresh project root for vault.DetectStore.
 func chdirToProject(t *testing.T, withVault bool) {
 	t.Helper()
 	oldDir, err := os.Getwd()
@@ -83,8 +80,7 @@ func chdirToProject(t *testing.T, withVault bool) {
 	}
 }
 
-// writeRequestFile drops a request file in the current project that
-// references every name, so NewSecretRedactor can scope its footer.
+// writeRequestFile drops a request referencing every name, for footer scoping.
 func writeRequestFile(t *testing.T, names ...string) string {
 	t.Helper()
 	content := "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\nurlparams:\n"
@@ -329,9 +325,7 @@ func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
 	})
 }
 
-// TestD1_2_DebugMasksHeaderNamesToo pins the header-name layer on the debug
-// path: a getValueOf-style token never reaches the secrets map, so only
-// RedactHeaders can hide it.
+// A getValueOf-class token never reaches the secrets map: only names cover it.
 func TestD1_2_DebugMasksHeaderNamesToo(t *testing.T) {
 	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"
 	const bodySecret = "super-secret-client-value"
@@ -369,8 +363,7 @@ func TestD1_2_DebugMasksHeaderNamesToo(t *testing.T) {
 	}
 }
 
-// TestD1_3_ShowRevealsAtTheRedactorSeam pins that RequestOptions.Show turns
-// value masking off, not just header-name masking.
+// Show must turn value masking off, not just header-name masking.
 func TestD1_3_ShowRevealsAtTheRedactorSeam(t *testing.T) {
 	const secret = "super-secret-client-value"
 	chdirToProject(t, true)
@@ -416,5 +409,45 @@ func TestD1_3_ShowRevealsThroughDryRun(t *testing.T) {
 	}
 	if !strings.Contains(out, url.QueryEscape(secret)) {
 		t.Errorf("Show must leave the resolved secret in the clear:\n%s", out)
+	}
+}
+
+// An empty value inside a name-masked header is byte-identical to a resolved one.
+func TestD1_4a_DebugSurfaceCarriesUnresolved(t *testing.T) {
+	client := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return NewMockResponse(200, `{"ok":true}`), nil
+		},
+	}
+	info := yamlparser.APIInfo{
+		Method:  "POST",
+		URL:     "https://api.example.com/token",
+		Headers: map[string]string{"Authorization": "Bearer "},
+		Body:    strings.NewReader("client_secret="),
+	}
+	redactor := utils.NewValueRedactor(map[string]any{
+		"client_secret": "",
+		"tenant_id":     "",
+		"unused_token":  "",
+	}, true, []string{"client_secret", "tenant_id"})
+
+	resp, err := StandardCallWithClient(context.Background(), info, true, redactor, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if resp.Request == nil {
+		t.Fatal("debug call must carry request info")
+	}
+	want := []string{"client_secret", "tenant_id"}
+	if !slices.Equal(resp.Request.Unresolved, want) {
+		t.Errorf("Request.Unresolved = %v, want %v", resp.Request.Unresolved, want)
+	}
+
+	shown, err := StandardCallWithClient(context.Background(), info, true, nil, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if shown.Request.Unresolved != nil {
+		t.Errorf("a nil redactor reports nothing, got %v", shown.Request.Unresolved)
 	}
 }

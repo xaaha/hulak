@@ -117,8 +117,7 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	}
 }
 
-// auth2Redactor returns the value masker for the auth2 echo, or nil when show
-// asks for everything in the clear.
+// auth2Redactor returns the masker for the auth2 echo, or nil when show is set.
 func auth2Redactor(
 	filePath string,
 	secretsMap map[string]any,

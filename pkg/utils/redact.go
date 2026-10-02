@@ -55,21 +55,15 @@ func RedactHeaders(headers map[string]string, show bool) map[string]string {
 	return out
 }
 
-// minMaskedValueLen is the shortest resolved value worth replacing. Below it
-// the value is short enough to occur in unrelated text, and masking would
-// blank out more than the secret.
+// Below this, a value also occurs in unrelated text and masking blanks that out.
 const minMaskedValueLen = 8
 
-// secretKeyHints classify a key name as holding a secret when the values came
-// from plain env files rather than the encrypted vault. Matched as a
-// case-insensitive substring.
+// Matched as a case-insensitive substring, so client_secret_v2 still counts.
 var secretKeyHints = []string{
 	"secret", "token", "password", "key", "credential", "auth", "jwt",
 }
 
-// fingerprintSalt makes a mask's fingerprint comparable within one process and
-// meaningless outside it. Without it, the fingerprint of a weak secret can be
-// brute forced by hashing candidates until one matches.
+// Unsalted, a weak secret's fingerprint falls to hashing candidates until one matches.
 var fingerprintSalt = randomFingerprintSalt()
 
 func randomFingerprintSalt() []byte {
@@ -89,8 +83,7 @@ func maskFor(value string) string {
 	return fmt.Sprintf("%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
 }
 
-// A rendered form missing from this list is printed in clear: replacement
-// matches literal text, and the renderer escapes before the redactor runs.
+// A form missing here prints in clear: the renderer escapes before the redactor runs.
 func renderedForms(value string) []string {
 	forms := []string{value}
 	for _, encoded := range []string{
@@ -113,8 +106,7 @@ func jsonStringForm(value string) string {
 	return string(quoted[1 : len(quoted)-1])
 }
 
-// The vault decodes numbers as json.Number, so a type assertion to string
-// drops every numeric secret from the mask list and prints it in clear.
+// The vault decodes numbers as json.Number, which a string assertion would drop.
 func secretText(raw any) (string, bool) {
 	switch value := raw.(type) {
 	case string:
@@ -178,8 +170,7 @@ func NewValueRedactor(values map[string]any, allSecret bool, referenced []string
 			}
 		}
 	}
-	// Longest first, so a secret that is a substring of another is never
-	// replaced inside it and left partially revealed.
+	// Longest first: a secret inside another must not be left partially revealed.
 	sort.Slice(r.secrets, func(i, j int) bool {
 		if len(r.secrets[i].value) != len(r.secrets[j].value) {
 			return len(r.secrets[i].value) > len(r.secrets[j].value)
@@ -201,6 +192,15 @@ func (r *ValueRedactor) Redact(text string) string {
 		text = strings.ReplaceAll(text, s.value, s.mask)
 	}
 	return text
+}
+
+// Unresolved names the variables the request references that resolved to an
+// empty string, sorted. A nil receiver reports none.
+func (r *ValueRedactor) Unresolved() []string {
+	if r == nil {
+		return nil
+	}
+	return slices.Clone(r.unresolved)
 }
 
 // UnresolvedLine names the variables the request references that resolved to

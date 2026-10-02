@@ -200,9 +200,7 @@ func TestD1_5_NilRedactorLeavesTextAlone(t *testing.T) {
 	}
 }
 
-// leakyValues exercise the transforms a rendered request applies to a value:
-// percent-encoding in a query string or urlencoded body, and JSON string
-// escaping in a JSON body.
+// leakyValues carry characters a rendered request percent- or JSON-escapes.
 var leakyValues = []string{
 	"super-secret-client-value",
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",

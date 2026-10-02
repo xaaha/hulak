@@ -124,10 +124,11 @@ func processResponse(
 	}
 	return CustomResponse{
 		Request: &RequestInfo{
-			URL:     redact.Redact(req.URL.String()),
-			Method:  req.Method,
-			Headers: requestHeaders,
-			Body:    redact.Redact(string(reqBody)),
+			URL:        redact.Redact(req.URL.String()),
+			Method:     req.Method,
+			Headers:    requestHeaders,
+			Body:       redact.Redact(string(reqBody)),
+			Unresolved: redact.Unresolved(),
 		},
 		Response: &ResponseInfo{
 			StatusCode: resp.StatusCode,

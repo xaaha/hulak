@@ -78,8 +78,7 @@ const DefaultTimeout = 60 * time.Second
 // for a session without editing request files or passing --timeout.
 const HulakTimeoutEnv = "HULAK_TIMEOUT"
 
-// warnIfShowHasNoEffect tells the user --show will reveal nothing, which is
-// true only when neither --dry-run nor --debug prints a request to reveal.
+// warnIfShowHasNoEffect warns when --show has no printed request to reveal.
 func warnIfShowHasNoEffect(f *Flags) {
 	if f.Show && !f.DryRun && !f.Debug {
 		utils.PrintWarningStderr("--show has no effect without --dry-run or --debug")

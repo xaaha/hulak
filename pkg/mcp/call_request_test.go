@@ -210,17 +210,14 @@ func TestHandleCallRequest_SavedTokenVisibleToNextCall(t *testing.T) {
 	}
 }
 
-// leakyValues exercise the transforms a rendered request applies to a value:
-// percent-encoding in a query string or urlencoded body, and JSON string
-// escaping in a JSON body.
+// leakyValues carry characters a rendered request percent- or JSON-escapes.
 var leakyValues = []string{
 	"super-secret-client-value",
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
 	`pa$$w"rd-1234567890`,
 }
 
-// assertNoSecretForm fails when out carries value in any spelling a rendered
-// request can produce, not just the verbatim one.
+// assertNoSecretForm rejects every spelling of value, not just the verbatim one.
 func assertNoSecretForm(t *testing.T, where, out, value string) {
 	t.Helper()
 	quoted, err := json.Marshal(value)
@@ -239,9 +236,7 @@ func assertNoSecretForm(t *testing.T, where, out, value string) {
 	}
 }
 
-// TestD1_3_MCPMasksSecretsOnBothSurfaces drives the two MCP tools that render
-// a request and checks neither hands the agent a resolved secret in clear
-// text.
+// Neither MCP tool that renders a request may hand the agent a secret in clear.
 func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 	// Never in the secrets map, so only header-name masking can hide it.
 	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"

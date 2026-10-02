@@ -23,8 +23,7 @@ var DefaultClient httpclient.HTTPClient = httpclient.New()
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
 //
-// redact masks resolved secret values in the debug request echo. Pass nil to
-// leave the echo in the clear, as --show does.
+// redact masks resolved secret values in the debug echo; nil reveals them.
 func StandardCall(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
@@ -49,8 +48,7 @@ func closeBody(r io.Reader) {
 	}
 }
 
-// A *url.Error prints the full URL, so an unredacted transport failure hands
-// the caller the query string in clear.
+// A *url.Error prints the full URL, query string and resolved secrets included.
 func redactErr(redact *utils.ValueRedactor, err error) error {
 	if redact == nil || err == nil {
 		return err

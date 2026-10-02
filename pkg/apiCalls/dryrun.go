@@ -35,8 +35,7 @@ func DryRun(opts RequestOptions) (string, error) {
 	return FormatDryRun(&apiInfo, opts.Show, redact)
 }
 
-// outputRedactor returns the value masker for opts, or nil when opts.Show
-// asks for everything in the clear.
+// outputRedactor returns the masker for opts, or nil when opts.Show is set.
 func outputRedactor(opts RequestOptions) (*utils.ValueRedactor, error) {
 	if opts.Show {
 		return nil, nil
@@ -66,10 +65,8 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool, redact *utils.ValueReda
 //
 // Sensitive headers (Authorization, Cookie, etc.) are masked unless show
 // is true. Body is pretty-printed when JSON, otherwise written verbatim.
-// redact, when non-nil, additionally replaces every resolved secret value
-// wherever it lands: query string, header, or body, and appends a footer
-// naming the variables that resolved empty. An empty value leaves nothing in
-// the output to replace, so it is reported rather than masked.
+// redact, when non-nil, also masks resolved secret values wherever they land
+// and appends the unresolved footer.
 //
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
