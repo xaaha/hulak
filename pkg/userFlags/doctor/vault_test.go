@@ -215,8 +215,8 @@ func TestCheckIdentityNotInGit(t *testing.T) {
 
 		// Init real git repo and track the identity file
 		restore := chdirTemp(t, repoDir)
-		gitInit(t)
-		gitAddCommit(t, "track identity")
+		gitInit(t, repoDir)
+		gitAddCommit(t, repoDir, "track identity")
 		restore()
 
 		t.Setenv("XDG_CONFIG_HOME", configDir)
@@ -946,8 +946,8 @@ func TestIsFileGitTracked(t *testing.T) {
 		}
 
 		restore := chdirTemp(t, tmpDir)
-		gitInit(t)
-		gitAddCommit(t, "add file")
+		gitInit(t, tmpDir)
+		gitAddCommit(t, tmpDir, "add file")
 		restore()
 
 		if !isFileGitTracked(tmpDir, filePath) {
@@ -963,8 +963,8 @@ func TestIsFileGitTracked(t *testing.T) {
 			t.Fatal(err)
 		}
 		restore := chdirTemp(t, tmpDir)
-		gitInit(t)
-		gitAddCommit(t, "initial")
+		gitInit(t, tmpDir)
+		gitAddCommit(t, tmpDir, "initial")
 		restore()
 
 		// Now add an untracked file

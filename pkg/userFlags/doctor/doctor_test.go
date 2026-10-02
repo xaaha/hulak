@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -49,30 +51,79 @@ func createEnvFile(t *testing.T, envDir, name string, perm os.FileMode, content 
 	}
 }
 
-// gitInit initializes a git repository in the current working directory.
-func gitInit(t *testing.T) {
+// repoScopingEnv are the variables through which git points a command at a
+// repository other than the one its working directory sits in. GIT_DIR in
+// particular outranks the working directory entirely.
+var repoScopingEnv = []string{
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_COMMON_DIR",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+}
+
+// git sets the variables above for hook processes, so `go test` invoked from a
+// pre-commit hook inherits them and every git command here, the fixtures below
+// and the checks under test alike, would act on the developer's own repository.
+// Clearing them process-wide covers the checks, which build their own commands.
+func TestMain(m *testing.M) {
+	for _, key := range repoScopingEnv {
+		_ = os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
+}
+
+// gitCmd builds a git command rooted at dir with the repo-scoping variables
+// removed, so an inherited environment cannot redirect it away from dir.
+func gitCmd(dir string, args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	for _, kv := range os.Environ() {
+		if key, _, ok := strings.Cut(kv, "="); ok && slices.Contains(repoScopingEnv, key) {
+			continue
+		}
+		cmd.Env = append(cmd.Env, kv)
+	}
+	return cmd
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", "init")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init failed: %v\n%s", err, output)
+	if output, err := gitCmd(dir, args...).CombinedOutput(); err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
 	}
 }
 
-// gitAddCommit stages all files and creates a commit in the current directory.
-func gitAddCommit(t *testing.T, message string) {
+// commitCount reports how many commits dir's repository holds.
+func commitCount(t *testing.T, dir string) int {
 	t.Helper()
-	add := exec.Command("git", "add", "-A")
-	if output, err := add.CombinedOutput(); err != nil {
-		t.Fatalf("git add failed: %v\n%s", err, output)
+	out, err := gitCmd(dir, "rev-list", "--count", "--all").Output()
+	if err != nil {
+		t.Fatalf("git rev-list in %s: %v", dir, err)
 	}
-	commit := exec.Command("git",
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		t.Fatalf("parsing commit count %q: %v", out, err)
+	}
+	return n
+}
+
+// gitInit initializes a git repository in dir.
+func gitInit(t *testing.T, dir string) {
+	t.Helper()
+	runGit(t, dir, "init")
+}
+
+// gitAddCommit stages all files in dir and creates a commit there.
+func gitAddCommit(t *testing.T, dir, message string) {
+	t.Helper()
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir,
 		"-c", "user.name=Test",
 		"-c", "user.email=test@test.com",
 		"commit", "--allow-empty-message", "-m", message,
 	)
-	if output, err := commit.CombinedOutput(); err != nil {
-		t.Fatalf("git commit failed: %v\n%s", err, output)
-	}
 }
 
 // findingsContain returns true if any finding message or fix contains substr.
@@ -329,14 +380,14 @@ func TestCheckGitHistory(t *testing.T) {
 		restore := chdirTemp(t, tmpDir)
 		defer restore()
 
-		gitInit(t)
+		gitInit(t, tmpDir)
 
 		if err := os.WriteFile(
 			filepath.Join(envDir, "readme.txt"), []byte("hello"), utils.FilePer,
 		); err != nil {
 			t.Fatal(err)
 		}
-		gitAddCommit(t, "initial commit")
+		gitAddCommit(t, tmpDir, "initial commit")
 
 		findings := checkGitHistory()
 		if len(findings) != 0 {
@@ -350,10 +401,10 @@ func TestCheckGitHistory(t *testing.T) {
 		restore := chdirTemp(t, tmpDir)
 		defer restore()
 
-		gitInit(t)
+		gitInit(t, tmpDir)
 
 		createEnvFile(t, envDir, "global", utils.SecretPer, "SECRET=oops")
-		gitAddCommit(t, "add secrets")
+		gitAddCommit(t, tmpDir, "add secrets")
 
 		findings := checkGitHistory()
 		if len(findings) == 0 {
@@ -366,4 +417,34 @@ func TestCheckGitHistory(t *testing.T) {
 			t.Errorf("expected fix mentioning filter-repo, got: %+v", findings)
 		}
 	})
+}
+
+// git exports GIT_DIR and GIT_INDEX_FILE to its hooks, so a `go test` run from
+// a pre-commit hook inherits them and git then ignores the working directory.
+// Left unhandled, the fixtures above commit to the developer's own repository.
+func TestGitFixturesIgnoreInheritedRepoEnv(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	sentinel := t.TempDir()
+	runGit(t, sentinel, "init")
+	t.Setenv("GIT_DIR", filepath.Join(sentinel, ".git"))
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(sentinel, ".git", "index"))
+
+	fixture := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(fixture, "tracked.txt"), []byte("data"), utils.FilePer,
+	); err != nil {
+		t.Fatal(err)
+	}
+	gitInit(t, fixture)
+	gitAddCommit(t, fixture, "fixture commit")
+
+	if got := commitCount(t, fixture); got != 1 {
+		t.Errorf("fixture repository: got %d commits, want 1", got)
+	}
+	if got := commitCount(t, sentinel); got != 0 {
+		t.Errorf("repository named by GIT_DIR was written to: got %d commits, want 0", got)
+	}
 }
