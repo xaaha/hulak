@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // chdirToProject moves into a fresh project root so vault.DetectStore sees
@@ -71,4 +72,38 @@ func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 			t.Errorf("secret-named key must still be masked: %q", got)
 		}
 	})
+}
+
+func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
+	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"
+	const bodySecret = "super-secret-client-value"
+	info := &yamlparser.APIInfo{
+		Method:    "POST",
+		URL:       "https://api.example.com/token",
+		URLParams: map[string]string{"client_secret": bodySecret},
+		Headers: map[string]string{
+			"Authorization": "Bearer " + headerToken,
+			"Content-Type":  "application/x-www-form-urlencoded",
+		},
+		Body: strings.NewReader("grant_type=client_credentials&client_secret=" + bodySecret),
+	}
+	redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true)
+
+	out, err := FormatDryRun(info, false, redactor)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+
+	if strings.Contains(out, headerToken) {
+		t.Errorf("header-name masking must still cover a token absent from the secrets map:\n%s", out)
+	}
+	if !strings.Contains(out, "Authorization: "+utils.MaskedValue+"\n") {
+		t.Errorf("Authorization should stay masked by header name:\n%s", out)
+	}
+	if strings.Contains(out, bodySecret) {
+		t.Errorf("resolved secret leaked into the body or query string:\n%s", out)
+	}
+	if !strings.Contains(out, utils.MaskedValue+"(25 chars, #") {
+		t.Errorf("expected the value mask in the output:\n%s", out)
+	}
 }

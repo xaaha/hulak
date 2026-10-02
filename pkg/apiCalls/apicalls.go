@@ -156,7 +156,7 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 	}
 
 	if opts.DryRun {
-		if err := PrintDryRun(&apiInfo, opts.Show); err != nil {
+		if err := PrintDryRun(&apiInfo, opts.Show, dryRunRedactor(opts)); err != nil {
 			return nil, "", err
 		}
 		return nil, "", nil
