@@ -33,7 +33,7 @@ func New() *cli.Command {
 	dryRun := cliflags.RegisterDryRun(fs)
 	show := cliflags.RegisterShow(
 		fs,
-		"Reveal secret values and sensitive headers in --dry-run and --debug output",
+		"Reveal secret values and sensitive headers in --dry-run and --debug output and in errors",
 	)
 	out := cliflags.RegisterOutput(
 		fs,
