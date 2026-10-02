@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goccy/go-yaml/parser"
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 const strayLineRequest = "method: POST\n// stray\nurl: \"https://e.com\"\n"
@@ -16,21 +17,20 @@ func TestD21FinalStructForAPIRejectsStrayLine(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error for a split request file, got ok=%v", ok)
 	}
-	if !strings.Contains(err.Error(), path) {
-		t.Errorf("error should name the file %q, got %q", path, err)
-	}
-	if !strings.Contains(err.Error(), "line 2") {
-		t.Errorf("error should name line 2, got %q", err)
+	if want := testutil.SingleDocError(path, 2); err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
 	}
 }
 
 func TestD21PeekConfigRejectsStrayLine(t *testing.T) {
 	path := createTempYAMLFile(t, "kind: API\n"+strayLineRequest)
 
-	if _, err := PeekConfig(path); err == nil {
+	_, err := PeekConfig(path)
+	if err == nil {
 		t.Fatal("expected an error for a split request file")
-	} else if !strings.Contains(err.Error(), "line 3") {
-		t.Errorf("error should name line 3, got %q", err)
+	}
+	if want := testutil.SingleDocError(path, 3); err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
 	}
 }
 

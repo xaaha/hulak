@@ -4,8 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestHandleWriteRequest(t *testing.T) {
@@ -145,16 +146,21 @@ func TestHandleWriteRequest_SchemaValidation(t *testing.T) {
 }
 
 func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
-	s, _ := NewServer(map[string]string{"api": projectDir(t)}, "v")
+	schema, err := os.ReadFile("../../assets/schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewServer(map[string]string{"api": projectDir(t)}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetRequestSchema(schema)
 
-	err := s.validateRequestContent("method: POST\n// stray\nurl: \"https://e.com\"\n")
+	err = s.validateRequestContent("method: POST\n// stray\nurl: \"https://e.com\"\n")
 	if err == nil {
 		t.Fatal("expected an error for a split request document")
 	}
-	if !strings.Contains(err.Error(), "yaml_content") {
-		t.Errorf("error should name yaml_content, got %q", err)
-	}
-	if !strings.Contains(err.Error(), "line 2") {
-		t.Errorf("error should name line 2, got %q", err)
+	if want := testutil.SingleDocError("yaml_content", 2); err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
 	}
 }
