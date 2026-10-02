@@ -8,8 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/xaaha/hulak/pkg/actions"
 )
 
 func TestGenerateFilePathList_FpOnly(t *testing.T) {
@@ -688,4 +691,105 @@ func TestRunSingleWithSpinner_RealRequest(t *testing.T) {
 	if o.duration <= 0 {
 		t.Errorf("duration should be > 0, got %v", o.duration)
 	}
+}
+
+// D6: a sequential directory run picks up a token the run itself refreshed,
+// with no cache reset anywhere in the runner. This is the #253 reproduction:
+// a-read reads the stale token, auth rewrites the response file, b-read has to
+// send the new one. The cache invalidates itself per file, so adding a reset
+// here would only hand back the project walk it exists to avoid.
+func TestD6_SequentialRunSeesRefreshedToken(t *testing.T) {
+	var mu sync.Mutex
+	var seen []string
+	issued := 0
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			mu.Lock()
+			issued++
+			token := fmt.Sprintf("token-%d", issued)
+			mu.Unlock()
+			_, _ = fmt.Fprintf(w, `{"access_token": %q}`, token)
+			return
+		}
+		mu.Lock()
+		seen = append(seen, r.Header.Get("Authorization"))
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	root := enterHulakProject(t)
+	t.Cleanup(actions.ResetCache)
+	actions.ResetCache()
+
+	read := fmt.Sprintf(
+		"method: GET\nurl: %s\nheaders:\n  Authorization: 'Bearer {{getValueOf \"access_token\" \"auth\"}}'\n",
+		srv.URL,
+	)
+	write := func(name, body string) string {
+		t.Helper()
+		path := filepath.Join(root, name)
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	first := write("a-read.hk.yaml", read)
+	auth := write("auth.hk.yaml", fmt.Sprintf("method: POST\nurl: %s\nbody:\n  raw: '{}'\n", srv.URL))
+	second := write("b-read.hk.yaml", read)
+	write("auth.hk_response.json", `{"access_token": "stale-token"}`)
+
+	outcomes := processFilesSequentially(
+		[]string{first, auth, second}, nil, runOptions{}, true, 5*time.Second,
+	)
+	for _, o := range outcomes {
+		if !o.ok {
+			t.Fatalf("%s failed: %v", filepath.Base(o.path), o.err)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	want := []string{"Bearer stale-token", "Bearer token-1"}
+	if len(seen) != len(want) {
+		t.Fatalf("server saw %d authorization headers (%v), want %d", len(seen), seen, len(want))
+	}
+	for i := range want {
+		if seen[i] != want[i] {
+			t.Errorf("request %d sent %q, want %q", i+1, seen[i], want[i])
+		}
+	}
+}
+
+// enterHulakProject creates a temp directory that looks like a hulak project,
+// changes into it for the rest of the test, and returns its path. getValueOf
+// resolves bare filenames by walking from the project root, so the test has to
+// run inside one.
+func enterHulakProject(t *testing.T) string {
+	t.Helper()
+
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("resolve symlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatalf("create env dir: %v", err)
+	}
+
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(prev); err != nil {
+			t.Fatal(err)
+		}
+	})
+	return root
 }
