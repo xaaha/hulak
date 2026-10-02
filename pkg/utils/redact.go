@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -126,6 +128,50 @@ func percentDecode(text string, plusIsSpace bool) (string, []int) {
 		i++
 	}
 	return b.String(), append(offsets, len(text))
+}
+
+// basicAuth joins a username the redactor was never handed to the secret and
+// base64-encodes the pair, so no decoding of the output and no registered value
+// reaches it. Only an Authorization header is covered by header-name masking.
+const basicAuthPrefix = "Basic "
+
+// basicAuthPayloads returns the byte range of each base64 credential in text.
+func basicAuthPayloads(text string) [][2]int {
+	var found [][2]int
+	for at := 0; at < len(text); {
+		i := strings.Index(text[at:], basicAuthPrefix)
+		if i < 0 {
+			break
+		}
+		from := at + i + len(basicAuthPrefix)
+		end := from
+		for end < len(text) && isBase64Byte(text[end]) {
+			end++
+		}
+		if n, ok := credentialLen(text[from:end]); ok {
+			found = append(found, [2]int{from, from + n})
+		}
+		at = from
+	}
+	return found
+}
+
+// credentialLen reports how much of run is the longest prefix decoding to a
+// colon-joined pair. A shorter prefix would decode to the username alone and
+// leave the password beside the mask.
+func credentialLen(run string) (int, bool) {
+	for n := len(run) - len(run)%4; n >= 4; n -= 4 {
+		raw, err := base64.StdEncoding.DecodeString(run[:n])
+		if err == nil && bytes.ContainsRune(raw, ':') {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
+func isBase64Byte(c byte) bool {
+	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' ||
+		c == '+' || c == '/' || c == '='
 }
 
 func jsonStringForm(value string) string {
@@ -253,6 +299,12 @@ func (r *ValueRedactor) redactThrough(text string, decode decoding) string {
 			}
 			at = start + 1
 		}
+	}
+	for _, payload := range basicAuthPayloads(decoded) {
+		if slices.Contains(claimed[payload[0]:payload[1]], true) {
+			continue
+		}
+		spans = append(spans, maskedSpan{offsets[payload[0]], offsets[payload[1]], MaskedValue})
 	}
 	if len(spans) == 0 {
 		return text

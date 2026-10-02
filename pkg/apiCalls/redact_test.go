@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/httpclient"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/utils/testutil"
@@ -685,5 +686,87 @@ func TestD1_7_NoURLSpellingOfASecretSurvives(t *testing.T) {
 				t.Errorf("%d of %d values leaked in the URL %s; first %s", misses, total, position, first)
 			}
 		})
+	}
+}
+
+// basicAuth base64-encodes the secret with a username the redactor was never
+// handed, and only an Authorization header is covered by header-name masking.
+func TestL10_BasicAuthTokenIsMaskedOutsideAHeader(t *testing.T) {
+	const secret = "super-secret-client-value"
+	token := actions.BasicAuth("admin", secret)
+	for position, newInfo := range map[string]func() yamlparser.APIInfo{
+		"url param": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:    "POST",
+				URL:       "https://api.example.com/x",
+				URLParams: map[string]string{"a": token},
+			}
+		},
+		"form body": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:  "POST",
+				URL:     "https://api.example.com/x",
+				Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+				Body:    strings.NewReader(url.Values{"a": {token}}.Encode()),
+			}
+		},
+		"json body": func() yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:  "POST",
+				URL:     "https://api.example.com/x",
+				Headers: map[string]string{"Content-Type": "application/json"},
+				Body:    strings.NewReader(`{"a":"` + token + `"}`),
+			}
+		},
+	} {
+		t.Run(position, func(t *testing.T) {
+			info := newInfo()
+			out, err := FormatDryRun(&info, false, utils.NewValueRedactor(
+				map[string]any{"api_password": secret}, true, nil,
+			))
+			if err != nil {
+				t.Fatalf("FormatDryRun: %v", err)
+			}
+			testutil.AssertNoSecretForm(t, "dry run "+position, out, secret)
+		})
+	}
+}
+
+// The mask covers the credential and nothing either side of it, and prose that
+// happens to start with Basic is not one.
+func TestL10_BasicAuthMaskingStaysOnTheCredential(t *testing.T) {
+	const secret = "super-secret-client-value"
+	redactor := utils.NewValueRedactor(map[string]any{"api_password": secret}, true, nil)
+
+	credential := yamlparser.APIInfo{
+		Method: "POST",
+		URL:    "https://api.example.com/x",
+		URLParams: map[string]string{
+			"a": actions.BasicAuth("admin", secret),
+			"z": "keepme",
+		},
+	}
+	out, err := FormatDryRun(&credential, false, redactor)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	want := "POST https://api.example.com/x?a=Basic+" + utils.MaskedValue + "&z=keepme\n"
+	if out != want {
+		t.Errorf("FormatDryRun() = %q, want %q", out, want)
+	}
+
+	prose := yamlparser.APIInfo{
+		Method: "GET",
+		URL:    "https://api.example.com/x",
+		Headers: map[string]string{
+			"X-Hint": "Basic Authentication is required here",
+		},
+	}
+	out, err = FormatDryRun(&prose, false, redactor)
+	if err != nil {
+		t.Fatalf("FormatDryRun: %v", err)
+	}
+	if !strings.Contains(out, "X-Hint: Basic Authentication is required here\n") {
+		t.Errorf("prose starting with Basic must survive:\n%s", out)
 	}
 }

@@ -1,18 +1,20 @@
 package testutil
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // AssertNoSecretForm fails when any encoding of value survives in out.
 //
-// It normalises out — percent-decoding, JSON-unescaping and undoing query
-// plus-encoding, repeatedly and in every order — instead of enumerating the
-// forms the redactor registers. Restating that list would make the assertion
-// blind to exactly the forms the redactor forgot.
+// It normalises out — percent-decoding, JSON-unescaping, base64-decoding and
+// undoing query plus-encoding, repeatedly and in every order — instead of
+// enumerating the forms the redactor registers. Restating that list would make
+// the assertion blind to exactly the forms the redactor forgot.
 func AssertNoSecretForm(t *testing.T, where, out, value string) {
 	t.Helper()
 	if visible, leaked := SecretFormVisible(out, value); leaked {
@@ -39,11 +41,15 @@ func decodedVariants(out string) []string {
 	seen := map[string]bool{out: true}
 	queue := []string{out}
 	for i := 0; i < len(queue); i++ {
-		for _, decoded := range []string{
+		decodings := []string{
 			percentUnescape(queue[i]),
 			jsonUnescape(queue[i]),
 			strings.ReplaceAll(queue[i], "+", " "),
-		} {
+		}
+		for _, enc := range base64Encodings {
+			decodings = append(decodings, base64Unescape(queue[i], enc))
+		}
+		for _, decoded := range decodings {
 			if !seen[decoded] {
 				seen[decoded] = true
 				queue = append(queue, decoded)
@@ -123,4 +129,68 @@ func safeSlice(s string, start, end int) string {
 		return ""
 	}
 	return s[start:end]
+}
+
+// base64Encodings covers the four spellings encoding/base64 offers, so a
+// secret rendered through basicAuth is found whichever one produced it.
+var base64Encodings = []*base64.Encoding{
+	base64.StdEncoding, base64.RawStdEncoding,
+	base64.URLEncoding, base64.RawURLEncoding,
+}
+
+// Shorter than this a run decodes to too little to hold a secret, and the
+// walk would spend its time on garbage.
+const minBase64Run = 8
+
+// base64Unescape replaces every base64 run in s that decodes to text with that
+// text. Runs that decode to bytes a renderer would never have printed are left
+// alone, which is what keeps the variant walk from exploding on ordinary words.
+func base64Unescape(s string, enc *base64.Encoding) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		end := i
+		for end < len(s) && isBase64Byte(s[end]) {
+			end++
+		}
+		if end == i {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		text, used := longestDecodable(s[i:end], enc)
+		b.WriteString(text)
+		b.WriteString(s[i+used : end])
+		i = end
+	}
+	return b.String()
+}
+
+// longestDecodable returns the text the longest decodable prefix of run holds,
+// and how many bytes of run it consumed.
+func longestDecodable(run string, enc *base64.Encoding) (string, int) {
+	for n := len(run); n >= minBase64Run; n-- {
+		raw, err := enc.DecodeString(run[:n])
+		if err != nil || !printableText(raw) {
+			continue
+		}
+		return string(raw), n
+	}
+	return "", 0
+}
+
+func isBase64Byte(c byte) bool {
+	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' ||
+		c == '+' || c == '/' || c == '-' || c == '_' || c == '='
+}
+
+func printableText(raw []byte) bool {
+	if !utf8.Valid(raw) {
+		return false
+	}
+	for _, r := range string(raw) {
+		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
+			return false
+		}
+	}
+	return true
 }
