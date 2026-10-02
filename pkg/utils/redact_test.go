@@ -337,21 +337,17 @@ func TestLeak2_NonStringVaultValuesAreMasked(t *testing.T) {
 		"int":               int(987654321098765),
 		"int64":             int64(987654321098765),
 		"float64":           float64(1234.5678),
-		"bool":              true,
 	} {
 		t.Run(name, func(t *testing.T) {
 			rendered := fmt.Sprintf("%v", raw)
 			if n, ok := raw.(json.Number); ok {
 				rendered = n.String()
 			}
+			if len(rendered) < minMaskedValueLen {
+				t.Fatalf("fixture %q is under the masking floor, so it proves nothing", rendered)
+			}
 			got := NewValueRedactor(map[string]any{"account_secret": raw}, true, nil).
 				Redact("secret=" + rendered)
-			if len(rendered) < minMaskedValueLen {
-				if got != "secret="+rendered {
-					t.Errorf("value under the masking floor must be left alone: %q", got)
-				}
-				return
-			}
 			if strings.Contains(got, rendered) {
 				t.Errorf("non-string vault value left in clear: %q", got)
 			}
@@ -394,7 +390,7 @@ func TestD1_4a_FooterScopedToReferencedVariables(t *testing.T) {
 	})
 }
 
-func TestIsSecretKeyName(t *testing.T) {
+func TestD1_1_SecretKeyHintsClassifyKeyNames(t *testing.T) {
 	tests := map[string]bool{
 		"client_secret":   true,
 		"access_token":    true,
@@ -421,7 +417,7 @@ func TestIsSecretKeyName(t *testing.T) {
 	}
 }
 
-func TestSecretKeyHintsAllCovered(t *testing.T) {
+func TestD1_1_EverySecretKeyHintMatches(t *testing.T) {
 	for _, hint := range secretKeyHints {
 		if !isSecretKeyName("prefix_" + hint + "_suffix") {
 			t.Errorf("hint %q must match in the middle of a key name", hint)

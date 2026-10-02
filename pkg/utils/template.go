@@ -18,7 +18,6 @@ import (
 // same way Go's template engine does at substitution time.
 var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
 
-// Captures the name from a dot-access reference: {{ .client_secret }} yields client_secret.
 var templateVarNamePattern = regexp.MustCompile(`\{\{-?\s*\.([A-Za-z_][A-Za-z0-9_]*)`)
 
 // FileTemplateVarNames returns the distinct {{.name}} variables a request file

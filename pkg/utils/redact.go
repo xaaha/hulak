@@ -58,7 +58,6 @@ func RedactHeaders(headers map[string]string, show bool) map[string]string {
 // Below this, a value also occurs in unrelated text and masking blanks that out.
 const minMaskedValueLen = 8
 
-// Matched as a case-insensitive substring, so client_secret_v2 still counts.
 var secretKeyHints = []string{
 	"secret", "token", "password", "key", "credential", "auth", "jwt",
 }
