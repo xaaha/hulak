@@ -131,7 +131,7 @@ func TestRedactHeaders_NilMap(t *testing.T) {
 
 func TestD1_5_MaskShape(t *testing.T) {
 	const value = "s3cr3t-value-0123456789abcd"
-	r := NewValueRedactor(map[string]any{"client_secret": value}, true)
+	r := NewValueRedactor(map[string]any{"client_secret": value}, true, nil)
 
 	got := r.Redact("body=" + value)
 	want := fmt.Sprintf("body=%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
@@ -148,7 +148,7 @@ func TestD1_5_MinimumLengthIsEight(t *testing.T) {
 		"short_token":  "1234567",
 		"exact_token":  "12345678",
 		"longer_token": "123456789",
-	}, true)
+	}, true, nil)
 
 	if got := r.Redact("v=1234567"); got != "v=1234567" {
 		t.Errorf("7-char value must be left alone, got %q", got)
@@ -163,13 +163,13 @@ func TestD1_5_MinimumLengthIsEight(t *testing.T) {
 func TestD1_5_FingerprintStableAndSalted(t *testing.T) {
 	const value = "same-secret-value"
 
-	a := NewValueRedactor(map[string]any{"token": value}, true).Redact(value)
-	b := NewValueRedactor(map[string]any{"other_token": value}, true).Redact(value)
+	a := NewValueRedactor(map[string]any{"token": value}, true, nil).Redact(value)
+	b := NewValueRedactor(map[string]any{"other_token": value}, true, nil).Redact(value)
 	if a != b {
 		t.Errorf("same value must fingerprint the same within a run: %q vs %q", a, b)
 	}
 
-	other := NewValueRedactor(map[string]any{"token": "different-secret!"}, true).
+	other := NewValueRedactor(map[string]any{"token": "different-secret!"}, true, nil).
 		Redact("different-secret!")
 	if a == other {
 		t.Errorf("different values must not share a mask: %q", a)
@@ -184,7 +184,7 @@ func TestD1_5_FingerprintStableAndSalted(t *testing.T) {
 func TestD1_5_LongestValueFirst(t *testing.T) {
 	const short = "abcdefgh"
 	const long = short + "-1234567890"
-	r := NewValueRedactor(map[string]any{"key": short, "token": long}, true)
+	r := NewValueRedactor(map[string]any{"key": short, "token": long}, true, nil)
 
 	got := r.Redact(long)
 	want := fmt.Sprintf("%s(%d chars, #%s)", MaskedValue, len(long), fingerprint(long))
@@ -214,7 +214,7 @@ var leakyValues = []string{
 func TestLeak1_EncodedFormsAreMasked(t *testing.T) {
 	for _, value := range leakyValues {
 		t.Run(value, func(t *testing.T) {
-			r := NewValueRedactor(map[string]any{"client_secret": value}, true)
+			r := NewValueRedactor(map[string]any{"client_secret": value}, true, nil)
 			jsonForm, err := json.Marshal(value)
 			if err != nil {
 				t.Fatalf("marshal: %v", err)
@@ -251,7 +251,7 @@ func TestLeak2_NonStringVaultValuesAreMasked(t *testing.T) {
 			if n, ok := raw.(json.Number); ok {
 				rendered = n.String()
 			}
-			got := NewValueRedactor(map[string]any{"account_secret": raw}, true).
+			got := NewValueRedactor(map[string]any{"account_secret": raw}, true, nil).
 				Redact("secret=" + rendered)
 			if len(rendered) < minMaskedValueLen {
 				if got != "secret="+rendered {
@@ -270,8 +270,33 @@ func TestLeak2_CompositeValuesAreSkipped(t *testing.T) {
 	r := NewValueRedactor(map[string]any{
 		"nested_secret": map[string]any{"inner": "a-nested-secret-value"},
 		"list_secret":   []any{"a-listed-secret-value"},
-	}, true)
+	}, true, nil)
 	if len(r.secrets) != 0 {
 		t.Errorf("composite values must not be registered, got %d", len(r.secrets))
 	}
+}
+
+func TestD1_4a_FooterScopedToReferencedVariables(t *testing.T) {
+	values := map[string]any{
+		"client_secret": "",
+		"tenant_id":     "",
+		"unused_token":  "",
+		"api_token":     "a-value-that-resolved",
+	}
+	referenced := []string{"api_token", "client_secret", "tenant_id"}
+
+	for name, allSecret := range map[string]bool{"vault": true, "plain env": false} {
+		t.Run(name, func(t *testing.T) {
+			got := NewValueRedactor(values, allSecret, referenced).UnresolvedLine()
+			if got != "// unresolved: client_secret, tenant_id" {
+				t.Errorf("UnresolvedLine() = %q", got)
+			}
+		})
+	}
+
+	t.Run("no reference, no footer", func(t *testing.T) {
+		if got := NewValueRedactor(values, true, nil).UnresolvedLine(); got != "" {
+			t.Errorf("a request referencing nothing has nothing unresolved, got %q", got)
+		}
+	})
 }

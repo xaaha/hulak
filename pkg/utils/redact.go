@@ -152,22 +152,26 @@ type ValueRedactor struct {
 
 // NewValueRedactor builds a redactor over values. When allSecret is true every
 // entry is a secret; otherwise only entries whose key name matches a secret
-// hint are. Values below the masking floor are left alone, and ones that
-// resolved empty are reported through UnresolvedLine instead.
-func NewValueRedactor(values map[string]any, allSecret bool) *ValueRedactor {
+// hint are. Values below the masking floor are left alone. referenced names
+// the variables the request uses: those of them that resolved empty are
+// reported through UnresolvedLine, whatever their key name looks like.
+func NewValueRedactor(values map[string]any, allSecret bool, referenced []string) *ValueRedactor {
 	r := &ValueRedactor{}
 	for name, raw := range values {
-		if !allSecret && !isSecretKeyName(name) {
-			continue
-		}
 		value, ok := secretText(raw)
 		if !ok {
 			continue
 		}
-		switch {
-		case value == "":
-			r.unresolved = append(r.unresolved, name)
-		case len(value) >= minMaskedValueLen:
+		if value == "" {
+			if slices.Contains(referenced, name) {
+				r.unresolved = append(r.unresolved, name)
+			}
+			continue
+		}
+		if !allSecret && !isSecretKeyName(name) {
+			continue
+		}
+		if len(value) >= minMaskedValueLen {
 			mask := maskFor(value)
 			for _, form := range renderedForms(value) {
 				r.secrets = append(r.secrets, maskedSecret{value: form, mask: mask})
@@ -199,9 +203,9 @@ func (r *ValueRedactor) Redact(text string) string {
 	return text
 }
 
-// UnresolvedLine names the secret-classified variables that resolved to an
-// empty string, or returns "" when none did. An empty value cannot be masked
-// by replacement, so it is reported rather than hidden.
+// UnresolvedLine names the variables the request references that resolved to
+// an empty string, or returns "" when none did. An empty value cannot be
+// masked by replacement, so it is reported rather than hidden.
 func (r *ValueRedactor) UnresolvedLine() string {
 	if r == nil || len(r.unresolved) == 0 {
 		return ""

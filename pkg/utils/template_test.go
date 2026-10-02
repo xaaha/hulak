@@ -537,3 +537,34 @@ func TestMapHasEnvVars(t *testing.T) {
 		})
 	}
 }
+
+func TestFileTemplateVarNames(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "token.hk.yaml")
+	content := `kind: API
+# commented out: {{.never_referenced}}
+url: "{{.baseUrl}}/token"
+urlparams:
+  tenant: "{{ .tenant_id }}"
+headers:
+  Authorization: "Bearer {{.client_secret}}"
+  X-Trace: "{{.baseUrl}}"
+body:
+  urlencodedformdata:
+    scopes:
+      - "{{.scope_name}}"
+    id: '{{ getValueOf "id" "login" }}'
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := FileTemplateVarNames(path)
+	if err != nil {
+		t.Fatalf("FileTemplateVarNames: %v", err)
+	}
+	want := []string{"baseUrl", "client_secret", "scope_name", "tenant_id"}
+	if !slices.Equal(got, want) {
+		t.Errorf("FileTemplateVarNames() = %v, want %v", got, want)
+	}
+}

@@ -172,14 +172,19 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 		return nil, "", err
 	}
 
+	redact, err := outputRedactor(opts)
+	if err != nil {
+		return nil, "", err
+	}
+
 	if opts.DryRun {
-		if err := PrintDryRun(&apiInfo, opts.Show, outputRedactor(opts)); err != nil {
+		if err := PrintDryRun(&apiInfo, opts.Show, redact); err != nil {
 			return nil, "", err
 		}
 		return nil, "", nil
 	}
 
-	resp, err := StandardCall(ctx, apiInfo, opts.Debug, outputRedactor(opts))
+	resp, err := StandardCall(ctx, apiInfo, opts.Debug, redact)
 	if err != nil {
 		return nil, "", err
 	}

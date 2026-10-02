@@ -134,7 +134,12 @@ func SendAPIRequestForAuth2(ctx context.Context, secretsMap map[string]any, file
 	if err != nil {
 		return err
 	}
-	resp, err := apicalls.StandardCall(ctx, apiInfo, debug, apicalls.NewSecretRedactor(secretsMap))
+	redact, err := apicalls.NewSecretRedactor(filePath, secretsMap)
+	if err != nil {
+		return err
+	}
+
+	resp, err := apicalls.StandardCall(ctx, apiInfo, debug, redact)
 	if err != nil {
 		return err
 	}

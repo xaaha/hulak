@@ -83,6 +83,30 @@ func chdirToProject(t *testing.T, withVault bool) {
 	}
 }
 
+// writeRequestFile drops a request file in the current project that
+// references every name, so NewSecretRedactor can scope its footer.
+func writeRequestFile(t *testing.T, names ...string) string {
+	t.Helper()
+	content := "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\nurlparams:\n"
+	for i, name := range names {
+		content += fmt.Sprintf("  p%d: \"{{.%s}}\"\n", i, name)
+	}
+	path := filepath.Join(t.TempDir(), "request.hk.yaml")
+	if err := os.WriteFile(path, []byte(content), utils.FilePer); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func newSecretRedactor(t *testing.T, path string, secrets map[string]any) *utils.ValueRedactor {
+	t.Helper()
+	r, err := NewSecretRedactor(path, secrets)
+	if err != nil {
+		t.Fatalf("NewSecretRedactor: %v", err)
+	}
+	return r
+}
+
 func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 	const plainValue = "https://api.example.com/v1/users"
 	const secretValue = "super-secret-client-value"
@@ -90,7 +114,8 @@ func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 
 	t.Run("vault store makes every resolved value a secret", func(t *testing.T) {
 		chdirToProject(t, true)
-		got := NewSecretRedactor(secrets).Redact(plainValue + " " + secretValue)
+		path := writeRequestFile(t, "base_url", "client_secret")
+		got := newSecretRedactor(t, path, secrets).Redact(plainValue + " " + secretValue)
 		if strings.Contains(got, plainValue) {
 			t.Errorf("vault-backed value left in clear: %q", got)
 		}
@@ -101,7 +126,8 @@ func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 
 	t.Run("plain env files fall back to the key name", func(t *testing.T) {
 		chdirToProject(t, false)
-		got := NewSecretRedactor(secrets).Redact(plainValue + " " + secretValue)
+		path := writeRequestFile(t, "base_url", "client_secret")
+		got := newSecretRedactor(t, path, secrets).Redact(plainValue + " " + secretValue)
 		if !strings.Contains(got, plainValue) {
 			t.Errorf("non-secret key must not be masked without a vault: %q", got)
 		}
@@ -128,7 +154,7 @@ func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 					"client_secret": {bodySecret},
 				}.Encode()),
 			}
-			redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true)
+			redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true, nil)
 
 			out, err := FormatDryRun(info, false, redactor)
 			if err != nil {
@@ -168,7 +194,7 @@ func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 					),
 				}
 			}
-			redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
+			redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
 
 			masked, err := StandardCallWithClient(
 				context.Background(), newInfo(), true, redactor, client,
@@ -201,7 +227,7 @@ func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 	}
 }
 
-func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
+func TestD1_4a_EmptyReferencedVariablesListedInFooter(t *testing.T) {
 	newInfo := func() *yamlparser.APIInfo {
 		return &yamlparser.APIInfo{
 			Method:  "POST",
@@ -210,13 +236,17 @@ func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
 			Body:    strings.NewReader("client_secret=&tenant_id="),
 		}
 	}
+	values := map[string]any{
+		"client_secret": "",
+		"tenant_id":     "",
+		"unused_token":  "",
+		"api_token":     "a-value-that-resolved",
+	}
 
-	t.Run("names every variable that resolved empty", func(t *testing.T) {
-		redactor := utils.NewValueRedactor(map[string]any{
-			"client_secret": "",
-			"tenant_id":     "",
-			"api_token":     "a-value-that-resolved",
-		}, true)
+	t.Run("names every referenced variable that resolved empty", func(t *testing.T) {
+		redactor := utils.NewValueRedactor(
+			values, true, []string{"api_token", "client_secret", "tenant_id"},
+		)
 		out, err := FormatDryRun(newInfo(), false, redactor)
 		if err != nil {
 			t.Fatalf("FormatDryRun: %v", err)
@@ -226,16 +256,27 @@ func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
 		}
 	})
 
-	t.Run("stays quiet when everything resolved", func(t *testing.T) {
+	t.Run("classification does not gate the footer", func(t *testing.T) {
 		redactor := utils.NewValueRedactor(
-			map[string]any{"api_token": "a-value-that-resolved"}, true,
+			values, false, []string{"api_token", "client_secret", "tenant_id"},
 		)
 		out, err := FormatDryRun(newInfo(), false, redactor)
 		if err != nil {
 			t.Fatalf("FormatDryRun: %v", err)
 		}
+		if !strings.HasSuffix(out, "// unresolved: client_secret, tenant_id\n") {
+			t.Errorf("tenant_id matches no secret hint but is still unresolved, got:\n%s", out)
+		}
+	})
+
+	t.Run("stays quiet when everything referenced resolved", func(t *testing.T) {
+		redactor := utils.NewValueRedactor(values, true, []string{"api_token"})
+		out, err := FormatDryRun(newInfo(), false, redactor)
+		if err != nil {
+			t.Fatalf("FormatDryRun: %v", err)
+		}
 		if strings.Contains(out, "unresolved") {
-			t.Errorf("no variable resolved empty, footer should be absent:\n%s", out)
+			t.Errorf("an empty variable the request never references must not be named:\n%s", out)
 		}
 	})
 }
@@ -243,7 +284,7 @@ func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
 func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
 	const secret = "super-secret-client-value"
 	redactor := func() *utils.ValueRedactor {
-		return utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
+		return utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
 	}
 
 	t.Run("unreachable host", func(t *testing.T) {

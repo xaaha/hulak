@@ -28,16 +28,20 @@ func DryRun(opts RequestOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return FormatDryRun(&apiInfo, opts.Show, outputRedactor(opts))
+	redact, err := outputRedactor(opts)
+	if err != nil {
+		return "", err
+	}
+	return FormatDryRun(&apiInfo, opts.Show, redact)
 }
 
 // outputRedactor returns the value masker for opts, or nil when opts.Show
 // asks for everything in the clear.
-func outputRedactor(opts RequestOptions) *utils.ValueRedactor {
+func outputRedactor(opts RequestOptions) (*utils.ValueRedactor, error) {
 	if opts.Show {
-		return nil
+		return nil, nil
 	}
-	return NewSecretRedactor(opts.Secrets)
+	return NewSecretRedactor(opts.Path, opts.Secrets)
 }
 
 // PrintDryRun writes the fully-built request to stdout and returns. It
