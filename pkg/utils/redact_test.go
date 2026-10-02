@@ -1,6 +1,11 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -119,5 +124,76 @@ func TestRedactHeaders_NilMap(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty map, got %d entries", len(got))
+	}
+}
+
+func TestD1_5_MaskShape(t *testing.T) {
+	const value = "s3cr3t-value-0123456789abcd"
+	r := NewValueRedactor(map[string]any{"client_secret": value}, true)
+
+	got := r.Redact("body=" + value)
+	want := fmt.Sprintf("body=%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
+	if got != want {
+		t.Errorf("Redact() = %q, want %q", got, want)
+	}
+	if !regexp.MustCompile(`^body=••••\(27 chars, #[0-9a-f]{4}\)$`).MatchString(got) {
+		t.Errorf("mask does not match the agreed shape: %q", got)
+	}
+}
+
+func TestD1_5_MinimumLengthIsEight(t *testing.T) {
+	r := NewValueRedactor(map[string]any{
+		"short_token":  "1234567",
+		"exact_token":  "12345678",
+		"longer_token": "123456789",
+	}, true)
+
+	if got := r.Redact("v=1234567"); got != "v=1234567" {
+		t.Errorf("7-char value must be left alone, got %q", got)
+	}
+	for _, v := range []string{"12345678", "123456789"} {
+		if got := r.Redact("v=" + v); strings.Contains(got, v) {
+			t.Errorf("value of length %d must be masked, got %q", len(v), got)
+		}
+	}
+}
+
+func TestD1_5_FingerprintStableAndSalted(t *testing.T) {
+	const value = "same-secret-value"
+
+	a := NewValueRedactor(map[string]any{"token": value}, true).Redact(value)
+	b := NewValueRedactor(map[string]any{"other_token": value}, true).Redact(value)
+	if a != b {
+		t.Errorf("same value must fingerprint the same within a run: %q vs %q", a, b)
+	}
+
+	other := NewValueRedactor(map[string]any{"token": "different-secret!"}, true).
+		Redact("different-secret!")
+	if a == other {
+		t.Errorf("different values must not share a mask: %q", a)
+	}
+
+	unsalted := sha256.Sum256([]byte(value))
+	if strings.Contains(a, hex.EncodeToString(unsalted[:])[:4]) {
+		t.Errorf("fingerprint must be salted, not a bare sha256 of the value: %q", a)
+	}
+}
+
+func TestD1_5_LongestValueFirst(t *testing.T) {
+	const short = "abcdefgh"
+	const long = short + "-1234567890"
+	r := NewValueRedactor(map[string]any{"key": short, "token": long}, true)
+
+	got := r.Redact(long)
+	want := fmt.Sprintf("%s(%d chars, #%s)", MaskedValue, len(long), fingerprint(long))
+	if got != want {
+		t.Errorf("a secret containing another secret must be masked whole: got %q, want %q", got, want)
+	}
+}
+
+func TestD1_5_NilRedactorLeavesTextAlone(t *testing.T) {
+	var r *ValueRedactor
+	if got := r.Redact("plain text"); got != "plain text" {
+		t.Errorf("nil redactor must pass text through, got %q", got)
 	}
 }
