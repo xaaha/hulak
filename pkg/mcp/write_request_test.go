@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -141,4 +142,19 @@ func TestHandleWriteRequest_SchemaValidation(t *testing.T) {
 			t.Errorf("without schema this should pass the mapping-only check, got: %v", err)
 		}
 	})
+}
+
+func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
+	s, _ := NewServer(map[string]string{"api": projectDir(t)}, "v")
+
+	err := s.validateRequestContent("method: POST\n// stray\nurl: \"https://e.com\"\n")
+	if err == nil {
+		t.Fatal("expected an error for a split request document")
+	}
+	if !strings.Contains(err.Error(), "yaml_content") {
+		t.Errorf("error should name yaml_content, got %q", err)
+	}
+	if !strings.Contains(err.Error(), "line 2") {
+		t.Errorf("error should name line 2, got %q", err)
+	}
 }
