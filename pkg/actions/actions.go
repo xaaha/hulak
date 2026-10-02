@@ -14,16 +14,10 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Cache structure to store both results and handle warnings
-type valueCache struct {
-	result any
-	exists bool
-}
-
 // Global cache map with thread-safe access
 var (
 	valuesCacheMutex sync.RWMutex
-	valuesCache      = make(map[string]valueCache)
+	valuesCache      = make(map[string]any)
 
 	// Add file operation mutex
 	fileOpsMutex sync.Map
@@ -36,9 +30,9 @@ func GetValueOf(key, fileName string) any {
 
 	// Check cache first
 	valuesCacheMutex.RLock()
-	if cache, exists := valuesCache[cacheKey]; exists {
+	if cached, exists := valuesCache[cacheKey]; exists {
 		valuesCacheMutex.RUnlock()
-		return cache.result
+		return cached
 	}
 	valuesCacheMutex.RUnlock()
 
@@ -47,20 +41,24 @@ func GetValueOf(key, fileName string) any {
 	defer valuesCacheMutex.Unlock()
 
 	// Double-check pattern in case another goroutine cached while we waited
-	if cache, exists := valuesCache[cacheKey]; exists {
-		return cache.result
+	if cached, exists := valuesCache[cacheKey]; exists {
+		return cached
 	}
 
 	// Process the file and get result
 	result := processValueOf(key, fileName)
 
-	// Cache the result
-	valuesCache[cacheKey] = valueCache{
-		result: result,
-		exists: true,
-	}
-
+	valuesCache[cacheKey] = result
 	return result
+}
+
+// ResetCache drops every memoized getValueOf result. The cache has no
+// invalidation, so any process serving more than one command must call this
+// between them or it will serve a token that has since been rewritten (#251).
+func ResetCache() {
+	valuesCacheMutex.Lock()
+	defer valuesCacheMutex.Unlock()
+	clear(valuesCache)
 }
 
 // BasicAuth takes a username and password, joins them with a colon,

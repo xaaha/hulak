@@ -401,3 +401,39 @@ func TestGetFile_PreservesFormatting(t *testing.T) {
 		t.Errorf("GetFile() did not preserve formatting.\ngot:\n%s\nwant:\n%s", got, content)
 	}
 }
+
+// The getValueOf cache has no invalidation, which is fine in a one-shot CLI
+// process and wrong in one that serves tool calls for hours. ResetCache is what
+// the MCP server calls between calls so a rewritten response file is seen.
+func TestResetCache(t *testing.T) {
+	setupHulakProject(t)
+
+	const authDir = "auth"
+	if err := os.Mkdir(authDir, utils.DirPer); err != nil {
+		t.Fatalf("failed to create auth dir: %v", err)
+	}
+	relPath := filepath.Join(authDir, "getAuth"+utils.ResponseFileName)
+
+	write := func(token string) {
+		t.Helper()
+		body := `{"access_token": "` + token + `"}`
+		if err := os.WriteFile(relPath, []byte(body), utils.FilePer); err != nil {
+			t.Fatalf("failed to write response file: %v", err)
+		}
+	}
+
+	t.Cleanup(ResetCache)
+
+	ResetCache()
+	write("stale-token")
+	if got := GetValueOf("access_token", relPath); got != "stale-token" {
+		t.Fatalf("first read: got %v, want stale-token", got)
+	}
+
+	write("fresh-token")
+
+	ResetCache()
+	if got := GetValueOf("access_token", relPath); got != "fresh-token" {
+		t.Errorf("after ResetCache: got %v, want fresh-token", got)
+	}
+}
