@@ -23,6 +23,7 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 		{"leading and trailing separators", "---\nmethod: POST\n---\n", 0},
 		{"two trailing separators", "method: POST\n---\n---\n", 0},
 		{"trailing separator then blank lines", "method: POST\n---\n\n\n", 0},
+		{"second document is only a comment", "method: POST\n---\n# just a comment\n", 0},
 		{"yaml directive", "%YAML 1.2\n---\nmethod: POST\nurl: https://e.com\n", 0},
 		{
 			"tag directive",
@@ -53,7 +54,19 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 	}
 }
 
-func TestValidateSingleYAMLDocReportsParseFailure(t *testing.T) {
+func TestD22GuardMessageNamesTheFileAndTheLine(t *testing.T) {
+	err := ValidateSingleYAMLDoc("req.hk.yaml", []byte("method: POST\n---\nurl: https://e.com\n"))
+	want := "req.hk.yaml: a request file must be a single YAML document, " +
+		"but a second document starts at line 2"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %q", err, want)
+	}
+	if want != testutil.SingleDocError("req.hk.yaml", 2) {
+		t.Errorf("testutil.SingleDocError no longer builds %q", want)
+	}
+}
+
+func TestD22ValidateSingleYAMLDocReportsParseFailure(t *testing.T) {
 	err := ValidateSingleYAMLDoc("req.hk.yaml", []byte("{method: POST\n"))
 	if err == nil {
 		t.Fatal("want an error, got nil")
