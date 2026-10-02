@@ -537,3 +537,29 @@ func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
 		}
 	}
 }
+
+// The urlstrictcolons GODEBUG default flips with the go directive in go.mod,
+// so a colon in the host subcomponent is only rejected from go 1.26 onward.
+// Pinning it here means a future lowering of that directive fails loudly
+// rather than silently widening what counts as a valid request URL.
+func TestIsValidURL_D1StrictHostColons(t *testing.T) {
+	testCases := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{"host port", "http://localhost:8080/api", true},
+		{"https with query", "https://api.example.com/v1/users?a=1", true},
+		{"bracketed ipv6", "http://[::1]:8080/", true},
+		{"bare ipv6", "http://::1/", false},
+		{"doubled port", "http://localhost:80:80/", false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			u := URL(tc.raw)
+			if got := u.IsValidURL(); got != tc.want {
+				t.Errorf("IsValidURL(%q) = %v, want %v", tc.raw, got, tc.want)
+			}
+		})
+	}
+}

@@ -1,5 +1,5 @@
 [tools]
-go = "1.25.5"
+go = "1.27.1"
 watchexec = "2.4.3"
 vhs = "0.10.0"
 goreleaser = "2.14.0"

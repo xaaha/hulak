@@ -1,8 +1,6 @@
 module github.com/xaaha/hulak
 
-go 1.25.5
-
-toolchain go1.27.0
+go 1.27.1
 
 require (
 	filippo.io/age v1.3.1
