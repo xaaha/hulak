@@ -43,18 +43,10 @@ func emptyYAMLDoc(body ast.Node) bool {
 	}
 }
 
+// yamlDocLine panics on a doc emptyYAMLDoc accepted: that one has no body.
 func yamlDocLine(doc *ast.DocumentNode) int {
 	if doc.Start != nil {
 		return doc.Start.Position.Line
 	}
-	if inner, ok := doc.Body.(*ast.DocumentNode); ok {
-		if inner == nil {
-			return 0
-		}
-		return yamlDocLine(inner)
-	}
-	if doc.Body != nil {
-		return doc.Body.GetToken().Position.Line
-	}
-	return 0
+	return doc.Body.GetToken().Position.Line
 }
