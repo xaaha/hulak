@@ -27,9 +27,26 @@ var (
 	contentCacheMu sync.RWMutex
 	contentCache   = make(map[string]cachedFile)
 
+	// pathCache maps a bare filename to the response file it resolved to,
+	// keyed by the root the search started from. Resolving a bare name means
+	// walking the whole project, and getValueOf runs three times per template
+	// reference — replaceVars and translateType each resolve it — so a
+	// directory run on a large project spends most of its time in that walk.
+	//
+	// Unlike contentCache these entries cannot check themselves: the response
+	// file a name resolves to legitimately may not exist yet, so "it is gone"
+	// is not evidence the mapping is wrong. ResetCache is the only thing that
+	// drops them.
+	pathCacheMu sync.RWMutex
+	pathCache   = make(map[string]string)
+
 	// Add file operation mutex
 	fileOpsMutex sync.Map
 )
+
+// listMatchingFiles is the project-wide walk behind bare filename resolution.
+// Package-level var so tests can count how often it runs.
+var listMatchingFiles = utils.ListMatchingFiles
 
 // GetValueOf gets the value of key from a json file.
 //
@@ -48,8 +65,12 @@ func GetValueOf(key, fileName string) any {
 // a project tree that changes underneath it.
 func ResetCache() {
 	contentCacheMu.Lock()
-	defer contentCacheMu.Unlock()
 	clear(contentCache)
+	contentCacheMu.Unlock()
+
+	pathCacheMu.Lock()
+	clear(pathCache)
+	pathCacheMu.Unlock()
 }
 
 // BasicAuth takes a username and password, joins them with a colon,
@@ -166,8 +187,23 @@ func resolveJSONFilePath(fileName string) (string, error) {
 		return filepath.Join(dirPath, baseFileName+utils.ResponseFileName), nil
 	}
 
-	// Handle as a filename to search for
-	yamlPathList, err := utils.ListMatchingFiles(cleanFileName)
+	// Handle as a filename to search for. The root is part of the cache key,
+	// not just the name: the MCP server chdirs between projects, and the same
+	// bare name means a different file in each.
+	searchRoot, err := utils.CreatePath("")
+	if err != nil {
+		return "", fmt.Errorf("error getting initial file path for '%s': %s", fileName, err.Error())
+	}
+	cacheKey := searchRoot + string(filepath.Separator) + cleanFileName
+
+	pathCacheMu.RLock()
+	resolved, cached := pathCache[cacheKey]
+	pathCacheMu.RUnlock()
+	if cached {
+		return resolved, nil
+	}
+
+	yamlPathList, err := listMatchingFiles(cleanFileName, searchRoot)
 	if err != nil {
 		return "", fmt.Errorf(
 			"error occurred while grabbing matching paths for '%s': %s",
@@ -187,13 +223,18 @@ func resolveJSONFilePath(fileName string) (string, error) {
 	}
 
 	singlePath := yamlPathList[0]
-	if strings.HasSuffix(cleanFileName, utils.JSON) {
-		return singlePath, nil
+	resolved = singlePath
+	if !strings.HasSuffix(cleanFileName, utils.JSON) {
+		dirPath := filepath.Dir(singlePath)
+		jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
+		resolved = filepath.Join(dirPath, jsonBaseName)
 	}
 
-	dirPath := filepath.Dir(singlePath)
-	jsonBaseName := utils.FileNameWithoutExtension(singlePath) + utils.ResponseFileName
-	return filepath.Join(dirPath, jsonBaseName), nil
+	pathCacheMu.Lock()
+	pathCache[cacheKey] = resolved
+	pathCacheMu.Unlock()
+
+	return resolved, nil
 }
 
 // readJSONFile returns the parsed contents of filePath, reusing the previous

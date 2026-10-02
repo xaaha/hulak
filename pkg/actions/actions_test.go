@@ -487,6 +487,88 @@ func TestD2_RenamedFileSeenDespiteMatchingSizeAndMtime(t *testing.T) {
 	}
 }
 
+// D3: a bare filename is walked for once and the resolved path reused, and the
+// cache is keyed by the root the walk started from so the same name in another
+// project resolves to that project's file.
+func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	walks := 0
+	original := listMatchingFiles
+	listMatchingFiles = func(name string, root ...string) ([]string, error) {
+		walks++
+		return original(name, root...)
+	}
+	t.Cleanup(func() { listMatchingFiles = original })
+
+	first := newProjectWithResponse(t, "first-token")
+	enterDir(t, first)
+
+	if got := GetValueOf("access_token", "auth"); got != "first-token" {
+		t.Fatalf("first project: got %v, want first-token", got)
+	}
+	if got := GetValueOf("access_token", "auth"); got != "first-token" {
+		t.Fatalf("first project, repeat: got %v, want first-token", got)
+	}
+	if walks != 1 {
+		t.Errorf("walked %d times for one name, want 1", walks)
+	}
+
+	second := newProjectWithResponse(t, "second-token")
+	enterDir(t, second)
+
+	if got := GetValueOf("access_token", "auth"); got != "second-token" {
+		t.Errorf("second project: got %v, want second-token — the cache key ignores the root", got)
+	}
+	if walks != 2 {
+		t.Errorf("walked %d times across two projects, want 2", walks)
+	}
+}
+
+// newProjectWithResponse builds a hulak project in its own temp dir holding
+// auth.hk_response.json with the given token, and returns the project root.
+func newProjectWithResponse(t *testing.T, token string) string {
+	t.Helper()
+
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, utils.EnvironmentFolder), utils.DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	request := filepath.Join(root, "auth"+utils.ProjectExt+utils.YAML)
+	if err := os.WriteFile(request, []byte("method: GET\nurl: http://example.com\n"), utils.FilePer); err != nil {
+		t.Fatalf("failed to write request file: %v", err)
+	}
+	body := `{"access_token": "` + token + `"}`
+	response := filepath.Join(root, "auth"+utils.ProjectExt+utils.ResponseFileName)
+	if err := os.WriteFile(response, []byte(body), utils.FilePer); err != nil {
+		t.Fatalf("failed to write response file: %v", err)
+	}
+	return root
+}
+
+// enterDir chdirs into dir for the rest of the test, restoring the previous
+// working directory afterwards.
+func enterDir(t *testing.T, dir string) {
+	t.Helper()
+
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to chdir to %s: %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(prev); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 // sameParsedTree reports whether two parsed JSON documents are the same
 // in-memory map, which is how a cache hit is distinguished from a re-parse
 // that happens to produce an equal value.
