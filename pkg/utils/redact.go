@@ -113,6 +113,21 @@ func jsonStringForm(value string) string {
 	return string(quoted[1 : len(quoted)-1])
 }
 
+// The vault decodes numbers as json.Number, so a type assertion to string
+// drops every numeric secret from the mask list and prints it in clear.
+func secretText(raw any) (string, bool) {
+	switch value := raw.(type) {
+	case string:
+		return value, true
+	case json.Number:
+		return value.String(), true
+	case bool, int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, float32, float64:
+		return fmt.Sprintf("%v", value), true
+	}
+	return "", false
+}
+
 func isSecretKeyName(name string) bool {
 	lower := strings.ToLower(name)
 	for _, hint := range secretKeyHints {
@@ -145,7 +160,7 @@ func NewValueRedactor(values map[string]any, allSecret bool) *ValueRedactor {
 		if !allSecret && !isSecretKeyName(name) {
 			continue
 		}
-		value, ok := raw.(string)
+		value, ok := secretText(raw)
 		if !ok {
 			continue
 		}

@@ -236,3 +236,42 @@ func TestLeak1_EncodedFormsAreMasked(t *testing.T) {
 		})
 	}
 }
+
+func TestLeak2_NonStringVaultValuesAreMasked(t *testing.T) {
+	for name, raw := range map[string]any{
+		"json_number_int":   json.Number("987654321098765"),
+		"json_number_float": json.Number("1234.5678"),
+		"int":               int(987654321098765),
+		"int64":             int64(987654321098765),
+		"float64":           float64(1234.5678),
+		"bool":              true,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rendered := fmt.Sprintf("%v", raw)
+			if n, ok := raw.(json.Number); ok {
+				rendered = n.String()
+			}
+			got := NewValueRedactor(map[string]any{"account_secret": raw}, true).
+				Redact("secret=" + rendered)
+			if len(rendered) < minMaskedValueLen {
+				if got != "secret="+rendered {
+					t.Errorf("value under the masking floor must be left alone: %q", got)
+				}
+				return
+			}
+			if strings.Contains(got, rendered) {
+				t.Errorf("non-string vault value left in clear: %q", got)
+			}
+		})
+	}
+}
+
+func TestLeak2_CompositeValuesAreSkipped(t *testing.T) {
+	r := NewValueRedactor(map[string]any{
+		"nested_secret": map[string]any{"inner": "a-nested-secret-value"},
+		"list_secret":   []any{"a-listed-secret-value"},
+	}, true)
+	if len(r.secrets) != 0 {
+		t.Errorf("composite values must not be registered, got %d", len(r.secrets))
+	}
+}
