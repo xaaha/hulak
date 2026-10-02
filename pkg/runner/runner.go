@@ -83,8 +83,8 @@ const HulakTimeoutEnv = "HULAK_TIMEOUT"
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
-	if f.Show && !f.DryRun {
-		utils.PrintWarningStderr("--show has no effect without --dry-run")
+	if f.Show && !f.DryRun && !f.Debug {
+		utils.PrintWarningStderr("--show has no effect without --dry-run or --debug")
 	}
 
 	// If --ssh-identity is set and the env var isn't already set by the shell,

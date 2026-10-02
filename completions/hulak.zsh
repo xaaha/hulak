@@ -12,7 +12,7 @@ _hulak() {
     '(--file -f)'{--file,-f}'[File name for making an API request (case-insensitive)]:path:_files' \
     '(--file-path --fp)'{--file-path,--fp}'[Relative (or absolute) file path of the request file]:path:_files' \
     '(--quiet -q)'{--quiet,-q}'[Suppress the end-of-run summary table]' \
-    '--show[Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output]' \
+    '--show[Reveal secret values and sensitive headers in --dry-run and --debug output]' \
     '--timeout[Per-request timeout, e.g. 5m or 90s (default 60s)]:value:' \
     '1: :_hulak_subs' \
     '*::arg:->args' && ret=0
@@ -57,7 +57,7 @@ _hulak_run() {
     '(--out -o)'{--out,-o}'[Write the response to this path instead of <name>_response.<ext> (single file only)]:path:_files' \
     '(--quiet -q)'{--quiet,-q}'[Suppress the end-of-run summary table]' \
     '(--seq --sequential)'{--seq,--sequential}'[Run directory files sequentially]' \
-    '--show[Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output]' \
+    '--show[Reveal secret values and sensitive headers in --dry-run and --debug output]' \
     '--ssh-identity[Path to SSH private key for vault decryption]:path:_files' \
     '--timeout[Per-request timeout, e.g. 5m or 90s (default 60s)]:value:' \
     '*:file or directory:_files -g "*.(yaml|yml|hk.yaml|hk.yml)"'
