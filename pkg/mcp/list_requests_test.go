@@ -131,8 +131,6 @@ func keys(m map[string]RequestSummary) []string {
 	return out
 }
 
-// TestListRequests_D3_1_GraphqlBodyKind covers a request whose body is a
-// GraphQL body but which never declares `kind: GraphQL`.
 func TestListRequests_D3_1_GraphqlBodyKind(t *testing.T) {
 	api := evalSymlinks(t, projectDir(t))
 	writeFileAt(t, filepath.Join(api, "inferred.hk.yaml"),
