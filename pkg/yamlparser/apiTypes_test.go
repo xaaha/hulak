@@ -537,3 +537,37 @@ func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
 		}
 	}
 }
+
+// Rejecting a colon in the host subcomponent comes from net/url, gated on the
+// urlstrictcolons GODEBUG whose default turns on at go 1.26. Lowering the go
+// directive fails this, and so does GODEBUG=urlstrictcolons=0 in the
+// environment. What it cannot see is a //go:debug line in main.go, which
+// applies to the hulak binary and not to this test binary.
+func TestIsValidURL_RejectsColonInHost(t *testing.T) {
+	testCases := []struct {
+		name string
+		raw  string
+		want bool
+	}{
+		{"host port", "http://localhost:8080/api", true},
+		{"https with query", "https://api.example.com/v1/users?a=1", true},
+		{"bracketed ipv6", "http://[::1]:8080/", true},
+		{"bare ipv6", "http://::1/", false},
+		{"doubled port", "http://localhost:80:80/", false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			u := URL(tc.raw)
+			got := u.IsValidURL()
+			if got == tc.want {
+				return
+			}
+			hint := ""
+			if !tc.want {
+				hint = "; rejection needs urlstrictcolons, whose default is on" +
+					" from the go 1.26 directive"
+			}
+			t.Errorf("IsValidURL(%q) = %v, want %v%s", tc.raw, got, tc.want, hint)
+		})
+	}
+}
