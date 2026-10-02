@@ -130,3 +130,26 @@ func keys(m map[string]RequestSummary) []string {
 	}
 	return out
 }
+
+// TestListRequests_D3_1_GraphqlBodyKind covers a request whose body is a
+// GraphQL body but which never declares `kind: GraphQL`.
+func TestListRequests_D3_1_GraphqlBodyKind(t *testing.T) {
+	api := evalSymlinks(t, projectDir(t))
+	writeFileAt(t, filepath.Join(api, "inferred.hk.yaml"),
+		"method: POST\nurl: http://x\nbody:\n  graphql:\n    query: 'query { posts { id } }'\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Requests) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(out.Requests))
+	}
+	if out.Requests[0].Kind != "GraphQL" {
+		t.Errorf("kind = %q, want GraphQL", out.Requests[0].Kind)
+	}
+}

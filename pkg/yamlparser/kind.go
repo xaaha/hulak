@@ -97,6 +97,34 @@ func PeekKind(filePath string) (Kind, error) {
 	return cfg.Kind, nil
 }
 
+// PeekRequestKind is PeekKind for display: it also reports GraphQL for a file
+// that carries a body.graphql block without declaring `kind: GraphQL`. Runtime
+// dispatch still keys off PeekKind, which distinguishes API from Auth.
+func PeekRequestKind(filePath string) (Kind, error) {
+	kind, err := PeekKind(filePath)
+	if err != nil {
+		return "", err
+	}
+	if kind == KindGraphQL {
+		return kind, nil
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	var peek struct {
+		Body map[string]any `yaml:"body"`
+	}
+	if err := yaml.Unmarshal(content, &peek); err != nil {
+		return "", err
+	}
+	if _, ok := peek.Body["graphql"]; ok {
+		return KindGraphQL, nil
+	}
+	return kind, nil
+}
+
 // normalize resolves case insensitivity and defaulting.
 func (k *Kind) normalize() Kind {
 	if k == nil || *k == "" {

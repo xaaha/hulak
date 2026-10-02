@@ -104,10 +104,10 @@ func listProjectRequests(project, root string) ([]RequestSummary, error) {
 }
 
 // requestKind returns the file's kind (API/GraphQL/Auth), best-effort: "" when
-// it can't be read. PeekKind reads only the kind field, so template vars and
-// getFile references do not block the listing.
+// it can't be read. PeekRequestKind reads only the kind field and the body
+// shape, so template vars and getFile references do not block the listing.
 func requestKind(path string) string {
-	k, err := yamlparser.PeekKind(path)
+	k, err := yamlparser.PeekRequestKind(path)
 	if err != nil {
 		return ""
 	}
