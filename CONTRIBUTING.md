@@ -14,7 +14,8 @@ cd hulak
 mise install
 ```
 
-`mise install` reads `mise.toml`, installs tools, and automatically sets up git hooks:
+`mise install` reads `mise.toml` and `.tool-versions`, installs tools, and
+automatically sets up git hooks:
 
 | Tool            | Purpose                                                     |
 | --------------- | ----------------------------------------------------------- |
@@ -22,6 +23,10 @@ mise install
 | `watchexec`     | File watcher for hot reload during development              |
 | `golangci-lint` | Linter aggregator (see `.golangci.yml` for enabled linters) |
 | `vhs`           | Terminal GIF recorder for demos                             |
+
+`golangci-lint` is pinned in `.tool-versions` rather than `mise.toml`, because
+CI reads that same file through `golangci-lint-action`'s `version-file` input.
+One pin serves both.
 
 ## Development Workflow
 

@@ -538,11 +538,11 @@ func TestEncodeFormDataRejectsAllEmpty(t *testing.T) {
 	}
 }
 
-// The urlstrictcolons GODEBUG default flips with the go directive in go.mod,
-// so a colon in the host subcomponent is only rejected from go 1.26 onward.
-// Pinning it here means a future lowering of that directive fails loudly
-// rather than silently widening what counts as a valid request URL.
-func TestIsValidURL_D1StrictHostColons(t *testing.T) {
+// Rejecting a colon in the host subcomponent comes from net/url, gated on the
+// urlstrictcolons GODEBUG whose default turns on at go 1.26. This records which
+// shapes hulak accepts under the directive in go.mod; it cannot see an explicit
+// //go:debug or GODEBUG override, which beat the directive.
+func TestIsValidURL_RejectsColonInHost(t *testing.T) {
 	testCases := []struct {
 		name string
 		raw  string
@@ -558,7 +558,11 @@ func TestIsValidURL_D1StrictHostColons(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			u := URL(tc.raw)
 			if got := u.IsValidURL(); got != tc.want {
-				t.Errorf("IsValidURL(%q) = %v, want %v", tc.raw, got, tc.want)
+				t.Errorf(
+					"IsValidURL(%q) = %v, want %v; host-colon rejection needs "+
+						"urlstrictcolons, whose default is on from the go 1.26 directive",
+					tc.raw, got, tc.want,
+				)
 			}
 		})
 	}

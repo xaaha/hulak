@@ -36,6 +36,10 @@ homebrew_casks:
     homepage: https://github.com/xaaha/hulak
     description: File based API client for terminal nerds
     license: MIT
+    # Go 1.27 builds target macOS 13. Without this, Homebrew installs happily
+    # on 12 and the binary refuses to launch.
+    custom_block: |
+      depends_on macos: ">= :ventura"
     binaries:
       - hulak
     manpages:
