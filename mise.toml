@@ -6,6 +6,10 @@ goreleaser = "2.14.0"
 
 [settings]
 experimental = true  # required for hooks
+# mise reads go.mod's `go` directive as an idiomatic version file and warns
+# that it will stop; the directive is a floor, not the build version. The
+# build version is the `go` pin above.
+idiomatic_version_file_enable_tools = []
 
 [hooks]
 postinstall = """
