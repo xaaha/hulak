@@ -165,12 +165,14 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 		return nil, "", err
 	}
 
-	apiInfo, err := apiConfig.PrepareStruct()
+	// Before PrepareStruct: a formdata body opens a pipe and file handles that
+	// an early return here would never close.
+	redact, err := outputRedactor(opts)
 	if err != nil {
 		return nil, "", err
 	}
 
-	redact, err := outputRedactor(opts)
+	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
 		return nil, "", err
 	}
