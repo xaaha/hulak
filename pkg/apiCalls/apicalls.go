@@ -160,11 +160,6 @@ func StandardCallWithClient(
 // never sent. No response file is written. opts.Show controls whether
 // sensitive headers are revealed in the printed output.
 func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, string, error) {
-	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
-	if err != nil {
-		return nil, "", err
-	}
-
 	// Before PrepareStruct: a formdata body opens a pipe and file handles that
 	// an early return here would never close.
 	redact, err := outputRedactor(opts)
@@ -172,9 +167,14 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 		return nil, "", err
 	}
 
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return nil, "", redactErr(redact, err)
+	}
+
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return nil, "", err
+		return nil, "", redactErr(redact, err)
 	}
 
 	if opts.DryRun {

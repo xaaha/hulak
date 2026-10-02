@@ -70,6 +70,11 @@ func writeRequestFile(t *testing.T, names ...string) string {
 	for i, name := range names {
 		content += fmt.Sprintf("  p%d: \"{{.%s}}\"\n", i, name)
 	}
+	return writeRequestContent(t, content)
+}
+
+func writeRequestContent(t *testing.T, content string) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "request.hk.yaml")
 	if err := os.WriteFile(path, []byte(content), utils.FilePer); err != nil {
 		t.Fatal(err)
@@ -571,5 +576,35 @@ func TestD1_4a_DebugSurfaceCarriesUnresolved(t *testing.T) {
 	}
 	if shown.Request.Unresolved != nil {
 		t.Errorf("a nil redactor reports nothing, got %v", shown.Request.Unresolved)
+	}
+}
+
+// Validation rejects the request before the renderer runs, so its error is the
+// only output the user sees.
+func TestL6_PreflightErrorsAreRedacted(t *testing.T) {
+	const secret = "super-secret-client-value"
+	for name, content := range map[string]string{
+		"invalid url": "kind: API\nmethod: GET\nurl: \"not a url {{.client_secret}}\"\n",
+		"invalid body": "kind: API\nmethod: POST\nurl: \"https://api.example.com\"\n" +
+			"body:\n  raw: 'tok={{.client_secret}}'\n" +
+			"  urlencodedformdata:\n    tok: \"{{.client_secret}}\"\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			chdirToProject(t, true)
+			path := writeRequestContent(t, content)
+			opts := RequestOptions{Secrets: map[string]any{"client_secret": secret}, Path: path}
+
+			_, dryErr := DryRun(opts)
+			if dryErr == nil {
+				t.Fatal("expected a pre-flight error from DryRun")
+			}
+			testutil.AssertNoSecretForm(t, "DryRun pre-flight error", dryErr.Error(), secret)
+
+			_, _, callErr := SendAndSaveAPIRequest(context.Background(), opts)
+			if callErr == nil {
+				t.Fatal("expected a pre-flight error from SendAndSaveAPIRequest")
+			}
+			testutil.AssertNoSecretForm(t, "call pre-flight error", callErr.Error(), secret)
+		})
 	}
 }

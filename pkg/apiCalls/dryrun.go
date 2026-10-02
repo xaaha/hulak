@@ -20,19 +20,19 @@ import (
 // without sending anything. opts.Show controls sensitive-header masking. Used
 // by non-terminal callers such as the MCP dry_run tool.
 func DryRun(opts RequestOptions) (string, error) {
-	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
-	if err != nil {
-		return "", err
-	}
 	// Before PrepareStruct: a formdata body opens a pipe and file handles that
 	// an early return here would never close.
 	redact, err := outputRedactor(opts)
 	if err != nil {
 		return "", err
 	}
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return "", redactErr(redact, err)
+	}
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return "", err
+		return "", redactErr(redact, err)
 	}
 	return FormatDryRun(&apiInfo, opts.Show, redact)
 }
