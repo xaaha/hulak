@@ -2,6 +2,7 @@ package actions
 
 import (
 	"encoding/base64"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -524,6 +525,63 @@ func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
 	if walks != 2 {
 		t.Errorf("walked %d times across two projects, want 2", walks)
 	}
+}
+
+// D4: an identical getValueOf diagnostic reaches stderr once, not once per
+// resolution. Without the value cache absorbing repeat failures, a response
+// file that does not exist yet is the common case at the start of a run.
+func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	missing := filepath.Join(root, "never-written"+utils.ResponseFileName)
+
+	out := captureStderr(t, func() {
+		for range 5 {
+			if got := GetValueOf("access_token", missing); got != "" {
+				t.Errorf("got %v, want empty for a missing file", got)
+			}
+		}
+	})
+	if n := strings.Count(out, "does not exist"); n != 1 {
+		t.Errorf("printed the missing-file error %d times, want 1:\n%s", n, out)
+	}
+
+	// ResetCache re-arms it: a fresh tool call should say so again.
+	again := captureStderr(t, func() {
+		ResetCache()
+		GetValueOf("access_token", missing)
+	})
+	if n := strings.Count(again, "does not exist"); n != 1 {
+		t.Errorf("after ResetCache printed %d times, want 1:\n%s", n, again)
+	}
+}
+
+// captureStderr swaps os.Stderr for a pipe, runs fn, restores os.Stderr,
+// and returns whatever fn wrote to stderr.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = orig })
+
+	done := make(chan string, 1)
+	go func() {
+		var buf strings.Builder
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
+
+	fn()
+	_ = w.Close()
+	os.Stderr = orig
+	return <-done
 }
 
 // newProjectWithResponse builds a hulak project in its own temp dir holding

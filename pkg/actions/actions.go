@@ -48,6 +48,44 @@ var (
 // Package-level var so tests can count how often it runs.
 var listMatchingFiles = utils.ListMatchingFiles
 
+// reported remembers which getValueOf diagnostics already reached stderr.
+// A reference is resolved three times per file parse and a directory run
+// repeats that per file, so a response file that does not exist yet printed the
+// same line 240 times on a 40-request run. The old value cache hid that by
+// memoizing the failure; nothing memoizes it now.
+var (
+	reportedMu sync.Mutex
+	reported   = make(map[string]struct{})
+)
+
+// reportErrorOnce writes an error line to stderr the first time msg is seen.
+func reportErrorOnce(msg string) {
+	if firstReport("error", msg) {
+		utils.PrintErrorStderr(msg)
+	}
+}
+
+// reportWarningOnce writes a warning line to stderr the first time msg is seen.
+func reportWarningOnce(msg string) {
+	if firstReport("warning", msg) {
+		utils.PrintWarningStderr(msg)
+	}
+}
+
+// firstReport records a diagnostic and reports whether it is new.
+func firstReport(kind, msg string) bool {
+	key := kind + ": " + msg
+
+	reportedMu.Lock()
+	defer reportedMu.Unlock()
+
+	if _, seen := reported[key]; seen {
+		return false
+	}
+	reported[key] = struct{}{}
+	return true
+}
+
 // GetValueOf gets the value of key from a json file.
 //
 // Nothing about the lookup is memoized across a changing file: every call
@@ -71,6 +109,10 @@ func ResetCache() {
 	pathCacheMu.Lock()
 	clear(pathCache)
 	pathCacheMu.Unlock()
+
+	reportedMu.Lock()
+	clear(reported)
+	reportedMu.Unlock()
 }
 
 // BasicAuth takes a username and password, joins them with a colon,
@@ -114,11 +156,11 @@ func processValueOf(key, fileName string) any {
 	// Validate inputs
 	if key == "" || fileName == "" {
 		if key == "" {
-			utils.PrintErrorStderr(
+			reportErrorOnce(
 				fmt.Sprintf("provide key for %s action", utils.TemplateFuncGetValueOf),
 			)
 		} else {
-			utils.PrintErrorStderr(
+			reportErrorOnce(
 				fmt.Sprintf(
 					"provide fileName/path to key for %s action",
 					utils.TemplateFuncGetValueOf,
@@ -130,19 +172,19 @@ func processValueOf(key, fileName string) any {
 
 	jsonResFilePath, err := resolveJSONFilePath(fileName)
 	if err != nil {
-		utils.PrintErrorStderr(err.Error())
+		reportErrorOnce(err.Error())
 		return ""
 	}
 
 	content, err := readJSONFile(jsonResFilePath)
 	if err != nil {
-		utils.PrintErrorStderr(err.Error())
+		reportErrorOnce(err.Error())
 		return ""
 	}
 
 	result, err := extractValueByKey(key, content)
 	if err != nil {
-		utils.PrintErrorStderr(fmt.Sprintf(
+		reportErrorOnce(fmt.Sprintf(
 			"looking up value '%s': make sure '%s' exists and has key '%s'",
 			key,
 			filepath.Join(
@@ -217,7 +259,7 @@ func resolveJSONFilePath(fileName string) (string, error) {
 
 	// Handle multiple matches warning
 	if len(yamlPathList) > 1 {
-		utils.PrintWarningStderr(
+		reportWarningOnce(
 			fmt.Sprintf("multiple '%s' files; using %s", cleanFileName, yamlPathList[0]),
 		)
 	}
