@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -87,6 +89,30 @@ func maskFor(value string) string {
 	return fmt.Sprintf("%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
 }
 
+// A rendered form missing from this list is printed in clear: replacement
+// matches literal text, and the renderer escapes before the redactor runs.
+func renderedForms(value string) []string {
+	forms := []string{value}
+	for _, encoded := range []string{
+		url.QueryEscape(value),
+		url.PathEscape(value),
+		jsonStringForm(value),
+	} {
+		if !slices.Contains(forms, encoded) {
+			forms = append(forms, encoded)
+		}
+	}
+	return forms
+}
+
+func jsonStringForm(value string) string {
+	quoted, err := json.Marshal(value)
+	if err != nil {
+		return value
+	}
+	return string(quoted[1 : len(quoted)-1])
+}
+
 func isSecretKeyName(name string) bool {
 	lower := strings.ToLower(name)
 	for _, hint := range secretKeyHints {
@@ -127,7 +153,10 @@ func NewValueRedactor(values map[string]any, allSecret bool) *ValueRedactor {
 		case value == "":
 			r.unresolved = append(r.unresolved, name)
 		case len(value) >= minMaskedValueLen:
-			r.secrets = append(r.secrets, maskedSecret{value: value, mask: maskFor(value)})
+			mask := maskFor(value)
+			for _, form := range renderedForms(value) {
+				r.secrets = append(r.secrets, maskedSecret{value: form, mask: mask})
+			}
 		}
 	}
 	// Longest first, so a secret that is a substring of another is never

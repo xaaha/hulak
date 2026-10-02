@@ -2,8 +2,10 @@ package apicalls
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +14,36 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
+
+// leakyValues exercise the transforms a rendered request applies to a value:
+// percent-encoding in a query string or urlencoded body, and JSON string
+// escaping in a JSON body.
+var leakyValues = []string{
+	"super-secret-client-value",
+	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
+	`pa$$w"rd-1234567890`,
+	`with space and \ backslash`,
+}
+
+// assertNoSecretForm fails when out carries value in any spelling a rendered
+// request can produce, not just the verbatim one.
+func assertNoSecretForm(t *testing.T, where, out, value string) {
+	t.Helper()
+	quoted, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for form, text := range map[string]string{
+		"raw":         value,
+		"queryEscape": url.QueryEscape(value),
+		"pathEscape":  url.PathEscape(value),
+		"jsonEscape":  string(quoted[1 : len(quoted)-1]),
+	} {
+		if strings.Contains(out, text) {
+			t.Errorf("%s leaked the %s form of the secret:\n%s", where, form, out)
+		}
+	}
+}
 
 // chdirToProject moves into a fresh project root so vault.DetectStore sees
 // only what the test puts there.
@@ -79,82 +111,91 @@ func TestD1_1_SecretProvenanceFollowsVaultStore(t *testing.T) {
 
 func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"
-	const bodySecret = "super-secret-client-value"
-	info := &yamlparser.APIInfo{
-		Method:    "POST",
-		URL:       "https://api.example.com/token",
-		URLParams: map[string]string{"client_secret": bodySecret},
-		Headers: map[string]string{
-			"Authorization": "Bearer " + headerToken,
-			"Content-Type":  "application/x-www-form-urlencoded",
-		},
-		Body: strings.NewReader("grant_type=client_credentials&client_secret=" + bodySecret),
-	}
-	redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true)
+	for _, bodySecret := range leakyValues {
+		t.Run(bodySecret, func(t *testing.T) {
+			info := &yamlparser.APIInfo{
+				Method:    "POST",
+				URL:       "https://api.example.com/token",
+				URLParams: map[string]string{"client_secret": bodySecret},
+				Headers: map[string]string{
+					"Authorization": "Bearer " + headerToken,
+					"Content-Type":  "application/x-www-form-urlencoded",
+				},
+				Body: strings.NewReader(url.Values{
+					"grant_type":    {"client_credentials"},
+					"client_secret": {bodySecret},
+				}.Encode()),
+			}
+			redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true)
 
-	out, err := FormatDryRun(info, false, redactor)
-	if err != nil {
-		t.Fatalf("FormatDryRun: %v", err)
-	}
+			out, err := FormatDryRun(info, false, redactor)
+			if err != nil {
+				t.Fatalf("FormatDryRun: %v", err)
+			}
 
-	if strings.Contains(out, headerToken) {
-		t.Errorf("header-name masking must still cover a token absent from the secrets map:\n%s", out)
-	}
-	if !strings.Contains(out, "Authorization: "+utils.MaskedValue+"\n") {
-		t.Errorf("Authorization should stay masked by header name:\n%s", out)
-	}
-	if strings.Contains(out, bodySecret) {
-		t.Errorf("resolved secret leaked into the body or query string:\n%s", out)
-	}
-	if !strings.Contains(out, utils.MaskedValue+"(25 chars, #") {
-		t.Errorf("expected the value mask in the output:\n%s", out)
+			if strings.Contains(out, headerToken) {
+				t.Errorf("header-name masking must still cover a token absent from the secrets map:\n%s", out)
+			}
+			if !strings.Contains(out, "Authorization: "+utils.MaskedValue+"\n") {
+				t.Errorf("Authorization should stay masked by header name:\n%s", out)
+			}
+			assertNoSecretForm(t, "dry run", out, bodySecret)
+			if !strings.Contains(out, fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(bodySecret))) {
+				t.Errorf("expected the value mask in the output:\n%s", out)
+			}
+		})
 	}
 }
 
 func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
-	const secret = "super-secret-client-value"
-	newInfo := func() yamlparser.APIInfo {
-		return yamlparser.APIInfo{
-			Method:    "POST",
-			URL:       "https://api.example.com/token",
-			URLParams: map[string]string{"client_secret": secret},
-			Headers:   map[string]string{"Authorization": "Bearer " + secret},
-			Body:      strings.NewReader("client_secret=" + secret),
-		}
-	}
 	client := &MockHTTPClient{
 		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return NewMockResponse(200, `{"ok":true}`), nil
 		},
 	}
-	redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
+	for _, secret := range leakyValues {
+		t.Run(secret, func(t *testing.T) {
+			newInfo := func() yamlparser.APIInfo {
+				return yamlparser.APIInfo{
+					Method:    "POST",
+					URL:       "https://api.example.com/token",
+					URLParams: map[string]string{"client_secret": secret},
+					Headers:   map[string]string{"Authorization": "Bearer " + secret},
+					Body: strings.NewReader(
+						url.Values{"client_secret": {secret}}.Encode(),
+					),
+				}
+			}
+			redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
 
-	masked, err := StandardCallWithClient(context.Background(), newInfo(), true, redactor, client)
-	if err != nil {
-		t.Fatalf("StandardCallWithClient: %v", err)
-	}
-	if masked.Request == nil {
-		t.Fatal("debug call must carry request info")
-	}
-	for field, got := range map[string]string{
-		"url":           masked.Request.URL,
-		"authorization": masked.Request.Headers["Authorization"],
-		"body":          fmt.Sprint(masked.Request.Body),
-	} {
-		if strings.Contains(got, secret) {
-			t.Errorf("debug %s leaked the resolved secret: %q", field, got)
-		}
-	}
+			masked, err := StandardCallWithClient(
+				context.Background(), newInfo(), true, redactor, client,
+			)
+			if err != nil {
+				t.Fatalf("StandardCallWithClient: %v", err)
+			}
+			if masked.Request == nil {
+				t.Fatal("debug call must carry request info")
+			}
+			for field, got := range map[string]string{
+				"url":           masked.Request.URL,
+				"authorization": masked.Request.Headers["Authorization"],
+				"body":          fmt.Sprint(masked.Request.Body),
+			} {
+				assertNoSecretForm(t, "debug "+field, got, secret)
+			}
 
-	shown, err := StandardCallWithClient(context.Background(), newInfo(), true, nil, client)
-	if err != nil {
-		t.Fatalf("StandardCallWithClient: %v", err)
-	}
-	if !strings.Contains(fmt.Sprint(shown.Request.Body), secret) {
-		t.Errorf("show must reveal the body, got %q", shown.Request.Body)
-	}
-	if !strings.Contains(shown.Request.Headers["Authorization"], secret) {
-		t.Errorf("show must reveal the header, got %q", shown.Request.Headers["Authorization"])
+			shown, err := StandardCallWithClient(context.Background(), newInfo(), true, nil, client)
+			if err != nil {
+				t.Fatalf("StandardCallWithClient: %v", err)
+			}
+			if !strings.Contains(fmt.Sprint(shown.Request.Body), url.QueryEscape(secret)) {
+				t.Errorf("show must reveal the body, got %q", shown.Request.Body)
+			}
+			if !strings.Contains(shown.Request.Headers["Authorization"], secret) {
+				t.Errorf("show must reveal the header, got %q", shown.Request.Headers["Authorization"])
+			}
+		})
 	}
 }
 

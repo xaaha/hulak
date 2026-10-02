@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -195,5 +197,42 @@ func TestD1_5_NilRedactorLeavesTextAlone(t *testing.T) {
 	var r *ValueRedactor
 	if got := r.Redact("plain text"); got != "plain text" {
 		t.Errorf("nil redactor must pass text through, got %q", got)
+	}
+}
+
+// leakyValues exercise the transforms a rendered request applies to a value:
+// percent-encoding in a query string or urlencoded body, and JSON string
+// escaping in a JSON body.
+var leakyValues = []string{
+	"super-secret-client-value",
+	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
+	`pa$$w"rd-1234567890`,
+	`with space and \ backslash`,
+	"angle<brackets>and&ersand-value",
+}
+
+func TestLeak1_EncodedFormsAreMasked(t *testing.T) {
+	for _, value := range leakyValues {
+		t.Run(value, func(t *testing.T) {
+			r := NewValueRedactor(map[string]any{"client_secret": value}, true)
+			jsonForm, err := json.Marshal(value)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			for form, text := range map[string]string{
+				"raw":         value,
+				"queryEscape": url.QueryEscape(value),
+				"pathEscape":  url.PathEscape(value),
+				"jsonEscape":  string(jsonForm[1 : len(jsonForm)-1]),
+			} {
+				got := r.Redact("client_secret=" + text)
+				if strings.Contains(got, text) {
+					t.Errorf("%s form left in clear: %q", form, got)
+				}
+				if !strings.Contains(got, maskFor(value)) {
+					t.Errorf("%s form not replaced by the value mask: %q", form, got)
+				}
+			}
+		})
 	}
 }
