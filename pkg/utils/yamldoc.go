@@ -37,13 +37,12 @@ func emptyYAMLDoc(body ast.Node) bool {
 	case nil, *ast.DirectiveNode:
 		return true
 	case *ast.DocumentNode:
-		return node == nil || emptyYAMLDoc(node.Body)
+		return emptyYAMLDoc(node.Body)
 	default:
 		return false
 	}
 }
 
-// yamlDocLine panics on a doc emptyYAMLDoc accepted: that one has no body.
 func yamlDocLine(doc *ast.DocumentNode) int {
 	if doc.Start != nil {
 		return doc.Start.Position.Line
