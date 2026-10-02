@@ -277,8 +277,14 @@ func cachedContent(filePath string, fresh os.FileInfo) (any, bool) {
 // sameFile reports whether two stats describe the same file contents. Every
 // comparison it can't make confidently has to come back false: a wrong "not
 // the same" costs one re-read, a wrong "same" serves a token that expired.
+//
+// Identity carries the weight. Response files are written through
+// utils.AtomicWriteFile, which renames a temp file over the target, so every
+// write hulak performs leaves a different inode behind no matter what the size
+// and timestamp say. Size and mtime catch an in-place edit by something else.
 func sameFile(cached, fresh os.FileInfo) bool {
-	return cached.Size() == fresh.Size() &&
+	return os.SameFile(cached, fresh) &&
+		cached.Size() == fresh.Size() &&
 		cached.ModTime().Equal(fresh.ModTime())
 }
 

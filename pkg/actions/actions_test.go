@@ -439,6 +439,54 @@ func TestD1_ParsedFileReusedUntilRewritten(t *testing.T) {
 	}
 }
 
+// D2: the freshness check includes file identity, so a rewrite that lands the
+// same byte count under the same timestamp is still seen. Response files are
+// renamed into place, so identity is the one signal that always moves.
+func TestD2_RenamedFileSeenDespiteMatchingSizeAndMtime(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	path := filepath.Join(root, "auth"+utils.ResponseFileName)
+	if err := os.WriteFile(path, []byte(`{"access_token": "aaa"}`), utils.FilePer); err != nil {
+		t.Fatalf("failed to write response file: %v", err)
+	}
+	original, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+
+	if got := GetValueOf("access_token", path); got != "aaa" {
+		t.Fatalf("first read: got %v, want aaa", got)
+	}
+
+	// Same byte count, restored timestamp: size and mtime alone cannot tell
+	// this apart from the file already parsed.
+	tmp := filepath.Join(root, "replacement.json")
+	if err := os.WriteFile(tmp, []byte(`{"access_token": "bbb"}`), utils.FilePer); err != nil {
+		t.Fatalf("failed to write replacement: %v", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if err := os.Chtimes(path, original.ModTime(), original.ModTime()); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+
+	refreshed, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat after rename: %v", err)
+	}
+	if refreshed.Size() != original.Size() || !refreshed.ModTime().Equal(original.ModTime()) {
+		t.Fatalf("setup failed to match size and mtime: %d/%v vs %d/%v",
+			refreshed.Size(), refreshed.ModTime(), original.Size(), original.ModTime())
+	}
+
+	if got := GetValueOf("access_token", path); got != "bbb" {
+		t.Errorf("after rename: got %v, want bbb", got)
+	}
+}
+
 // sameParsedTree reports whether two parsed JSON documents are the same
 // in-memory map, which is how a cache hit is distinguished from a re-parse
 // that happens to produce an equal value.
