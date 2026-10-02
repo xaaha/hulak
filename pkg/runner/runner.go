@@ -78,14 +78,20 @@ const DefaultTimeout = 60 * time.Second
 // for a session without editing request files or passing --timeout.
 const HulakTimeoutEnv = "HULAK_TIMEOUT"
 
+// warnIfShowHasNoEffect tells the user --show will reveal nothing, which is
+// true only when neither --dry-run nor --debug prints a request to reveal.
+func warnIfShowHasNoEffect(f *Flags) {
+	if f.Show && !f.DryRun && !f.Debug {
+		utils.PrintWarningStderr("--show has no effect without --dry-run or --debug")
+	}
+}
+
 // Execute runs the full pipeline: discover files, resolve env, execute requests.
 // Returns an error if any request file failed — callers should propagate it
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
-	if f.Show && !f.DryRun && !f.Debug {
-		utils.PrintWarningStderr("--show has no effect without --dry-run or --debug")
-	}
+	warnIfShowHasNoEffect(f)
 
 	// If --ssh-identity is set and the env var isn't already set by the shell,
 	// propagate it so ResolveIdentity picks it up for vault decryption.

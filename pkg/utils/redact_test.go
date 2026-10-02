@@ -300,3 +300,38 @@ func TestD1_4a_FooterScopedToReferencedVariables(t *testing.T) {
 		}
 	})
 }
+
+func TestIsSecretKeyName(t *testing.T) {
+	tests := map[string]bool{
+		"client_secret":   true,
+		"access_token":    true,
+		"db_password":     true,
+		"api_key":         true,
+		"aws_credential":  true,
+		"auth_header":     true,
+		"jwt":             true,
+		"my_secret_v2":    true,
+		"SECRET":          true,
+		"Access_Token":    true,
+		"base_url":        false,
+		"tenant_id":       false,
+		"method":          false,
+		"client_identity": false,
+		"":                false,
+	}
+	for name, want := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := isSecretKeyName(name); got != want {
+				t.Errorf("isSecretKeyName(%q) = %v, want %v", name, got, want)
+			}
+		})
+	}
+}
+
+func TestSecretKeyHintsAllCovered(t *testing.T) {
+	for _, hint := range secretKeyHints {
+		if !isSecretKeyName("prefix_" + hint + "_suffix") {
+			t.Errorf("hint %q must match in the middle of a key name", hint)
+		}
+	}
+}

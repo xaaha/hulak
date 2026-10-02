@@ -3,6 +3,7 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -788,4 +789,52 @@ func enterHulakProject(t *testing.T) string {
 		}
 	})
 	return root
+}
+
+// captureStderr runs fn with os.Stderr redirected and returns what it wrote.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := os.Stderr
+	os.Stderr = w
+	fn()
+	os.Stderr = original
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestWarnIfShowHasNoEffect(t *testing.T) {
+	tests := []struct {
+		show, dryRun, debug bool
+		want                bool
+	}{
+		{show: true, want: true},
+		{show: true, dryRun: true},
+		{show: true, debug: true},
+		{show: true, dryRun: true, debug: true},
+		{},
+		{dryRun: true},
+		{debug: true},
+	}
+	for _, tc := range tests {
+		name := fmt.Sprintf("show=%v/dryRun=%v/debug=%v", tc.show, tc.dryRun, tc.debug)
+		t.Run(name, func(t *testing.T) {
+			out := captureStderr(t, func() {
+				warnIfShowHasNoEffect(&Flags{Show: tc.show, DryRun: tc.dryRun, Debug: tc.debug})
+			})
+			warned := strings.Contains(out, "--show has no effect without --dry-run or --debug")
+			if warned != tc.want {
+				t.Errorf("warned = %v, want %v (stderr %q)", warned, tc.want, out)
+			}
+		})
+	}
 }

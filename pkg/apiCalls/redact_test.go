@@ -328,3 +328,93 @@ func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
 		}
 	})
 }
+
+// TestD1_2_DebugMasksHeaderNamesToo pins the header-name layer on the debug
+// path: a getValueOf-style token never reaches the secrets map, so only
+// RedactHeaders can hide it.
+func TestD1_2_DebugMasksHeaderNamesToo(t *testing.T) {
+	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"
+	const bodySecret = "super-secret-client-value"
+	client := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return NewMockResponse(200, `{"ok":true}`), nil
+		},
+	}
+	info := yamlparser.APIInfo{
+		Method: "POST",
+		URL:    "https://api.example.com/token",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + headerToken,
+			"Cookie":        "session=" + headerToken,
+			"Content-Type":  "application/x-www-form-urlencoded",
+		},
+		Body: strings.NewReader(url.Values{"client_secret": {bodySecret}}.Encode()),
+	}
+	redactor := utils.NewValueRedactor(map[string]any{"client_secret": bodySecret}, true, nil)
+
+	resp, err := StandardCallWithClient(context.Background(), info, true, redactor, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if resp.Request == nil {
+		t.Fatal("debug call must carry request info")
+	}
+	for _, name := range []string{"Authorization", "Cookie"} {
+		if got := resp.Request.Headers[name]; got != utils.MaskedValue {
+			t.Errorf("%s must be masked by header name, got %q", name, got)
+		}
+	}
+	if resp.Request.Headers["Content-Type"] != "application/x-www-form-urlencoded" {
+		t.Errorf("a non-sensitive header must survive: %q", resp.Request.Headers["Content-Type"])
+	}
+}
+
+// TestD1_3_ShowRevealsAtTheRedactorSeam pins that RequestOptions.Show turns
+// value masking off, not just header-name masking.
+func TestD1_3_ShowRevealsAtTheRedactorSeam(t *testing.T) {
+	const secret = "super-secret-client-value"
+	chdirToProject(t, true)
+	path := writeRequestFile(t, "client_secret")
+	opts := RequestOptions{
+		Secrets: map[string]any{"client_secret": secret},
+		Path:    path,
+	}
+
+	masked, err := outputRedactor(opts)
+	if err != nil {
+		t.Fatalf("outputRedactor: %v", err)
+	}
+	if masked == nil {
+		t.Fatal("without Show the output must be masked")
+	}
+	if strings.Contains(masked.Redact("secret="+secret), secret) {
+		t.Error("without Show the resolved secret must not survive")
+	}
+
+	opts.Show = true
+	shown, err := outputRedactor(opts)
+	if err != nil {
+		t.Fatalf("outputRedactor: %v", err)
+	}
+	if shown != nil {
+		t.Error("Show must mask nothing")
+	}
+}
+
+func TestD1_3_ShowRevealsThroughDryRun(t *testing.T) {
+	const secret = "super-secret-client-value"
+	chdirToProject(t, true)
+	path := writeRequestFile(t, "client_secret")
+
+	out, err := DryRun(RequestOptions{
+		Secrets: map[string]any{"client_secret": secret},
+		Path:    path,
+		Show:    true,
+	})
+	if err != nil {
+		t.Fatalf("DryRun: %v", err)
+	}
+	if !strings.Contains(out, url.QueryEscape(secret)) {
+		t.Errorf("Show must leave the resolved secret in the clear:\n%s", out)
+	}
+}

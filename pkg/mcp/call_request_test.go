@@ -243,6 +243,8 @@ func assertNoSecretForm(t *testing.T, where, out, value string) {
 // a request and checks neither hands the agent a resolved secret in clear
 // text.
 func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
+	// Never in the secrets map, so only header-name masking can hide it.
+	const headerToken = "ya29.a0AfH6SMB-never-in-the-secrets-map"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ok":true}`))
@@ -257,7 +259,7 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 			writeFileAt(t, filepath.Join(api, "token.hk.yaml"),
 				"kind: API\nmethod: POST\nurl: \"{{.baseUrl}}\"\n"+
 					"urlparams:\n  client_secret: \"{{.client_secret}}\"\n"+
-					"headers:\n  Authorization: \"Bearer {{.client_secret}}\"\n"+
+					"headers:\n  Authorization: \"Bearer "+headerToken+"\"\n"+
 					"body:\n  urlencodedformdata:\n    client_secret: \"{{.client_secret}}\"\n")
 
 			s, err := NewServer(map[string]string{"api": api}, "v")
@@ -273,6 +275,9 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 					t.Fatal(err)
 				}
 				assertNoSecretForm(t, "dry_run", out.Request, secret)
+				if strings.Contains(out.Request, headerToken) {
+					t.Errorf("dry_run leaked a token only header-name masking covers:\n%s", out.Request)
+				}
 				if !strings.Contains(out.Request, wantMask) {
 					t.Errorf("expected a value mask in the dry_run output:\n%s", out.Request)
 				}
@@ -285,6 +290,9 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 					t.Fatal(err)
 				}
 				assertNoSecretForm(t, "call_request debug", out.Body, secret)
+				if strings.Contains(out.Body, headerToken) {
+					t.Errorf("call_request debug leaked a token only header-name masking covers:\n%s", out.Body)
+				}
 				if !strings.Contains(out.Body, wantMask) {
 					t.Errorf("expected a value mask in the debug output:\n%s", out.Body)
 				}
