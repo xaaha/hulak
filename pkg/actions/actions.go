@@ -14,16 +14,10 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Cache structure to store both results and handle warnings
-type valueCache struct {
-	result any
-	exists bool
-}
-
 // Global cache map with thread-safe access
 var (
 	valuesCacheMutex sync.RWMutex
-	valuesCache      = make(map[string]valueCache)
+	valuesCache      = make(map[string]any)
 
 	// Add file operation mutex
 	fileOpsMutex sync.Map
@@ -36,9 +30,9 @@ func GetValueOf(key, fileName string) any {
 
 	// Check cache first
 	valuesCacheMutex.RLock()
-	if cache, exists := valuesCache[cacheKey]; exists {
+	if cached, exists := valuesCache[cacheKey]; exists {
 		valuesCacheMutex.RUnlock()
-		return cache.result
+		return cached
 	}
 	valuesCacheMutex.RUnlock()
 
@@ -47,20 +41,30 @@ func GetValueOf(key, fileName string) any {
 	defer valuesCacheMutex.Unlock()
 
 	// Double-check pattern in case another goroutine cached while we waited
-	if cache, exists := valuesCache[cacheKey]; exists {
-		return cache.result
+	if cached, exists := valuesCache[cacheKey]; exists {
+		return cached
 	}
 
 	// Process the file and get result
 	result := processValueOf(key, fileName)
 
-	// Cache the result
-	valuesCache[cacheKey] = valueCache{
-		result: result,
-		exists: true,
-	}
-
+	valuesCache[cacheKey] = result
 	return result
+}
+
+// ResetCache drops every memoized getValueOf result. Call it at the start of
+// each unit of work in a process that outlives one command: the MCP server
+// serves tool calls for hours, so a request that saves a fresh auth response
+// must be visible to the next one that reads it with getValueOf (#251).
+//
+// The CLI does not call this, which leaves one case untouched: in a single
+// `hulak run --sequential <dir>`, a file that reads a token before the file
+// that refreshes it keeps the stale value for the rest of that run. That is
+// long-standing CLI behaviour, not something this cache reset changed.
+func ResetCache() {
+	valuesCacheMutex.Lock()
+	defer valuesCacheMutex.Unlock()
+	clear(valuesCache)
 }
 
 // BasicAuth takes a username and password, joins them with a colon,
