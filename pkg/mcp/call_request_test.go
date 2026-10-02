@@ -206,3 +206,53 @@ func TestHandleCallRequest_SavedTokenVisibleToNextCall(t *testing.T) {
 		t.Errorf("call after the token was saved: status = %q, want 200 OK", out.Status)
 	}
 }
+
+// TestD1_3_MCPMasksSecretsOnBothSurfaces drives the two MCP tools that render
+// a request and checks neither hands the agent a resolved secret in clear
+// text.
+func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
+	const secret = "super-secret-client-value"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "staging.env"),
+		"baseUrl="+srv.URL+"\nclient_secret="+secret+"\n")
+	writeFileAt(t, filepath.Join(api, "token.hk.yaml"),
+		"kind: API\nmethod: POST\nurl: \"{{.baseUrl}}\"\n"+
+			"headers:\n  Authorization: \"Bearer {{.client_secret}}\"\n"+
+			"body:\n  urlencodedformdata:\n    client_secret: \"{{.client_secret}}\"\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	t.Run("dry_run", func(t *testing.T) {
+		_, out, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "token", Env: "staging"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.Request, secret) {
+			t.Errorf("dry_run leaked the resolved secret:\n%s", out.Request)
+		}
+	})
+
+	t.Run("call_request with debug", func(t *testing.T) {
+		_, out, err := s.handleCallRequest(ctx, nil,
+			callRequestInput{Name: "token", Env: "staging", Debug: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.Body, secret) {
+			t.Errorf("call_request debug output leaked the resolved secret:\n%s", out.Body)
+		}
+		if !strings.Contains(out.Body, "chars, #") {
+			t.Errorf("expected a value mask in the debug output:\n%s", out.Body)
+		}
+	})
+}

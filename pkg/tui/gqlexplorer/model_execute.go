@@ -66,7 +66,7 @@ func (m *Model) executeQuery() tea.Cmd {
 	m.updateActionRow()
 
 	apiCall := func() tea.Msg {
-		resp, err := apicalls.StandardCall(context.Background(), apiInfo, false)
+		resp, err := apicalls.StandardCall(context.Background(), apiInfo, false, nil)
 		if err != nil {
 			return queryErrorMsg{err: err}
 		}

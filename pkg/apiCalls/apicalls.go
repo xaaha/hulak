@@ -21,12 +21,16 @@ var DefaultClient httpclient.HTTPClient = httpclient.New()
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
+//
+// redact masks resolved secret values in the debug request echo. Pass nil to
+// leave the echo in the clear, as --show does.
 func StandardCall(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
+	redact *utils.ValueRedactor,
 ) (CustomResponse, error) {
-	return StandardCallWithClient(ctx, apiInfo, debug, DefaultClient)
+	return StandardCallWithClient(ctx, apiInfo, debug, redact, DefaultClient)
 }
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
@@ -48,6 +52,7 @@ func StandardCallWithClient(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
+	redact *utils.ValueRedactor,
 	client httpclient.HTTPClient,
 ) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
@@ -130,7 +135,7 @@ func StandardCallWithClient(
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug, reqBodyForDebug)
+	return processResponse(req, response, duration, debug, reqBodyForDebug, redact)
 }
 
 // SendAndSaveAPIRequest builds the API request from the file at opts.Path,
@@ -156,13 +161,13 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 	}
 
 	if opts.DryRun {
-		if err := PrintDryRun(&apiInfo, opts.Show, dryRunRedactor(opts)); err != nil {
+		if err := PrintDryRun(&apiInfo, opts.Show, outputRedactor(opts)); err != nil {
 			return nil, "", err
 		}
 		return nil, "", nil
 	}
 
-	resp, err := StandardCall(ctx, apiInfo, opts.Debug)
+	resp, err := StandardCall(ctx, apiInfo, opts.Debug, outputRedactor(opts))
 	if err != nil {
 		return nil, "", err
 	}

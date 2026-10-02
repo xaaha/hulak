@@ -1,6 +1,9 @@
 package apicalls
 
 import (
+	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,5 +108,52 @@ func TestD1_2_ValueMaskingAddsToHeaderNameMasking(t *testing.T) {
 	}
 	if !strings.Contains(out, utils.MaskedValue+"(25 chars, #") {
 		t.Errorf("expected the value mask in the output:\n%s", out)
+	}
+}
+
+func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
+	const secret = "super-secret-client-value"
+	newInfo := func() yamlparser.APIInfo {
+		return yamlparser.APIInfo{
+			Method:    "POST",
+			URL:       "https://api.example.com/token",
+			URLParams: map[string]string{"client_secret": secret},
+			Headers:   map[string]string{"Authorization": "Bearer " + secret},
+			Body:      strings.NewReader("client_secret=" + secret),
+		}
+	}
+	client := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return NewMockResponse(200, `{"ok":true}`), nil
+		},
+	}
+	redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
+
+	masked, err := StandardCallWithClient(context.Background(), newInfo(), true, redactor, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if masked.Request == nil {
+		t.Fatal("debug call must carry request info")
+	}
+	for field, got := range map[string]string{
+		"url":           masked.Request.URL,
+		"authorization": masked.Request.Headers["Authorization"],
+		"body":          fmt.Sprint(masked.Request.Body),
+	} {
+		if strings.Contains(got, secret) {
+			t.Errorf("debug %s leaked the resolved secret: %q", field, got)
+		}
+	}
+
+	shown, err := StandardCallWithClient(context.Background(), newInfo(), true, nil, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if !strings.Contains(fmt.Sprint(shown.Request.Body), secret) {
+		t.Errorf("show must reveal the body, got %q", shown.Request.Body)
+	}
+	if !strings.Contains(shown.Request.Headers["Authorization"], secret) {
+		t.Errorf("show must reveal the header, got %q", shown.Request.Headers["Authorization"])
 	}
 }

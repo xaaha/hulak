@@ -28,12 +28,12 @@ func DryRun(opts RequestOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return FormatDryRun(&apiInfo, opts.Show, dryRunRedactor(opts))
+	return FormatDryRun(&apiInfo, opts.Show, outputRedactor(opts))
 }
 
-// dryRunRedactor returns the value masker for opts, or nil when opts.Show
+// outputRedactor returns the value masker for opts, or nil when opts.Show
 // asks for everything in the clear.
-func dryRunRedactor(opts RequestOptions) *utils.ValueRedactor {
+func outputRedactor(opts RequestOptions) *utils.ValueRedactor {
 	if opts.Show {
 		return nil
 	}
