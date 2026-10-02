@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -402,9 +403,56 @@ func TestGetFile_PreservesFormatting(t *testing.T) {
 	}
 }
 
-// The getValueOf cache has no invalidation, which is fine in a one-shot CLI
-// process and wrong in one that serves tool calls for hours. ResetCache is what
-// the MCP server calls between calls so a rewritten response file is seen.
+// D1: a parsed response file is reused only while the file on disk still
+// matches it. Both halves matter — memoizing the value is the #253 bug, and
+// re-reading unconditionally is what the cache exists to avoid.
+func TestD1_ParsedFileReusedUntilRewritten(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	path := filepath.Join(root, "auth"+utils.ResponseFileName)
+	write := func(token string) {
+		t.Helper()
+		body := `{"access_token": "` + token + `"}`
+		if err := os.WriteFile(path, []byte(body), utils.FilePer); err != nil {
+			t.Fatalf("failed to write response file: %v", err)
+		}
+	}
+
+	write("stale-token")
+	first, err := readJSONFile(path)
+	if err != nil {
+		t.Fatalf("first read: %v", err)
+	}
+	second, err := readJSONFile(path)
+	if err != nil {
+		t.Fatalf("second read: %v", err)
+	}
+	if !sameParsedTree(first, second) {
+		t.Error("unchanged file was parsed twice — the content cache is not being used")
+	}
+
+	write("a-longer-fresh-token")
+	if got := GetValueOf("access_token", path); got != "a-longer-fresh-token" {
+		t.Errorf("after rewrite: got %v, want a-longer-fresh-token", got)
+	}
+}
+
+// sameParsedTree reports whether two parsed JSON documents are the same
+// in-memory map, which is how a cache hit is distinguished from a re-parse
+// that happens to produce an equal value.
+func sameParsedTree(a, b any) bool {
+	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
+	if av.Kind() != reflect.Map || bv.Kind() != reflect.Map {
+		return false
+	}
+	return av.Pointer() == bv.Pointer()
+}
+
+// ResetCache drops parsed response files wholesale. Entries already invalidate
+// themselves against the file on disk; this is for the staleness a stat can't
+// see, which is why the MCP server calls it between tool calls.
 func TestResetCache(t *testing.T) {
 	setupHulakProject(t)
 

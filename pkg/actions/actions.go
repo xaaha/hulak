@@ -14,51 +14,42 @@ import (
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
-// Global cache map with thread-safe access
+// cachedFile is one parsed response file plus the stat it was read from.
+// The parsed tree is handed to every caller that asks for a key out of this
+// file, so it must never be written to after it lands here — see
+// normalizeNumbers in readJSONFile.
+type cachedFile struct {
+	info    os.FileInfo
+	content any
+}
+
 var (
-	valuesCacheMutex sync.RWMutex
-	valuesCache      = make(map[string]any)
+	contentCacheMu sync.RWMutex
+	contentCache   = make(map[string]cachedFile)
 
 	// Add file operation mutex
 	fileOpsMutex sync.Map
 )
 
-// GetValueOf gets the value of key from a json file with caching
+// GetValueOf gets the value of key from a json file.
+//
+// Nothing about the lookup is memoized across a changing file: every call
+// stats the file it is about to read and throws away the parsed copy the
+// moment the file on disk no longer matches it. A single run refreshes a
+// token mid-flight, and every reference after that has to see the new one
+// (#251, #253).
 func GetValueOf(key, fileName string) any {
-	// Create cache key combining file and key
-	cacheKey := fmt.Sprintf("%s:%s", fileName, key)
-
-	// Check cache first
-	valuesCacheMutex.RLock()
-	if cached, exists := valuesCache[cacheKey]; exists {
-		valuesCacheMutex.RUnlock()
-		return cached
-	}
-	valuesCacheMutex.RUnlock()
-
-	// If not in cache, acquire write lock and process
-	valuesCacheMutex.Lock()
-	defer valuesCacheMutex.Unlock()
-
-	// Double-check pattern in case another goroutine cached while we waited
-	if cached, exists := valuesCache[cacheKey]; exists {
-		return cached
-	}
-
-	// Process the file and get result
-	result := processValueOf(key, fileName)
-
-	valuesCache[cacheKey] = result
-	return result
+	return processValueOf(key, fileName)
 }
 
-// ResetCache drops every memoized getValueOf result. The cache has no
-// invalidation, so any process serving more than one command must call this
-// between them or it will serve a token that has since been rewritten (#251).
+// ResetCache drops every parsed response file. Entries invalidate themselves
+// against the file on disk, so this is for the coarser staleness a stat can't
+// see: a process serving tool calls for hours resolves bare filenames against
+// a project tree that changes underneath it.
 func ResetCache() {
-	valuesCacheMutex.Lock()
-	defer valuesCacheMutex.Unlock()
-	clear(valuesCache)
+	contentCacheMu.Lock()
+	defer contentCacheMu.Unlock()
+	clear(contentCache)
 }
 
 // BasicAuth takes a username and password, joins them with a colon,
@@ -205,7 +196,12 @@ func resolveJSONFilePath(fileName string) (string, error) {
 	return filepath.Join(dirPath, jsonBaseName), nil
 }
 
-// readJSONFile reads and parses a JSON file with proper locking
+// readJSONFile returns the parsed contents of filePath, reusing the previous
+// parse only while the file on disk still matches the one it came from.
+//
+// The stat happens before the read, never after: a rewrite landing between the
+// two stores fresh content against a stale stat, so the next call re-reads. The
+// other order would store stale content against a fresh stat and serve it.
 func readJSONFile(filePath string) (any, error) {
 	// Get file-specific mutex
 	fileMutex := getFileMutex(filePath)
@@ -213,8 +209,20 @@ func readJSONFile(filePath string) (any, error) {
 	defer fileMutex.Unlock()
 
 	// Check file existence under lock
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("file '%s' does not exist", filePath)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("file '%s' does not exist", filePath)
+		}
+		return nil, fmt.Errorf(
+			"error occurred while reading the file '%s': %s",
+			filepath.Base(filePath),
+			err.Error(),
+		)
+	}
+
+	if content, ok := cachedContent(filePath, info); ok {
+		return content, nil
 	}
 
 	// Read the file content
@@ -238,7 +246,40 @@ func readJSONFile(filePath string) (any, error) {
 		)
 	}
 
+	// Normalize here rather than per extraction: callers share this tree, and
+	// a converting walk per lookup would be a write to a map another goroutine
+	// is reading.
+	content = normalizeNumbers(content)
+
+	contentCacheMu.Lock()
+	contentCache[filePath] = cachedFile{info: info, content: content}
+	contentCacheMu.Unlock()
+
 	return content, nil
+}
+
+// cachedContent returns the parsed copy of filePath when fresh describes the
+// same file it was read from.
+func cachedContent(filePath string, fresh os.FileInfo) (any, bool) {
+	contentCacheMu.RLock()
+	defer contentCacheMu.RUnlock()
+
+	entry, exists := contentCache[filePath]
+	if !exists {
+		return nil, false
+	}
+	if !sameFile(entry.info, fresh) {
+		return nil, false
+	}
+	return entry.content, true
+}
+
+// sameFile reports whether two stats describe the same file contents. Every
+// comparison it can't make confidently has to come back false: a wrong "not
+// the same" costs one re-read, a wrong "same" serves a token that expired.
+func sameFile(cached, fresh os.FileInfo) bool {
+	return cached.Size() == fresh.Size() &&
+		cached.ModTime().Equal(fresh.ModTime())
 }
 
 // extractValueByKey extracts a value from JSON content using the provided key
@@ -270,12 +311,14 @@ func extractValueByKey(key string, content any) (any, error) {
 		return "", err
 	}
 
-	// Convert float64 to int64 if it represents a whole number
-	return convertNumberToProperType(result), nil
+	return result, nil
 }
 
-// convertNumberToProperType converts float64 values to int64 if they represent whole numbers
-func convertNumberToProperType(v any) any {
+// normalizeNumbers rewrites float64 values that represent whole numbers as int
+// or int64, so a JSON 30 renders as "30" and not "30.0". Runs once over a
+// freshly parsed document; the maps and slices it rewrites are not shared with
+// anything yet.
+func normalizeNumbers(v any) any {
 	switch value := v.(type) {
 	case float64:
 		// Check if it's an integer (no decimal part)
@@ -289,11 +332,11 @@ func convertNumberToProperType(v any) any {
 		}
 	case []any:
 		for i, item := range value {
-			value[i] = convertNumberToProperType(item)
+			value[i] = normalizeNumbers(item)
 		}
 	case map[string]any:
 		for k, item := range value {
-			value[k] = convertNumberToProperType(item)
+			value[k] = normalizeNumbers(item)
 		}
 	}
 	return v
