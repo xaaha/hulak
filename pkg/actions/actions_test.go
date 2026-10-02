@@ -558,6 +558,47 @@ func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 	}
 }
 
+// D5: when a bare name matches more than one request file the warning still
+// fires, and fires once for that name however many keys are read out of it.
+// The resolved file is the same every time, which is the point of warning.
+func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
+	root := setupHulakProject(t)
+	t.Cleanup(ResetCache)
+	ResetCache()
+
+	// Two request files share the stem "auth", in sibling directories.
+	for dir, token := range map[string]string{"a-first": "first-token", "z-second": "second-token"} {
+		if err := os.Mkdir(filepath.Join(root, dir), utils.DirPer); err != nil {
+			t.Fatalf("failed to create %s: %v", dir, err)
+		}
+		request := filepath.Join(root, dir, "auth"+utils.ProjectExt+utils.YAML)
+		if err := os.WriteFile(request, []byte("method: GET\nurl: http://example.com\n"), utils.FilePer); err != nil {
+			t.Fatalf("failed to write request file: %v", err)
+		}
+		body := `{"access_token": "` + token + `", "token_type": "Bearer"}`
+		response := filepath.Join(root, dir, "auth"+utils.ProjectExt+utils.ResponseFileName)
+		if err := os.WriteFile(response, []byte(body), utils.FilePer); err != nil {
+			t.Fatalf("failed to write response file: %v", err)
+		}
+	}
+
+	var token, kind any
+	out := captureStderr(t, func() {
+		token = GetValueOf("access_token", "auth")
+		kind = GetValueOf("token_type", "auth")
+	})
+
+	if n := strings.Count(out, "multiple 'auth' files"); n != 1 {
+		t.Errorf("warned %d times for one ambiguous name, want 1:\n%s", n, out)
+	}
+	if token != "first-token" {
+		t.Errorf("access_token = %v, want first-token", token)
+	}
+	if kind != "Bearer" {
+		t.Errorf("token_type = %v, want Bearer", kind)
+	}
+}
+
 // captureStderr swaps os.Stderr for a pipe, runs fn, restores os.Stderr,
 // and returns whatever fn wrote to stderr.
 func captureStderr(t *testing.T, fn func()) string {
