@@ -34,7 +34,7 @@ func ValidateSingleYAMLDoc(name string, content []byte) error {
 
 func emptyYAMLDoc(body ast.Node) bool {
 	switch node := body.(type) {
-	case nil:
+	case nil, *ast.DirectiveNode:
 		return true
 	case *ast.DocumentNode:
 		return node == nil || emptyYAMLDoc(node.Body)

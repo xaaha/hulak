@@ -20,10 +20,17 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 		{"leading and trailing separators", "---\nmethod: POST\n---\n", ""},
 		{"two trailing separators", "method: POST\n---\n---\n", ""},
 		{"trailing separator then blank lines", "method: POST\n---\n\n\n", ""},
+		{"yaml directive", "%YAML 1.2\n---\nmethod: POST\nurl: https://e.com\n", ""},
+		{
+			"tag directive",
+			"%TAG !e! tag:example.com,2000:app/\n---\nmethod: POST\nurl: https://e.com\n",
+			"",
+		},
 		{"stray line splits the mapping", "method: POST\n// stray\nurl: https://e.com\n", "line 2"},
 		{"deliberate second document", "method: POST\n---\nurl: https://e.com\n", "line 2"},
 		{"second document is an explicit null", "method: POST\n---\nnull\n", "line 2"},
 		{"split after a leading separator", "---\nmethod: POST\n// stray\n", "line 3"},
+		{"split after a yaml directive", "%YAML 1.2\n---\nmethod: POST\n---\nurl: x\n", "line 4"},
 	}
 
 	for _, tt := range tests {
