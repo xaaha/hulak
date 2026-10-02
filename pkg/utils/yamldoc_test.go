@@ -48,8 +48,13 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 	}
 }
 
-func repoRoot(t *testing.T) string {
+// yamlCorpusRoot is the repo itself, or the directory named by
+// HULAK_YAML_CORPUS so the same check can be pointed at another project.
+func yamlCorpusRoot(t *testing.T) string {
 	t.Helper()
+	if root := os.Getenv("HULAK_YAML_CORPUS"); root != "" {
+		return root
+	}
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +72,7 @@ func repoRoot(t *testing.T) string {
 }
 
 func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
-	root := repoRoot(t)
+	root := yamlCorpusRoot(t)
 
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
