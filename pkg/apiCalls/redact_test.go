@@ -203,6 +203,27 @@ func TestLeak4_SecretInURLPathIsMasked(t *testing.T) {
 	}
 }
 
+// An env value may itself be a template; substitution resolves it before the
+// value reaches the output, so the raw text is the wrong thing to register.
+func TestLeak5_TemplateValuedSecretsAreMaskedAtTheirResolvedValue(t *testing.T) {
+	const resolved = "super-secret-from-os-env"
+	t.Setenv("HULAK_PROBE_CLIENT_SECRET", resolved)
+	chdirToProject(t, false)
+	path := writeRequestFile(t, "client_secret")
+	secrets := map[string]any{"client_secret": `{{os "HULAK_PROBE_CLIENT_SECRET"}}`}
+
+	out, err := DryRun(RequestOptions{Secrets: secrets, Path: path})
+	if err != nil {
+		t.Fatalf("DryRun: %v", err)
+	}
+	if strings.Contains(out, resolved) {
+		t.Errorf("dry run leaked the resolved value of a template-valued secret:\n%s", out)
+	}
+	if !strings.Contains(out, fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(resolved))) {
+		t.Errorf("expected the value mask in the output:\n%s", out)
+	}
+}
+
 func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 	client := &MockHTTPClient{
 		DoFunc: func(_ *http.Request) (*http.Response, error) {
