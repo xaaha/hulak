@@ -292,6 +292,31 @@ func TestPeekRequestKind_D3_1(t *testing.T) {
 			"kind: Auth\nurl: http://x\n",
 			KindAuth,
 		},
+		{
+			"declared auth wins over a graphql body.hk.yaml",
+			"kind: Auth\nurl: http://x\nbody:\n  graphql:\n    query: 'query { me { id } }'\n",
+			KindAuth,
+		},
+		{
+			"scalar body.hk.yaml",
+			"url: http://x\nbody: hello\n",
+			KindAPI,
+		},
+		{
+			"list body.hk.yaml",
+			"url: http://x\nbody:\n  - one\n  - two\n",
+			KindAPI,
+		},
+		{
+			"null graphql key.hk.yaml",
+			"url: http://x\nbody:\n  graphql:\n",
+			KindAPI,
+		},
+		{
+			"scalar graphql key.hk.yaml",
+			"url: http://x\nbody:\n  graphql: oops\n",
+			KindAPI,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

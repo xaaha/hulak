@@ -153,3 +153,24 @@ func TestListRequests_D3_1_GraphqlBodyKind(t *testing.T) {
 		t.Errorf("kind = %q, want GraphQL", out.Requests[0].Kind)
 	}
 }
+
+func TestListRequests_D3_1_ScalarBodyKeepsKind(t *testing.T) {
+	api := evalSymlinks(t, projectDir(t))
+	writeFileAt(t, filepath.Join(api, "scalarbody.hk.yaml"),
+		"method: POST\nurl: http://x\nbody: hello\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Requests) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(out.Requests))
+	}
+	if out.Requests[0].Kind != "API" {
+		t.Errorf("kind = %q, want API", out.Requests[0].Kind)
+	}
+}
