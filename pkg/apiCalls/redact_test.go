@@ -157,3 +157,42 @@ func TestD1_3_DebugMasksRequestAndShowReveals(t *testing.T) {
 		t.Errorf("show must reveal the header, got %q", shown.Request.Headers["Authorization"])
 	}
 }
+
+func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
+	newInfo := func() *yamlparser.APIInfo {
+		return &yamlparser.APIInfo{
+			Method:  "POST",
+			URL:     "https://api.example.com/token",
+			Headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+			Body:    strings.NewReader("client_secret=&tenant_id="),
+		}
+	}
+
+	t.Run("names every variable that resolved empty", func(t *testing.T) {
+		redactor := utils.NewValueRedactor(map[string]any{
+			"client_secret": "",
+			"tenant_id":     "",
+			"api_token":     "a-value-that-resolved",
+		}, true)
+		out, err := FormatDryRun(newInfo(), false, redactor)
+		if err != nil {
+			t.Fatalf("FormatDryRun: %v", err)
+		}
+		if !strings.HasSuffix(out, "// unresolved: client_secret, tenant_id\n") {
+			t.Errorf("expected the unresolved footer last, got:\n%s", out)
+		}
+	})
+
+	t.Run("stays quiet when everything resolved", func(t *testing.T) {
+		redactor := utils.NewValueRedactor(
+			map[string]any{"api_token": "a-value-that-resolved"}, true,
+		)
+		out, err := FormatDryRun(newInfo(), false, redactor)
+		if err != nil {
+			t.Fatalf("FormatDryRun: %v", err)
+		}
+		if strings.Contains(out, "unresolved") {
+			t.Errorf("no variable resolved empty, footer should be absent:\n%s", out)
+		}
+	})
+}

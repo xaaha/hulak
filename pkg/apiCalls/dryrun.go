@@ -63,7 +63,9 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool, redact *utils.ValueReda
 // Sensitive headers (Authorization, Cookie, etc.) are masked unless show
 // is true. Body is pretty-printed when JSON, otherwise written verbatim.
 // redact, when non-nil, additionally replaces every resolved secret value
-// wherever it lands: query string, header, or body.
+// wherever it lands: query string, header, or body, and appends a footer
+// naming the variables that resolved empty. An empty value leaves nothing in
+// the output to replace, so it is reported rather than masked.
 //
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
@@ -76,7 +78,11 @@ func FormatDryRun(
 	if err != nil {
 		return "", err
 	}
-	return redact.Redact(out), nil
+	out = redact.Redact(out)
+	if line := redact.UnresolvedLine(); line != "" {
+		out += line + "\n"
+	}
+	return out, nil
 }
 
 func buildDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
