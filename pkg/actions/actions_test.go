@@ -404,9 +404,9 @@ func TestGetFile_PreservesFormatting(t *testing.T) {
 	}
 }
 
-// D1. Reusing a result past a rewrite is the #253 bug; parsing on every call is
-// what the cache exists to avoid.
-func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
+// Reusing a result past a rewrite is the bug; parsing on every call is what
+// the cache exists to avoid.
+func TestResultReusedUntilContentsChange(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -445,9 +445,9 @@ func TestD1_ResultReusedUntilContentsChange(t *testing.T) {
 	}
 }
 
-// D2. Both rewrites are invisible to a stat: same size, same mtime, and in the
+// Both rewrites are invisible to a stat: same size, same mtime, and in the
 // second case the inode moves, which os.SameFile cannot see on Windows.
-func TestD2_ContentsDecideFreshnessNotTheStat(t *testing.T) {
+func TestContentsDecideFreshnessNotTheStat(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 
@@ -532,9 +532,9 @@ func assertStatUnchanged(t *testing.T, path string, before os.FileInfo) {
 	}
 }
 
-// D1. Parallel runner workers share one cached result. Only keys returning a
+// Parallel runner workers share one cached result. Only keys returning a
 // map or slice share structure, so scalars alone would not catch a regression.
-func TestD1_ConcurrentLookupsShareNoMutableState(t *testing.T) {
+func TestConcurrentLookupsShareNoMutableState(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -561,8 +561,7 @@ func TestD1_ConcurrentLookupsShareNoMutableState(t *testing.T) {
 	wg.Wait()
 }
 
-// D3.
-func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
+func TestBareNameWalkedOncePerRoot(t *testing.T) {
 	t.Cleanup(ResetCache)
 	ResetCache()
 
@@ -598,8 +597,7 @@ func TestD3_BareNameWalkedOncePerRoot(t *testing.T) {
 	}
 }
 
-// D4.
-func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
+func TestRepeatedDiagnosticPrintedOnce(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -627,8 +625,7 @@ func TestD4_RepeatedDiagnosticPrintedOnce(t *testing.T) {
 	}
 }
 
-// D5.
-func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
+func TestAmbiguousNameWarnsOncePerName(t *testing.T) {
 	root := setupHulakProject(t)
 	t.Cleanup(ResetCache)
 	ResetCache()
@@ -672,10 +669,10 @@ func TestD5_AmbiguousNameWarnsOncePerName(t *testing.T) {
 	}
 }
 
-// D4. Every diagnostic that names a file abbreviates the path, so two
+// Every diagnostic that names a file abbreviates the path, so two
 // same-named response files in different collections render identically and
 // deduping on the text alone would report one and swallow the other.
-func TestD4_SamePrintedPathStillReportsBothFiles(t *testing.T) {
+func TestSamePrintedPathStillReportsBothFiles(t *testing.T) {
 	tests := []struct {
 		name  string
 		setUp func(t *testing.T, path string)
