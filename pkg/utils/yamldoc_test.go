@@ -79,12 +79,27 @@ func TestD22ValidateSingleYAMLDocReportsParseFailure(t *testing.T) {
 	}
 }
 
-// repoYAMLFloor catches the walk quietly shrinking. The repo holds 35 YAML
-// files outside the directories ListFiles skips.
 const (
 	corpusEnv     = "HULAK_YAML_CORPUS"
-	repoYAMLFloor = 30
+	repoYAMLCount = 39
 )
+
+var (
+	corpusSkipDirs = []string{"node_modules", "vendor", "dist", "build", "target", "tmp"}
+
+	corpusFixtureDirs = []string{
+		filepath.Join("assets", "demo"),
+		filepath.Join("e2etests", "test_collection"),
+		filepath.Join("pkg", "userFlags", "example", "examples"),
+	}
+)
+
+func skipCorpusDir(name string) bool {
+	if name == ".github" {
+		return false
+	}
+	return strings.HasPrefix(name, ".") || slices.Contains(corpusSkipDirs, name)
+}
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
@@ -106,14 +121,16 @@ func repoRoot(t *testing.T) string {
 
 func collectYAMLFiles(t *testing.T, root string) []string {
 	t.Helper()
-	opts := defaultOptions()
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
+			if isWalkPermissionError(err) {
+				return nil
+			}
 			return err
 		}
 		if entry.IsDir() {
-			if path != root && shouldSkipDir(entry.Name(), opts) {
+			if path != root && skipCorpusDir(entry.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -130,27 +147,31 @@ func collectYAMLFiles(t *testing.T, root string) []string {
 	return paths
 }
 
-func corpusYAMLFiles(t *testing.T) []string {
+func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	t.Helper()
-	paths := collectYAMLFiles(t, repoRoot(t))
-	if extra := os.Getenv(corpusEnv); extra != "" {
-		paths = append(paths, collectYAMLFiles(t, extra)...)
+	repo = collectYAMLFiles(t, repoRoot(t))
+	if root := os.Getenv(corpusEnv); root != "" {
+		extra = collectYAMLFiles(t, root)
 	}
-	return paths
+	return repo, extra
 }
 
 func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
-	paths := corpusYAMLFiles(t)
+	repo, extra := corpusYAMLFiles(t)
 
-	if len(paths) < repoYAMLFloor {
-		t.Fatalf("walked the corpus and found %d YAML files, want at least %d",
-			len(paths), repoYAMLFloor)
+	if len(repo) != repoYAMLCount {
+		t.Fatalf("the repo walk found %d YAML files, want %d: update repoYAMLCount when you add or remove one",
+			len(repo), repoYAMLCount)
 	}
-	e2e := filepath.Join(repoRoot(t), "e2etests") + string(filepath.Separator)
-	if !slices.ContainsFunc(paths, func(p string) bool { return strings.HasPrefix(p, e2e) }) {
-		t.Errorf("the walk checked no file under %s", e2e)
+	root := repoRoot(t)
+	for _, dir := range corpusFixtureDirs {
+		prefix := filepath.Join(root, dir) + string(filepath.Separator)
+		if !slices.ContainsFunc(repo, func(p string) bool { return strings.HasPrefix(p, prefix) }) {
+			t.Errorf("the walk checked no file under %s", prefix)
+		}
 	}
 
+	paths := slices.Concat(repo, extra)
 	for _, path := range paths {
 		content, err := os.ReadFile(path)
 		if err != nil {
@@ -165,16 +186,39 @@ func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
 
 func TestD23CorpusOverrideAddsToTheRepoWalk(t *testing.T) {
 	t.Setenv(corpusEnv, "")
-	repoOnly := len(corpusYAMLFiles(t))
+	repoOnly, extraOnly := corpusYAMLFiles(t)
+	if len(extraOnly) != 0 {
+		t.Fatalf("an unset %s gave %d extra files, want 0", corpusEnv, len(extraOnly))
+	}
 
-	extra := t.TempDir()
-	if err := os.WriteFile(filepath.Join(extra, "extra.yaml"), []byte("a: 1\n"), 0o600); err != nil {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "extra.yaml"), []byte("a: 1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(corpusEnv, extra)
+	t.Setenv(corpusEnv, dir)
 
-	if got := len(corpusYAMLFiles(t)); got != repoOnly+1 {
-		t.Errorf("%s gave %d files, want the repo's %d plus the 1 it adds",
-			corpusEnv, got, repoOnly+1)
+	repo, extra := corpusYAMLFiles(t)
+	if len(repo) != len(repoOnly) || len(extra) != 1 {
+		t.Errorf("%s gave %d repo and %d extra files, want the repo's %d and the 1 it adds",
+			corpusEnv, len(repo), len(extra), len(repoOnly))
+	}
+}
+
+func TestD23CorpusWalkSkipsUnreadableDirectories(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "ok.yaml"), []byte("a: 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	locked := filepath.Join(root, "locked")
+	if err := os.Mkdir(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	if _, err := os.ReadDir(locked); err == nil {
+		t.Skip("this user can read a 0000 directory")
+	}
+
+	if got := collectYAMLFiles(t, root); len(got) != 1 {
+		t.Errorf("walked %d files, want the 1 readable one", len(got))
 	}
 }
