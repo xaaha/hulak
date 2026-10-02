@@ -17,8 +17,10 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      # -race: getValueOf hands one memoized result to every parallel worker,
+      # and mutating it is a race only the detector can see. Costs ~2s.
       - name: Run tests
-        run: go test ./... -timeout 60s
+        run: go test ./... -race -timeout 120s
   docs-freshness:
     runs-on: ubuntu-latest
     steps:

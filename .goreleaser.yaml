@@ -36,15 +36,16 @@ homebrew_casks:
     homepage: https://github.com/xaaha/hulak
     description: File based API client for terminal nerds
     license: MIT
-    # postflight_steps replaces a hooks.post.install block: goreleaser renders
-    # that one as `postflight`, which Homebrew has deprecated. The staged-path
-    # token below is escaped because goreleaser runs this file through Go's
-    # text/template before Homebrew ever sees it.
     # Go 1.27 builds target macOS 13. Without this, Homebrew installs happily
     # on 12 and the binary refuses to launch. The on_macos block is load
     # bearing: a top-level depends_on macos: sets macos_required, which makes
     # the cask refuse to install on Linux Homebrew even though it ships a
     # working on_linux block.
+
+    # postflight_steps replaces a hooks.post.install block: goreleaser renders
+    # that one as `postflight`, which Homebrew has deprecated. The staged-path
+    # token below is escaped because goreleaser runs this file through Go's
+    # text/template before Homebrew ever sees it.
     custom_block: |
       on_macos do
         depends_on macos: :ventura

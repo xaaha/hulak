@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Username returns the current OS username. Uses os/user.Current() which
@@ -322,22 +323,64 @@ func DirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// AtomicWriteFile writes data to path via a temporary file + rename.
-// An interrupted or failed write never leaves a corrupted target file.
-// Creates parent directories with dirPerm if they don't exist.
+// AtomicWriteFile writes data to path via a temporary file + rename, so a
+// reader of path sees either the previous contents or the new ones, never a
+// partial write. Not crash-safe: there is no fsync, so a power loss can leave
+// the rename durable and the data not. Creates parent directories with dirPerm
+// if they don't exist.
 func AtomicWriteFile(path string, data []byte, filePerm, dirPerm os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, filePerm); err != nil {
+	// Unique temp name, not a fixed path+".tmp": two goroutines writing the
+	// same destination would otherwise share one temp file and each delete it
+	// out from under the other, so both renames fail. A directory run reaches
+	// that with sibling request files whose stems match (login.yaml and
+	// login.yml both save to login_response.json).
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp")
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
 		os.Remove(tmpPath)
 		return fmt.Errorf("failed to write file: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	// os.CreateTemp always creates at 0600; filePerm is the caller's intent.
+	if err := tmp.Chmod(filePerm); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	if err := renameWithRetry(tmpPath, path); err != nil {
 		os.Remove(tmpPath)
 		return fmt.Errorf("failed to finalize file: %w", err)
 	}
 	return nil
+}
+
+// renameWithRetry works around Windows, where a rename over a file another
+// process holds open fails with a sharing violation: Go opens files for
+// reading without FILE_SHARE_DELETE, so a concurrent reader, an editor tab or
+// a virus scanner blocks the replace. The reader's window is short, so a few
+// retries clear it. On Unix the first attempt succeeds and this costs nothing.
+func renameWithRetry(from, to string) error {
+	var err error
+	for attempt := range 4 {
+		if err = os.Rename(from, to); err == nil {
+			return nil
+		}
+		if attempt < 3 {
+			time.Sleep(time.Duration(attempt+1) * 5 * time.Millisecond)
+		}
+	}
+	return err
 }

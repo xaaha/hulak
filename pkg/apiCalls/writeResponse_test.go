@@ -1,11 +1,14 @@
 package apicalls
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func TestEvalAndWriteRes(t *testing.T) {
@@ -341,5 +344,87 @@ func TestIsHTML_StrictPrefix(t *testing.T) {
 				t.Errorf("IsHTML(%q) = %v, want %v", tc.in, got, tc.want)
 			}
 		})
+	}
+}
+
+// A response file is rewritten while another worker reads it with getValueOf.
+// The reader must see either the old body or the new one, never a half-written
+// file, so the write has to land atomically rather than truncating in place.
+func TestWriteFile_ConcurrentReaderNeverSeesPartialFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("renaming over a file a reader holds open is a sharing violation on Windows")
+	}
+
+	tempDir := t.TempDir()
+	reqPath := filepath.Join(tempDir, "auth.yaml")
+	resPath := filepath.Join(tempDir, "auth"+utils.ResponseFileName)
+
+	// Big enough that a truncate-then-write leaves a wide window open.
+	body := `{"access_token":"` + strings.Repeat("x", 1<<20) + `"}`
+	if err := writeFile(reqPath, utils.JSON, body, ""); err != nil {
+		t.Fatalf("seeding response file: %v", err)
+	}
+
+	const rounds = 200
+	done := make(chan struct{})
+	var writeErr error
+	go func() {
+		defer close(done)
+		for range rounds {
+			if err := writeFile(reqPath, utils.JSON, body, ""); err != nil {
+				writeErr = err
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-done:
+			if writeErr != nil {
+				t.Fatalf("writing response file: %v", writeErr)
+			}
+			return
+		default:
+		}
+
+		content, err := os.ReadFile(resPath)
+		if err != nil {
+			t.Fatalf("reading response file: %v", err)
+		}
+		// Every write puts the same body down, so anything shorter is a
+		// reader that caught the file mid-write.
+		if len(content) != len(body) {
+			<-done
+			t.Fatalf("reader saw a partial write: %d of %d bytes", len(content), len(body))
+		}
+		var parsed any
+		if err := json.Unmarshal(content, &parsed); err != nil {
+			<-done
+			t.Fatalf("reader saw unparseable content: %v", err)
+		}
+	}
+}
+
+// Response bodies routinely hold tokens, so the file stays owner-only. The
+// atomic write creates its temp file through os.CreateTemp, which always uses
+// 0600 and so has to re-apply the caller's mode before the rename.
+func TestWriteFile_ResponseFileIsOwnerOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX mode bits do not apply on Windows")
+	}
+
+	tempDir := t.TempDir()
+	reqPath := filepath.Join(tempDir, "auth.yaml")
+	if err := writeFile(reqPath, utils.JSON, `{"access_token":"t"}`, ""); err != nil {
+		t.Fatalf("writing response file: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(tempDir, "auth"+utils.ResponseFileName))
+	if err != nil {
+		t.Fatalf("stat response file: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("response file mode = %o, want 600", got)
 	}
 }

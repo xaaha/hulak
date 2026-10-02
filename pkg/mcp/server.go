@@ -16,6 +16,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -91,9 +92,14 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 // restoring it afterward. Serialized by mu: hulak's secret loading and
 // getFile/getValueOf resolution key off the working directory, so only one
 // request may hold it at a time.
+//
+// Resets the getValueOf cache per call: a memoized result carries a digest of
+// its own file and cannot go stale, but where a bare filename resolves to can,
+// as the project tree moves over an editor session.
 func (s *Server) withProjectDir(root string, fn func() error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	actions.ResetCache()
 	prev, err := os.Getwd()
 	if err != nil {
 		return err

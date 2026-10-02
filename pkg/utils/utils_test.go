@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -1002,6 +1004,42 @@ func TestAtomicWriteFile(t *testing.T) {
 		tmpPath := path + ".tmp"
 		if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
 			t.Error("AtomicWriteFile() left behind .tmp file")
+		}
+	})
+
+	t.Run("concurrent writers to one path all succeed", func(t *testing.T) {
+		// A directory run writes login.yaml and login.yml to the same
+		// login_response.json from parallel workers. With a fixed temp name
+		// they delete each other's temp file and the renames fail.
+		dir := t.TempDir()
+		path := filepath.Join(dir, "same.json")
+		data := bytes.Repeat([]byte("x"), 128*1024)
+
+		var wg sync.WaitGroup
+		errs := make(chan error, 200)
+		for range 4 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for range 50 {
+					if err := AtomicWriteFile(path, data, FilePer, DirPer); err != nil {
+						errs <- err
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		close(errs)
+
+		if err := <-errs; err != nil {
+			t.Errorf("concurrent AtomicWriteFile failed: %v", err)
+		}
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading result: %v", err)
+		}
+		if len(got) != len(data) {
+			t.Errorf("result is %d bytes, want %d", len(got), len(data))
 		}
 	})
 

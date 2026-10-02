@@ -144,7 +144,11 @@ func writeFile(path, suffixType, contentBody, outPath string) error {
 		}
 	}
 
-	if err := os.WriteFile(fullFilePath, []byte(contentBody), 0o600); err != nil {
+	// Atomic write, not os.WriteFile: that truncates the target first, and a
+	// parallel worker resolving {{getValueOf}} against this response file can
+	// read it half-written. Rename leaves the reader with the old body or the
+	// new one.
+	if err := utils.AtomicWriteFile(fullFilePath, []byte(contentBody), 0o600, utils.DirPer); err != nil {
 		return fmt.Errorf("saving response %s: %w", fullFilePath, err)
 	}
 	return nil

@@ -143,3 +143,66 @@ func TestHandleCallRequest_Timeout(t *testing.T) {
 		}
 	})
 }
+
+// One tool call saves a fresh auth response, the next one reads the token out
+// of it with getValueOf. The server is a single process serving both calls, so
+// a getValueOf result held across calls sends the expired token forever.
+func TestHandleCallRequest_SavedTokenVisibleToNextCall(t *testing.T) {
+	currentToken := "fresh-token"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/auth" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"access_token":"` + currentToken + `"}`))
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer "+currentToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"stale token"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"plan":"pro"}`))
+	}))
+	defer srv.Close()
+
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "getAuth.hk.yaml"),
+		"kind: API\nmethod: GET\nurl: "+srv.URL+"/auth\n")
+	writeFileAt(t, filepath.Join(api, "getUserPlan.hk.yaml"),
+		"kind: API\nmethod: GET\nurl: "+srv.URL+"/plan\nheaders:\n"+
+			"  Authorization: 'Bearer {{getValueOf \"access_token\" \"getAuth.hk_response.json\"}}'\n")
+	writeFileAt(t, filepath.Join(api, "getAuth.hk_response.json"),
+		`{"access_token":"expired-token"}`)
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	// Reads the expired token that is on disk.
+	_, out, err := s.handleCallRequest(ctx, nil, callRequestInput{Name: "getUserPlan", Env: "global"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Status != "401 Unauthorized" {
+		t.Fatalf("first call: status = %q, want 401 Unauthorized", out.Status)
+	}
+
+	// Saves the fresh token over that file.
+	if _, _, err := s.handleCallRequest(
+		ctx, nil, callRequestInput{Name: "getAuth", Env: "global", Save: true},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	_, out, err = s.handleCallRequest(ctx, nil, callRequestInput{Name: "getUserPlan", Env: "global"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Status != "200 OK" {
+		t.Errorf("call after the token was saved: status = %q, want 200 OK", out.Status)
+	}
+}
