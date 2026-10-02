@@ -283,6 +283,11 @@ func TestPeekRequestKind_D3_1(t *testing.T) {
 			KindAPI,
 		},
 		{
+			"explicit api kind with a graphql body.hk.yaml",
+			"kind: API\nurl: http://x\nbody:\n  graphql:\n    query: 'query { me { id } }'\n",
+			KindGraphQL,
+		},
+		{
 			"no kind no body.hk.yaml",
 			"url: http://x\n",
 			KindAPI,
@@ -316,6 +321,11 @@ func TestPeekRequestKind_D3_1(t *testing.T) {
 			"scalar graphql key.hk.yaml",
 			"url: http://x\nbody:\n  graphql: oops\n",
 			KindAPI,
+		},
+		{
+			"empty graphql mapping.hk.yaml",
+			"url: http://x\nbody:\n  graphql: {}\n",
+			KindGraphQL,
 		},
 	}
 	for _, tc := range cases {

@@ -654,6 +654,13 @@ func TestRequestVariables_D3_2(t *testing.T) {
 			wantVars: []string{"zebra", "apple"},
 		},
 		{
+			name: "graphql variables with no env vars anywhere",
+			content: "---\nkind: GraphQL\nurl: http://example.com/graphql\n" +
+				"body:\n  graphql:\n    query: 'query Q($id: ID!) { user(id: $id) { id name } }'\n" +
+				"    variables:\n      id: 7\n      name: \"zebra\"\n",
+			wantVars: []string{"id", "name"},
+		},
+		{
 			name:    "no variables at all",
 			content: "---\nkind: API\nmethod: GET\nurl: http://example.com\n",
 		},
