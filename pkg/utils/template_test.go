@@ -256,6 +256,16 @@ func TestReferencedFiles_D3_0_ArgQuoting(t *testing.T) {
 		{name: "double quoted", gql: "double.gql", expr: "{{" + TemplateFuncGetFile + " \"double.gql\"}}"},
 		{name: "single quoted", gql: "single.gql", expr: "{{" + TemplateFuncGetFile + " 'single.gql'}}"},
 		{name: "bare argument", gql: "bare.gql", expr: "{{" + TemplateFuncGetFile + " bare.gql}}"},
+		{
+			name: "backtick raw string keeps a backslash",
+			gql:  `queries\get.gql`,
+			expr: "{{" + TemplateFuncGetFile + " `queries\\get.gql`}}",
+		},
+		{
+			name: "backtick raw string followed by a pipeline",
+			gql:  "piped.gql",
+			expr: "{{" + TemplateFuncGetFile + " `piped.gql` | printf \"%s\"}}",
+		},
 	}
 
 	for _, tc := range tests {
@@ -595,9 +605,9 @@ func TestRequestVariables_D3_2(t *testing.T) {
 	}{
 		{
 			name: "env vars in first-seen order",
-			content: "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\n" +
-				"headers:\n  Authorization: \"Bearer {{ .token }}\"\n",
-			wantEnv: []string{"domain", "token"},
+			content: "---\nkind: GraphQL\nurl: \"https://{{.zebra}}/graphql\"\n" +
+				"headers:\n  Authorization: \"Bearer {{ .apple }}\"\n",
+			wantEnv: []string{"zebra", "apple"},
 		},
 		{
 			name: "repeated env var is deduplicated",
@@ -622,9 +632,10 @@ func TestRequestVariables_D3_2(t *testing.T) {
 			content: "---\nkind: API\nurl: http://example.com # {{.token}}\n",
 		},
 		{
-			name:    "env var inside a list value",
-			content: "---\nurl: http://example.com\nbody:\n  raw: \"{{.first}}\"\n",
-			wantEnv: []string{"first"},
+			name: "env var inside a yaml sequence",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Tags:\n" +
+				"    - \"{{.first}}\"\n    - \"{{.second}}\"\n",
+			wantEnv: []string{"first", "second"},
 		},
 	}
 
@@ -669,6 +680,21 @@ func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
 	want := []string{"baseUrl"}
 	if !slices.Equal(env, want) {
 		t.Errorf("env vars = %v, want %v (a getFile payload is never re-templated)", env, want)
+	}
+}
+
+func TestRequestVariables_D3_2_MalformedYAML(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	path := filepath.Join(root, "broken.hk.yaml")
+	writeFile(t, path, "---\nurl: http://example.com\n  headers: [unclosed\n")
+
+	if _, _, err := RequestVariables(path); err == nil {
+		t.Error("expected error for malformed YAML, got nil")
 	}
 }
 
