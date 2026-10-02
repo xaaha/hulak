@@ -274,6 +274,7 @@ var leakyValues = []string{
 	`pa$$w"rd-1234567890`,
 	`with space and \ backslash`,
 	"angle<brackets>and&ersand-value",
+	"db%2Fpass-and%20more",
 }
 
 func TestLeak1_EncodedFormsAreMasked(t *testing.T) {
@@ -422,5 +423,35 @@ func TestD1_1_EverySecretKeyHintMatches(t *testing.T) {
 		if !isSecretKeyName("prefix_" + hint + "_suffix") {
 			t.Errorf("hint %q must match in the middle of a key name", hint)
 		}
+	}
+}
+
+// The mask is spliced over the bytes the match decoded from, so a wrong offset
+// map shows up as damage either side of it.
+func TestD1_7_MaskCoversExactlyTheEncodedRun(t *testing.T) {
+	const value = "st?te tok!n Value"
+	for name, tc := range map[string]struct {
+		rendered *url.URL
+		want     string
+	}{
+		"fragment": {
+			rendered: &url.URL{Scheme: "https", Host: "api.example.com", Path: "/cb", Fragment: value},
+			want:     "GET https://api.example.com/cb#" + maskFor(value) + "\n",
+		},
+		"path": {
+			rendered: &url.URL{Scheme: "https", Host: "api.example.com", Path: "/v1/" + value + "/profile"},
+			want:     "GET https://api.example.com/v1/" + maskFor(value) + "/profile\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text := "GET " + tc.rendered.String() + "\n"
+			if !strings.Contains(text, "%20") {
+				t.Fatalf("probe does not exercise percent-encoding: %q", text)
+			}
+			got := NewValueRedactor(map[string]any{"client_secret": value}, true, nil).Redact(text)
+			if got != tc.want {
+				t.Errorf("Redact() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

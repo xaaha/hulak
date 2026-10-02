@@ -26,6 +26,7 @@ var leakyValues = []string{
 	"Zm9vYmFy/c2VjcmV0+dmFsdWU=",
 	`pa$$w"rd-1234567890`,
 	`with space and \ backslash`,
+	"db%2Fpass-and%20more",
 }
 
 // chdirToProject moves into a fresh project root for vault.DetectStore.
@@ -605,6 +606,84 @@ func TestL6_PreflightErrorsAreRedacted(t *testing.T) {
 				t.Fatal("expected a pre-flight error from SendAndSaveAPIRequest")
 			}
 			testutil.AssertNoSecretForm(t, "call pre-flight error", callErr.Error(), secret)
+		})
+	}
+}
+
+// urlPunctuation is every ASCII punctuation byte plus space: the alphabet over
+// which net/url's five URL encodings disagree with each other.
+const urlPunctuation = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+
+// urlSecretPositions places a secret in each part of a URL that is escaped by
+// its own net/url encoding.
+func urlSecretPositions() map[string]func(secret string) yamlparser.APIInfo {
+	return map[string]func(string) yamlparser.APIInfo{
+		"path": func(secret string) yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://api.example.com/v1/" + secret + "/profile",
+			}
+		},
+		"query": func(secret string) yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method:    "GET",
+				URL:       "https://api.example.com/v1/me",
+				URLParams: map[string]string{"client_secret": secret},
+			}
+		},
+		"fragment": func(secret string) yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://api.example.com/cb#" + secret,
+			}
+		},
+		"host": func(secret string) yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://" + secret + ".example.com/v1/me",
+			}
+		},
+		"userinfo": func(secret string) yamlparser.APIInfo {
+			return yamlparser.APIInfo{
+				Method: "GET",
+				URL:    "https://admin:" + secret + "@api.example.com/v1/me",
+			}
+		},
+	}
+}
+
+// Enumerating the spellings a renderer might choose is what let the last three
+// rounds through: this sweeps every two-character punctuation value through
+// every URL position instead.
+func TestD1_7_NoURLSpellingOfASecretSurvives(t *testing.T) {
+	for position, build := range urlSecretPositions() {
+		t.Run(position, func(t *testing.T) {
+			var misses int
+			var first string
+			for _, a := range []byte(urlPunctuation) {
+				for _, b := range []byte(urlPunctuation) {
+					secret := "sec" + string(a) + string(b) + "ret4567"
+					info := build(secret)
+					out, err := FormatDryRun(&info, false, utils.NewValueRedactor(
+						map[string]any{"client_secret": secret}, true, nil,
+					))
+					if err != nil {
+						t.Fatalf("FormatDryRun(%q): %v", secret, err)
+					}
+					visible, leaked := testutil.SecretFormVisible(out, secret)
+					if !leaked {
+						continue
+					}
+					misses++
+					if first == "" {
+						first = fmt.Sprintf("%q visible in:\n%s", secret, visible)
+					}
+				}
+			}
+			if misses > 0 {
+				total := len(urlPunctuation) * len(urlPunctuation)
+				t.Errorf("%d of %d values leaked in the URL %s; first %s", misses, total, position, first)
+			}
 		})
 	}
 }

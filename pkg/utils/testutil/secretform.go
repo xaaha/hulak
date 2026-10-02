@@ -15,12 +15,21 @@ import (
 // blind to exactly the forms the redactor forgot.
 func AssertNoSecretForm(t *testing.T, where, out, value string) {
 	t.Helper()
+	if visible, leaked := SecretFormVisible(out, value); leaked {
+		t.Errorf("%s leaked the secret %q, visible in:\n%s", where, value, visible)
+	}
+}
+
+// SecretFormVisible returns the normalisation of out that shows value, and
+// whether one exists. Callers sweeping many values count misses with it
+// instead of failing on the first.
+func SecretFormVisible(out, value string) (string, bool) {
 	for _, variant := range decodedVariants(out) {
 		if strings.Contains(variant, value) {
-			t.Errorf("%s leaked the secret %q, visible in:\n%s", where, value, variant)
-			return
+			return variant, true
 		}
 	}
+	return "", false
 }
 
 // decodedVariants returns out together with every text reachable from it by

@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -82,20 +82,50 @@ func maskFor(value string) string {
 	return fmt.Sprintf("%s(%d chars, #%s)", MaskedValue, len(value), fingerprint(value))
 }
 
-// A form missing here prints in clear: the renderer escapes before the redactor runs.
-func renderedForms(value string) []string {
-	forms := []string{value}
-	for _, encoded := range []string{
-		url.QueryEscape(value),
-		url.PathEscape(value),
-		(&url.URL{Path: value}).EscapedPath(),
-		jsonStringForm(value),
-	} {
-		if !slices.Contains(forms, encoded) {
-			forms = append(forms, encoded)
-		}
+// A decoding rewrites rendered text back towards the value that produced it and
+// reports, for every byte of the result, where in the original it came from.
+// offsets has one more entry than the decoded text so a match's end maps too.
+type decoding func(text string) (decoded string, offsets []int)
+
+// net/url has five escaping tables and they disagree; each one is still only a
+// percent-encoding, so undoing that reaches every URL spelling at once.
+var matchDecodings = []decoding{verbatim, percentDecoded, queryDecoded}
+
+func verbatim(text string) (string, []int) {
+	offsets := make([]int, len(text)+1)
+	for i := range offsets {
+		offsets[i] = i
 	}
-	return forms
+	return text, offsets
+}
+
+func percentDecoded(text string) (string, []int) { return percentDecode(text, false) }
+
+// url.Values.Encode spells a space as +, which no percent-decoding undoes.
+func queryDecoded(text string) (string, []int) { return percentDecode(text, true) }
+
+func percentDecode(text string, plusIsSpace bool) (string, []int) {
+	var b strings.Builder
+	b.Grow(len(text))
+	offsets := make([]int, 0, len(text)+1)
+	for i := 0; i < len(text); {
+		if text[i] == '%' && i+3 <= len(text) {
+			if n, err := strconv.ParseUint(text[i+1:i+3], 16, 8); err == nil {
+				b.WriteByte(byte(n))
+				offsets = append(offsets, i)
+				i += 3
+				continue
+			}
+		}
+		if plusIsSpace && text[i] == '+' {
+			b.WriteByte(' ')
+		} else {
+			b.WriteByte(text[i])
+		}
+		offsets = append(offsets, i)
+		i++
+	}
+	return b.String(), append(offsets, len(text))
 }
 
 func jsonStringForm(value string) string {
@@ -165,8 +195,10 @@ func NewValueRedactor(values map[string]any, allSecret bool, referenced []string
 		}
 		if len(value) >= minMaskedValueLen {
 			mask := maskFor(value)
-			for _, form := range renderedForms(value) {
-				r.secrets = append(r.secrets, maskedSecret{value: form, mask: mask})
+			r.secrets = append(r.secrets, maskedSecret{value: value, mask: mask})
+			// Backslash escapes are not a percent-encoding, so no decoding reaches them.
+			if escaped := jsonStringForm(value); escaped != value {
+				r.secrets = append(r.secrets, maskedSecret{value: escaped, mask: mask})
 			}
 		}
 	}
@@ -188,10 +220,57 @@ func (r *ValueRedactor) Redact(text string) string {
 	if r == nil {
 		return text
 	}
-	for _, s := range r.secrets {
-		text = strings.ReplaceAll(text, s.value, s.mask)
+	for _, decode := range matchDecodings {
+		text = r.redactThrough(text, decode)
 	}
 	return text
+}
+
+type maskedSpan struct {
+	start, end int
+	mask       string
+}
+
+// redactThrough masks every secret visible once text is run back through
+// decode, splicing the mask over the bytes of text the match decoded from.
+func (r *ValueRedactor) redactThrough(text string, decode decoding) string {
+	decoded, offsets := decode(text)
+	claimed := make([]bool, len(decoded))
+	var spans []maskedSpan
+	for _, s := range r.secrets {
+		for at := 0; at <= len(decoded)-len(s.value); {
+			found := strings.Index(decoded[at:], s.value)
+			if found < 0 {
+				break
+			}
+			start := at + found
+			end := start + len(s.value)
+			if !slices.Contains(claimed[start:end], true) {
+				for i := start; i < end; i++ {
+					claimed[i] = true
+				}
+				spans = append(spans, maskedSpan{offsets[start], offsets[end], s.mask})
+			}
+			at = start + 1
+		}
+	}
+	if len(spans) == 0 {
+		return text
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+
+	var b strings.Builder
+	written := 0
+	for _, span := range spans {
+		if span.start < written {
+			continue
+		}
+		b.WriteString(text[written:span.start])
+		b.WriteString(span.mask)
+		written = span.end
+	}
+	b.WriteString(text[written:])
+	return b.String()
 }
 
 // Unresolved names the variables the request references that resolved to an
