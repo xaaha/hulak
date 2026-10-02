@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/xaaha/hulak/pkg/httpclient"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -234,6 +236,54 @@ func TestD1_4_EmptyResolvedVariablesListedInFooter(t *testing.T) {
 		}
 		if strings.Contains(out, "unresolved") {
 			t.Errorf("no variable resolved empty, footer should be absent:\n%s", out)
+		}
+	})
+}
+
+func TestLeak3_TransportAndBuildErrorsAreRedacted(t *testing.T) {
+	const secret = "super-secret-client-value"
+	redactor := func() *utils.ValueRedactor {
+		return utils.NewValueRedactor(map[string]any{"client_secret": secret}, true)
+	}
+
+	t.Run("unreachable host", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, err := StandardCallWithClient(ctx, yamlparser.APIInfo{
+			Method:    "GET",
+			URL:       "http://127.0.0.1:1/token",
+			URLParams: map[string]string{"client_secret": secret},
+		}, false, redactor(), httpclient.New())
+		if err == nil {
+			t.Fatal("expected a transport error from an unreachable host")
+		}
+		assertNoSecretForm(t, "transport error", err.Error(), secret)
+	})
+
+	t.Run("unbuildable request", func(t *testing.T) {
+		_, err := StandardCallWithClient(context.Background(), yamlparser.APIInfo{
+			Method: "GET",
+			URL:    "http://api.example.com/\x7f" + secret,
+		}, false, redactor(), httpclient.New())
+		if err == nil {
+			t.Fatal("expected a request-build error from an unparseable URL")
+		}
+		assertNoSecretForm(t, "build error", err.Error(), secret)
+	})
+
+	t.Run("show leaves the error alone", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, err := StandardCallWithClient(ctx, yamlparser.APIInfo{
+			Method:    "GET",
+			URL:       "http://127.0.0.1:1/token",
+			URLParams: map[string]string{"client_secret": secret},
+		}, false, nil, httpclient.New())
+		if err == nil {
+			t.Fatal("expected a transport error from an unreachable host")
+		}
+		if !strings.Contains(err.Error(), url.QueryEscape(secret)) {
+			t.Errorf("a nil redactor must leave the error untouched: %v", err)
 		}
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,6 +47,15 @@ func closeBody(r io.Reader) {
 	if c, ok := r.(io.Closer); ok {
 		_ = c.Close()
 	}
+}
+
+// A *url.Error prints the full URL, so an unredacted transport failure hands
+// the caller the query string in clear.
+func redactErr(redact *utils.ValueRedactor, err error) error {
+	if redact == nil || err == nil {
+		return err
+	}
+	return errors.New(redact.Redact(err.Error()))
 }
 
 func StandardCallWithClient(
@@ -107,7 +117,9 @@ func StandardCallWithClient(
 		// net/http never took ownership, so nothing else closes a streamed body
 		// and its writer goroutine would block forever.
 		closeBody(bodyReader)
-		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
+		return CustomResponse{}, redactErr(
+			redact, fmt.Errorf("error occurred on '%s': %w", method, err),
+		)
 	}
 
 	if streamed != nil {
@@ -129,7 +141,7 @@ func StandardCallWithClient(
 
 	response, err := client.Do(req)
 	if err != nil {
-		return CustomResponse{}, err
+		return CustomResponse{}, redactErr(redact, err)
 	}
 	end := time.Now()
 
