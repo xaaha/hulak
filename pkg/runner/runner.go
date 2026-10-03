@@ -613,9 +613,20 @@ func processTask(
 	baseTimeout time.Duration,
 ) outcome {
 	start := time.Now()
-	config, err := yamlparser.ParseConfig(path, secretsMap)
+	// ParseConfig substitutes secrets and validates eagerly, so its error can
+	// already name a resolved value before any callee builds a masker.
+	redact, err := apicalls.OutputRedactor(path, secretsMap, opts.Show)
 	if err != nil {
 		return outcome{path: path, ok: false, duration: time.Since(start), err: err}
+	}
+	config, err := yamlparser.ParseConfig(path, secretsMap)
+	if err != nil {
+		return outcome{
+			path:     path,
+			ok:       false,
+			duration: time.Since(start),
+			err:      apicalls.RedactErr(redact, err),
+		}
 	}
 
 	// Resolve per-file timeout: YAML wins over base.
@@ -638,6 +649,7 @@ func processTask(
 			DryRun:  opts.DryRun,
 			Show:    opts.Show,
 			OutPath: opts.Out,
+			Redact:  redact,
 		})
 		return outcome{
 			path:      path,

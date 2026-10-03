@@ -797,3 +797,33 @@ func TestL10_BasicAuthMaskingStaysOnTheCredential(t *testing.T) {
 		t.Errorf("prose starting with Basic must survive:\n%s", out)
 	}
 }
+
+// The runner builds the masker before ParseConfig, so every step after it has
+// to use that one rather than resolve the secrets a second time.
+func TestD1_3_SuppliedRedactorIsReused(t *testing.T) {
+	chdirToProject(t, true)
+	path := writeRequestFile(t, "client_secret")
+	supplied := utils.NewValueRedactor(map[string]any{"client_secret": "x"}, true, nil)
+	opts := RequestOptions{
+		Secrets: map[string]any{"client_secret": "super-secret-client-value"},
+		Path:    path,
+		Redact:  supplied,
+	}
+
+	got, err := outputRedactor(opts)
+	if err != nil {
+		t.Fatalf("outputRedactor: %v", err)
+	}
+	if got != supplied {
+		t.Error("a supplied redactor must be the one used, not a rebuilt copy")
+	}
+
+	opts.Show = true
+	shown, err := outputRedactor(opts)
+	if err != nil {
+		t.Fatalf("outputRedactor: %v", err)
+	}
+	if shown != nil {
+		t.Error("Show must mask nothing, whatever the caller supplied")
+	}
+}

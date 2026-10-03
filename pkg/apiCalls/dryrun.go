@@ -37,12 +37,27 @@ func DryRun(opts RequestOptions) (string, error) {
 	return FormatDryRun(&apiInfo, opts.Show, redact)
 }
 
-// outputRedactor returns the masker for opts, or nil when opts.Show is set.
+// outputRedactor returns the masker for opts, reusing one the caller already
+// built, or nil when opts.Show is set.
 func outputRedactor(opts RequestOptions) (*utils.ValueRedactor, error) {
-	if opts.Show {
+	if !opts.Show && opts.Redact != nil {
+		return opts.Redact, nil
+	}
+	return OutputRedactor(opts.Path, opts.Secrets, opts.Show)
+}
+
+// OutputRedactor returns the masker for the request at path, or nil when show
+// reveals values. Callers that can fail with a substituted value in the error
+// — parsing and validation both do — build it before that first step.
+func OutputRedactor(
+	path string,
+	secrets map[string]any,
+	show bool,
+) (*utils.ValueRedactor, error) {
+	if show {
 		return nil, nil
 	}
-	return NewSecretRedactor(opts.Path, opts.Secrets)
+	return NewSecretRedactor(path, secrets)
 }
 
 // PrintDryRun writes the fully-built request to stdout and returns. It
