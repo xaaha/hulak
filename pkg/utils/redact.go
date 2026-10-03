@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -128,17 +127,33 @@ func percentDecode(text string, plusIsSpace bool) (string, []int) {
 	return b.String(), append(offsets, len(text))
 }
 
-// escapeAt reports the byte s spells as a percent escape at i. ParseUint reads
-// either hex case, which is what lets %de and %DE match each other.
+var hexDigit = newHexDigitTable()
+
+func newHexDigitTable() [256]byte {
+	var table [256]byte
+	for i := range table {
+		table[i] = 0xff
+	}
+	for i, c := range []byte("0123456789abcdef") {
+		table[c] = byte(i)
+	}
+	for i, c := range []byte("ABCDEF") {
+		table[c] = byte(i + 10)
+	}
+	return table
+}
+
+// escapeAt reports the byte s spells as a percent escape at i. Both hex cases
+// read the same, which is what lets %de and %DE match each other.
 func escapeAt(s string, i int) (byte, bool) {
 	if i+3 > len(s) || s[i] != '%' {
 		return 0, false
 	}
-	n, err := strconv.ParseUint(s[i+1:i+3], 16, 8)
-	if err != nil {
+	hi, lo := hexDigit[s[i+1]], hexDigit[s[i+2]]
+	if hi > 0xf || lo > 0xf {
 		return 0, false
 	}
-	return byte(n), true
+	return hi<<4 | lo, true
 }
 
 // startBytes reports which bytes a run spelling value can begin with: the
