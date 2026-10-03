@@ -14,7 +14,7 @@ import (
 
 var templateActionPattern = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
 
-var templateVarNamePattern = regexp.MustCompile(`(^|[^\w.])\.(\w+)`)
+var templateVarNamePattern = regexp.MustCompile(`(^|[^\p{L}\p{Nd}_.])\.([\p{L}\p{Nd}_]+)`)
 
 func templateVarNames(s string) []string {
 	var names []string
