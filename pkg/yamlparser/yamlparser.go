@@ -4,6 +4,7 @@ package yamlparser
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -105,8 +106,17 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 		return nil, fmt.Errorf("empty yaml file: %s", filepath)
 	}
 
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("reading file %s: %w", filepath, err)
+	}
+
+	if err := utils.ValidateSingleYAMLDoc(filepath, content); err != nil {
+		return nil, err
+	}
+
 	var data map[string]any
-	dec := yaml.NewDecoder(file)
+	dec := yaml.NewDecoder(bytes.NewReader(content))
 	if err = dec.Decode(&data); err != nil {
 		return nil, fmt.Errorf("decoding %s: %w", filepath, err)
 	}

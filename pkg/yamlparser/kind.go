@@ -8,6 +8,7 @@ import (
 	"time"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Kind represents the type of YAML flow hulak should follow.
@@ -78,6 +79,9 @@ func (c *ConfigType) ParsedTimeout() (time.Duration, error) {
 func PeekConfig(filePath string) (*ConfigType, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
+		return nil, err
+	}
+	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
 		return nil, err
 	}
 	var cfg ConfigType
