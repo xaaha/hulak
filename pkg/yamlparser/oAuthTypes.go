@@ -135,12 +135,15 @@ func (auth2Body *AuthRequestFile) IsValid() (bool, error) {
 		auth2Body.Method = POST
 	}
 
+	// The redactor holds the value as the file spells it, so the error names
+	// that rather than the upper-cased copy.
+	asWritten := string(auth2Body.Method)
 	// uppercase the method
 	auth2Body.Method.ToUpperCase()
 
 	// method is required as each implementation of  Auth2.0 is different
 	if !auth2Body.Method.IsValid() {
-		return false, fmt.Errorf("invalid HTTP method %s", string(auth2Body.Method))
+		return false, fmt.Errorf("invalid HTTP method %s", asWritten)
 	}
 
 	// Validate Auth section

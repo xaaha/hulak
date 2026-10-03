@@ -614,6 +614,8 @@ func TestL6_PreflightErrorsAreRedacted(t *testing.T) {
 		"invalid body": "kind: API\nmethod: POST\nurl: \"https://api.example.com\"\n" +
 			"body:\n  raw: 'tok={{.client_secret}}'\n" +
 			"  urlencodedformdata:\n    tok: \"{{.client_secret}}\"\n",
+		"invalid method": "kind: API\nmethod: \"{{.client_secret}}\"\n" +
+			"url: \"https://api.example.com\"\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			chdirToProject(t, true)

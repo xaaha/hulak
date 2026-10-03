@@ -17,11 +17,14 @@ func (user *APICallFile) IsValidForGraphQL(filePath string) (bool, error) {
 	if user.Method == "" {
 		user.Method = POST
 	}
+	// The redactor holds the value as the file spells it, so the error names
+	// that rather than the upper-cased copy.
+	asWritten := string(user.Method)
 	user.Method.ToUpperCase()
 
 	// Validate method
 	if !user.Method.IsValid() {
-		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", user.Method, filePath)
+		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", asWritten, filePath)
 	}
 
 	// URL is required

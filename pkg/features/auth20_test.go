@@ -70,6 +70,10 @@ func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 		"auth:\n  type: oauth2\n" +
 		"  access_token_url: \"https://api.example.com/token\"\n"
 	const undecodable = header + "urlparams: \"{{.client_secret}}\"\n"
+	const badMethod = "kind: Auth\nmethod: \"{{.client_secret}}\"\n" +
+		"url: \"https://api.example.com/authorize\"\n" +
+		"auth:\n  type: oauth2\n" +
+		"  access_token_url: \"https://api.example.com/token\"\n"
 	secrets := map[string]any{"client_secret": secret}
 
 	codeRequest := func(t *testing.T, path string, show bool) error {
@@ -93,6 +97,8 @@ func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 	}{
 		"code request decode error":   {undecodable, codeRequest},
 		"token exchange decode error": {undecodable, tokenExchange},
+		"code request bad method":     {badMethod, codeRequest},
+		"token exchange bad method":   {badMethod, tokenExchange},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := auth2ProjectFile(t, tc.content)

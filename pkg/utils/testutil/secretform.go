@@ -38,12 +38,20 @@ func SecretFormVisible(out, value string) (string, bool) {
 }
 
 // valueSpellings returns value together with every text reachable from it by
-// decoding some of the percent escapes value itself holds. Normalising only
-// out decodes those escapes on one side alone, so a value whose own escape
-// survived beside a neighbour the renderer escaped would read as clean.
+// case-folding it and by decoding some of the percent escapes it itself holds.
+// Normalising only out decodes those escapes on one side alone, so a value
+// whose own escape survived beside a neighbour the renderer escaped would read
+// as clean, and a renderer that upper-cases a value (HTTP methods) hands the
+// redactor a spelling it was never given.
 func valueSpellings(value string) []string {
 	seen := map[string]bool{value: true}
 	queue := []string{value}
+	for _, folded := range []string{strings.ToUpper(value), strings.ToLower(value)} {
+		if !seen[folded] {
+			seen[folded] = true
+			queue = append(queue, folded)
+		}
+	}
 	for i := 0; i < len(queue); i++ {
 		for at := 0; at+3 <= len(queue[i]); at++ {
 			if queue[i][at] != '%' {
