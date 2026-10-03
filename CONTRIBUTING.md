@@ -86,6 +86,12 @@ go test ./pkg/utils/                # specific package
 
 Tests follow table-driven patterns with `t.Run()` subtests. See any `*_test.go` file for examples.
 
+To check that every `.yaml` and `.yml` file in one of your own projects still loads as a single YAML document:
+
+```bash
+HULAK_YAML_CORPUS=/path/to/your/project go test ./pkg/utils/ -run TestD23
+```
+
 ### TUI Golden File Tests (teatest)
 
 TUI components have snapshot tests that capture visual output and compare against golden files.
