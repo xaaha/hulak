@@ -86,13 +86,15 @@ func server() {
 
 // openBrowserAndGetCode starts the callback server and opens the browser for OAuth flow
 // Returns the code coming from the ur
-func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, error) {
-	// Create and start the callback server
-	go server()
+func openBrowserAndGetCode(
+	filePath string,
+	secretsMap map[string]any,
+	redact *utils.ValueRedactor,
+) (string, error) {
 	// Prepare the OAuth URL
 	authReqBody, err := yamlparser.FinalStructForOAuth2(filePath, secretsMap)
 	if err != nil {
-		return "", err
+		return "", apicalls.RedactErr(redact, err)
 	}
 
 	// required fields for oAuth web flow. This is true github and Okta.
@@ -103,10 +105,13 @@ func openBrowserAndGetCode(filePath string, secretsMap map[string]any) (string, 
 	authReqBody.URLParams = utils.MergeMaps(authReqBody.URLParams, reqField)
 	urlStr := apicalls.PrepareURL(string(authReqBody.URL), authReqBody.URLParams)
 
+	// A file that cannot be parsed must not leave a listener bound to the port.
+	go server()
+
 	// Open the browser
 	log.Println("Opening browser for authentication...")
 	if err := OpenURL(urlStr); err != nil {
-		return "", fmt.Errorf("error opening browser: %w", err)
+		return "", apicalls.RedactErr(redact, fmt.Errorf("error opening browser: %w", err))
 	}
 	// Wait for the code or a timeout
 	select {
@@ -123,37 +128,52 @@ func auth2Redactor(
 	secretsMap map[string]any,
 	show bool,
 ) (*utils.ValueRedactor, error) {
-	if show {
-		return nil, nil
-	}
-	return apicalls.NewSecretRedactor(filePath, secretsMap)
+	return apicalls.OutputRedactor(filePath, secretsMap, show)
 }
 
 // SendAPIRequestForAuth2  calls the PrepareStruct using the provided envMap
 // and makes the Api Call with StandardCall and prints the response in console
+//
+// redact is the masker the caller already built; nil builds one here, which
+// has to happen before the first parse because that parse substitutes.
 func SendAPIRequestForAuth2(
 	ctx context.Context,
 	secretsMap map[string]any,
 	filePath string,
 	debug, show bool,
+	redact *utils.ValueRedactor,
 ) error {
-	code, err := openBrowserAndGetCode(filePath, secretsMap)
+	if redact == nil {
+		var err error
+		if redact, err = auth2Redactor(filePath, secretsMap, show); err != nil {
+			return err
+		}
+	}
+
+	code, err := openBrowserAndGetCode(filePath, secretsMap, redact)
 	if err != nil {
 		return err
 	}
+	return exchangeAuth2Code(ctx, secretsMap, filePath, code, debug, redact)
+}
 
+// exchangeAuth2Code trades the authorization code for a token and saves the
+// response.
+func exchangeAuth2Code(
+	ctx context.Context,
+	secretsMap map[string]any,
+	filePath, code string,
+	debug bool,
+	redact *utils.ValueRedactor,
+) error {
 	authReqConfig, err := yamlparser.FinalStructForOAuth2(filePath, secretsMap)
 	if err != nil {
-		return err
+		return apicalls.RedactErr(redact, err)
 	}
 
 	apiInfo, err := authReqConfig.PrepareStruct(code)
 	if err != nil {
-		return err
-	}
-	redact, err := auth2Redactor(filePath, secretsMap, show)
-	if err != nil {
-		return err
+		return apicalls.RedactErr(redact, err)
 	}
 
 	resp, err := apicalls.StandardCall(ctx, apiInfo, debug, redact)
