@@ -201,6 +201,8 @@ var urlLeakyValues = []string{
 	"st?te tok!n Value",
 	"p@ss;w0rd=Secret1",
 	"p#ss word-1234",
+	"Pa55%2Fword!secret",
+	"s3cr3t%deadbeef",
 }
 
 // requestPositions builds the same secret into each place a request can carry
@@ -633,9 +635,11 @@ func TestL6_PreflightErrorsAreRedacted(t *testing.T) {
 	}
 }
 
-// urlPunctuation is every ASCII punctuation byte plus space: the alphabet over
-// which net/url's five URL encodings disagree with each other.
-const urlPunctuation = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+// urlSweepAlphabet is every ASCII punctuation byte plus space, the alphabet
+// over which net/url's five URL encodings disagree, plus the hex digits. A
+// percent needs two hex digits after it to spell an escape of the value's own,
+// which the punctuation alone can never produce.
+const urlSweepAlphabet = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~0123456789abcdefABCDEF"
 
 // urlSecretPositions places a secret in each part of a URL that is escaped by
 // its own net/url encoding.
@@ -683,9 +687,10 @@ func TestD1_7_NoURLSpellingOfASecretSurvives(t *testing.T) {
 		t.Run(position, func(t *testing.T) {
 			var misses int
 			var first string
-			for _, a := range []byte(urlPunctuation) {
-				for _, b := range []byte(urlPunctuation) {
-					secret := "sec" + string(a) + string(b) + "ret4567"
+			for _, a := range []byte(urlSweepAlphabet) {
+				for _, b := range []byte(urlSweepAlphabet) {
+					// The c is a hex digit, so a percent at a spells an escape.
+					secret := "sec" + string(a) + string(b) + "cret4567"
 					info := build(secret)
 					out, err := FormatDryRun(&info, false, utils.NewValueRedactor(
 						map[string]any{"client_secret": secret}, true, nil,
@@ -704,7 +709,7 @@ func TestD1_7_NoURLSpellingOfASecretSurvives(t *testing.T) {
 				}
 			}
 			if misses > 0 {
-				total := len(urlPunctuation) * len(urlPunctuation)
+				total := len(urlSweepAlphabet) * len(urlSweepAlphabet)
 				t.Errorf("%d of %d values leaked in the URL %s; first %s", misses, total, position, first)
 			}
 		})

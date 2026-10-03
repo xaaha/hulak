@@ -89,8 +89,8 @@ func maskFor(value string) string {
 // offsets has one more entry than the decoded text so a match's end maps too.
 type decoding func(text string) (decoded string, offsets []int)
 
-// net/url has five escaping tables and they disagree; each one is still only a
-// percent-encoding, so undoing that reaches every URL spelling at once.
+// A base64 credential is found by its shape rather than by a registered value,
+// so the scan for one needs the text with its percent-encoding already undone.
 var matchDecodings = []decoding{verbatim, percentDecoded, queryDecoded}
 
 func verbatim(text string) (string, []int) {
@@ -111,13 +111,11 @@ func percentDecode(text string, plusIsSpace bool) (string, []int) {
 	b.Grow(len(text))
 	offsets := make([]int, 0, len(text)+1)
 	for i := 0; i < len(text); {
-		if text[i] == '%' && i+3 <= len(text) {
-			if n, err := strconv.ParseUint(text[i+1:i+3], 16, 8); err == nil {
-				b.WriteByte(byte(n))
-				offsets = append(offsets, i)
-				i += 3
-				continue
-			}
+		if n, ok := escapeAt(text, i); ok {
+			b.WriteByte(n)
+			offsets = append(offsets, i)
+			i += 3
+			continue
 		}
 		if plusIsSpace && text[i] == '+' {
 			b.WriteByte(' ')
@@ -128,6 +126,68 @@ func percentDecode(text string, plusIsSpace bool) (string, []int) {
 		i++
 	}
 	return b.String(), append(offsets, len(text))
+}
+
+// escapeAt reports the byte s spells as a percent escape at i. ParseUint reads
+// either hex case, which is what lets %de and %DE match each other.
+func escapeAt(s string, i int) (byte, bool) {
+	if i+3 > len(s) || s[i] != '%' {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(s[i+1:i+3], 16, 8)
+	if err != nil {
+		return 0, false
+	}
+	return byte(n), true
+}
+
+// startBytes reports which bytes a run spelling value can begin with: the
+// value's first byte, a percent when the renderer escaped that byte or the
+// value's own percent sign, a plus standing in for a leading space, and the
+// byte a leading escape of the value's own decodes to. Every first step of
+// spellingEnd needs one of these, so the rest of the text is skipped whole.
+func startBytes(value string) [256]bool {
+	var starts [256]bool
+	starts[value[0]] = true
+	starts['%'] = true
+	if value[0] == ' ' {
+		starts['+'] = true
+	}
+	if b, ok := escapeAt(value, 0); ok {
+		starts[b] = true
+	}
+	return starts
+}
+
+// spellingEnd returns the offset just past the longest run of text from ti on
+// that spells value from vi on, or -1 when none does. A percent is ambiguous:
+// the renderer may escape a byte, leave an escape the value itself holds
+// standing, escape its percent sign, or decode it, and net/url does different
+// ones of those to neighbouring bytes of the same value. Every reading is
+// walked rather than picked, so no spelling has to be enumerated in advance.
+func spellingEnd(text, value string, ti, vi int) int {
+	if vi == len(value) {
+		return ti
+	}
+	if ti >= len(text) {
+		return -1
+	}
+	best := -1
+	if text[ti] == value[vi] || (value[vi] == ' ' && text[ti] == '+') {
+		best = max(best, spellingEnd(text, value, ti+1, vi+1))
+	}
+	if b, ok := escapeAt(text, ti); ok && b == value[vi] {
+		best = max(best, spellingEnd(text, value, ti+3, vi+1))
+	}
+	if vb, ok := escapeAt(value, vi); ok {
+		if tb, ok := escapeAt(text, ti); ok && tb == vb {
+			best = max(best, spellingEnd(text, value, ti+3, vi+3))
+		}
+		if text[ti] == vb {
+			best = max(best, spellingEnd(text, value, ti+1, vi+3))
+		}
+	}
+	return best
 }
 
 // basicAuth joins a username the redactor was never handed to the secret and
@@ -266,46 +326,9 @@ func (r *ValueRedactor) Redact(text string) string {
 	if r == nil {
 		return text
 	}
-	for _, decode := range matchDecodings {
-		text = r.redactThrough(text, decode)
-	}
-	return text
-}
-
-type maskedSpan struct {
-	start, end int
-	mask       string
-}
-
-// redactThrough masks every secret visible once text is run back through
-// decode, splicing the mask over the bytes of text the match decoded from.
-func (r *ValueRedactor) redactThrough(text string, decode decoding) string {
-	decoded, offsets := decode(text)
-	claimed := make([]bool, len(decoded))
-	var spans []maskedSpan
-	for _, s := range r.secrets {
-		for at := 0; at <= len(decoded)-len(s.value); {
-			found := strings.Index(decoded[at:], s.value)
-			if found < 0 {
-				break
-			}
-			start := at + found
-			end := start + len(s.value)
-			if !slices.Contains(claimed[start:end], true) {
-				for i := start; i < end; i++ {
-					claimed[i] = true
-				}
-				spans = append(spans, maskedSpan{offsets[start], offsets[end], s.mask})
-			}
-			at = start + 1
-		}
-	}
-	for _, payload := range basicAuthPayloads(decoded) {
-		if slices.Contains(claimed[payload[0]:payload[1]], true) {
-			continue
-		}
-		spans = append(spans, maskedSpan{offsets[payload[0]], offsets[payload[1]], MaskedValue})
-	}
+	claimed := make([]bool, len(text))
+	spans := r.secretSpans(text, claimed)
+	spans = append(spans, basicAuthSpans(text, claimed)...)
 	if len(spans) == 0 {
 		return text
 	}
@@ -323,6 +346,58 @@ func (r *ValueRedactor) redactThrough(text string, decode decoding) string {
 	}
 	b.WriteString(text[written:])
 	return b.String()
+}
+
+type maskedSpan struct {
+	start, end int
+	mask       string
+}
+
+// secretSpans returns the byte range of every run of text that spells a known
+// secret, marking each one claimed. Longest secret first, so a secret nested
+// inside another never claims the bytes that would leave the outer one's tail
+// standing beside a mask.
+func (r *ValueRedactor) secretSpans(text string, claimed []bool) []maskedSpan {
+	var spans []maskedSpan
+	for _, s := range r.secrets {
+		starts := startBytes(s.value)
+		for at := 0; at < len(text); at++ {
+			if !starts[text[at]] || claimed[at] {
+				continue
+			}
+			end := spellingEnd(text, s.value, at, 0)
+			if end < 0 || slices.Contains(claimed[at:end], true) {
+				continue
+			}
+			for i := at; i < end; i++ {
+				claimed[i] = true
+			}
+			spans = append(spans, maskedSpan{at, end, s.mask})
+			at = end - 1
+		}
+	}
+	return spans
+}
+
+// basicAuthSpans returns the byte range of every base64 credential in text,
+// found through each decoding because the run itself may be percent- or
+// plus-encoded. Bytes a secret already claimed are left to that mask.
+func basicAuthSpans(text string, claimed []bool) []maskedSpan {
+	var spans []maskedSpan
+	for _, decode := range matchDecodings {
+		decoded, offsets := decode(text)
+		for _, payload := range basicAuthPayloads(decoded) {
+			start, end := offsets[payload[0]], offsets[payload[1]]
+			if slices.Contains(claimed[start:end], true) {
+				continue
+			}
+			for i := start; i < end; i++ {
+				claimed[i] = true
+			}
+			spans = append(spans, maskedSpan{start, end, MaskedValue})
+		}
+	}
+	return spans
 }
 
 // Unresolved names the variables the request references that resolved to an

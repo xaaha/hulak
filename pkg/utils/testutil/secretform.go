@@ -26,12 +26,41 @@ func AssertNoSecretForm(t *testing.T, where, out, value string) {
 // whether one exists. Callers sweeping many values count misses with it
 // instead of failing on the first.
 func SecretFormVisible(out, value string) (string, bool) {
+	spellings := valueSpellings(value)
 	for _, variant := range decodedVariants(out) {
-		if strings.Contains(variant, value) {
-			return variant, true
+		for _, spelling := range spellings {
+			if strings.Contains(variant, spelling) {
+				return variant, true
+			}
 		}
 	}
 	return "", false
+}
+
+// valueSpellings returns value together with every text reachable from it by
+// decoding some of the percent escapes value itself holds. Normalising only
+// out decodes those escapes on one side alone, so a value whose own escape
+// survived beside a neighbour the renderer escaped would read as clean.
+func valueSpellings(value string) []string {
+	seen := map[string]bool{value: true}
+	queue := []string{value}
+	for i := 0; i < len(queue); i++ {
+		for at := 0; at+3 <= len(queue[i]); at++ {
+			if queue[i][at] != '%' {
+				continue
+			}
+			n, err := strconv.ParseUint(queue[i][at+1:at+3], 16, 8)
+			if err != nil {
+				continue
+			}
+			one := queue[i][:at] + string([]byte{byte(n)}) + queue[i][at+3:]
+			if !seen[one] {
+				seen[one] = true
+				queue = append(queue, one)
+			}
+		}
+	}
+	return queue
 }
 
 // decodedVariants returns out together with every text reachable from it by

@@ -221,6 +221,7 @@ var leakyValues = []string{
 	"st?te tok!n Value",
 	"p@ss;w0rd=Secret1",
 	"p#ss word-1234",
+	"Pa55%2Fword!secret",
 }
 
 // headerToken is never in the secrets map, so only header-name masking hides it.
