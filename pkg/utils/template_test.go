@@ -751,12 +751,17 @@ func TestRequestVariables_D3_2(t *testing.T) {
 
 func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
 	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
 	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
 		t.Fatalf("failed to create env dir: %v", err)
 	}
 	t.Chdir(root)
 
-	writeFile(t, filepath.Join(root, "query.gql"), "query { user(id: {{.unreachableId}}) { id } }")
+	gqlPath := filepath.Join(root, "query.gql")
+	writeFile(t, gqlPath, "query { user(id: {{.unreachableId}}) { id } }")
 	path := filepath.Join(root, "ref.hk.yaml")
 	writeFile(t, path, "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{"+
 		TemplateFuncGetFile+" \"query.gql\"}}'\n")
@@ -768,6 +773,22 @@ func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
 	want := []string{"baseUrl"}
 	if !slices.Equal(env, want) {
 		t.Errorf("env vars = %v, want %v (a getFile payload is never re-templated)", env, want)
+	}
+
+	refs, err := ReferencedFiles(path)
+	if err != nil {
+		t.Fatalf("ReferencedFiles(%q): unexpected error: %v", path, err)
+	}
+	wantRefs := []string{gqlPath}
+	if !slices.Equal(refs, wantRefs) {
+		t.Fatalf("referenced files = %v, want %v", refs, wantRefs)
+	}
+	payload, err := os.ReadFile(refs[0])
+	if err != nil {
+		t.Fatalf("reading the referenced fixture: %v", err)
+	}
+	if !slices.Contains(templateVarNames(string(payload)), "unreachableId") {
+		t.Errorf("%s must reference unreachableId for the env assertion to discriminate", refs[0])
 	}
 }
 
