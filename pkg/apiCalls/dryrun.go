@@ -28,11 +28,11 @@ func DryRun(opts RequestOptions) (string, error) {
 	}
 	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
 	if err != nil {
-		return "", redactErr(redact, err)
+		return "", RedactErr(redact, err)
 	}
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return "", redactErr(redact, err)
+		return "", RedactErr(redact, err)
 	}
 	return FormatDryRun(&apiInfo, opts.Show, redact)
 }

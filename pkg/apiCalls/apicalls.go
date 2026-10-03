@@ -48,8 +48,10 @@ func closeBody(r io.Reader) {
 	}
 }
 
-// A *url.Error prints the full URL, query string and resolved secrets included.
-func redactErr(redact *utils.ValueRedactor, err error) error {
+// RedactErr masks resolved secrets in err's text, returning err unchanged when
+// redact is nil. A *url.Error prints the full URL, query string and resolved
+// secrets included.
+func RedactErr(redact *utils.ValueRedactor, err error) error {
 	if redact == nil || err == nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func StandardCallWithClient(
 		// net/http never took ownership, so nothing else closes a streamed body
 		// and its writer goroutine would block forever.
 		closeBody(bodyReader)
-		return CustomResponse{}, redactErr(
+		return CustomResponse{}, RedactErr(
 			redact, fmt.Errorf("error occurred on '%s': %w", method, err),
 		)
 	}
@@ -139,7 +141,7 @@ func StandardCallWithClient(
 
 	response, err := client.Do(req)
 	if err != nil {
-		return CustomResponse{}, redactErr(redact, err)
+		return CustomResponse{}, RedactErr(redact, err)
 	}
 	end := time.Now()
 
@@ -169,12 +171,12 @@ func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, st
 
 	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
 	if err != nil {
-		return nil, "", redactErr(redact, err)
+		return nil, "", RedactErr(redact, err)
 	}
 
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return nil, "", redactErr(redact, err)
+		return nil, "", RedactErr(redact, err)
 	}
 
 	if opts.DryRun {
