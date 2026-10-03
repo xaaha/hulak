@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	yaml "github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
@@ -35,7 +36,7 @@ func TestD21PeekConfigRejectsStrayLine(t *testing.T) {
 }
 
 func TestD21ReEncodedBufferIsSingleDocument(t *testing.T) {
-	path := createTempYAMLFile(t, strings.Join([]string{
+	source := strings.Join([]string{
 		"kind: API",
 		"method: POST",
 		"url: https://e.com",
@@ -47,7 +48,11 @@ func TestD21ReEncodedBufferIsSingleDocument(t *testing.T) {
 		"      ---",
 		"      query X { y }",
 		"",
-	}, "\n"))
+	}, "\n")
+	if !strings.Contains(source, "\n      ---\n") {
+		t.Fatalf("the source no longer embeds an indented separator:\n%s", source)
+	}
+	path := createTempYAMLFile(t, source)
 
 	buf, err := checkYamlFile(path, map[string]any{})
 	if err != nil {
@@ -60,6 +65,20 @@ func TestD21ReEncodedBufferIsSingleDocument(t *testing.T) {
 	}
 	if len(file.Docs) != 1 {
 		t.Errorf("re-encoded buffer has %d documents, want 1: %s", len(file.Docs), buf.String())
+	}
+
+	var decoded struct {
+		Body struct {
+			GraphQL struct {
+				Query string `yaml:"query"`
+			} `yaml:"graphql"`
+		} `yaml:"body"`
+	}
+	if err := yaml.Unmarshal(buf.Bytes(), &decoded); err != nil {
+		t.Fatalf("decoding re-encoded buffer: %v", err)
+	}
+	if want := "---\nquery X { y }\n"; decoded.Body.GraphQL.Query != want {
+		t.Errorf("query = %q, want %q: %s", decoded.Body.GraphQL.Query, want, buf.String())
 	}
 }
 
