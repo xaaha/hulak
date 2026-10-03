@@ -22,6 +22,7 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 		{"trailing separator", "method: POST\nurl: https://e.com\n---\n", 0},
 		{"leading and trailing separators", "---\nmethod: POST\n---\n", 0},
 		{"two trailing separators", "method: POST\n---\n---\n", 0},
+		{"two leading separators", "---\n---\nmethod: POST\nurl: https://e.com\n", 0},
 		{"trailing separator then blank lines", "method: POST\n---\n\n\n", 0},
 		{"second document is only a comment", "method: POST\n---\n# just a comment\n", 0},
 		{"yaml directive", "%YAML 1.2\n---\nmethod: POST\nurl: https://e.com\n", 0},
