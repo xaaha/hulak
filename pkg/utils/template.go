@@ -19,11 +19,20 @@ var templateVarNamePattern = regexp.MustCompile(`(^|[^\w.])\.(\w+)`)
 func templateVarNames(s string) []string {
 	var names []string
 	for _, action := range templateActionPattern.FindAllString(s, -1) {
+		if isTemplateComment(action) {
+			continue
+		}
 		for _, m := range templateVarNamePattern.FindAllStringSubmatch(stripQuotedArgs(action), -1) {
 			names = append(names, m[2])
 		}
 	}
 	return names
+}
+
+func isTemplateComment(action string) bool {
+	body := strings.TrimPrefix(strings.TrimSuffix(action, "}}"), "{{")
+	body = strings.TrimPrefix(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(body), "-")), "-")
+	return strings.HasPrefix(strings.TrimSpace(body), "/*")
 }
 
 func stripQuotedArgs(action string) string {
