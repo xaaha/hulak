@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
@@ -519,5 +520,42 @@ func TestD1_5_OverlappingSecretsDoNotSplit(t *testing.T) {
 		if _, leaked := testutil.SecretFormVisible(got, value); leaked {
 			t.Errorf("%q survived: %q", value, got)
 		}
+	}
+}
+
+// A percent is read two ways on each side, and reading them as a tree doubled
+// the work per escape in the value: 26 escapes already took 2.7s. Forty is out
+// of reach of that walk by four orders of magnitude, so the bound separates a
+// loaded machine from the defect rather than from a slow one.
+const spellingBound = 100 * time.Millisecond
+
+func TestD1_7_PercentHeavySecretMasksInBoundedTime(t *testing.T) {
+	const reps = 40
+	secret := strings.Repeat("%41", reps)
+	redactor := NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
+
+	for name, tc := range map[string]struct {
+		text   string
+		masked bool
+	}{
+		"spelled":   {text: "GET https://h/v1/" + secret + "/profile\n", masked: true},
+		"one short": {text: "GET https://h/v1/" + strings.Repeat("%41", reps-1) + "/profile\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			start := time.Now()
+			got := redactor.Redact(tc.text)
+			if elapsed := time.Since(start); elapsed > spellingBound {
+				t.Errorf("Redact took %s, over the %s bound", elapsed, spellingBound)
+			}
+			if tc.masked {
+				if got != "GET https://h/v1/"+maskFor(secret)+"/profile\n" {
+					t.Errorf("Redact() = %q", got)
+				}
+				return
+			}
+			if got != tc.text {
+				t.Errorf("a run that spells no secret must survive: %q", got)
+			}
+		})
 	}
 }

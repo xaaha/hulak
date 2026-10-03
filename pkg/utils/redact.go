@@ -144,8 +144,8 @@ func escapeAt(s string, i int) (byte, bool) {
 // startBytes reports which bytes a run spelling value can begin with: the
 // value's first byte, a percent when the renderer escaped that byte or the
 // value's own percent sign, a plus standing in for a leading space, and the
-// byte a leading escape of the value's own decodes to. Every first step of
-// spellingEnd needs one of these, so the rest of the text is skipped whole.
+// byte a leading escape of the value's own decodes to. Every first step of a
+// spelling needs one of these, so the rest of the text is skipped whole.
 func startBytes(value string) [256]bool {
 	var starts [256]bool
 	starts[value[0]] = true
@@ -159,32 +159,115 @@ func startBytes(value string) [256]bool {
 	return starts
 }
 
-// spellingEnd returns the offset just past the longest run of text from ti on
-// that spells value from vi on, or -1 when none does. A percent is ambiguous:
-// the renderer may escape a byte, leave an escape the value itself holds
-// standing, escape its percent sign, or decode it, and net/url does different
-// ones of those to neighbouring bytes of the same value. Every reading is
-// walked rather than picked, so no spelling has to be enumerated in advance.
-func spellingEnd(text, value string, ti, vi int) int {
-	if vi == len(value) {
-		return ti
+// A spellingMatcher finds where a run of text spelling one secret ends. A
+// percent is ambiguous: the renderer may escape a byte, leave an escape the
+// value itself holds standing, escape its percent sign, or decode it, and
+// net/url does different ones of those to neighbouring bytes of the same
+// value. Every reading is walked rather than picked, so no spelling has to be
+// enumerated in advance. The readings meet again on the same (text index,
+// value index) pair, so the walk advances a frontier of those pairs instead of
+// recursing down each combination: two readings of every escape in the value
+// is a doubling per escape when a pair is re-explored.
+type spellingMatcher struct {
+	value   string
+	escapes []escape
+	starts  [256]bool
+	rows    [4]spellingRow
+}
+
+// An escape is the byte a percent escape spells, held per value index so the
+// walk reads the value's own escapes off a table instead of re-parsing them at
+// every visit.
+type escape struct {
+	b  byte
+	ok bool
+}
+
+// A spellingRow holds the value indices the walk still owes one text index.
+// queued keeps a pair off the frontier a second time; pending lists what to
+// clear, so a start position costs only the pairs it actually reached.
+type spellingRow struct {
+	pending []int
+	queued  []bool
+}
+
+func newSpellingMatcher(value string) *spellingMatcher {
+	m := &spellingMatcher{
+		value:   value,
+		escapes: make([]escape, len(value)),
+		starts:  startBytes(value),
 	}
-	if ti >= len(text) {
-		return -1
+	for vi := range len(value) {
+		b, ok := escapeAt(value, vi)
+		m.escapes[vi] = escape{b: b, ok: ok}
 	}
+	for i := range m.rows {
+		m.rows[i].queued = make([]bool, len(value)+1)
+		m.rows[i].pending = make([]int, 0, len(value)+1)
+	}
+	return m
+}
+
+func (r *spellingRow) clear() {
+	for _, vi := range r.pending {
+		r.queued[vi] = false
+	}
+	r.pending = r.pending[:0]
+}
+
+// A reading advances the text by at most 3, so four rows hold every index the
+// frontier can still reach and ti&3 never collides with a live one.
+func (m *spellingMatcher) queue(ti, vi int) int {
+	row := &m.rows[ti&3]
+	if row.queued[vi] {
+		return 0
+	}
+	row.queued[vi] = true
+	row.pending = append(row.pending, vi)
+	return 1
+}
+
+// end returns the offset just past the longest run of text from at on that
+// spells the whole value, or -1 when none does. Every row is empty on entry
+// and left empty on return, so a start that spells nothing costs no clearing.
+func (m *spellingMatcher) end(text string, at int) int {
+	value := m.value
 	best := -1
-	if text[ti] == value[vi] || (value[vi] == ' ' && text[ti] == '+') {
-		best = max(best, spellingEnd(text, value, ti+1, vi+1))
-	}
-	if b, ok := escapeAt(text, ti); ok && b == value[vi] {
-		best = max(best, spellingEnd(text, value, ti+3, vi+1))
-	}
-	if vb, ok := escapeAt(value, vi); ok {
-		if tb, ok := escapeAt(text, ti); ok && tb == vb {
-			best = max(best, spellingEnd(text, value, ti+3, vi+3))
+	live := m.queue(at, 0)
+	// Every reading consumes a value byte, so no spelling outruns this.
+	last := min(len(text), at+3*len(value))
+	for ti := at; ti <= last && live > 0; ti++ {
+		row := &m.rows[ti&3]
+		live -= len(row.pending)
+		for _, vi := range row.pending {
+			if vi == len(value) {
+				best = ti
+				continue
+			}
+			if ti >= len(text) {
+				continue
+			}
+			tb, textEscaped := escapeAt(text, ti)
+			if text[ti] == value[vi] || (value[vi] == ' ' && text[ti] == '+') {
+				live += m.queue(ti+1, vi+1)
+			}
+			if textEscaped && tb == value[vi] {
+				live += m.queue(ti+3, vi+1)
+			}
+			if ve := m.escapes[vi]; ve.ok {
+				if textEscaped && tb == ve.b {
+					live += m.queue(ti+3, vi+3)
+				}
+				if text[ti] == ve.b {
+					live += m.queue(ti+1, vi+3)
+				}
+			}
 		}
-		if text[ti] == vb {
-			best = max(best, spellingEnd(text, value, ti+1, vi+3))
+		row.clear()
+	}
+	if live > 0 {
+		for i := range m.rows {
+			m.rows[i].clear()
 		}
 	}
 	return best
@@ -360,12 +443,12 @@ type maskedSpan struct {
 func (r *ValueRedactor) secretSpans(text string, claimed []bool) []maskedSpan {
 	var spans []maskedSpan
 	for _, s := range r.secrets {
-		starts := startBytes(s.value)
+		matcher := newSpellingMatcher(s.value)
 		for at := 0; at < len(text); at++ {
-			if !starts[text[at]] || claimed[at] {
+			if !matcher.starts[text[at]] || claimed[at] {
 				continue
 			}
-			end := spellingEnd(text, s.value, at, 0)
+			end := matcher.end(text, at)
 			if end < 0 || slices.Contains(claimed[at:end], true) {
 				continue
 			}
