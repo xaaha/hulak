@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -103,6 +104,41 @@ func TestFileHasTemplateVars(t *testing.T) {
 			name:     "multiple_env_vars",
 			content:  "---\nkind: GraphQL\nurl: \"https://{{.domain}}/graphql\"\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n",
 			expected: true,
+		},
+		{
+			name:     "d3_1c_env_var_behind_a_trim_marker",
+			content:  "---\nurl: \"{{- .baseUrl }}\"\n",
+			expected: true,
+		},
+		{
+			name:     "d3_1c_env_var_inside_an_if_action",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Flag: \"{{if .flag}}yes{{end}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "d3_1c_env_var_inside_a_range_action",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Tags: \"{{range .items}}x{{end}}\"\n",
+			expected: true,
+		},
+		{
+			name:     "d3_1c_env_var_as_a_printf_argument",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{printf \"Bearer %s\" .token}}'\n",
+			expected: true,
+		},
+		{
+			name:     "d3_1c_dotfile_in_a_quoted_arg_is_not_an_env_var",
+			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"token\" \".secrets.json\"}}'\n",
+			expected: false,
+		},
+		{
+			name:     "d3_1c_printf_precision_verb_is_not_an_env_var",
+			content:  "---\nurl: http://example.com\nheaders:\n  X-Amount: '{{printf \"%.2f\" 1.5}}'\n",
+			expected: false,
+		},
+		{
+			name:     "d3_1c_a_bare_dot_names_no_key_so_no_env_is_loaded",
+			content:  "---\nurl: \"{{.}}\"\n",
+			expected: false,
 		},
 		{
 			name:     "os_func_only_no_env_loading_needed",
@@ -230,6 +266,57 @@ func TestReferencedFiles(t *testing.T) {
 			}
 			if !slices.Equal(got, tc.want) {
 				t.Errorf("ReferencedFiles(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestReferencedFiles_D3_0_ArgQuoting(t *testing.T) {
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name string
+		gql  string
+		expr string
+	}{
+		{name: "backtick raw string", gql: "backtick.gql", expr: "{{" + TemplateFuncGetFile + " `backtick.gql`}}"},
+		{name: "double quoted", gql: "double.gql", expr: "{{" + TemplateFuncGetFile + " \"double.gql\"}}"},
+		{name: "single quoted", gql: "single.gql", expr: "{{" + TemplateFuncGetFile + " 'single.gql'}}"},
+		{name: "bare argument", gql: "bare.gql", expr: "{{" + TemplateFuncGetFile + " bare.gql}}"},
+		{
+			name: "backtick raw string keeps a backslash",
+			gql:  `queries\get.gql`,
+			expr: "{{" + TemplateFuncGetFile + " `queries\\get.gql`}}",
+		},
+		{
+			name: "backtick raw string followed by a pipeline",
+			gql:  "piped.gql",
+			expr: "{{" + TemplateFuncGetFile + " `piped.gql` | printf \"%s\"}}",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			writeFile(t, filepath.Join(root, tc.gql), "query { health }")
+			reqPath := filepath.Join(root, tc.gql+".hk.yaml")
+			writeFile(t, reqPath,
+				"---\nkind: GraphQL\nurl: http://example.com/graphql\nbody:\n  graphql:\n    query: |\n      "+tc.expr+"\n")
+
+			got, err := ReferencedFiles(reqPath)
+			if err != nil {
+				t.Fatalf("ReferencedFiles(%q): unexpected error: %v", reqPath, err)
+			}
+			want := []string{filepath.Join(root, tc.gql)}
+			if !slices.Equal(got, want) {
+				t.Errorf("ReferencedFiles(%q) = %v, want %v", reqPath, got, want)
 			}
 		})
 	}
@@ -535,5 +622,249 @@ func TestMapHasEnvVars(t *testing.T) {
 				t.Errorf("MapHasEnvVars() = %v, want %v", result, tc.expected)
 			}
 		})
+	}
+}
+
+func TestRequestVariables_D3_2(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name     string
+		content  string
+		wantEnv  []string
+		wantVars []string
+	}{
+		{
+			name: "env vars in first-seen order",
+			content: "---\nkind: GraphQL\nurl: \"https://{{.zebra}}/graphql\"\n" +
+				"headers:\n  Authorization: \"Bearer {{ .apple }}\"\n",
+			wantEnv: []string{"zebra", "apple"},
+		},
+		{
+			name: "repeated env var is deduplicated",
+			content: "---\nurl: \"{{.baseUrl}}/a\"\nheaders:\n  X-One: \"{{.baseUrl}}\"\n" +
+				"  X-Two: \"{{.token}}\"\n",
+			wantEnv: []string{"baseUrl", "token"},
+		},
+		{
+			name: "graphql variable keys in document order",
+			content: "---\nkind: GraphQL\nurl: http://example.com/graphql\n" +
+				"body:\n  graphql:\n    query: 'query Q($last: String) { user { id } }'\n" +
+				"    variables:\n      zebra: \"{{.zebraName}}\"\n      apple: 7\n",
+			wantEnv:  []string{"zebraName"},
+			wantVars: []string{"zebra", "apple"},
+		},
+		{
+			name: "graphql variables with no env vars anywhere",
+			content: "---\nkind: GraphQL\nurl: http://example.com/graphql\n" +
+				"body:\n  graphql:\n    query: 'query Q($id: ID!) { user(id: $id) { id name } }'\n" +
+				"    variables:\n      id: 7\n      name: \"zebra\"\n",
+			wantVars: []string{"id", "name"},
+		},
+		{
+			name: "capitalised body graphql and variables keys",
+			content: "---\nkind: GraphQL\nurl: http://example.com/graphql\n" +
+				"Body:\n  GraphQL:\n    query: 'query Q($id: ID!) { user(id: $id) { id } }'\n" +
+				"    Variables:\n      id: 7\n      name: \"zebra\"\n",
+			wantVars: []string{"id", "name"},
+		},
+		{
+			name:    "no variables at all",
+			content: "---\nkind: API\nmethod: GET\nurl: http://example.com\n",
+		},
+		{
+			name:    "template var only in a comment is not resolved",
+			content: "---\nkind: API\nurl: http://example.com # {{.token}}\n",
+		},
+		{
+			name: "env var inside a yaml sequence",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Tags:\n" +
+				"    - \"{{.first}}\"\n    - \"{{.second}}\"\n",
+			wantEnv: []string{"first", "second"},
+		},
+		{
+			name:    "env var behind a trim marker",
+			content: "---\nurl: \"{{- .baseUrl }}\"\n",
+			wantEnv: []string{"baseUrl"},
+		},
+		{
+			name: "env vars referenced inside actions",
+			content: "---\nurl: http://example.com\nheaders:\n" +
+				"  X-Flag: \"{{if .flag}}{{.token}}{{end}}\"\n" +
+				"  X-Tags: \"{{range .items}}x{{end}}\"\n" +
+				"  Authorization: '{{printf \"Bearer %s\" .secret}}'\n",
+			wantEnv: []string{"flag", "token", "items", "secret"},
+		},
+		{
+			name:    "a dot chain reports only the key it looks up",
+			content: "---\nurl: \"https://{{.server.host}}/graphql\"\n",
+			wantEnv: []string{"server"},
+		},
+		{
+			name:    "a bare dot yields no variable name",
+			content: "---\nurl: \"{{.}}\"\n",
+		},
+		{
+			name: "a double quoted dotfile argument is not an env var",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" +
+				TemplateFuncGetValueOf + " \"token\" \".secrets.json\"}}'\n",
+		},
+		{
+			name: "a backtick quoted dotfile argument is not an env var",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" +
+				TemplateFuncGetValueOf + " \"token\" `.secrets.json`}}'\n",
+		},
+		{
+			name:    "an assigned template variable still reports the key it reads",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Token: \"{{$t := .token}}{{$t}}\"\n",
+			wantEnv: []string{"token"},
+		},
+		{
+			name:    "an action wrapped across lines still reports its key",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: |\n    {{ printf \"%s\"\n      .token }}\n",
+			wantEnv: []string{"token"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(root, strings.ReplaceAll(tc.name, " ", "_")+".hk.yaml")
+			writeFile(t, path, tc.content)
+
+			env, vars, err := RequestVariables(path)
+			if err != nil {
+				t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+			}
+			if !slices.Equal(env, tc.wantEnv) {
+				t.Errorf("env vars = %v, want %v", env, tc.wantEnv)
+			}
+			if !slices.Equal(vars, tc.wantVars) {
+				t.Errorf("graphql variables = %v, want %v", vars, tc.wantVars)
+			}
+		})
+	}
+}
+
+func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	gqlPath := filepath.Join(root, "query.gql")
+	writeFile(t, gqlPath, "query { user(id: {{.unreachableId}}) { id } }")
+	path := filepath.Join(root, "ref.hk.yaml")
+	writeFile(t, path, "---\nkind: GraphQL\nurl: \"{{.baseUrl}}\"\nbody:\n  graphql:\n    query: '{{"+
+		TemplateFuncGetFile+" \"query.gql\"}}'\n")
+
+	env, _, err := RequestVariables(path)
+	if err != nil {
+		t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+	}
+	want := []string{"baseUrl"}
+	if !slices.Equal(env, want) {
+		t.Errorf("env vars = %v, want %v (a getFile payload is never re-templated)", env, want)
+	}
+
+	refs, err := ReferencedFiles(path)
+	if err != nil {
+		t.Fatalf("ReferencedFiles(%q): unexpected error: %v", path, err)
+	}
+	wantRefs := []string{gqlPath}
+	if !slices.Equal(refs, wantRefs) {
+		t.Fatalf("referenced files = %v, want %v", refs, wantRefs)
+	}
+	payload, err := os.ReadFile(refs[0])
+	if err != nil {
+		t.Fatalf("reading the referenced fixture: %v", err)
+	}
+	if !slices.Contains(templateVarNames(string(payload)), "unreachableId") {
+		t.Errorf("%s must reference unreachableId for the env assertion to discriminate", refs[0])
+	}
+}
+
+func TestD3_1c_FileHasTemplateVarsAndRequestVariablesAgree(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name    string
+		content string
+		wantEnv []string
+	}{
+		{
+			name:    "trim marker",
+			content: "---\nurl: \"{{- .baseUrl }}\"\n",
+			wantEnv: []string{"baseUrl"},
+		},
+		{
+			name:    "if action",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Flag: \"{{if .flag}}y{{end}}\"\n",
+			wantEnv: []string{"flag"},
+		},
+		{
+			name:    "printf argument",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{printf \"Bearer %s\" .token}}'\n",
+			wantEnv: []string{"token"},
+		},
+		{
+			name:    "bare dot",
+			content: "---\nurl: \"{{.}}\"\n",
+		},
+		{
+			name:    "unclosed action",
+			content: "---\nurl: \"https://{{.token\"\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(root, strings.ReplaceAll(tc.name, " ", "_")+".hk.yaml")
+			writeFile(t, path, tc.content)
+
+			env, _, err := RequestVariables(path)
+			if err != nil {
+				t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+			}
+			if !slices.Equal(env, tc.wantEnv) {
+				t.Errorf("env vars = %v, want %v", env, tc.wantEnv)
+			}
+			if got := FileHasTemplateVars(path); got != (len(env) > 0) {
+				t.Errorf("FileHasTemplateVars = %v but RequestVariables env vars = %v", got, env)
+			}
+		})
+	}
+}
+
+func TestRequestVariables_D3_2_MalformedYAML(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	path := filepath.Join(root, "broken.hk.yaml")
+	writeFile(t, path, "---\nurl: http://example.com\n  headers: [unclosed\n")
+
+	if _, _, err := RequestVariables(path); err == nil {
+		t.Error("expected error for malformed YAML, got nil")
+	}
+}
+
+func TestRequestVariables_D3_2_NonexistentFile(t *testing.T) {
+	if _, _, err := RequestVariables("/nonexistent/path/req.hk.yaml"); err == nil {
+		t.Error("expected error for nonexistent request file, got nil")
 	}
 }
