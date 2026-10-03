@@ -708,6 +708,26 @@ func TestRequestVariables_D3_2(t *testing.T) {
 			name:    "a bare dot yields no variable name",
 			content: "---\nurl: \"{{.}}\"\n",
 		},
+		{
+			name: "a double quoted dotfile argument is not an env var",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" +
+				TemplateFuncGetValueOf + " \"token\" \".secrets.json\"}}'\n",
+		},
+		{
+			name: "a backtick quoted dotfile argument is not an env var",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" +
+				TemplateFuncGetValueOf + " \"token\" `.secrets.json`}}'\n",
+		},
+		{
+			name:    "an assigned template variable still reports the key it reads",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Token: \"{{$t := .token}}{{$t}}\"\n",
+			wantEnv: []string{"token"},
+		},
+		{
+			name:    "an action wrapped across lines still reports its key",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: |\n    {{ printf \"%s\"\n      .token }}\n",
+			wantEnv: []string{"token"},
+		},
 	}
 
 	for _, tc := range tests {
