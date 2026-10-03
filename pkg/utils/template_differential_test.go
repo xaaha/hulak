@@ -119,6 +119,12 @@ func TestD3_2_TemplateVarNamesMatchesGoTemplateParser(t *testing.T) {
 		`{{$日本 := "x"}}{{$日本.token}}`,
 		"{{printf \"%s\" .名前}}",
 		"{{if .флаг}}y{{end}}",
+		`{{printf "a\"b .fake" 1}}`,
+		`{{printf "a\"b .fake" .token}}`,
+		`{{printf "%s%s" '\'' .token}}`,
+		"{{printf \"%s\" `.fake\\` .token}}",
+		`{{printf "trailing\\" .token}}`,
+		"{{getFile `queries\\get.gql`}}",
 	}
 
 	for _, expr := range exprs {

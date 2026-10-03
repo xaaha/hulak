@@ -44,8 +44,12 @@ func stripQuotedArgs(action string) string {
 			i++
 			continue
 		}
+		hasEscapes := quote != '`'
 		i++
 		for i < len(action) && action[i] != quote {
+			if hasEscapes && action[i] == '\\' {
+				i++
+			}
 			i++
 		}
 		if i < len(action) {
