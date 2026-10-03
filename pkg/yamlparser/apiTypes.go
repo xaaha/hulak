@@ -104,6 +104,9 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 		return false, fmt.Errorf("requested api file is not valid")
 	}
 
+	// The redactor holds the value as the file spells it, so the error names
+	// that rather than the upper-cased copy.
+	asWritten := string(user.Method)
 	user.Method.ToUpperCase()
 
 	// method is required for any http request
@@ -111,7 +114,7 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 		if user.Method == "" {
 			return false, fmt.Errorf("missing or empty HTTP method in '%s'", filePath)
 		}
-		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", user.Method, filePath)
+		return false, fmt.Errorf("invalid HTTP method '%s' in '%s'", asWritten, filePath)
 	}
 
 	// url is required for any http request
@@ -121,9 +124,8 @@ func (user *APICallFile) IsValid(filePath string) (bool, error) {
 
 	if !user.Body.IsValid() {
 		return false, fmt.Errorf(
-			"invalid Body in '%s': make sure body contains only one valid argument.\n %v",
+			"invalid Body in '%s': make sure body contains only one valid argument",
 			filePath,
-			user.Body,
 		)
 	}
 	return true, nil

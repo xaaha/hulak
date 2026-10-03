@@ -83,10 +83,6 @@ const HulakTimeoutEnv = "HULAK_TIMEOUT"
 // so the top-level exit code is non-zero on partial success. A nil error means
 // every dispatched request succeeded.
 func Execute(f *Flags) error {
-	if f.Show && !f.DryRun {
-		utils.PrintWarningStderr("--show has no effect without --dry-run")
-	}
-
 	// If --ssh-identity is set and the env var isn't already set by the shell,
 	// propagate it so ResolveIdentity picks it up for vault decryption.
 	// Uses env var (same mechanism as HULAK_MASTER_KEY) rather than threading
@@ -617,9 +613,20 @@ func processTask(
 	baseTimeout time.Duration,
 ) outcome {
 	start := time.Now()
-	config, err := yamlparser.ParseConfig(path, secretsMap)
+	// ParseConfig substitutes secrets and validates eagerly, so its error can
+	// already name a resolved value before any callee builds a masker.
+	redact, err := apicalls.OutputRedactor(path, secretsMap, opts.Show)
 	if err != nil {
 		return outcome{path: path, ok: false, duration: time.Since(start), err: err}
+	}
+	config, err := yamlparser.ParseConfig(path, secretsMap)
+	if err != nil {
+		return outcome{
+			path:     path,
+			ok:       false,
+			duration: time.Since(start),
+			err:      apicalls.RedactErr(redact, err),
+		}
 	}
 
 	// Resolve per-file timeout: YAML wins over base.
@@ -632,7 +639,9 @@ func processTask(
 
 	switch {
 	case config.IsAuth():
-		err := features.SendAPIRequestForAuth2(ctx, secretsMap, path, opts.Debug)
+		err := features.SendAPIRequestForAuth2(
+			ctx, secretsMap, path, opts.Debug, opts.Show, redact,
+		)
 		return outcome{path: path, ok: err == nil, duration: time.Since(start), err: err}
 	case config.IsAPI() || config.IsGraphql():
 		respBytes, status, err := apicalls.SendAndSaveAPIRequest(ctx, apicalls.RequestOptions{
@@ -642,6 +651,7 @@ func processTask(
 			DryRun:  opts.DryRun,
 			Show:    opts.Show,
 			OutPath: opts.Out,
+			Redact:  redact,
 		})
 		return outcome{
 			path:      path,

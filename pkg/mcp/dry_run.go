@@ -15,7 +15,7 @@ type dryRunInput struct {
 	Name    string `json:"name"              jsonschema:"request name, e.g. login (with or without extension)"`
 	Env     string `json:"env"               jsonschema:"environment to resolve secrets against, e.g. staging (required)"`
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
-	Show    bool   `json:"show,omitempty"    jsonschema:"reveal sensitive headers instead of masking them"`
+	Show    bool   `json:"show,omitempty"    jsonschema:"reveal resolved secret values and sensitive headers instead of masking them"`
 }
 
 type dryRunOutput struct {
@@ -32,7 +32,9 @@ func (s *Server) registerDryRun() {
 		Description: "Resolve a request against an environment and return the exact " +
 			"request that would be sent (method, URL, headers, body) without sending " +
 			"it. Use this to check a request's variables resolve in a given env. " +
-			"Sensitive headers are masked unless `show` is true.",
+			"Resolved secret values and sensitive headers are masked unless " +
+			"`show` is true; a masked value shows its length and a fingerprint " +
+			"so two requests using the same secret are comparable.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleDryRun)
 }
