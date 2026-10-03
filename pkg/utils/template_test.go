@@ -106,33 +106,38 @@ func TestFileHasTemplateVars(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "env_var_behind_a_trim_marker",
+			name:     "d3_1c_env_var_behind_a_trim_marker",
 			content:  "---\nurl: \"{{- .baseUrl }}\"\n",
 			expected: true,
 		},
 		{
-			name:     "env_var_inside_an_if_action",
+			name:     "d3_1c_env_var_inside_an_if_action",
 			content:  "---\nurl: http://example.com\nheaders:\n  X-Flag: \"{{if .flag}}yes{{end}}\"\n",
 			expected: true,
 		},
 		{
-			name:     "env_var_inside_a_range_action",
+			name:     "d3_1c_env_var_inside_a_range_action",
 			content:  "---\nurl: http://example.com\nheaders:\n  X-Tags: \"{{range .items}}x{{end}}\"\n",
 			expected: true,
 		},
 		{
-			name:     "env_var_as_a_printf_argument",
+			name:     "d3_1c_env_var_as_a_printf_argument",
 			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{printf \"Bearer %s\" .token}}'\n",
 			expected: true,
 		},
 		{
-			name:     "dotfile_in_a_quoted_arg_is_not_an_env_var",
+			name:     "d3_1c_dotfile_in_a_quoted_arg_is_not_an_env_var",
 			content:  "---\nurl: http://example.com\nheaders:\n  Authorization: '{{" + TemplateFuncGetValueOf + " \"token\" \".secrets.json\"}}'\n",
 			expected: false,
 		},
 		{
-			name:     "printf_precision_verb_is_not_an_env_var",
+			name:     "d3_1c_printf_precision_verb_is_not_an_env_var",
 			content:  "---\nurl: http://example.com\nheaders:\n  X-Amount: '{{printf \"%.2f\" 1.5}}'\n",
+			expected: false,
+		},
+		{
+			name:     "d3_1c_a_bare_dot_names_no_key_so_no_env_is_loaded",
+			content:  "---\nurl: \"{{.}}\"\n",
 			expected: false,
 		},
 		{
@@ -699,6 +704,10 @@ func TestRequestVariables_D3_2(t *testing.T) {
 			content: "---\nurl: \"https://{{.server.host}}/graphql\"\n",
 			wantEnv: []string{"server"},
 		},
+		{
+			name:    "a bare dot yields no variable name",
+			content: "---\nurl: \"{{.}}\"\n",
+		},
 	}
 
 	for _, tc := range tests {
@@ -739,6 +748,62 @@ func TestRequestVariables_D3_2_DoesNotFollowGetFile(t *testing.T) {
 	want := []string{"baseUrl"}
 	if !slices.Equal(env, want) {
 		t.Errorf("env vars = %v, want %v (a getFile payload is never re-templated)", env, want)
+	}
+}
+
+func TestD3_1c_FileHasTemplateVarsAndRequestVariablesAgree(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatalf("failed to create env dir: %v", err)
+	}
+	t.Chdir(root)
+
+	tests := []struct {
+		name    string
+		content string
+		wantEnv []string
+	}{
+		{
+			name:    "trim marker",
+			content: "---\nurl: \"{{- .baseUrl }}\"\n",
+			wantEnv: []string{"baseUrl"},
+		},
+		{
+			name:    "if action",
+			content: "---\nurl: http://example.com\nheaders:\n  X-Flag: \"{{if .flag}}y{{end}}\"\n",
+			wantEnv: []string{"flag"},
+		},
+		{
+			name:    "printf argument",
+			content: "---\nurl: http://example.com\nheaders:\n  Authorization: '{{printf \"Bearer %s\" .token}}'\n",
+			wantEnv: []string{"token"},
+		},
+		{
+			name:    "bare dot",
+			content: "---\nurl: \"{{.}}\"\n",
+		},
+		{
+			name:    "unclosed action",
+			content: "---\nurl: \"https://{{.token\"\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(root, strings.ReplaceAll(tc.name, " ", "_")+".hk.yaml")
+			writeFile(t, path, tc.content)
+
+			env, _, err := RequestVariables(path)
+			if err != nil {
+				t.Fatalf("RequestVariables(%q): unexpected error: %v", path, err)
+			}
+			if !slices.Equal(env, tc.wantEnv) {
+				t.Errorf("env vars = %v, want %v", env, tc.wantEnv)
+			}
+			if got := FileHasTemplateVars(path); got != (len(env) > 0) {
+				t.Errorf("FileHasTemplateVars = %v but RequestVariables env vars = %v", got, env)
+			}
+		})
 	}
 }
 
