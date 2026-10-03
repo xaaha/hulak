@@ -327,6 +327,11 @@ func TestPeekRequestKind_D3_1(t *testing.T) {
 			"url: http://x\nbody:\n  graphql: {}\n",
 			KindGraphQL,
 		},
+		{
+			"capitalised body and graphql keys.hk.yaml",
+			"url: http://x\nBody:\n  GraphQL:\n    query: 'query { me { id } }'\n",
+			KindGraphQL,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

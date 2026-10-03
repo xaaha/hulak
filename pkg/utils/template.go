@@ -151,7 +151,7 @@ func mapSliceValue(val any, key string) any {
 		return nil
 	}
 	for _, item := range ms {
-		if item.Key == key {
+		if k, ok := item.Key.(string); ok && strings.EqualFold(k, key) {
 			return item.Value
 		}
 	}

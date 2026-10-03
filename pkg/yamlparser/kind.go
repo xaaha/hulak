@@ -8,6 +8,7 @@ import (
 	"time"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 // Kind represents the type of YAML flow hulak should follow.
@@ -112,10 +113,18 @@ func PeekRequestKind(filePath string) (Kind, error) {
 	if err != nil {
 		return "", err
 	}
+	var raw map[string]any
+	if err := yaml.Unmarshal(content, &raw); err != nil {
+		return kind, nil
+	}
+	lowered, err := yaml.Marshal(utils.ConvertKeysToLowerCase(raw))
+	if err != nil {
+		return kind, nil
+	}
 	var peek struct {
 		Body *Body `yaml:"body"`
 	}
-	if err := yaml.Unmarshal(content, &peek); err != nil {
+	if err := yaml.Unmarshal(lowered, &peek); err != nil {
 		return kind, nil
 	}
 	if peek.Body != nil && peek.Body.Graphql != nil {
