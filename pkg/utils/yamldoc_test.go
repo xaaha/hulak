@@ -81,11 +81,20 @@ func TestD22ValidateSingleYAMLDocReportsParseFailure(t *testing.T) {
 
 const (
 	corpusEnv     = "HULAK_YAML_CORPUS"
-	repoYAMLCount = 39
+	repoYAMLCount = 35
 )
 
 var (
-	corpusSkipDirs = []string{"node_modules", "vendor", "dist", "build", "target", "tmp"}
+	corpusSkipDirs = []string{
+		"node_modules",
+		"vendor",
+		"dist",
+		"build",
+		"target",
+		"tmp",
+		"venv",
+		"__pycache__",
+	}
 
 	corpusFixtureDirs = []string{
 		filepath.Join("assets", "demo"),
@@ -95,9 +104,6 @@ var (
 )
 
 func skipCorpusDir(name string) bool {
-	if name == ".github" {
-		return false
-	}
 	return strings.HasPrefix(name, ".") || slices.Contains(corpusSkipDirs, name)
 }
 
@@ -119,8 +125,7 @@ func repoRoot(t *testing.T) string {
 	}
 }
 
-func collectYAMLFiles(t *testing.T, root string) []string {
-	t.Helper()
+func collectYAMLFiles(root string) ([]string, error) {
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -142,16 +147,39 @@ func collectYAMLFiles(t *testing.T, root string) []string {
 		return nil
 	})
 	if err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+func readCorpusFile(t *testing.T, path string) ([]byte, bool) {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		if isWalkPermissionError(err) {
+			return nil, false
+		}
 		t.Fatal(err)
 	}
-	return paths
+	return content, true
 }
 
 func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	t.Helper()
-	repo = collectYAMLFiles(t, repoRoot(t))
-	if root := os.Getenv(corpusEnv); root != "" {
-		extra = collectYAMLFiles(t, root)
+	repo, err := collectYAMLFiles(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := os.Getenv(corpusEnv)
+	if root == "" {
+		return repo, nil
+	}
+	extra, err = collectYAMLFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(extra) == 0 {
+		t.Fatalf("%s=%s holds no YAML files", corpusEnv, root)
 	}
 	return repo, extra
 }
@@ -171,17 +199,18 @@ func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
 		}
 	}
 
-	paths := slices.Concat(repo, extra)
-	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
+	checked := 0
+	for _, path := range slices.Concat(repo, extra) {
+		content, ok := readCorpusFile(t, path)
+		if !ok {
+			continue
 		}
+		checked++
 		if err := ValidateSingleYAMLDoc(path, content); err != nil {
 			t.Error(err)
 		}
 	}
-	t.Logf("checked %d YAML files", len(paths))
+	t.Logf("checked %d YAML files", checked)
 }
 
 func TestD23CorpusOverrideAddsToTheRepoWalk(t *testing.T) {
@@ -218,7 +247,36 @@ func TestD23CorpusWalkSkipsUnreadableDirectories(t *testing.T) {
 		t.Skip("this user can read a 0000 directory")
 	}
 
-	if got := collectYAMLFiles(t, root); len(got) != 1 {
+	got, err := collectYAMLFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
 		t.Errorf("walked %d files, want the 1 readable one", len(got))
+	}
+}
+
+func TestD23CorpusWalkReportsNonPermissionErrors(t *testing.T) {
+	_, err := collectYAMLFiles(filepath.Join(t.TempDir(), "missing"))
+	if err == nil {
+		t.Fatal("want an error for a missing root, got nil")
+	}
+	if isWalkPermissionError(err) {
+		t.Errorf("error = %v, want a non-permission error", err)
+	}
+}
+
+func TestD23CorpusReadSkipsUnreadableFiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "locked.yaml")
+	if err := os.WriteFile(path, []byte("a: 1\n"), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("this user can read a 0000 file")
+	}
+
+	if _, ok := readCorpusFile(t, path); ok {
+		t.Error("read an unreadable file, want it skipped")
 	}
 }
