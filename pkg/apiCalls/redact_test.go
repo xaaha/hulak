@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -279,6 +280,14 @@ func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
 			return NewMockResponse(200, `{"ok":true}`), nil
 		},
 	}
+	// A URL the transport cannot build returns before the echo is inspected,
+	// so count the values that reach it: a position reached by none is
+	// covered on paper only.
+	echoed := map[string]int{}
+	for position := range requestPositions(t, "probe1234") {
+		echoed[position] = 0
+	}
+
 	for _, secret := range urlLeakyValues {
 		t.Run(secret, func(t *testing.T) {
 			newRedactor := func() *utils.ValueRedactor {
@@ -308,6 +317,7 @@ func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
 					if resp.Request == nil {
 						t.Fatal("debug call must carry request info")
 					}
+					echoed[position]++
 					echo := resp.Request.URL + "\n" + fmt.Sprint(resp.Request.Body)
 					testutil.AssertNoSecretForm(t, "debug "+position, echo, secret)
 					if !strings.Contains(echo, wantMask) {
@@ -316,6 +326,14 @@ func TestLeak4_SecretMaskedInEveryRequestPosition(t *testing.T) {
 				})
 			}
 		})
+	}
+
+	for _, position := range slices.Sorted(maps.Keys(echoed)) {
+		t.Logf("debug echo / %s: %d of %d values asserted", position, echoed[position], len(urlLeakyValues))
+		if echoed[position] == 0 {
+			t.Errorf("debug echo / %s: every value failed the request build, so the "+
+				"position is not covered", position)
+		}
 	}
 }
 

@@ -3,13 +3,18 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"maps"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
+	"github.com/xaaha/hulak/pkg/httpclient"
 	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
@@ -250,6 +255,36 @@ func requestFixtures() map[string]string {
 	}
 }
 
+// assertedCells counts, per request position, how many values reached the
+// masking assertions rather than returning early on an error. A position that
+// never reaches them is covered on paper only.
+type assertedCells map[string]map[string]int
+
+func newAssertedCells(surfaces []string, positions map[string]string) assertedCells {
+	cells := make(assertedCells, len(surfaces))
+	for _, surface := range surfaces {
+		cells[surface] = make(map[string]int, len(positions))
+		for position := range positions {
+			cells[surface][position] = 0
+		}
+	}
+	return cells
+}
+
+func (c assertedCells) report(t *testing.T) {
+	t.Helper()
+	for _, surface := range slices.Sorted(maps.Keys(c)) {
+		for _, position := range slices.Sorted(maps.Keys(c[surface])) {
+			n := c[surface][position]
+			t.Logf("%s / %s: %d of %d values asserted", surface, position, n, len(leakyValues))
+			if n == 0 {
+				t.Errorf("%s / %s: every value took the error branch, so the "+
+					"position is not covered", surface, position)
+			}
+		}
+	}
+}
+
 // Neither MCP tool that renders a request may hand the agent a secret in clear.
 func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -258,9 +293,24 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	// A secret in the host would otherwise be looked up for real, which both
+	// makes the subtest need a network and stops it ever reaching the echo.
+	restore := apicalls.DefaultClient
+	apicalls.DefaultClient = &httpclient.Client{HTTP: &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
+			},
+		},
+	}}
+	t.Cleanup(func() { apicalls.DefaultClient = restore })
+
+	fixtures := requestFixtures()
+	asserted := newAssertedCells([]string{"dry_run", "call_request"}, fixtures)
+
 	for _, secret := range leakyValues {
 		t.Run(secret, func(t *testing.T) {
-			for position, content := range requestFixtures() {
+			for position, content := range fixtures {
 				t.Run(position, func(t *testing.T) {
 					api := projectDir(t)
 					writeFileAt(t, filepath.Join(api, "env", "staging.env"),
@@ -281,6 +331,7 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 							testutil.AssertNoSecretForm(t, "dry_run error "+position, err.Error(), secret)
 							return
 						}
+						asserted["dry_run"][position]++
 						testutil.AssertNoSecretForm(t, "dry_run "+position, out.Request, secret)
 						if strings.Contains(out.Request, headerToken) {
 							t.Errorf("dry_run leaked a token only header-name masking covers:\n%s", out.Request)
@@ -297,6 +348,7 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 							testutil.AssertNoSecretForm(t, "call_request error "+position, err.Error(), secret)
 							return
 						}
+						asserted["call_request"][position]++
 						testutil.AssertNoSecretForm(t, "call_request debug "+position, out.Body, secret)
 						if strings.Contains(out.Body, headerToken) {
 							t.Errorf("call_request debug leaked a token only header-name masking covers:\n%s", out.Body)
@@ -309,4 +361,5 @@ func TestD1_3_MCPMasksSecretsOnBothSurfaces(t *testing.T) {
 			}
 		})
 	}
+	asserted.report(t)
 }
