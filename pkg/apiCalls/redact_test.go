@@ -95,16 +95,32 @@ func newSecretRedactor(t *testing.T, path string, secrets map[string]any) *utils
 
 // A redactor that cannot be built must stop the request, not mask nothing.
 func TestD1_1_RedactorBuildFailsClosed(t *testing.T) {
-	r, err := NewSecretRedactor(
-		filepath.Join(t.TempDir(), "absent.hk.yaml"),
-		map[string]any{"client_secret": "super-secret-client-value"},
-	)
-	if err == nil {
-		t.Error("an unreadable request file must fail the redactor build")
-	}
-	if r != nil {
-		t.Error("a failed build must not hand back a redactor")
-	}
+	t.Run("unreadable request file", func(t *testing.T) {
+		r, err := NewSecretRedactor(
+			filepath.Join(t.TempDir(), "absent.hk.yaml"),
+			map[string]any{"client_secret": "super-secret-client-value"},
+		)
+		if err == nil {
+			t.Error("an unreadable request file must fail the redactor build")
+		}
+		if r != nil {
+			t.Error("a failed build must not hand back a redactor")
+		}
+	})
+
+	t.Run("unresolvable secret value", func(t *testing.T) {
+		chdirToProject(t, true)
+		path := writeRequestFile(t, "client_secret")
+		r, err := NewSecretRedactor(path, map[string]any{
+			"client_secret": `{{getFile "no-such-file.json"}}`,
+		})
+		if err == nil {
+			t.Error("a secret that cannot be resolved must fail the redactor build")
+		}
+		if r != nil {
+			t.Error("a failed build must not hand back a redactor")
+		}
+	})
 }
 
 // Both halves of the footer scope meet only here: the names the request file
@@ -827,5 +843,43 @@ func TestD1_3_SuppliedRedactorIsReused(t *testing.T) {
 	}
 	if shown != nil {
 		t.Error("Show must mask nothing, whatever the caller supplied")
+	}
+}
+
+// RedactHeaders masks ten header names. A resolved secret anywhere else in the
+// header block is reached only by the per-value pass over the debug echo.
+func TestD1_2_DebugMasksSecretsInHeadersNoNameCovers(t *testing.T) {
+	const secret = "super-secret-client-value"
+	client := &MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return NewMockResponse(200, `{"ok":true}`), nil
+		},
+	}
+	headers := map[string]string{
+		"X-Client-Secret": secret,
+		"X-Signature":     "sha256=" + secret,
+		"Referer":         "https://api.example.com/cb?token=" + secret,
+	}
+	info := yamlparser.APIInfo{
+		Method:  "GET",
+		URL:     "https://api.example.com/x",
+		Headers: headers,
+	}
+	redactor := utils.NewValueRedactor(map[string]any{"client_secret": secret}, true, nil)
+
+	resp, err := StandardCallWithClient(context.Background(), info, true, redactor, client)
+	if err != nil {
+		t.Fatalf("StandardCallWithClient: %v", err)
+	}
+	if resp.Request == nil {
+		t.Fatal("debug call must carry request info")
+	}
+	wantMask := fmt.Sprintf("%s(%d chars, #", utils.MaskedValue, len(secret))
+	for name := range headers {
+		got := resp.Request.Headers[name]
+		testutil.AssertNoSecretForm(t, "debug header "+name, got, secret)
+		if !strings.Contains(got, wantMask) {
+			t.Errorf("%s must carry the value mask, got %q", name, got)
+		}
 	}
 }

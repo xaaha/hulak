@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestIsSensitiveHeader(t *testing.T) {
@@ -453,5 +455,69 @@ func TestD1_7_MaskCoversExactlyTheEncodedRun(t *testing.T) {
 				t.Errorf("Redact() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// Masking ran once per decoding, so three passes covered three occurrences and
+// a request that reused one secret a fourth time printed it.
+func TestD1_5_EveryOccurrenceIsMasked(t *testing.T) {
+	const secret = "pa55 word/with slash"
+	fields := []string{
+		"assertion=" + secret,
+		"client_secret=" + url.QueryEscape(secret),
+		"refresh_token=" + secret,
+		"subject_token=" + url.PathEscape(secret),
+		"actor_token=" + secret,
+	}
+	got := NewValueRedactor(map[string]any{"client_secret": secret}, true, nil).
+		Redact(strings.Join(fields, "&"))
+
+	if n := strings.Count(got, maskFor(secret)); n != len(fields) {
+		t.Errorf("masked %d of %d occurrences: %q", n, len(fields), got)
+	}
+	if _, leaked := testutil.SecretFormVisible(got, secret); leaked {
+		t.Errorf("an occurrence survived: %q", got)
+	}
+}
+
+// nestedSecrets are twelve values each a prefix of the next, so the order the
+// spans happen to sort in cannot be what keeps the longest one whole.
+func nestedSecrets() (map[string]any, string) {
+	const longest = "abcdefghijklmnopqrst"
+	values := make(map[string]any, 12)
+	for n := len(longest) - 11; n <= len(longest); n++ {
+		values[fmt.Sprintf("token_%d", n)] = longest[:n]
+	}
+	return values, longest
+}
+
+// Without the overlap guard a nested secret claims the run first and the
+// outer one's tail is left standing beside the mask.
+func TestD1_5_NestedSecretsLeaveNoTail(t *testing.T) {
+	values, longest := nestedSecrets()
+	got := NewValueRedactor(values, true, nil).Redact("token=" + longest + "&next=1")
+
+	want := "token=" + maskFor(longest) + "&next=1"
+	if got != want {
+		t.Errorf("Redact() = %q, want %q", got, want)
+	}
+}
+
+// Two secrets that overlap without either containing the other. The overlap
+// guard gives the run to the longer one; without it the shorter one claims
+// its head and the rest of the longer value stands beside the mask.
+func TestD1_5_OverlappingSecretsDoNotSplit(t *testing.T) {
+	const head = "12345678"
+	const tail = "5678abcdefgh"
+	got := NewValueRedactor(map[string]any{"a_token": head, "b_token": tail}, true, nil).
+		Redact("v=1234" + tail)
+
+	if !strings.Contains(got, maskFor(tail)) {
+		t.Errorf("the longer secret must be masked whole: %q", got)
+	}
+	for _, value := range []string{head, tail} {
+		if _, leaked := testutil.SecretFormVisible(got, value); leaked {
+			t.Errorf("%q survived: %q", value, got)
+		}
 	}
 }
