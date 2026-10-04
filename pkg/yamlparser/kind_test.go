@@ -246,3 +246,132 @@ func TestPeekKind(t *testing.T) {
 		}
 	})
 }
+
+func TestPeekRequestKind_D3_1(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	cases := []struct {
+		name string
+		body string
+		want Kind
+	}{
+		{
+			"graphql body without kind.hk.yaml",
+			"url: http://x\nmethod: POST\nbody:\n  graphql:\n    query: '{{getFile \"q.gql\"}}'\n",
+			KindGraphQL,
+		},
+		{
+			"declared kind graphql.hk.yaml",
+			"kind: GraphQL\nurl: http://x\n",
+			KindGraphQL,
+		},
+		{
+			"declared kind graphql lowercase.hk.yaml",
+			"kind: graphql\nurl: http://x\n",
+			KindGraphQL,
+		},
+		{
+			"api body.hk.yaml",
+			"kind: API\nurl: http://x\nbody:\n  raw: hello\n",
+			KindAPI,
+		},
+		{
+			"explicit api kind with a graphql body.hk.yaml",
+			"kind: API\nurl: http://x\nbody:\n  graphql:\n    query: 'query { me { id } }'\n",
+			KindGraphQL,
+		},
+		{
+			"no kind no body.hk.yaml",
+			"url: http://x\n",
+			KindAPI,
+		},
+		{
+			"auth is untouched.hk.yaml",
+			"kind: Auth\nurl: http://x\n",
+			KindAuth,
+		},
+		{
+			"declared auth wins over a graphql body.hk.yaml",
+			"kind: Auth\nurl: http://x\nbody:\n  graphql:\n    query: 'query { me { id } }'\n",
+			KindAuth,
+		},
+		{
+			"scalar body.hk.yaml",
+			"url: http://x\nbody: hello\n",
+			KindAPI,
+		},
+		{
+			"list body.hk.yaml",
+			"url: http://x\nbody:\n  - one\n  - two\n",
+			KindAPI,
+		},
+		{
+			"null graphql key.hk.yaml",
+			"url: http://x\nbody:\n  graphql:\n",
+			KindAPI,
+		},
+		{
+			"scalar graphql key.hk.yaml",
+			"url: http://x\nbody:\n  graphql: oops\n",
+			KindAPI,
+		},
+		{
+			"empty graphql mapping.hk.yaml",
+			"url: http://x\nbody:\n  graphql: {}\n",
+			KindGraphQL,
+		},
+		{
+			"capitalised body and graphql keys.hk.yaml",
+			"url: http://x\nBody:\n  GraphQL:\n    query: 'query { me { id } }'\n",
+			KindGraphQL,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := PeekRequestKind(write(tc.name, tc.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("PeekRequestKind = %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("missing file errors", func(t *testing.T) {
+		if _, err := PeekRequestKind(filepath.Join(dir, "nope.yaml")); err == nil {
+			t.Error("expected error for missing file")
+		}
+	})
+}
+
+func TestPeekKind_D3_1_RuntimeDispatchUnchanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gqlbody.hk.yaml")
+	body := "url: http://x\nmethod: POST\nbody:\n  graphql:\n    query: '{{getFile \"q.gql\"}}'\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	kind, err := PeekKind(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind != KindAPI {
+		t.Errorf("PeekKind = %q, want %q", kind, KindAPI)
+	}
+
+	cfg := &ConfigType{Kind: kind}
+	if cfg.IsGraphql() {
+		t.Error("IsGraphql() = true, want false")
+	}
+	if !cfg.IsAPI() {
+		t.Error("IsAPI() = false, want true")
+	}
+}

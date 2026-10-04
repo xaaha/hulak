@@ -101,6 +101,41 @@ func PeekKind(filePath string) (Kind, error) {
 	return cfg.Kind, nil
 }
 
+// PeekRequestKind is PeekKind for display: an API file whose body holds a
+// graphql block reports GraphQL. Any other declared kind is returned as-is.
+func PeekRequestKind(filePath string) (Kind, error) {
+	kind, err := PeekKind(filePath)
+	if err != nil {
+		return "", err
+	}
+	if kind != KindAPI {
+		return kind, nil
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	var raw map[string]any
+	if err := yaml.Unmarshal(content, &raw); err != nil {
+		return kind, nil
+	}
+	lowered, err := yaml.Marshal(utils.ConvertKeysToLowerCase(raw))
+	if err != nil {
+		return kind, nil
+	}
+	var peek struct {
+		Body *Body `yaml:"body"`
+	}
+	if err := yaml.Unmarshal(lowered, &peek); err != nil {
+		return kind, nil
+	}
+	if peek.Body != nil && peek.Body.Graphql != nil {
+		return KindGraphQL, nil
+	}
+	return kind, nil
+}
+
 // normalize resolves case insensitivity and defaulting.
 func (k *Kind) normalize() Kind {
 	if k == nil || *k == "" {
