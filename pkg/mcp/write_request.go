@@ -127,6 +127,9 @@ func (s *Server) validateRequestContent(content string) error {
 	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
 		return fmt.Errorf("yaml_content is not valid YAML: %w", err)
 	}
+	if err := utils.ValidateSingleYAMLDoc("yaml_content", []byte(content)); err != nil {
+		return err
+	}
 	m, ok := doc.(map[string]any)
 	if !ok || len(m) == 0 {
 		return fmt.Errorf("yaml_content must be a non-empty YAML mapping")

@@ -13,12 +13,53 @@ import (
 	yaml "github.com/goccy/go-yaml"
 )
 
-// templateVarPattern matches a dot-access template reference like {{.token}}
-// or {{ .token }}, tolerating whitespace between the braces and the dot the
-// same way Go's template engine does at substitution time.
-var templateVarPattern = regexp.MustCompile(`\{\{\s*\.`)
+var templateActionPattern = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
 
-var templateVarNamePattern = regexp.MustCompile(`\{\{-?\s*\.([A-Za-z_][A-Za-z0-9_]*)`)
+var templateVarNamePattern = regexp.MustCompile(`(^|[^\p{L}\p{Nd}_.])\.([\p{L}\p{Nd}_]+)`)
+
+func templateVarNames(s string) []string {
+	var names []string
+	for _, action := range templateActionPattern.FindAllString(s, -1) {
+		if isTemplateComment(action) {
+			continue
+		}
+		for _, m := range templateVarNamePattern.FindAllStringSubmatch(stripQuotedArgs(action), -1) {
+			names = append(names, m[2])
+		}
+	}
+	return names
+}
+
+func isTemplateComment(action string) bool {
+	body := strings.TrimPrefix(strings.TrimSuffix(action, "}}"), "{{")
+	body = strings.TrimPrefix(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(body), "-")), "-")
+	return strings.HasPrefix(strings.TrimSpace(body), "/*")
+}
+
+func stripQuotedArgs(action string) string {
+	var out strings.Builder
+	for i := 0; i < len(action); {
+		quote := action[i]
+		if quote != '"' && quote != '\'' && quote != '`' {
+			out.WriteByte(action[i])
+			i++
+			continue
+		}
+		hasEscapes := quote != '`'
+		i++
+		for i < len(action) && action[i] != quote {
+			if hasEscapes && action[i] == '\\' {
+				i++
+			}
+			i++
+		}
+		if i < len(action) {
+			i++
+		}
+		out.WriteByte(' ')
+	}
+	return out.String()
+}
 
 // FileTemplateVarNames returns the distinct {{.name}} variables a request file
 // references, sorted. Decodes the YAML first for the same reason
@@ -42,9 +83,9 @@ func FileTemplateVarNames(filePath string) ([]string, error) {
 func collectTemplateVarNames(val any, names *[]string) {
 	switch v := val.(type) {
 	case string:
-		for _, match := range templateVarNamePattern.FindAllStringSubmatch(v, -1) {
-			if !slices.Contains(*names, match[1]) {
-				*names = append(*names, match[1])
+		for _, name := range templateVarNames(v) {
+			if !slices.Contains(*names, name) {
+				*names = append(*names, name)
 			}
 		}
 	case map[string]any:
@@ -82,6 +123,82 @@ func FileHasTemplateVars(filePath string) bool {
 		return false
 	}
 	return MapHasEnvVars(data)
+}
+
+// RequestVariables lists the variables a request file resolves at run time:
+// envVars holds every {{.name}} dot-access reference, de-duplicated in
+// first-seen order, and graphqlVariables holds the keys of the request's
+// body.graphql.variables block in declaration order.
+//
+// Like FileHasTemplateVars it decodes the YAML (so a reference living only in
+// a comment never counts) and does not follow {{getFile ...}} references:
+// substitution is single-pass, so an env var inside a referenced file can
+// never resolve and is not a variable this request takes.
+func RequestVariables(filePath string) (envVars, graphqlVariables []string, err error) {
+	resolvedPath, err := resolveFilePath(filePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	content, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var doc any
+	if err := yaml.UnmarshalWithOptions(content, &doc, yaml.UseOrderedMap()); err != nil {
+		return nil, nil, err
+	}
+
+	seen := map[string]bool{}
+	collectEnvVars(doc, seen, &envVars)
+	return envVars, graphqlVariableKeys(doc), nil
+}
+
+func collectEnvVars(val any, seen map[string]bool, out *[]string) {
+	switch v := val.(type) {
+	case string:
+		for _, name := range templateVarNames(v) {
+			if !seen[name] {
+				seen[name] = true
+				*out = append(*out, name)
+			}
+		}
+	case yaml.MapSlice:
+		for _, item := range v {
+			collectEnvVars(item.Value, seen, out)
+		}
+	case []any:
+		for _, item := range v {
+			collectEnvVars(item, seen, out)
+		}
+	}
+}
+
+func graphqlVariableKeys(doc any) []string {
+	vars, ok := mapSliceValue(mapSliceValue(mapSliceValue(doc, "body"), "graphql"), "variables").(yaml.MapSlice)
+	if !ok {
+		return nil
+	}
+	var keys []string
+	for _, item := range vars {
+		if key, ok := item.Key.(string); ok {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+func mapSliceValue(val any, key string) any {
+	ms, ok := val.(yaml.MapSlice)
+	if !ok {
+		return nil
+	}
+	for _, item := range ms {
+		if k, ok := item.Key.(string); ok && strings.EqualFold(k, key) {
+			return item.Value
+		}
+	}
+	return nil
 }
 
 // ReferencedFiles returns the files a request pulls in via {{getFile}},
@@ -201,7 +318,7 @@ func parseTemplateArg(input string) string {
 	}
 
 	switch input[0] {
-	case '"', '\'':
+	case '"', '\'', '`':
 		quote := input[0]
 		for i := 1; i < len(input); i++ {
 			if input[i] == quote {
@@ -287,7 +404,7 @@ func withinRoot(absPath, root string) bool {
 func hasEnvVar(val any) bool {
 	switch v := val.(type) {
 	case string:
-		return templateVarPattern.MatchString(v)
+		return len(templateVarNames(v)) > 0
 	case map[string]any:
 		return MapHasEnvVars(v)
 	case []any:
