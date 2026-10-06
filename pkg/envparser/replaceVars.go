@@ -141,6 +141,14 @@ func prepareMap(secretsMap map[string]any, currentFile string) (map[string]any, 
 	return updatedMap, nil
 }
 
+// ResolveSecretsMap returns secretsMap with every string value resolved the
+// way substitution resolves it, so a caller sees the values a request actually
+// renders rather than the template text they were stored as. currentFile
+// anchors the getFile "*" sibling shorthand, as in SubstituteVariables.
+func ResolveSecretsMap(secretsMap map[string]any, currentFile string) (map[string]any, error) {
+	return prepareMap(secretsMap, currentFile)
+}
+
 // SubstituteVariables Substitutes template variables in a given string strToChange using the secretsMap.
 // It first prepares the map by resolving all nested variables using prepareMap
 // and then applies replaceVariables to the input string.

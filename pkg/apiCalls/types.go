@@ -1,6 +1,8 @@
 // Package apicalls has all things related to api call
 package apicalls
 
+import "github.com/xaaha/hulak/pkg/utils"
+
 // RequestOptions bundles the per-request flags SendAndSaveAPIRequest needs
 // from the runner. Keeps the call site readable when more flags get added
 // (next likely additions: timeout overrides).
@@ -18,6 +20,10 @@ type RequestOptions struct {
 	// by cliflags.ResolveOutputPath) instead of {name}_response.<ext> next to the
 	// request file. Empty means the default location. Ignored when NoSave is set.
 	OutPath string
+	// Redact is the value masker a caller already built because something it
+	// ran first could fail with a resolved secret in the message. Nil means
+	// build one here. Ignored when Show is set.
+	Redact *utils.ValueRedactor
 }
 
 // CustomResponse is structure of the result to print and save
@@ -53,6 +59,8 @@ type RequestInfo struct {
 	Method  string            `json:"method,omitempty"`
 	Headers map[string]string `json:"headers,omitempty"`
 	Body    any               `json:"body,omitempty"`
+	// The debug counterpart to the dry-run footer, which JSON cannot carry.
+	Unresolved []string `json:"unresolved,omitempty"`
 }
 
 // ResponseInfo has response body info

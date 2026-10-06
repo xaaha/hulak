@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func writeFileAt(t *testing.T, path, content string) {
@@ -54,4 +56,39 @@ func TestHandleDryRun(t *testing.T) {
 			t.Error("expected error for unknown request")
 		}
 	})
+}
+
+// The show argument has to reach the formatter, not just the tool schema.
+func TestD1_3_DryRunShowReachesTheFormatter(t *testing.T) {
+	const secret = "super-secret-client-value"
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "staging.env"),
+		"baseUrl=https://api.example.com\nclient_secret="+secret+"\n")
+	writeFileAt(t, filepath.Join(api, "token.hk.yaml"),
+		"kind: API\nmethod: GET\nurl: \"{{.baseUrl}}/token\"\n"+
+			"urlparams:\n  client_secret: \"{{.client_secret}}\"\n"+
+			"headers:\n  Authorization: \"Bearer {{.client_secret}}\"\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	_, masked, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "token", Env: "staging"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.AssertNoSecretForm(t, "dry_run without show", masked.Request, secret)
+
+	_, shown, err := s.handleDryRun(ctx, nil, dryRunInput{Name: "token", Env: "staging", Show: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(shown.Request, secret) {
+		t.Errorf("show must reveal the resolved secret:\n%s", shown.Request)
+	}
+	if !strings.Contains(shown.Request, "authorization: Bearer "+secret) {
+		t.Errorf("show must reveal the sensitive header:\n%s", shown.Request)
+	}
 }

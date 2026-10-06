@@ -77,7 +77,7 @@ func TestStandardCallWithClient_Success(t *testing.T) {
 				Headers: map[string]string{},
 			}
 
-			resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+			resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -109,7 +109,7 @@ func TestStandardCallWithClient_Headers(t *testing.T) {
 		},
 	}
 
-	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestStandardCallWithClient_PostWithBody(t *testing.T) {
 		Body:    bytes.NewReader([]byte(requestBody)),
 	}
 
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestStandardCallWithClient_NetworkError(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -211,7 +211,7 @@ func TestStandardCallWithClient_BodyReadError(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err == nil {
 		t.Fatal("expected error from body read failure, got nil")
 	}
@@ -248,7 +248,7 @@ func TestStandardCallWithClient_URLParams(t *testing.T) {
 		},
 	}
 
-	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestStandardCallWithClient_DebugMode(t *testing.T) {
 	}
 
 	// Test with debug=true
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, true, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, true, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestStandardCallWithClient_NonDebugMode(t *testing.T) {
 	}
 
 	// Test with debug=false
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestStandardCallWithClient_JSONResponse(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -381,7 +381,7 @@ func TestStandardCallWithClient_PlainTextResponse(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -411,7 +411,7 @@ func TestStandardCallWithClient_NilHeaders(t *testing.T) {
 		Headers: nil, // explicitly nil
 	}
 
-	_, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	_, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error with nil headers: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestStandardCallWithClient_Duration(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, mockClient)
+	resp, err := StandardCallWithClient(context.Background(), apiInfo, false, nil, mockClient)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -457,7 +457,7 @@ func TestStandardCall_UsesDefaultClient(t *testing.T) {
 		Headers: map[string]string{},
 	}
 
-	resp, err := StandardCall(context.Background(), apiInfo, false)
+	resp, err := StandardCall(context.Background(), apiInfo, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -952,7 +952,7 @@ func TestStandardCall_AttachedFileSendsContentLength(t *testing.T) {
 		Method: "POST", URL: server.URL,
 		Headers: map[string]string{"content-type": contentType},
 		Body:    body,
-	}, false, server.Client()); err != nil {
+	}, false, nil, server.Client()); err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}
 
@@ -1008,7 +1008,7 @@ func TestStandardCall_AttachedFileReplaysAcross307(t *testing.T) {
 		t.Fatal("body is not a StreamedBody with GetBody, so a redirect cannot replay it")
 	}
 
-	resp, err := StandardCallWithClient(context.Background(), info, false, server.Client())
+	resp, err := StandardCallWithClient(context.Background(), info, false, nil, server.Client())
 	if err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}
@@ -1047,7 +1047,7 @@ func TestStandardCall_InMemoryBodiesKeepContentLength(t *testing.T) {
 	if _, err := StandardCallWithClient(context.Background(), yamlparser.APIInfo{
 		Method: "POST", URL: server.URL,
 		Body: strings.NewReader(raw),
-	}, false, server.Client()); err != nil {
+	}, false, nil, server.Client()); err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}
 
@@ -1081,7 +1081,7 @@ func TestStandardCall_EmptyRawAttachmentSendsContentLengthZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStruct: %v", err)
 	}
-	if _, err := StandardCallWithClient(context.Background(), info, false, server.Client()); err != nil {
+	if _, err := StandardCallWithClient(context.Background(), info, false, nil, server.Client()); err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}
 
@@ -1121,7 +1121,7 @@ func TestStandardCall_GrownFileTruncatedToContentLength(t *testing.T) {
 		Method: "POST", URL: server.URL,
 		Headers: map[string]string{"content-type": contentType},
 		Body:    body,
-	}, false, server.Client()); err != nil {
+	}, false, nil, server.Client()); err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}
 
@@ -1180,13 +1180,13 @@ func TestStandardCall_DebugRawUploadDoesNotLeakFD(t *testing.T) {
 	}
 
 	for range 5 {
-		if _, err := StandardCallWithClient(context.Background(), build(), true, server.Client()); err != nil {
+		if _, err := StandardCallWithClient(context.Background(), build(), true, nil, server.Client()); err != nil {
 			t.Fatalf("warmup call: %v", err)
 		}
 	}
 	before := openFDCount(t)
 	for range 30 {
-		if _, err := StandardCallWithClient(context.Background(), build(), true, server.Client()); err != nil {
+		if _, err := StandardCallWithClient(context.Background(), build(), true, nil, server.Client()); err != nil {
 			t.Fatalf("call: %v", err)
 		}
 	}
@@ -1229,7 +1229,7 @@ func TestStandardCall_ReplayPinsOriginalSizeAcross307(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStruct: %v", err)
 	}
-	resp, err := StandardCallWithClient(context.Background(), info, false, server.Client())
+	resp, err := StandardCallWithClient(context.Background(), info, false, nil, server.Client())
 	if err != nil {
 		t.Fatalf("StandardCallWithClient: %v", err)
 	}

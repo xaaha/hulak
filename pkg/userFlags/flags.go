@@ -59,7 +59,7 @@ func init() {
 	// and defaults in sync across both registration paths.
 	flag.BoolVar(&flagDryRun, "dry-run", false, "Print the built request and exit without sending it")
 
-	flag.BoolVar(&flagShow, "show", false, "Reveal sensitive headers (Authorization, Cookie, etc.) in --dry-run output")
+	flag.BoolVar(&flagShow, "show", false, "Reveal secret values and sensitive headers in --dry-run and --debug output and in errors")
 
 	flag.StringVar(&flagDir, "dir", "", "Directory path to run concurrently")
 

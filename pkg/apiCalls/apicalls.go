@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,12 +22,15 @@ var DefaultClient httpclient.HTTPClient = httpclient.New()
 
 // StandardCall calls the api and returns the json body string
 // Uses the DefaultClient for HTTP calls
+//
+// redact masks resolved secret values in the debug echo; nil reveals them.
 func StandardCall(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
+	redact *utils.ValueRedactor,
 ) (CustomResponse, error) {
-	return StandardCallWithClient(ctx, apiInfo, debug, DefaultClient)
+	return StandardCallWithClient(ctx, apiInfo, debug, redact, DefaultClient)
 }
 
 // StandardCallWithClient calls the api with a custom HTTP client and returns the json body string
@@ -44,10 +48,21 @@ func closeBody(r io.Reader) {
 	}
 }
 
+// RedactErr masks resolved secrets in err's text, returning err unchanged when
+// redact is nil. A *url.Error prints the full URL, query string and resolved
+// secrets included.
+func RedactErr(redact *utils.ValueRedactor, err error) error {
+	if redact == nil || err == nil {
+		return err
+	}
+	return errors.New(redact.Redact(err.Error()))
+}
+
 func StandardCallWithClient(
 	ctx context.Context,
 	apiInfo yamlparser.APIInfo,
 	debug bool,
+	redact *utils.ValueRedactor,
 	client httpclient.HTTPClient,
 ) (CustomResponse, error) {
 	if apiInfo.Headers == nil {
@@ -102,7 +117,9 @@ func StandardCallWithClient(
 		// net/http never took ownership, so nothing else closes a streamed body
 		// and its writer goroutine would block forever.
 		closeBody(bodyReader)
-		return CustomResponse{}, fmt.Errorf("error occurred on '%s': %w", method, err)
+		return CustomResponse{}, RedactErr(
+			redact, fmt.Errorf("error occurred on '%s': %w", method, err),
+		)
 	}
 
 	if streamed != nil {
@@ -124,13 +141,13 @@ func StandardCallWithClient(
 
 	response, err := client.Do(req)
 	if err != nil {
-		return CustomResponse{}, err
+		return CustomResponse{}, RedactErr(redact, err)
 	}
 	end := time.Now()
 
 	duration := end.Sub(start)
 
-	return processResponse(req, response, duration, debug, reqBodyForDebug)
+	return processResponse(req, response, duration, debug, reqBodyForDebug, redact)
 }
 
 // SendAndSaveAPIRequest builds the API request from the file at opts.Path,
@@ -145,24 +162,31 @@ func StandardCallWithClient(
 // never sent. No response file is written. opts.Show controls whether
 // sensitive headers are revealed in the printed output.
 func SendAndSaveAPIRequest(ctx context.Context, opts RequestOptions) ([]byte, string, error) {
-	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	// Before PrepareStruct: a formdata body opens a pipe and file handles that
+	// an early return here would never close.
+	redact, err := outputRedactor(opts)
 	if err != nil {
 		return nil, "", err
+	}
+
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return nil, "", RedactErr(redact, err)
 	}
 
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return nil, "", err
+		return nil, "", RedactErr(redact, err)
 	}
 
 	if opts.DryRun {
-		if err := PrintDryRun(&apiInfo, opts.Show); err != nil {
+		if err := PrintDryRun(&apiInfo, opts.Show, redact); err != nil {
 			return nil, "", err
 		}
 		return nil, "", nil
 	}
 
-	resp, err := StandardCall(ctx, apiInfo, opts.Debug)
+	resp, err := StandardCall(ctx, apiInfo, opts.Debug, redact)
 	if err != nil {
 		return nil, "", err
 	}

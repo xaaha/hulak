@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
@@ -58,6 +59,44 @@ func stripQuotedArgs(action string) string {
 		out.WriteByte(' ')
 	}
 	return out.String()
+}
+
+// FileTemplateVarNames returns the distinct {{.name}} variables a request file
+// references, sorted. Decodes the YAML first for the same reason
+// FileHasTemplateVars does: a reference inside a comment never reaches
+// substitution, so it is not a reference.
+func FileTemplateVarNames(filePath string) ([]string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var data map[string]any
+	if err := yaml.Unmarshal(content, &data); err != nil {
+		return nil, err
+	}
+	var names []string
+	collectTemplateVarNames(data, &names)
+	sort.Strings(names)
+	return names, nil
+}
+
+func collectTemplateVarNames(val any, names *[]string) {
+	switch v := val.(type) {
+	case string:
+		for _, name := range templateVarNames(v) {
+			if !slices.Contains(*names, name) {
+				*names = append(*names, name)
+			}
+		}
+	case map[string]any:
+		for _, item := range v {
+			collectTemplateVarNames(item, names)
+		}
+	case []any:
+		for _, item := range v {
+			collectTemplateVarNames(item, names)
+		}
+	}
 }
 
 // FileHasTemplateVars reports whether a request file's YAML values contain env

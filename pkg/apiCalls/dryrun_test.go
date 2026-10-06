@@ -24,7 +24,7 @@ func TestFormatDryRun_ReturnsBuiltRequest(t *testing.T) {
 		},
 		Body: strings.NewReader(`{"name":"alice"}`),
 	}
-	out, err := FormatDryRun(info, false)
+	out, err := FormatDryRun(info, false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestFormatDryRun_ShowRevealsSecrets(t *testing.T) {
 		URL:     "https://api.example.com/x",
 		Headers: map[string]string{"Authorization": "Bearer secret123"},
 	}
-	out, err := FormatDryRun(info, true)
+	out, err := FormatDryRun(info, true, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestFormatDryRun_NilBodyNoTrailingBlock(t *testing.T) {
 		URL:    "https://api.example.com/x",
 		Body:   nil,
 	}
-	out, err := FormatDryRun(info, false)
+	out, err := FormatDryRun(info, false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
@@ -86,12 +86,12 @@ func TestFormatDryRun_MatchesPrintDryRun(t *testing.T) {
 			Body:    strings.NewReader(`{"a":1,"b":2}`),
 		}
 	}
-	want, err := FormatDryRun(newInfo(), false)
+	want, err := FormatDryRun(newInfo(), false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
 	got := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(newInfo(), false); err != nil {
+		if err := PrintDryRun(newInfo(), false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -107,7 +107,7 @@ func TestPrintDryRun_MethodAndURL(t *testing.T) {
 		URLParams: map[string]string{"limit": "10"},
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -128,7 +128,7 @@ func TestPrintDryRun_HeadersSortedAndRedacted(t *testing.T) {
 		},
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -165,7 +165,7 @@ func TestPrintDryRun_ShowReveals(t *testing.T) {
 		},
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, true); err != nil {
+		if err := PrintDryRun(info, true, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -184,7 +184,7 @@ func TestPrintDryRun_JSONBodyPrettyPrinted(t *testing.T) {
 		Body:   strings.NewReader(`{"name":"alice","age":42}`),
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -204,7 +204,7 @@ func TestPrintDryRun_NonJSONBodyVerbatim(t *testing.T) {
 		Body:   strings.NewReader(body),
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -220,7 +220,7 @@ func TestPrintDryRun_NilBody(t *testing.T) {
 		Body:   nil,
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -239,7 +239,7 @@ func TestPrintDryRun_URLEncodedBodyPretty(t *testing.T) {
 		Body:    strings.NewReader("user=Jane+Doe&age=42"),
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -276,7 +276,7 @@ func TestPrintDryRun_MultipartBodyPretty(t *testing.T) {
 		Body:    &buf,
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -318,7 +318,7 @@ func TestPrintDryRun_MultipartMixedTextAndFile(t *testing.T) {
 		Body:    &buf,
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -340,7 +340,7 @@ func TestPrintDryRun_EmptyBody(t *testing.T) {
 		Body:   strings.NewReader(""),
 	}
 	out := testutil.CaptureStdout(t, func() {
-		if err := PrintDryRun(info, false); err != nil {
+		if err := PrintDryRun(info, false, nil); err != nil {
 			t.Fatalf("PrintDryRun: %v", err)
 		}
 	})
@@ -366,7 +366,7 @@ func TestFormatDryRun_RawFileBodySummarized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStruct: %v", err)
 	}
-	out, err := FormatDryRun(&info, false)
+	out, err := FormatDryRun(&info, false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestFormatDryRun_MultipartSmallFileSummarized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStruct: %v", err)
 	}
-	out, err := FormatDryRun(&info, false)
+	out, err := FormatDryRun(&info, false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestFormatDryRun_MultipartLargeFileSummarized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareStruct: %v", err)
 	}
-	out, err := FormatDryRun(&info, false)
+	out, err := FormatDryRun(&info, false, nil)
 	if err != nil {
 		t.Fatalf("FormatDryRun: %v", err)
 	}

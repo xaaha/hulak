@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xaaha/hulak/pkg/actions"
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestGenerateFilePathList_FpOnly(t *testing.T) {
@@ -788,4 +789,39 @@ func enterHulakProject(t *testing.T) string {
 		}
 	})
 	return root
+}
+
+// ParseConfig substitutes secrets and validates eagerly as the first step of
+// every run, --dry-run included, so its error reaches the user before any
+// caller downstream has built a redactor.
+func TestL13_ParseConfigErrorIsRedacted(t *testing.T) {
+	const secret = "super-secret-client-value-9876"
+	for name, content := range map[string]string{
+		"invalid timeout": "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
+			"timeout: \"{{.client_secret}}\"\n",
+		"undecodable config": "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
+			"timeout:\n  nested: \"{{.client_secret}}\"\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "request.hk.yaml")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			secrets := map[string]any{"client_secret": secret}
+
+			o := processTask(path, secrets, runOptions{DryRun: true}, time.Second)
+			if o.ok || o.err == nil {
+				t.Fatalf("expected a config error, got ok=%v err=%v", o.ok, o.err)
+			}
+			testutil.AssertNoSecretForm(t, "processTask config error", o.err.Error(), secret)
+
+			shown := processTask(path, secrets, runOptions{DryRun: true, Show: true}, time.Second)
+			if shown.err == nil {
+				t.Fatal("expected a config error with Show too")
+			}
+			if !strings.Contains(shown.err.Error(), secret) {
+				t.Errorf("Show must leave the config error alone: %v", shown.err)
+			}
+		})
+	}
 }

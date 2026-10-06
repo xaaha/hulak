@@ -20,15 +20,44 @@ import (
 // without sending anything. opts.Show controls sensitive-header masking. Used
 // by non-terminal callers such as the MCP dry_run tool.
 func DryRun(opts RequestOptions) (string, error) {
-	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	// Before PrepareStruct: a formdata body opens a pipe and file handles that
+	// an early return here would never close.
+	redact, err := outputRedactor(opts)
 	if err != nil {
 		return "", err
+	}
+	apiConfig, _, err := yamlparser.FinalStructForAPI(opts.Path, opts.Secrets)
+	if err != nil {
+		return "", RedactErr(redact, err)
 	}
 	apiInfo, err := apiConfig.PrepareStruct()
 	if err != nil {
-		return "", err
+		return "", RedactErr(redact, err)
 	}
-	return FormatDryRun(&apiInfo, opts.Show)
+	return FormatDryRun(&apiInfo, opts.Show, redact)
+}
+
+// outputRedactor returns the masker for opts, reusing one the caller already
+// built, or nil when opts.Show is set.
+func outputRedactor(opts RequestOptions) (*utils.ValueRedactor, error) {
+	if !opts.Show && opts.Redact != nil {
+		return opts.Redact, nil
+	}
+	return OutputRedactor(opts.Path, opts.Secrets, opts.Show)
+}
+
+// OutputRedactor returns the masker for the request at path, or nil when show
+// reveals values. Callers that can fail with a substituted value in the error
+// — parsing and validation both do — build it before that first step.
+func OutputRedactor(
+	path string,
+	secrets map[string]any,
+	show bool,
+) (*utils.ValueRedactor, error) {
+	if show {
+		return nil, nil
+	}
+	return NewSecretRedactor(path, secrets)
 }
 
 // PrintDryRun writes the fully-built request to stdout and returns. It
@@ -37,8 +66,8 @@ func DryRun(opts RequestOptions) (string, error) {
 //
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
-func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
-	out, err := FormatDryRun(apiInfo, show)
+func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool, redact *utils.ValueRedactor) error {
+	out, err := FormatDryRun(apiInfo, show, redact)
 	if err != nil {
 		return err
 	}
@@ -53,10 +82,28 @@ func PrintDryRun(apiInfo *yamlparser.APIInfo, show bool) error {
 //
 // Sensitive headers (Authorization, Cookie, etc.) are masked unless show
 // is true. Body is pretty-printed when JSON, otherwise written verbatim.
+// redact, when non-nil, also masks resolved secret values wherever they land
+// and appends the unresolved footer.
 //
 // Body is read from apiInfo.Body, which consumes the reader. Callers must
 // not rely on apiInfo.Body after this call.
-func FormatDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
+func FormatDryRun(
+	apiInfo *yamlparser.APIInfo,
+	show bool,
+	redact *utils.ValueRedactor,
+) (string, error) {
+	out, err := buildDryRun(apiInfo, show)
+	if err != nil {
+		return "", err
+	}
+	out = redact.Redact(out)
+	if line := redact.UnresolvedLine(); line != "" {
+		out += line + "\n"
+	}
+	return out, nil
+}
+
+func buildDryRun(apiInfo *yamlparser.APIInfo, show bool) (string, error) {
 	var b strings.Builder
 
 	reqURL := PrepareURL(apiInfo.URL, apiInfo.URLParams)

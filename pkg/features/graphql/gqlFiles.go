@@ -148,9 +148,14 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 // - URLParams: nil (params already merged into URL)
 // - Body: nil - the caller must set the query body (e.g., introspection query or TUI-built query)
 func ProcessGraphQLFile(filePath string, secretsMap map[string]any) (yamlparser.APIInfo, error) {
+	redact, redactErr := apicalls.NewSecretRedactor(filePath, secretsMap)
+	if redactErr != nil {
+		return yamlparser.APIInfo{}, redactErr
+	}
+
 	graphqlConfig, _, err := yamlparser.FinalStructForGraphQL(filePath, secretsMap)
 	if err != nil {
-		return yamlparser.APIInfo{}, err
+		return yamlparser.APIInfo{}, apicalls.RedactErr(redact, err)
 	}
 
 	apiInfo := graphqlConfig.PrepareGraphQLStruct()

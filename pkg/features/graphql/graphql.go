@@ -27,7 +27,7 @@ func FetchAndParseSchema(apiInfo yamlparser.APIInfo) (Schema, error) {
 	apiInfo.Body = bytes.NewReader(jsonData)
 
 	// Make the HTTP call
-	resp, err := apicalls.StandardCall(context.Background(), apiInfo, false)
+	resp, err := apicalls.StandardCall(context.Background(), apiInfo, false, nil)
 	if err != nil {
 		return Schema{}, fmt.Errorf("introspection request failed: %w", err)
 	}

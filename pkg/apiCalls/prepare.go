@@ -39,6 +39,7 @@ func processResponse(
 	duration time.Duration,
 	debug bool,
 	reqBody []byte,
+	redact *utils.ValueRedactor,
 ) (CustomResponse, error) {
 	respBody, err := io.ReadAll(resp.Body)
 	if closeErr := resp.Body.Close(); closeErr != nil {
@@ -90,6 +91,12 @@ func processResponse(
 	for name, values := range req.Header {
 		requestHeaders[name] = strings.Join(values, ", ")
 	}
+	if redact != nil {
+		requestHeaders = utils.RedactHeaders(requestHeaders, false)
+		for name, value := range requestHeaders {
+			requestHeaders[name] = redact.Redact(value)
+		}
+	}
 
 	// Preparing TLS Info
 	var tlsInfo HTTPInfo
@@ -117,10 +124,11 @@ func processResponse(
 	}
 	return CustomResponse{
 		Request: &RequestInfo{
-			URL:     req.URL.String(),
-			Method:  req.Method,
-			Headers: requestHeaders,
-			Body:    string(reqBody),
+			URL:        redact.Redact(req.URL.String()),
+			Method:     req.Method,
+			Headers:    requestHeaders,
+			Body:       redact.Redact(string(reqBody)),
+			Unresolved: redact.Unresolved(),
 		},
 		Response: &ResponseInfo{
 			StatusCode: resp.StatusCode,
