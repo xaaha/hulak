@@ -145,7 +145,6 @@ func TestD3_2_TemplateVarNamesMatchesGoTemplateParser(t *testing.T) {
 	}
 }
 
-
 func TestTemplateVarNames_ASCIIDigitNotAField(t *testing.T) {
 	// Go rejects {{.2f}} as invalid; the scanner must not invent a key either.
 	if got := templateVarNames("{{.2f}}"); len(got) != 0 {
