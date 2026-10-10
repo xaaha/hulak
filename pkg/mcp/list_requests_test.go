@@ -563,11 +563,16 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 			"slash_pw=https://svc:12/hunter2-secret@api.example.com/v1\n"+
 			"query_pw=https://svc:pa?hunter2-secret@api.example.com/v1\n"+
 			"at_pw=https://svc:p@hunter2-secret@api.example.com/v1\n"+
+			"at_slash_pw=https://svc:p@hunter2/secret@api.example.com/v1\n"+
+			"at_user=https://svc@corp.com:4321/hunter2-secret@api.example.com/v1\n"+
+			"plain=https://api.plain.example.com\n"+
 			"bare=api.bare.example.com/v1\n"+
 			"empty=\n")
-	for _, name := range []string{"slash_pw", "query_pw", "at_pw", "bare", "empty"} {
+	for _, name := range []string{"slash_pw", "query_pw", "at_pw", "at_slash_pw", "at_user", "bare", "empty"} {
 		writeFileAt(t, filepath.Join(api, name+".hk.yaml"), "method: GET\nurl: \"{{."+name+"}}\"\n")
 	}
+	writeFileAt(t, filepath.Join(api, "email.hk.yaml"), "method: GET\nurl: \"{{.plain}}/users?email=a@b.com\"\n")
+	writeFileAt(t, filepath.Join(api, "literal_pw.hk.yaml"), "method: GET\nurl: https://svc:hunter2/secret@api.example.com/x\n")
 	writeFileAt(t, filepath.Join(api, "env", "empty.env"), "")
 	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users?page=1\"\n")
 	writeFileAt(t, filepath.Join(api, "tenant.hk.yaml"), "method: GET\nurl: \"https://{{.tenant}}.example.com/me\"\n")
@@ -598,16 +603,20 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 			}
 		}
 		want := map[string]string{
-			"api/users":      "api.staging.example.com",
-			"api/tenant":     "acme.example.com",
-			"api/unresolved": "{{.nope}}",
-			"api/literal":    "status.example.com",
-			"api/slash_pw":   "{{.slash_pw}}",
-			"api/query_pw":   "{{.query_pw}}",
-			"api/at_pw":      "api.example.com",
-			"api/bare":       "api.bare.example.com",
-			"api/empty":      "{{.empty}}",
-			"mobile/signup":  "{{.base_url}}",
+			"api/users":       "api.staging.example.com",
+			"api/tenant":      "acme.example.com",
+			"api/unresolved":  "{{.nope}}",
+			"api/literal":     "status.example.com",
+			"api/slash_pw":    "{{.slash_pw}}",
+			"api/query_pw":    "{{.query_pw}}",
+			"api/at_pw":       "api.example.com",
+			"api/at_slash_pw": "{{.at_slash_pw}}",
+			"api/at_user":     "{{.at_user}}",
+			"api/email":       "api.plain.example.com",
+			"api/literal_pw":  "",
+			"api/bare":        "api.bare.example.com",
+			"api/empty":       "{{.empty}}",
+			"mobile/signup":   "{{.base_url}}",
 		}
 		if !maps.Equal(got, want) {
 			t.Errorf("hosts = %v, want %v", got, want)
@@ -619,7 +628,7 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, leak := range []string{"hunter2-secret", "svc", "/v1", "page=1"} {
+		for _, leak := range []string{"hunter2", "secret", "svc", "corp", "/v1", "page=1"} {
 			if strings.Contains(string(raw), leak) {
 				t.Errorf("listing leaks %q beyond the host: %s", leak, raw)
 			}

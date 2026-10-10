@@ -198,32 +198,36 @@ func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error
 	return out, nil
 }
 
-// requestHost returns rawURL's host, resolved against secrets when given. A
-// url that fails to resolve, or whose resolved host is not certain to exclude
-// userinfo, keeps its host as written.
+// requestHost returns rawURL's host, with its template resolved against
+// secrets when given. A host that fails to resolve, or whose resolved form is
+// not certain to exclude userinfo, stays as written.
 func requestHost(rawURL, file string, secrets map[string]any) string {
-	if secrets == nil {
-		return rawHost(rawURL)
+	host := rawHost(rawURL)
+	if secrets == nil || !strings.Contains(host, "{{") {
+		return host
 	}
-	resolved, err := envparser.SubstituteVariables(rawURL, secrets, file)
+	resolved, err := envparser.SubstituteVariables(host, secrets, file)
 	if text, ok := resolved.(string); err == nil && ok {
-		if host, ok := resolvedHost(text); ok {
-			return host
+		if h, ok := resolvedHost(text); ok {
+			return h
 		}
 	}
-	return rawHost(rawURL)
+	return host
 }
 
 // resolvedHost returns the host of a resolved url. ok is false when the url
-// does not parse, has no host, or holds an '@' the parser did not take as
-// userinfo, since a password with an unencoded '/' or '?' ends the authority
+// does not parse, has no host, or the host does not directly follow its last
+// '@', since an unencoded '/', '?' or '#' in a password ends the authority
 // early and would put part of it in the host.
 func resolvedHost(text string) (string, bool) {
 	if !strings.Contains(text, "://") {
 		text = "//" + text
 	}
 	u, err := url.Parse(text)
-	if err != nil || u.Host == "" || (u.User == nil && strings.Contains(text, "@")) {
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+	if at := strings.LastIndex(text, "@"); at >= 0 && !strings.HasPrefix(text[at+1:], u.Host) {
 		return "", false
 	}
 	return u.Host, true

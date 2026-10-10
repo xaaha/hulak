@@ -26,6 +26,11 @@ func TestRawHost_259(t *testing.T) {
 		{"templated scheme", "{{.scheme}}://api.example.com/a", "api.example.com"},
 		{"scheme-like text inside an action", `{{getValueOf "a://b" "x"}}/a`, `{{getValueOf "a://b" "x"}}`},
 		{"surrounding space", "  https://api.example.com/a  ", "api.example.com"},
+		{"slash in a literal password", "https://svc:pa/ss@api.example.com/x", ""},
+		{"query mark in a literal password", "https://svc:pa?ss@api.example.com/x", ""},
+		{"literal host with an at sign in the query", "https://api.example.com/u?email=a@b.com", ""},
+		{"template host with an at sign in the query", "{{.base_url}}/u?email=a@b.com", "{{.base_url}}"},
+		{"template userinfo", "https://{{.user}}:{{.pw}}@{{.host}}/x", "{{.host}}"},
 		{"empty", "", ""},
 	}
 	for _, tc := range tests {
@@ -129,6 +134,11 @@ func TestResolvedHost_259(t *testing.T) {
 		{"fragment mark in the password", "https://svc:pa#secret@api.example.com", "", false},
 		{"template text in the password", "https://admin:{{pw@api.example.com/v1?token=abc", "", false},
 		{"at sign in the path", "https://api.example.com/users/a@b.com", "", false},
+		{"at sign and slash in the password", "https://svc:p@ss/word@api.example.com", "", false},
+		{"at sign and query mark in the password", "https://svc:p@ss?x@api.example.com/v1", "", false},
+		{"at sign and fragment mark in the password", "https://svc:p@ss#x@api.example.com/v1", "", false},
+		{"at sign in the username", "https://ci@corp.com:4321/hunter2@api.example.com/v1", "", false},
+		{"at sign in the username with a numeric password", "https://me@corp.com:12/secret@api.example.com", "", false},
 		{"empty", "", "", false},
 	}
 	for _, tc := range tests {
