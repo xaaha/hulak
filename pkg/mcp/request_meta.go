@@ -144,7 +144,7 @@ func authScheme(value string) string {
 	}
 	word, rest, _ := strings.Cut(v, " ")
 	scheme := strings.ToLower(word)
-	if strings.TrimSpace(rest) == "" || !slices.Contains(authSchemes, scheme) {
+	if rest == "" || !slices.Contains(authSchemes, scheme) {
 		return ""
 	}
 	return scheme
