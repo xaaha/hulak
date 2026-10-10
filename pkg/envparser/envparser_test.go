@@ -522,6 +522,29 @@ func TestReadSecretsMap_259(t *testing.T) {
 		}
 	})
 
+	t.Run("unreadable global.env is an error", func(t *testing.T) {
+		setup(t, map[string]string{
+			"global.env":  "\xff\xfeb\x00=\x00x\x00\n\x00",
+			"staging.env": "url=x\n",
+		})
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want the global.env load error")
+		}
+		if _, err := LoadSecretsMap("staging"); err == nil {
+			t.Error("LoadSecretsMap: want the global.env load error")
+		}
+	})
+
+	t.Run("global.env that is a directory is an error", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
+		if err := os.Mkdir(globalPath, utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want an error for a global.env directory")
+		}
+	})
+
 	t.Run("LoadSecretsMap still creates global.env", func(t *testing.T) {
 		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
 		if _, err := LoadSecretsMap("staging"); err != nil {

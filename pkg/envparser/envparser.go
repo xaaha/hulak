@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -364,7 +365,7 @@ func readEnvFiles(envName string) (map[string]any, error) {
 		return nil, err
 	}
 	resultMap := map[string]any{}
-	if utils.FileExists(globalPath) {
+	if _, err := os.Stat(globalPath); !errors.Is(err, fs.ErrNotExist) {
 		globalMap, err := loadEnvFile(globalFile)
 		if err != nil {
 			return nil, err
