@@ -26,6 +26,8 @@ func TestRawHost_259(t *testing.T) {
 		{"templated scheme", "{{.scheme}}://api.example.com/a", "api.example.com"},
 		{"scheme-like text inside an action", `{{getValueOf "a://b" "x"}}/a`, `{{getValueOf "a://b" "x"}}`},
 		{"surrounding space", "  https://api.example.com/a  ", "api.example.com"},
+		{"trailing space without a path", "https://api.example.com  ", "api.example.com"},
+		{"host from two actions", `https://{{.sub}}.{{getValueOf "domain" "env/x.json"}}/v1`, `{{.sub}}.{{getValueOf "domain" "env/x.json"}}`},
 		{"malformed literal password shows as written", "https://svc:pa/ss@api.example.com/x", "svc:pa"},
 		{"at sign in the query", "https://api.example.com/u?email=a@b.com", "api.example.com"},
 		{"scoped package path", "https://registry.npmjs.org/@babel/core", "registry.npmjs.org"},
@@ -146,7 +148,10 @@ func TestResolvedHost_259(t *testing.T) {
 		{"password fragment that prefixes the host", "https://svc:p@api/y@api.example.com", "", false},
 		{"password fragment inside the host", "https://svc:p@x/y@api.x.com", "", false},
 		{"password fragment with a port", "https://svc:p@h:12/x@h.com", "", false},
-		{"userinfo then a path", "https://svc:pw@api.example.com/v1", "api.example.com", true},
+		{"password fragment that ends the host", "https://svc:p@x/y@api.x", "", false},
+		{"password fragment that ends the host with a port", "https://svc:p@h:12/x@h", "", false},
+		{"userinfo then a query", "https://svc:pw@api.example.com?x=1", "api.example.com", true},
+		{"userinfo then a fragment", "https://svc:pw@api.example.com#f", "api.example.com", true},
 		{"empty", "", "", false},
 	}
 	for _, tc := range tests {
