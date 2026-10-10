@@ -686,7 +686,9 @@ func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
 	}
 	store := &vault.Store{Envs: map[string]vault.Env{
 		"global": {},
+		"Prod":   {"base_url": "https://api.wrong.example.com"},
 		"prod":   {"base_url": "https://api.prod.example.com/v2"},
+		"Stage":  {"base_url": "https://api.stage.example.com"},
 	}}
 	if err := vault.WriteStore(store, id.Recipient()); err != nil {
 		t.Fatal(err)
@@ -697,13 +699,18 @@ func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, env := range []string{"prod", "PROD"} {
+	for env, want := range map[string]string{
+		"prod":  "api.prod.example.com",
+		"Prod":  "api.wrong.example.com",
+		"stage": "api.stage.example.com",
+		"STAGE": "api.stage.example.com",
+	} {
 		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: env})
 		if err != nil {
 			t.Fatalf("env %s: %v", env, err)
 		}
-		if got := allRequests(out)[0].Host; got != "api.prod.example.com" {
-			t.Errorf("env %s: host = %q, want api.prod.example.com resolved from the vault", env, got)
+		if got := allRequests(out)[0].Host; got != want {
+			t.Errorf("env %s: host = %q, want %s resolved from the vault", env, got, want)
 		}
 	}
 }

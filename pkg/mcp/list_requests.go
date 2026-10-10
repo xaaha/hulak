@@ -146,7 +146,10 @@ func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) 
 	if err != nil {
 		return nil, false, err
 	}
-	i := slices.IndexFunc(envs, func(e string) bool { return strings.EqualFold(e, env) })
+	i := slices.Index(envs, env)
+	if i < 0 {
+		i = slices.IndexFunc(envs, func(e string) bool { return strings.EqualFold(e, env) })
+	}
 	if i < 0 {
 		return nil, false, nil
 	}
