@@ -692,3 +692,24 @@ func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
 		t.Errorf("host = %q, want api.prod.example.com resolved from the vault", got)
 	}
 }
+
+func TestListRequests_259_EnvWritesNothing(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "staging.env"), "base_url=https://api.example.com\n")
+	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users\"\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "staging"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := allRequests(out)[0].Host; got != "api.example.com" {
+		t.Errorf("host = %q, want api.example.com", got)
+	}
+	if utils.FileExists(filepath.Join(api, "env", "global.env")) {
+		t.Error("list_requests created env/global.env; it is a read-only tool")
+	}
+}

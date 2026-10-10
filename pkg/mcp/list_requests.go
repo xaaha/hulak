@@ -145,7 +145,7 @@ func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) 
 	if !slices.Contains(envs, env) {
 		return nil, false, nil
 	}
-	secrets, err = envparser.LoadSecretsMap(env)
+	secrets, err = envparser.ReadSecretsMap(env)
 	return secrets, err == nil, err
 }
 
