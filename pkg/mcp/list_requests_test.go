@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -355,5 +356,29 @@ func TestListRequests_259_SizeBudget(t *testing.T) {
 	}
 	if len(after) > len(before) {
 		t.Errorf("default listing is %d bytes, larger than the %d-byte legacy listing", len(after), len(before))
+	}
+}
+
+func TestListRequests_259_Host(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "templated.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/v1/users\"\n")
+	writeFileAt(t, filepath.Join(api, "literal.hk.yaml"), "method: GET\nURL: https://api.example.com/v1\n")
+	writeFileAt(t, filepath.Join(api, "broken.hk.yaml"), "method: [GET\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, r := range allRequests(out) {
+		got[r.Name] = r.Host
+	}
+	want := map[string]string{"templated": "{{.base_url}}", "literal": "api.example.com", "broken": ""}
+	if !maps.Equal(got, want) {
+		t.Errorf("hosts = %v, want %v", got, want)
 	}
 }

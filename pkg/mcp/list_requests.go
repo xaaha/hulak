@@ -18,6 +18,7 @@ type RequestSummary struct {
 	Name string   `json:"name"`
 	Path string   `json:"path"`
 	Kind string   `json:"kind,omitempty"`
+	Host string   `json:"host,omitempty"`
 	Deps []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
 }
 
@@ -43,7 +44,8 @@ func (s *Server) registerListRequests() {
 		Name: "list_requests",
 		Description: "List hulak request files, grouped by project. Each project " +
 			"has its absolute root; each entry has its name, file path relative to " +
-			"that root, kind (API/GraphQL), and any dependency files it references " +
+			"that root, kind (API/GraphQL), target host as written (template " +
+			"variables unresolved), and any dependency files it references " +
 			"(e.g. a GraphQL query .gql that lives next to the request). Omit " +
 			"`project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
@@ -113,10 +115,14 @@ func listProjectRequests(root string) ([]RequestSummary, error) {
 		for i, d := range deps {
 			deps[i] = projectRelative(depRoot, d)
 		}
+		// Metadata is best-effort too: an unparseable file is still listed.
+		doc, _ := readRequestDoc(f)
+		url, _ := doc["url"].(string)
 		out = append(out, RequestSummary{
 			Name: utils.RequestStem(filepath.Base(f)),
 			Path: projectRelative(root, f),
 			Kind: requestKind(f),
+			Host: rawHost(url),
 			Deps: deps,
 		})
 	}
