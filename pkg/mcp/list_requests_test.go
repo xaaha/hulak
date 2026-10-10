@@ -417,3 +417,51 @@ func TestListRequests_259_AuthOnlyWithDetail(t *testing.T) {
 		t.Errorf("default auth = %v, want none outside a detail listing", got)
 	}
 }
+
+func TestListRequests_259_VariablesOnlyWithDetail(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "profile.hk.yaml"),
+		"kind: GraphQL\nmethod: POST\nurl: \"{{.graphql_url}}\"\nheaders:\n  x-tenant: \"{{.tenant}}\"\n"+
+			"body:\n  graphql:\n    query: 'query { me { id } }'\n    variables:\n      memberId: \"{{.member_id}}\"\n      first: 10\n")
+	writeReq(t, api, "plain.hk.yaml")
+	writeFileAt(t, filepath.Join(api, "broken.hk.yaml"), "url: \"{{.base_url}}\"\nmethod: [GET\n")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := func(detail bool) map[string]RequestSummary {
+		t.Helper()
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Detail: detail})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]RequestSummary{}
+		for _, r := range allRequests(out) {
+			got[r.Name] = r
+		}
+		return got
+	}
+
+	got := list(true)
+	if len(got) != 3 {
+		t.Fatalf("listed %v, want profile, plain, and broken", keys(got))
+	}
+	profile := got["profile"]
+	if want := []string{"graphql_url", "tenant", "member_id"}; !slices.Equal(profile.EnvVars, want) {
+		t.Errorf("profile env_vars = %v, want %v", profile.EnvVars, want)
+	}
+	if want := []string{"memberId", "first"}; !slices.Equal(profile.Variables, want) {
+		t.Errorf("profile variables = %v, want %v", profile.Variables, want)
+	}
+	if p := got["plain"]; p.EnvVars != nil || p.Variables != nil {
+		t.Errorf("plain env_vars = %v, variables = %v, want none", p.EnvVars, p.Variables)
+	}
+
+	for name, r := range list(false) {
+		if r.EnvVars != nil || r.Variables != nil {
+			t.Errorf("default %s env_vars = %v, variables = %v, want none outside a detail listing",
+				name, r.EnvVars, r.Variables)
+		}
+	}
+}

@@ -14,14 +14,16 @@ import (
 
 // RequestSummary describes one request file for the list_requests tool.
 // Path and Deps are relative to the project root when they live inside it.
-// Auth is filled only for a detail listing.
+// Auth, EnvVars, and Variables are filled only for a detail listing.
 type RequestSummary struct {
-	Name string   `json:"name"`
-	Path string   `json:"path"`
-	Kind string   `json:"kind,omitempty"`
-	Host string   `json:"host,omitempty"`
-	Deps []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
-	Auth string   `json:"auth,omitempty"`
+	Name      string   `json:"name"`
+	Path      string   `json:"path"`
+	Kind      string   `json:"kind,omitempty"`
+	Host      string   `json:"host,omitempty"`
+	Deps      []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
+	Auth      string   `json:"auth,omitempty"`
+	EnvVars   []string `json:"env_vars,omitempty"`
+	Variables []string `json:"variables,omitempty"`
 }
 
 // ProjectRequests is one project's request files and the root their paths are
@@ -34,7 +36,7 @@ type ProjectRequests struct {
 
 type listRequestsInput struct {
 	Project string `json:"project,omitempty" jsonschema:"limit to this project; omit to list every project"`
-	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode"`
+	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode, env variables, and GraphQL variables"`
 }
 
 type listRequestsOutput struct {
@@ -50,9 +52,10 @@ func (s *Server) registerListRequests() {
 			"that root, kind (API/GraphQL), target host as written (template " +
 			"variables unresolved), and any dependency files it references " +
 			"(e.g. a GraphQL query .gql that lives next to the request). Pass " +
-			"`detail` to also get each request's auth mode, e.g. \"bearer from " +
+			"`detail` to also get each request's auth mode (e.g. \"bearer from " +
 			"login\": a bearer token read from the login request's response via " +
-			"getValueOf. Omit `project` to list every configured project.",
+			"getValueOf), the env variables it resolves ({{.name}}), and its " +
+			"GraphQL variables. Omit `project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
 }
@@ -132,6 +135,7 @@ func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
 		}
 		if detail {
 			summary.Auth = requestAuth(summary.Kind, doc)
+			summary.EnvVars, summary.Variables, _ = utils.RequestVariables(f)
 		}
 		out = append(out, summary)
 	}
