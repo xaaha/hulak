@@ -348,8 +348,7 @@ func LoadSecretsMap(envName string) (map[string]any, error) {
 	return readEnvFiles(envName)
 }
 
-// ReadSecretsMap is LoadSecretsMap without its side effect: a missing
-// global.env counts as empty instead of being created.
+// ReadSecretsMap is LoadSecretsMap without creating a missing global.env, which counts as empty.
 func ReadSecretsMap(envName string) (map[string]any, error) {
 	if vault.DetectStore() == vault.StoreAge {
 		return loadSecretsFromVault(envName)

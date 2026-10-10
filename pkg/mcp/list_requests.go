@@ -18,9 +18,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// RequestSummary describes one request file for the list_requests tool.
-// Path and Deps are relative to the project root when they live inside it.
-// Auth, EnvVars, and Variables are filled only for a detail listing.
+// RequestSummary describes one request file; Auth, EnvVars, and Variables are filled only for a detail listing.
 type RequestSummary struct {
 	Name      string   `json:"name"`
 	Path      string   `json:"path"`
@@ -32,12 +30,11 @@ type RequestSummary struct {
 	Variables []string `json:"variables,omitempty"`
 }
 
-// ProjectRequests is one project's request files and the root their paths are
-// relative to.
+// ProjectRequests is one project's request files, with paths relative to Root.
 type ProjectRequests struct {
 	Name       string           `json:"name"`
 	Root       string           `json:"root"`
-	EnvMissing bool             `json:"env_missing,omitempty"` // env was passed but this project lacks it
+	EnvMissing bool             `json:"env_missing,omitempty"`
 	Requests   []RequestSummary `json:"requests"`
 }
 
@@ -138,9 +135,6 @@ func (s *Server) handleListRequests(
 	return nil, out, nil
 }
 
-// loadProjectEnv loads env's secrets for the project in the working directory.
-// found is false when the project has no such environment. Names compare
-// without case because ListEnvironments lowercases plain env file names.
 func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) {
 	envs, err := envparser.ListEnvironments()
 	if err != nil {
@@ -148,6 +142,7 @@ func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) 
 	}
 	i := slices.Index(envs, env)
 	if i < 0 {
+		// ListEnvironments lowercases plain env file names.
 		i = slices.IndexFunc(envs, func(e string) bool { return strings.EqualFold(e, env) })
 	}
 	if i < 0 {
@@ -170,8 +165,6 @@ type listOptions struct {
 	secrets map[string]any
 }
 
-// listProjectRequests returns a summary of every request file under root
-// whose project-relative path contains opts.filter, ignoring case.
 func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error) {
 	files, err := utils.ListFiles(root)
 	if err != nil {
@@ -213,9 +206,7 @@ func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error
 	return out, nil
 }
 
-// requestHost returns rawURL's host, with its template resolved against
-// secrets when given. A host that fails to resolve, or whose resolved form is
-// not certain to exclude userinfo, stays as written.
+// requestHost keeps the host as written when it cannot resolve to one free of userinfo.
 func requestHost(rawURL, file string, secrets map[string]any) string {
 	host := rawHost(rawURL)
 	if secrets == nil || !strings.Contains(host, "{{") {
@@ -230,10 +221,6 @@ func requestHost(rawURL, file string, secrets map[string]any) string {
 	return host
 }
 
-// resolvedHost returns the host of a resolved url. ok is false when the url
-// does not parse, has no host, or the authority after its last '@' is not
-// exactly the host, since an unencoded '/', '?' or '#' in a password ends the
-// authority early and would put part of it in the host.
 func resolvedHost(text string) (string, bool) {
 	if !strings.Contains(text, "://") {
 		text = "//" + text
@@ -242,6 +229,7 @@ func resolvedHost(text string) (string, bool) {
 	if err != nil || u.Host == "" {
 		return "", false
 	}
+	// An unencoded '/', '?' or '#' in a password ends the parsed authority early.
 	if at := strings.LastIndex(text, "@"); at >= 0 {
 		authority := text[at+1:]
 		if end := strings.IndexAny(authority, `/?#`); end >= 0 {
@@ -261,8 +249,7 @@ func pathMatches(rel, filter string) bool {
 	)
 }
 
-// projectRelative returns path relative to root, or path unchanged when it
-// lies outside root.
+// projectRelative leaves a path outside root unchanged.
 func projectRelative(root, path string) string {
 	rel, err := filepath.Rel(root, path)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {

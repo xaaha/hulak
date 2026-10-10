@@ -25,9 +25,7 @@ func readRequestDoc(path string) (map[string]any, error) {
 	return utils.ConvertKeysToLowerCase(doc), nil
 }
 
-// rawHost returns the host part of a request URL as written, without scheme,
-// userinfo, path, query, or fragment. Template actions stay unresolved, and a
-// '/' inside {{ }} does not end the host.
+// rawHost strips scheme, userinfo, path, query, and fragment, leaving template actions unresolved.
 func rawHost(url string) string {
 	s := strings.TrimSpace(url)
 	inAction := actionMask(s)
@@ -51,8 +49,7 @@ func rawHost(url string) string {
 	return s
 }
 
-// actionMask reports, per byte of s, whether it lies inside a closed {{ }}
-// action. An unclosed {{ is literal text.
+// actionMask marks the bytes inside each closed {{ }} action; an unclosed {{ is literal.
 func actionMask(s string) []bool {
 	mask := make([]bool, len(s))
 	for i := 0; i < len(s); {
@@ -74,10 +71,7 @@ func actionMask(s string) []bool {
 	return mask
 }
 
-// requestAuth names how a request authenticates: "oauth2" for an Auth kind,
-// the Authorization scheme ("bearer", "basic"), or "header <name>" for another
-// credential header. When the credential comes from getValueOf, " from
-// <request>" names the request it is read from. Empty means no auth found.
+// requestAuth returns e.g. "oauth2", "bearer from login", or "header x-api-key", or "" for no auth.
 func requestAuth(kind string, doc map[string]any) string {
 	if kind == string(yamlparser.KindAuth) {
 		return "oauth2"
@@ -108,16 +102,12 @@ func requestAuth(kind string, doc map[string]any) string {
 	return label
 }
 
-// authSchemes are the Authorization schemes reported by name. Any other first
-// word may be the credential itself, so it is never echoed.
+// Only these are echoed: any other first word may be the credential itself.
 var authSchemes = []string{
 	"aws4-hmac-sha256", "basic", "bearer", "digest", "dpop", "hoba",
 	"mutual", "negotiate", "ntlm", "oauth", "token",
 }
 
-// authScheme returns the lowercased scheme of an Authorization value, from a
-// known first word followed by a credential, or a leading basicAuth action.
-// Empty when unknown.
 func authScheme(value string) string {
 	v := strings.TrimSpace(value)
 	if strings.HasPrefix(v, "{{") {
@@ -134,8 +124,7 @@ func authScheme(value string) string {
 	return scheme
 }
 
-// templateActions returns each function-call action in s as its canonical
-// function name followed by its quoted string arguments.
+// templateActions returns each known function action as its canonical name and arguments.
 func templateActions(s string) [][]string {
 	var out [][]string
 	for {
@@ -158,8 +147,6 @@ func templateActions(s string) [][]string {
 	}
 }
 
-// splitActionArgs splits an action body on spaces, keeping a quoted argument
-// whole and returning it without its quotes.
 func splitActionArgs(body string) []string {
 	var fields []string
 	for body = strings.TrimSpace(body); body != ""; body = strings.TrimSpace(body) {
