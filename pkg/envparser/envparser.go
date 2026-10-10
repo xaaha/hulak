@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -344,15 +345,31 @@ func LoadSecretsMap(envName string) (map[string]any, error) {
 	if err := CreateDefaultEnvs(nil); err != nil {
 		return nil, fmt.Errorf("failed to create global.env: %w", err)
 	}
+	return readEnvFiles(envName)
+}
 
-	// Load global environment variables
-	globalMap, err := loadEnvFile(utils.DefaultEnvVal + utils.DefaultEnvFileSuffix)
+// ReadSecretsMap is LoadSecretsMap without creating a missing global.env, which counts as empty.
+func ReadSecretsMap(envName string) (map[string]any, error) {
+	if vault.DetectStore() == vault.StoreAge {
+		return loadSecretsFromVault(envName)
+	}
+	return readEnvFiles(envName)
+}
+
+func readEnvFiles(envName string) (map[string]any, error) {
+	globalFile := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix
+	globalPath, err := utils.CreatePath(filepath.Join(utils.EnvironmentFolder, globalFile))
 	if err != nil {
 		return nil, err
 	}
-
-	// Copy global map as base
-	resultMap := utils.CopyEnvMap(globalMap)
+	resultMap := map[string]any{}
+	if _, err := os.Stat(globalPath); !errors.Is(err, fs.ErrNotExist) {
+		globalMap, err := loadEnvFile(globalFile)
+		if err != nil {
+			return nil, err
+		}
+		resultMap = utils.CopyEnvMap(globalMap)
+	}
 
 	// Load and merge custom environment if not global
 	if envName != "" && !strings.EqualFold(envName, utils.DefaultEnvVal) {

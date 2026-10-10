@@ -452,3 +452,116 @@ func TestLoadSecretsFromVault(t *testing.T) {
 		}
 	})
 }
+
+func TestReadSecretsMap_259(t *testing.T) {
+	setup := func(t *testing.T, files map[string]string) string {
+		t.Helper()
+		root, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		envDir := filepath.Join(root, utils.EnvironmentFolder)
+		if err := os.MkdirAll(envDir, utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		for name, content := range files {
+			if err := os.WriteFile(filepath.Join(envDir, name), []byte(content), utils.FilePer); err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Chdir(root)
+		return filepath.Join(envDir, "global.env")
+	}
+
+	t.Run("missing global.env is empty and stays missing", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=https://staging.example.com\n"})
+		got, err := ReadSecretsMap("staging")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got["url"] != "https://staging.example.com" {
+			t.Errorf("url = %v, want the staging value", got["url"])
+		}
+		if utils.FileExists(globalPath) {
+			t.Error("ReadSecretsMap created global.env")
+		}
+	})
+
+	t.Run("custom env overrides global", func(t *testing.T) {
+		setup(t, map[string]string{
+			"global.env":  "url=https://example.com\nname=hulak\n",
+			"staging.env": "url=https://staging.example.com\n",
+		})
+		got, err := ReadSecretsMap("staging")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got["url"] != "https://staging.example.com" || got["name"] != "hulak" {
+			t.Errorf("got %v, want staging url over global and global name kept", got)
+		}
+	})
+
+	t.Run("global with no global.env is empty", func(t *testing.T) {
+		globalPath := setup(t, nil)
+		got, err := ReadSecretsMap(utils.DefaultEnvVal)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 0 {
+			t.Errorf("got %v, want an empty map", got)
+		}
+		if utils.FileExists(globalPath) {
+			t.Error("ReadSecretsMap created global.env")
+		}
+	})
+
+	t.Run("missing custom env is an error", func(t *testing.T) {
+		setup(t, nil)
+		if _, err := ReadSecretsMap("prod"); err == nil {
+			t.Error("want an error for a missing prod.env")
+		}
+	})
+
+	t.Run("unreadable global.env is an error", func(t *testing.T) {
+		setup(t, map[string]string{
+			"global.env":  "\xff\xfeb\x00=\x00x\x00\n\x00",
+			"staging.env": "url=x\n",
+		})
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want the global.env load error")
+		}
+		if _, err := LoadSecretsMap("staging"); err == nil {
+			t.Error("LoadSecretsMap: want the global.env load error")
+		}
+	})
+
+	t.Run("global.env that is a directory is an error", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
+		if err := os.Mkdir(globalPath, utils.DirPer); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want an error for a global.env directory")
+		}
+	})
+
+	t.Run("global.env that cannot be stat'd is an error", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
+		if err := os.Symlink(globalPath, globalPath); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want an error for a global.env symlink loop")
+		}
+	})
+
+	t.Run("LoadSecretsMap still creates global.env", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
+		if _, err := LoadSecretsMap("staging"); err != nil {
+			t.Fatal(err)
+		}
+		if !utils.FileExists(globalPath) {
+			t.Error("LoadSecretsMap no longer creates global.env")
+		}
+	})
+}
