@@ -697,12 +697,14 @@ func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "prod"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := allRequests(out)[0].Host; got != "api.prod.example.com" {
-		t.Errorf("host = %q, want api.prod.example.com resolved from the vault", got)
+	for _, env := range []string{"prod", "PROD"} {
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: env})
+		if err != nil {
+			t.Fatalf("env %s: %v", env, err)
+		}
+		if got := allRequests(out)[0].Host; got != "api.prod.example.com" {
+			t.Errorf("env %s: host = %q, want api.prod.example.com resolved from the vault", env, got)
+		}
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
@@ -145,8 +146,13 @@ func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) 
 	if err != nil {
 		return nil, false, err
 	}
-	if !slices.ContainsFunc(envs, func(e string) bool { return strings.EqualFold(e, env) }) {
+	i := slices.IndexFunc(envs, func(e string) bool { return strings.EqualFold(e, env) })
+	if i < 0 {
 		return nil, false, nil
+	}
+	// Vault env names are exact map keys; a plain env file opens by the name given.
+	if vault.DetectStore() == vault.StoreAge {
+		env = envs[i]
 	}
 	secrets, err = envparser.ReadSecretsMap(env)
 	if errors.Is(err, fs.ErrNotExist) {
