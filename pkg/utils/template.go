@@ -9,23 +9,63 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	yaml "github.com/goccy/go-yaml"
 )
 
 var templateActionPattern = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
 
-var templateVarNamePattern = regexp.MustCompile(`(^|[^\p{L}\p{Nd}_.])\.([\p{L}\p{Nd}_]+)`)
-
+// templateVarNames returns env-key style field names from template actions.
+// It mirrors Go's text/template lexer: a field name may not start with an ASCII
+// digit (.2 is a number, not a field), and a chained field after ")" (.b in
+// {{(.a).b}}) is not a root env key.
 func templateVarNames(s string) []string {
 	var names []string
 	for _, action := range templateActionPattern.FindAllString(s, -1) {
 		if isTemplateComment(action) {
 			continue
 		}
-		for _, m := range templateVarNamePattern.FindAllStringSubmatch(stripQuotedArgs(action), -1) {
-			names = append(names, m[2])
+		names = append(names, scanTemplateVarNames(stripQuotedArgs(action))...)
+	}
+	return names
+}
+
+func scanTemplateVarNames(s string) []string {
+	var names []string
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != '.' {
+			continue
 		}
+		if i > 0 {
+			prev := runes[i-1]
+			if unicode.IsLetter(prev) || unicode.IsDigit(prev) || prev == '_' || prev == '.' || prev == ')' {
+				continue
+			}
+		}
+		if i+1 >= len(runes) {
+			continue
+		}
+		first := runes[i+1]
+		// ASCII digit starts a number in Go's template lexer, not a field.
+		if first >= '0' && first <= '9' {
+			continue
+		}
+		if !unicode.IsLetter(first) && !unicode.IsDigit(first) && first != '_' {
+			continue
+		}
+		j := i + 2
+		for j < len(runes) {
+			r := runes[j]
+			if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
+				j++
+				continue
+			}
+			break
+		}
+		names = append(names, string(runes[i+1:j]))
+		i = j - 1
 	}
 	return names
 }

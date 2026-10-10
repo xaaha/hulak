@@ -13,7 +13,7 @@ func parserFieldNames(expr string) (names []string, parsed bool) {
 	for _, name := range templateFuncNames {
 		funcs[name] = func(...any) string { return "" }
 	}
-	for _, name := range []string{"printf", "print", "eq", "index", "len", "not", "and", "or"} {
+	for _, name := range []string{"printf", "print", "eq", "index", "len", "not", "and", "or", "foo"} {
 		funcs[name] = func(...any) string { return "" }
 	}
 
@@ -125,6 +125,11 @@ func TestD3_2_TemplateVarNamesMatchesGoTemplateParser(t *testing.T) {
 		"{{printf \"%s\" `.fake\\` .token}}",
 		`{{printf "trailing\\" .token}}`,
 		"{{getFile `queries\\get.gql`}}",
+		"{{.2}}",
+		"{{.٢}}",
+		"{{(.a).b}}",
+		"{{index (foo) .key}}",
+		"{{if (eq 1 1)}}{{.token}}{{end}}",
 	}
 
 	for _, expr := range exprs {
@@ -137,5 +142,15 @@ func TestD3_2_TemplateVarNamesMatchesGoTemplateParser(t *testing.T) {
 				t.Errorf("templateVarNames = %v, Go parser = %v", got, want)
 			}
 		})
+	}
+}
+
+func TestTemplateVarNames_ASCIIDigitNotAField(t *testing.T) {
+	// Go rejects {{.2f}} as invalid; the scanner must not invent a key either.
+	if got := templateVarNames("{{.2f}}"); len(got) != 0 {
+		t.Errorf("templateVarNames({{.2f}}) = %v, want none", got)
+	}
+	if got := templateVarNames("{{.2}}"); len(got) != 0 {
+		t.Errorf("templateVarNames({{.2}}) = %v, want none", got)
 	}
 }
