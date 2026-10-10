@@ -106,13 +106,24 @@ Every tool takes an optional `project`. When omitted, the server searches all co
 
 | Tool             | Access      | What it does                                                                              |
 | ---------------- | ----------- | ----------------------------------------------------------------------------------------- |
-| `list_requests`  | read-only   | List request files: name, project, path, kind, and referenced files (e.g. a GraphQL `.gql`). |
+| `list_requests`  | read-only   | List request files per project: name, path, kind, target host, and referenced files (e.g. a GraphQL `.gql`). |
 | `list_envs`      | read-only   | List environment **names** per project. Use one as the `env` argument below.              |
 | `dry_run`        | read-only   | Resolve a request against an env and return the exact request that would be sent, unsent. |
 | `call_request`   | destructive | Send the request and return status + body. Real network call.                             |
 | `write_request`  | write       | Create (or overwrite) a request file from YAML content.                                   |
 
 The agent discovers all of this — every tool, every argument — from the MCP handshake. No prompting from you about available options is needed.
+
+### `list_requests` arguments
+
+| Argument  | Default | Notes |
+| --------- | ------- | ----- |
+| `project` | —       | Optional. Limit the listing to one project. |
+| `filter`  | —       | Case-insensitive substring of the path relative to the project root: a directory such as `opn/`, or part of a name. |
+| `detail`  | `false` | Also report each request's `auth` mode, the `env_vars` it resolves (`{{.name}}`), and its GraphQL `variables`. |
+| `env`     | —       | Resolve each `host` against this environment. Without it, hosts are shown as written, e.g. `{{.base_url}}`. |
+
+The listing groups requests by project. Each project carries its absolute `root` once, and every `path` and `deps` entry is relative to it. `auth` reads like `bearer from login`: a bearer token taken from the `login` request's response with `getValueOf`. With `env`, a project that lacks the environment is marked `env_missing` and keeps its hosts as written. An environment that no listed project has is an error.
 
 ### `call_request` arguments
 
@@ -133,6 +144,7 @@ Unlike `hulak run`, an agent call does **not** save a response file by default �
 - **Rendered requests are masked by value.** `dry_run`, and `call_request` with `debug`, replace resolved secrets with `••••(28 chars, #a3f1)` wherever they land: query string, header, form field or JSON body. Matching runs over a percent-decoded copy of the rendered output rather than a list of spellings, so every URL escaping — path, query, fragment, host, userinfo — is covered at once, and the JSON backslash-escaped form is matched alongside it. A secret containing `/`, `+`, `=`, `@`, a quote or a space does not slip through anywhere in the URL or the body. A `Basic <base64>` credential built by `{{basicAuth ...}}` is masked wherever it lands, not only in an `Authorization` header. The length tells you whether the variable resolved; the fingerprint is salted per process, so the same secret looks the same within a run and means nothing outside it. Variables the request references that resolved empty are named in a `// unresolved:` footer (`dry_run`) or an `unresolved` array in the request echo (`call_request` with `debug`).
 - **One gap: values the request pulls in directly.** A request file that calls `{{os "VAR"}}`, `{{getValueOf ...}}` or `{{getFile ...}}` in place of a variable produces a value that never enters the environment, so value masking cannot know it. In a header it is still covered by header-name masking; in a URL, query string or body it is printed in clear. Put the value in an environment variable and reference it as `{{.name}}` to have it masked everywhere.
 - **Which values count as secrets depends on the store.** In a project using the encrypted vault, every resolved value is a secret and is masked. With plain `.env` files only key names that look like credentials are — `secret`, `token`, `password`, `key`, `credential`, `auth`, `jwt`, matched case-insensitively anywhere in the name. A value under a name matching none of those, such as `client_id`, is printed in clear. Move the project to the vault if that is not acceptable. In a vault project the base URL is a resolved value like any other, so a dry run masks the host too; that is correct but makes the output harder to read.
+- **`list_requests` with `env` shows the resolved host.** Passing `env` is the request to see it, so the host is printed in the clear, even in a vault project where `dry_run` masks it. Only the host and port are shown. The path, query string and any `user:password@` part of the resolved URL are never returned.
 - **Revealing the masked values.** `dry_run` takes `show: true`, which prints everything in the clear. `call_request` has no `show` argument and will not grow one: adding it would widen exactly the surface this masking exists to protect.
 - **No secret-mutating tools.** Creating/editing/deleting environments and keys stays a human-only CLI operation. There is intentionally no `set key` tool: the value would have to pass through the agent's context to reach it, which is itself a leak.
 - **`write_request` is validated.** Content is checked against the hulak request schema (`assets/schema.json`) before it touches disk, so an agent can't write malformed or hallucinated YAML. It refuses to overwrite an existing file unless `overwrite` is set, and rejects paths that escape the project.
