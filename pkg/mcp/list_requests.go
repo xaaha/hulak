@@ -222,9 +222,9 @@ func requestHost(rawURL, file string, secrets map[string]any) string {
 }
 
 // resolvedHost returns the host of a resolved url. ok is false when the url
-// does not parse, has no host, or the host does not directly follow its last
-// '@', since an unencoded '/', '?' or '#' in a password ends the authority
-// early and would put part of it in the host.
+// does not parse, has no host, or the authority after its last '@' is not
+// exactly the host, since an unencoded '/', '?' or '#' in a password ends the
+// authority early and would put part of it in the host.
 func resolvedHost(text string) (string, bool) {
 	if !strings.Contains(text, "://") {
 		text = "//" + text
@@ -233,8 +233,14 @@ func resolvedHost(text string) (string, bool) {
 	if err != nil || u.Host == "" {
 		return "", false
 	}
-	if at := strings.LastIndex(text, "@"); at >= 0 && !strings.HasPrefix(text[at+1:], u.Host) {
-		return "", false
+	if at := strings.LastIndex(text, "@"); at >= 0 {
+		authority := text[at+1:]
+		if end := strings.IndexAny(authority, `/?#`); end >= 0 {
+			authority = authority[:end]
+		}
+		if authority != u.Host {
+			return "", false
+		}
 	}
 	return u.Host, true
 }

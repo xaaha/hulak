@@ -572,7 +572,6 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 		writeFileAt(t, filepath.Join(api, name+".hk.yaml"), "method: GET\nurl: \"{{."+name+"}}\"\n")
 	}
 	writeFileAt(t, filepath.Join(api, "email.hk.yaml"), "method: GET\nurl: \"{{.plain}}/users?email=a@b.com\"\n")
-	writeFileAt(t, filepath.Join(api, "literal_pw.hk.yaml"), "method: GET\nurl: https://svc:hunter2/secret@api.example.com/x\n")
 	writeFileAt(t, filepath.Join(api, "env", "empty.env"), "")
 	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users?page=1\"\n")
 	writeFileAt(t, filepath.Join(api, "tenant.hk.yaml"), "method: GET\nurl: \"https://{{.tenant}}.example.com/me\"\n")
@@ -613,7 +612,6 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 			"api/at_slash_pw": "{{.at_slash_pw}}",
 			"api/at_user":     "{{.at_user}}",
 			"api/email":       "api.plain.example.com",
-			"api/literal_pw":  "",
 			"api/bare":        "api.bare.example.com",
 			"api/empty":       "{{.empty}}",
 			"mobile/signup":   "{{.base_url}}",

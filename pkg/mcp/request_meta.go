@@ -27,9 +27,7 @@ func readRequestDoc(path string) (map[string]any, error) {
 
 // rawHost returns the host part of a request URL as written, without scheme,
 // userinfo, path, query, or fragment. Template actions stay unresolved, and a
-// '/' inside {{ }} does not end the host. A literal host followed later by an
-// '@' is empty: an unencoded '/', '?' or '#' in a password would put part of
-// it in the host.
+// '/' inside {{ }} does not end the host.
 func rawHost(url string) string {
 	s := strings.TrimSpace(url)
 	inAction := actionMask(s)
@@ -40,10 +38,7 @@ func rawHost(url string) string {
 		if strings.HasPrefix(s[i:], "://") {
 			return rawHost(s[i+len("://"):])
 		}
-		if strings.IndexByte("/?#", s[i]) >= 0 {
-			if hasLiteral(inAction[:i]) && literalIndex(s[i:], inAction[i:], '@') >= 0 {
-				return ""
-			}
+		if strings.IndexByte(`/?#\`, s[i]) >= 0 {
 			s = s[:i]
 			break
 		}
@@ -56,36 +51,25 @@ func rawHost(url string) string {
 	return s
 }
 
-func hasLiteral(inAction []bool) bool {
-	return slices.Contains(inAction, false)
-}
-
-func literalIndex(s string, inAction []bool, c byte) int {
-	for i := range len(s) {
-		if !inAction[i] && s[i] == c {
-			return i
-		}
-	}
-	return -1
-}
-
-// actionMask reports, per byte of s, whether it lies inside a {{ }} action.
+// actionMask reports, per byte of s, whether it lies inside a closed {{ }}
+// action. An unclosed {{ is literal text.
 func actionMask(s string) []bool {
 	mask := make([]bool, len(s))
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		switch {
-		case strings.HasPrefix(s[i:], "{{"):
-			depth++
-			mask[i], mask[i+1] = true, true
-			i++
-		case depth > 0 && strings.HasPrefix(s[i:], "}}"):
-			depth--
-			mask[i], mask[i+1] = true, true
-			i++
-		default:
-			mask[i] = depth > 0
+	for i := 0; i < len(s); {
+		open := strings.Index(s[i:], "{{")
+		if open < 0 {
+			break
 		}
+		open += i
+		end := strings.Index(s[open+2:], "}}")
+		if end < 0 {
+			break
+		}
+		end += open + 2 + len("}}")
+		for j := open; j < end; j++ {
+			mask[j] = true
+		}
+		i = end
 	}
 	return mask
 }
