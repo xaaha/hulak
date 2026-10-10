@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -136,16 +138,20 @@ func (s *Server) handleListRequests(
 }
 
 // loadProjectEnv loads env's secrets for the project in the working directory.
-// found is false when the project has no such environment.
+// found is false when the project has no such environment. Names compare
+// without case because ListEnvironments lowercases plain env file names.
 func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) {
 	envs, err := envparser.ListEnvironments()
 	if err != nil {
 		return nil, false, err
 	}
-	if !slices.Contains(envs, env) {
+	if !slices.ContainsFunc(envs, func(e string) bool { return strings.EqualFold(e, env) }) {
 		return nil, false, nil
 	}
 	secrets, err = envparser.ReadSecretsMap(env)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, false, nil
+	}
 	return secrets, err == nil, err
 }
 

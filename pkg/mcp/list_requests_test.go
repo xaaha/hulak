@@ -794,3 +794,44 @@ func TestListRequests_259_RootUnderSymlinkKeepsDepsRelative(t *testing.T) {
 		t.Errorf("deps = %v, want [%s] relative to the root behind the symlink", r.Deps, want)
 	}
 }
+
+func TestListRequests_259_EnvNameCase(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "Prod.env"), "base_url=https://api.prod.example.com\n")
+	if err := os.Symlink(filepath.Join(api, "gone.env"), filepath.Join(api, "env", "qa.env")); err != nil {
+		t.Fatal(err)
+	}
+	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users\"\n")
+	other := projectDir(t)
+	writeFileAt(t, filepath.Join(other, "env", "qa.env"), "base_url=https://api.qa.example.com\n")
+	writeFileAt(t, filepath.Join(other, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users\"\n")
+
+	s, err := NewServer(map[string]string{"api": api, "other": other}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("an env file with capitals resolves under its own name", func(t *testing.T) {
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "Prod", Project: "api"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := allRequests(out)[0].Host; got != "api.prod.example.com" {
+			t.Errorf("host = %q, want api.prod.example.com", got)
+		}
+	})
+
+	t.Run("a listed env whose file cannot be opened is missing, not an error", func(t *testing.T) {
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "qa"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		missing := map[string]bool{}
+		for _, p := range out.Projects {
+			missing[p.Name] = p.EnvMissing
+		}
+		if want := map[string]bool{"api": true, "other": false}; !maps.Equal(missing, want) {
+			t.Errorf("env_missing = %v, want %v", missing, want)
+		}
+	})
+}
