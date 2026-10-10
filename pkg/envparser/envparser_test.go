@@ -545,6 +545,16 @@ func TestReadSecretsMap_259(t *testing.T) {
 		}
 	})
 
+	t.Run("global.env that cannot be stat'd is an error", func(t *testing.T) {
+		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
+		if err := os.Symlink(globalPath, globalPath); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadSecretsMap("staging"); err == nil {
+			t.Error("ReadSecretsMap: want an error for a global.env symlink loop")
+		}
+	})
+
 	t.Run("LoadSecretsMap still creates global.env", func(t *testing.T) {
 		globalPath := setup(t, map[string]string{"staging.env": "url=x\n"})
 		if _, err := LoadSecretsMap("staging"); err != nil {
