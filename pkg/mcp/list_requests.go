@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
@@ -29,15 +31,17 @@ type RequestSummary struct {
 // ProjectRequests is one project's request files and the root their paths are
 // relative to.
 type ProjectRequests struct {
-	Name     string           `json:"name"`
-	Root     string           `json:"root"`
-	Requests []RequestSummary `json:"requests"`
+	Name       string           `json:"name"`
+	Root       string           `json:"root"`
+	EnvMissing bool             `json:"env_missing,omitempty"` // env was passed but this project lacks it
+	Requests   []RequestSummary `json:"requests"`
 }
 
 type listRequestsInput struct {
 	Project string `json:"project,omitempty" jsonschema:"limit to this project; omit to list every project"`
 	Filter  string `json:"filter,omitempty"  jsonschema:"case-insensitive substring of the project-relative path, e.g. opn/ or login"`
 	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode, env variables, and GraphQL variables"`
+	Env     string `json:"env,omitempty"     jsonschema:"resolve each host against this environment, e.g. prod; omit to show hosts as written"`
 }
 
 type listRequestsOutput struct {
@@ -57,7 +61,9 @@ func (s *Server) registerListRequests() {
 			"login\": a bearer token read from the login request's response via " +
 			"getValueOf), the env variables it resolves ({{.name}}), and its " +
 			"GraphQL variables. Narrow with `filter`, a case-insensitive substring " +
-			"of the relative path (a directory like opn/ or part of a name). Omit " +
+			"of the relative path (a directory like opn/ or part of a name). Pass " +
+			"`env` to resolve hosts against that environment; only the host is " +
+			"resolved, and a host that cannot resolve stays as written. Omit " +
 			"`project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
@@ -82,34 +88,74 @@ func (s *Server) handleListRequests(
 	}
 
 	out := listRequestsOutput{Projects: []ProjectRequests{}}
+	missing := 0
 	for _, name := range projectNames(targets) {
 		var reqs []RequestSummary
+		envMissing := false
 		// Run inside the project dir: dependency resolution (utils.ReferencedFiles
-		// -> getFile) is project-root-relative and keys off the working
-		// directory, exactly as a real run does.
+		// -> getFile) and secret loading are project-root-relative and key off
+		// the working directory, exactly as a real run does.
 		err := s.withProjectDir(targets[name], func() error {
+			opts := listOptions{filter: in.Filter, detail: in.Detail}
+			if in.Env != "" {
+				secrets, found, err := loadProjectEnv(in.Env)
+				if err != nil {
+					return err
+				}
+				opts.secrets, envMissing = secrets, !found
+			}
 			var err error
-			reqs, err = listProjectRequests(targets[name], in.Filter, in.Detail)
+			reqs, err = listProjectRequests(targets[name], opts)
 			return err
 		})
 		if err != nil {
 			return nil, listRequestsOutput{}, err
 		}
+		if envMissing {
+			missing++
+		}
 		if len(reqs) == 0 {
 			continue
 		}
 		out.Projects = append(out.Projects, ProjectRequests{
-			Name:     name,
-			Root:     targets[name],
-			Requests: reqs,
+			Name:       name,
+			Root:       targets[name],
+			EnvMissing: envMissing,
+			Requests:   reqs,
 		})
+	}
+	if in.Env != "" && missing == len(targets) {
+		return nil, listRequestsOutput{}, fmt.Errorf(
+			"env %q not found in any project (%s); list_envs shows the available names",
+			in.Env, strings.Join(projectNames(targets), ", "),
+		)
 	}
 	return nil, out, nil
 }
 
+// loadProjectEnv loads env's secrets for the project in the working directory.
+// found is false when the project has no such environment.
+func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) {
+	envs, err := envparser.ListEnvironments()
+	if err != nil {
+		return nil, false, err
+	}
+	if !slices.Contains(envs, env) {
+		return nil, false, nil
+	}
+	secrets, err = envparser.LoadSecretsMap(env)
+	return secrets, err == nil, err
+}
+
+type listOptions struct {
+	filter  string
+	detail  bool
+	secrets map[string]any
+}
+
 // listProjectRequests returns a summary of every request file under root
-// whose project-relative path contains filter, ignoring case.
-func listProjectRequests(root, filter string, detail bool) ([]RequestSummary, error) {
+// whose project-relative path contains opts.filter, ignoring case.
+func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error) {
 	files, err := utils.ListFiles(root)
 	if err != nil {
 		return nil, err
@@ -122,7 +168,7 @@ func listProjectRequests(root, filter string, detail bool) ([]RequestSummary, er
 	var out []RequestSummary
 	for _, f := range files {
 		rel := projectRelative(root, f)
-		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, filter) {
+		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) {
 			continue
 		}
 		// Deps are best-effort: a missing/unreadable referenced file should
@@ -138,16 +184,29 @@ func listProjectRequests(root, filter string, detail bool) ([]RequestSummary, er
 			Name: utils.RequestStem(filepath.Base(f)),
 			Path: rel,
 			Kind: requestKind(f),
-			Host: rawHost(url),
+			Host: requestHost(url, f, opts.secrets),
 			Deps: deps,
 		}
-		if detail {
+		if opts.detail {
 			summary.Auth = requestAuth(summary.Kind, doc)
 			summary.EnvVars, summary.Variables, _ = utils.RequestVariables(f)
 		}
 		out = append(out, summary)
 	}
 	return out, nil
+}
+
+// requestHost returns url's host, resolved against secrets when given. A url
+// that fails to resolve keeps its host as written.
+func requestHost(url, file string, secrets map[string]any) string {
+	if secrets == nil {
+		return rawHost(url)
+	}
+	resolved, err := envparser.SubstituteVariables(url, secrets, file)
+	if text, ok := resolved.(string); err == nil && ok {
+		return rawHost(text)
+	}
+	return rawHost(url)
 }
 
 func pathMatches(rel, filter string) bool {

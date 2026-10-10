@@ -7,11 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
+	"filippo.io/age"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 )
 
 func TestHandleListRequests(t *testing.T) {
@@ -549,5 +552,130 @@ func TestListRequests_259_EmptyResultOverMCP(t *testing.T) {
 	text := res.Content[0].(*mcpsdk.TextContent).Text
 	if text != `{"projects":[]}` {
 		t.Errorf("content = %s, want an empty projects list", text)
+	}
+}
+
+func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
+	api := projectDir(t)
+	mobile := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "staging.env"),
+		"base_url=https://svc:hunter2-secret@api.staging.example.com/v1\ntenant=acme\n")
+	writeFileAt(t, filepath.Join(api, "env", "empty.env"), "")
+	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users?page=1\"\n")
+	writeFileAt(t, filepath.Join(api, "tenant.hk.yaml"), "method: GET\nurl: \"https://{{.tenant}}.example.com/me\"\n")
+	writeFileAt(t, filepath.Join(api, "unresolved.hk.yaml"), "method: GET\nurl: \"{{.nope}}/x\"\n")
+	writeFileAt(t, filepath.Join(api, "literal.hk.yaml"), "method: GET\nurl: https://status.example.com/health\n")
+	writeFileAt(t, filepath.Join(mobile, "signup.hk.yaml"), "method: POST\nurl: \"{{.base_url}}/signup\"\n")
+
+	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := func(in listRequestsInput) (listRequestsOutput, error) {
+		_, out, err := s.handleListRequests(context.Background(), nil, in)
+		return out, err
+	}
+
+	t.Run("resolves hosts where the env exists", func(t *testing.T) {
+		out, err := list(listRequestsInput{Env: "staging"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		missing := map[string]bool{}
+		for _, p := range out.Projects {
+			missing[p.Name] = p.EnvMissing
+			for _, r := range p.Requests {
+				got[p.Name+"/"+r.Name] = r.Host
+			}
+		}
+		want := map[string]string{
+			"api/users":      "api.staging.example.com",
+			"api/tenant":     "acme.example.com",
+			"api/unresolved": "{{.nope}}",
+			"api/literal":    "status.example.com",
+			"mobile/signup":  "{{.base_url}}",
+		}
+		if !maps.Equal(got, want) {
+			t.Errorf("hosts = %v, want %v", got, want)
+		}
+		if want := map[string]bool{"api": false, "mobile": true}; !maps.Equal(missing, want) {
+			t.Errorf("env_missing = %v, want %v", missing, want)
+		}
+		raw, err := json.Marshal(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, leak := range []string{"hunter2-secret", "svc:", "/v1", "page=1"} {
+			if strings.Contains(string(raw), leak) {
+				t.Errorf("listing leaks %q beyond the host: %s", leak, raw)
+			}
+		}
+	})
+
+	t.Run("an empty env is found", func(t *testing.T) {
+		out, err := list(listRequestsInput{Env: "empty", Project: "api"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Projects[0].EnvMissing {
+			t.Error("env_missing = true for an env file that exists but is empty")
+		}
+	})
+
+	t.Run("an env no project has is an error", func(t *testing.T) {
+		_, err := list(listRequestsInput{Env: "prod"})
+		if err == nil || !strings.Contains(err.Error(), `env "prod" not found in any project`) {
+			t.Errorf("err = %v, want env not found in any project", err)
+		}
+	})
+
+	t.Run("an env missing from the only target project is an error", func(t *testing.T) {
+		if _, err := list(listRequestsInput{Env: "staging", Project: "mobile"}); err == nil {
+			t.Error("want an error when the only target project lacks the env")
+		}
+	})
+}
+
+func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
+	root := evalSymlinks(t, t.TempDir())
+	if err := os.Mkdir(filepath.Join(root, utils.HiddenProjectName), utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	configDir, err := utils.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(configDir, utils.DirPer); err != nil {
+		t.Fatal(err)
+	}
+	id, err := age.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	if err := vault.SetIdentity(id.String()); err != nil {
+		t.Fatal(err)
+	}
+	store := &vault.Store{Envs: map[string]vault.Env{
+		"global": {},
+		"prod":   {"base_url": "https://api.prod.example.com/v2"},
+	}}
+	if err := vault.WriteStore(store, id.Recipient()); err != nil {
+		t.Fatal(err)
+	}
+	writeFileAt(t, filepath.Join(root, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users\"\n")
+
+	s, err := NewServer(map[string]string{"vaulted": root}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "prod"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := allRequests(out)[0].Host; got != "api.prod.example.com" {
+		t.Errorf("host = %q, want api.prod.example.com resolved from the vault", got)
 	}
 }
