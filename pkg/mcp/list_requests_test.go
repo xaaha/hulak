@@ -559,7 +559,15 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 	api := projectDir(t)
 	mobile := projectDir(t)
 	writeFileAt(t, filepath.Join(api, "env", "staging.env"),
-		"base_url=https://svc:hunter2-secret@api.staging.example.com/v1\ntenant=acme\n")
+		"base_url=https://svc:hunter2-secret@api.staging.example.com/v1\ntenant=acme\n"+
+			"slash_pw=https://svc:12/hunter2-secret@api.example.com/v1\n"+
+			"query_pw=https://svc:pa?hunter2-secret@api.example.com/v1\n"+
+			"at_pw=https://svc:p@hunter2-secret@api.example.com/v1\n"+
+			"bare=api.bare.example.com/v1\n"+
+			"empty=\n")
+	for _, name := range []string{"slash_pw", "query_pw", "at_pw", "bare", "empty"} {
+		writeFileAt(t, filepath.Join(api, name+".hk.yaml"), "method: GET\nurl: \"{{."+name+"}}\"\n")
+	}
 	writeFileAt(t, filepath.Join(api, "env", "empty.env"), "")
 	writeFileAt(t, filepath.Join(api, "users.hk.yaml"), "method: GET\nurl: \"{{.base_url}}/users?page=1\"\n")
 	writeFileAt(t, filepath.Join(api, "tenant.hk.yaml"), "method: GET\nurl: \"https://{{.tenant}}.example.com/me\"\n")
@@ -594,6 +602,11 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 			"api/tenant":     "acme.example.com",
 			"api/unresolved": "{{.nope}}",
 			"api/literal":    "status.example.com",
+			"api/slash_pw":   "{{.slash_pw}}",
+			"api/query_pw":   "{{.query_pw}}",
+			"api/at_pw":      "api.example.com",
+			"api/bare":       "api.bare.example.com",
+			"api/empty":      "{{.empty}}",
 			"mobile/signup":  "{{.base_url}}",
 		}
 		if !maps.Equal(got, want) {
@@ -606,7 +619,7 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, leak := range []string{"hunter2-secret", "svc:", "/v1", "page=1"} {
+		for _, leak := range []string{"hunter2-secret", "svc", "/v1", "page=1"} {
 			if strings.Contains(string(raw), leak) {
 				t.Errorf("listing leaks %q beyond the host: %s", leak, raw)
 			}

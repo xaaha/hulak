@@ -16,6 +16,7 @@ func TestRawHost_259(t *testing.T) {
 		{"fragment", "https://api.example.com#top", "api.example.com"},
 		{"port", "http://localhost:8080/health", "localhost:8080"},
 		{"userinfo", "https://user:pw@api.example.com/a", "api.example.com"},
+		{"at sign in the password", "https://user:p@ss@api.example.com/a", "api.example.com"},
 		{"no scheme", "api.example.com/a", "api.example.com"},
 		{"template only", "{{.base_url}}", "{{.base_url}}"},
 		{"template prefix", "{{.base_url}}/v1/users", "{{.base_url}}"},
@@ -93,6 +94,36 @@ func TestSplitActionArgs_259(t *testing.T) {
 		t.Run(tc.body, func(t *testing.T) {
 			if got := splitActionArgs(tc.body); !slices.Equal(got, tc.want) {
 				t.Errorf("splitActionArgs(%q) = %q, want %q", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolvedHost_259(t *testing.T) {
+	tests := []struct {
+		name   string
+		text   string
+		want   string
+		wantOK bool
+	}{
+		{"plain", "https://api.example.com/v1?x=1", "api.example.com", true},
+		{"port", "http://localhost:8080/health", "localhost:8080", true},
+		{"userinfo", "https://svc:pw@api.example.com/v1", "api.example.com", true},
+		{"at sign in the password", "https://svc:p@ss@api.example.com", "api.example.com", true},
+		{"no scheme", "api.example.com/v1", "api.example.com", true},
+		{"slash in the password", "https://svc:12/secret@api.example.com", "", false},
+		{"invalid port from a slash in the password", "https://svc:ab/secret@api.example.com", "", false},
+		{"query mark in the password", "https://svc:pa?secret@api.example.com", "", false},
+		{"fragment mark in the password", "https://svc:pa#secret@api.example.com", "", false},
+		{"template text in the password", "https://admin:{{pw@api.example.com/v1?token=abc", "", false},
+		{"at sign in the path", "https://api.example.com/users/a@b.com", "", false},
+		{"empty", "", "", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := resolvedHost(tc.text)
+			if got != tc.want || ok != tc.wantOK {
+				t.Errorf("resolvedHost(%q) = %q, %v, want %q, %v", tc.text, got, ok, tc.want, tc.wantOK)
 			}
 		})
 	}

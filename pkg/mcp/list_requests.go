@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -197,17 +198,35 @@ func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error
 	return out, nil
 }
 
-// requestHost returns url's host, resolved against secrets when given. A url
-// that fails to resolve keeps its host as written.
-func requestHost(url, file string, secrets map[string]any) string {
+// requestHost returns rawURL's host, resolved against secrets when given. A
+// url that fails to resolve, or whose resolved host is not certain to exclude
+// userinfo, keeps its host as written.
+func requestHost(rawURL, file string, secrets map[string]any) string {
 	if secrets == nil {
-		return rawHost(url)
+		return rawHost(rawURL)
 	}
-	resolved, err := envparser.SubstituteVariables(url, secrets, file)
+	resolved, err := envparser.SubstituteVariables(rawURL, secrets, file)
 	if text, ok := resolved.(string); err == nil && ok {
-		return rawHost(text)
+		if host, ok := resolvedHost(text); ok {
+			return host
+		}
 	}
-	return rawHost(url)
+	return rawHost(rawURL)
+}
+
+// resolvedHost returns the host of a resolved url. ok is false when the url
+// does not parse, has no host, or holds an '@' the parser did not take as
+// userinfo, since a password with an unencoded '/' or '?' ends the authority
+// early and would put part of it in the host.
+func resolvedHost(text string) (string, bool) {
+	if !strings.Contains(text, "://") {
+		text = "//" + text
+	}
+	u, err := url.Parse(text)
+	if err != nil || u.Host == "" || (u.User == nil && strings.Contains(text, "@")) {
+		return "", false
+	}
+	return u.Host, true
 }
 
 func pathMatches(rel, filter string) bool {
