@@ -63,7 +63,8 @@ func (s *Server) registerListRequests() {
 			"GraphQL variables. Narrow with `filter`, a case-insensitive substring " +
 			"of the relative path (a directory like opn/ or part of a name). Pass " +
 			"`env` to resolve hosts against that environment; only the host is " +
-			"resolved, and a host that cannot resolve stays as written. Omit " +
+			"resolved, a host that cannot resolve stays as written, and a project " +
+			"without that env is marked env_missing. Omit " +
 			"`project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
