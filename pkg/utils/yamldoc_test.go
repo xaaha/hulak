@@ -174,11 +174,9 @@ func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tracked := gitTrackedFiles(t, dir)
-	for _, p := range walked {
-		if tracked[p] {
-			repo = append(repo, p)
-		}
+	repo = walked
+	if tracked, ok := gitTrackedFiles(dir); ok {
+		repo = slices.DeleteFunc(repo, func(p string) bool { return !tracked[p] })
 	}
 	root := os.Getenv(corpusEnv)
 	if root == "" {
@@ -194,11 +192,11 @@ func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	return repo, extra
 }
 
-func gitTrackedFiles(t *testing.T, root string) map[string]bool {
-	t.Helper()
+// gitTrackedFiles reports false outside a git work tree, e.g. a release tarball.
+func gitTrackedFiles(root string) (map[string]bool, bool) {
 	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
-		t.Fatalf("listing tracked files: %v", err)
+		return nil, false
 	}
 	tracked := map[string]bool{}
 	for _, rel := range bytes.Split(out, []byte{0}) {
@@ -206,7 +204,7 @@ func gitTrackedFiles(t *testing.T, root string) map[string]bool {
 			tracked[filepath.Join(root, string(rel))] = true
 		}
 	}
-	return tracked
+	return tracked, true
 }
 
 func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
