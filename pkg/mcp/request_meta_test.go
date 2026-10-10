@@ -1,6 +1,9 @@
 package mcp
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestRawHost_259(t *testing.T) {
 	tests := []struct {
@@ -28,6 +31,68 @@ func TestRawHost_259(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := rawHost(tc.url); got != tc.want {
 				t.Errorf("rawHost(%q) = %q, want %q", tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRequestAuth_259(t *testing.T) {
+	tests := []struct {
+		name    string
+		kind    string
+		headers map[string]any
+		want    string
+	}{
+		{"oauth2 kind", "Auth", nil, "oauth2"},
+		{"no headers", "API", nil, ""},
+		{"no credential header", "API", map[string]any{"content-type": "application/json"}, ""},
+		{"bearer literal", "API", map[string]any{"authorization": "Bearer abc123"}, "bearer"},
+		{"bearer from env", "API", map[string]any{"authorization": "Bearer {{.token}}"}, "bearer"},
+		{"bearer from getValueOf", "API",
+			map[string]any{"authorization": `Bearer {{getValueOf "access_token" "get_m2m_token"}}`}, "bearer from get_m2m_token"},
+		{"getValueOf in another spelling with a path", "GraphQL",
+			map[string]any{"authorization": "Bearer {{ get_value_of `access_token` `auth/login.hk.yaml` }}"}, "bearer from auth/login.hk.yaml"},
+		{"basic literal", "API", map[string]any{"authorization": "Basic dXNlcjpwdw=="}, "basic"},
+		{"basicAuth action", "API", map[string]any{"authorization": "{{basicAuth .user .pass}}"}, "basic"},
+		{"whole value from env", "API", map[string]any{"authorization": "{{.auth_header}}"}, "header authorization"},
+		{"api key header", "GraphQL", map[string]any{"x-api-key": "{{.appsync_api_key}}"}, "header x-api-key"},
+		{"cookie from getValueOf", "API",
+			map[string]any{"cookie": `{{getValueOf "session" "login"}}`}, "header cookie from login"},
+		{"authorization wins over others", "API",
+			map[string]any{"x-api-key": "k", "authorization": "Bearer t"}, "bearer"},
+		{"first credential header by name", "API",
+			map[string]any{"x-auth-token": "a", "cookie": "b"}, "header cookie"},
+		{"mixed case header name", "API", map[string]any{"Authorization": "bearer t"}, "bearer"},
+		{"non-string value", "API", map[string]any{"authorization": 42}, "header authorization"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := map[string]any{}
+			if tc.headers != nil {
+				doc["headers"] = tc.headers
+			}
+			if got := requestAuth(tc.kind, doc); got != tc.want {
+				t.Errorf("requestAuth(%s, %v) = %q, want %q", tc.kind, tc.headers, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSplitActionArgs_259(t *testing.T) {
+	tests := []struct {
+		body string
+		want []string
+	}{
+		{`getValueOf "a" "b"`, []string{"getValueOf", "a", "b"}},
+		{"getValueOf  `a`   'b c'", []string{"getValueOf", "a", "b c"}},
+		{`getValueOf "a \"q\"" "b"`, []string{"getValueOf", `a \"q\"`, "b"}},
+		{`getValueOf "unterminated`, []string{"getValueOf", "unterminated"}},
+		{"", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.body, func(t *testing.T) {
+			if got := splitActionArgs(tc.body); !slices.Equal(got, tc.want) {
+				t.Errorf("splitActionArgs(%q) = %q, want %q", tc.body, got, tc.want)
 			}
 		})
 	}

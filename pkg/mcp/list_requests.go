@@ -14,12 +14,14 @@ import (
 
 // RequestSummary describes one request file for the list_requests tool.
 // Path and Deps are relative to the project root when they live inside it.
+// Auth is filled only for a detail listing.
 type RequestSummary struct {
 	Name string   `json:"name"`
 	Path string   `json:"path"`
 	Kind string   `json:"kind,omitempty"`
 	Host string   `json:"host,omitempty"`
 	Deps []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
+	Auth string   `json:"auth,omitempty"`
 }
 
 // ProjectRequests is one project's request files and the root their paths are
@@ -32,6 +34,7 @@ type ProjectRequests struct {
 
 type listRequestsInput struct {
 	Project string `json:"project,omitempty" jsonschema:"limit to this project; omit to list every project"`
+	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode"`
 }
 
 type listRequestsOutput struct {
@@ -46,8 +49,10 @@ func (s *Server) registerListRequests() {
 			"has its absolute root; each entry has its name, file path relative to " +
 			"that root, kind (API/GraphQL), target host as written (template " +
 			"variables unresolved), and any dependency files it references " +
-			"(e.g. a GraphQL query .gql that lives next to the request). Omit " +
-			"`project` to list every configured project.",
+			"(e.g. a GraphQL query .gql that lives next to the request). Pass " +
+			"`detail` to also get each request's auth mode, e.g. \"bearer from " +
+			"login\": a bearer token read from the login request's response via " +
+			"getValueOf. Omit `project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
 }
@@ -78,7 +83,7 @@ func (s *Server) handleListRequests(
 		// directory, exactly as a real run does.
 		err := s.withProjectDir(targets[name], func() error {
 			var err error
-			reqs, err = listProjectRequests(targets[name])
+			reqs, err = listProjectRequests(targets[name], in.Detail)
 			return err
 		})
 		if err != nil {
@@ -94,7 +99,7 @@ func (s *Server) handleListRequests(
 }
 
 // listProjectRequests returns a summary of every request file under root.
-func listProjectRequests(root string) ([]RequestSummary, error) {
+func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
 	files, err := utils.ListFiles(root)
 	if err != nil {
 		return nil, err
@@ -118,13 +123,17 @@ func listProjectRequests(root string) ([]RequestSummary, error) {
 		// Metadata is best-effort too: an unparseable file is still listed.
 		doc, _ := readRequestDoc(f)
 		url, _ := doc["url"].(string)
-		out = append(out, RequestSummary{
+		summary := RequestSummary{
 			Name: utils.RequestStem(filepath.Base(f)),
 			Path: projectRelative(root, f),
 			Kind: requestKind(f),
 			Host: rawHost(url),
 			Deps: deps,
-		})
+		}
+		if detail {
+			summary.Auth = requestAuth(summary.Kind, doc)
+		}
+		out = append(out, summary)
 	}
 	return out, nil
 }

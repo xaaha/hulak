@@ -382,3 +382,38 @@ func TestListRequests_259_Host(t *testing.T) {
 		t.Errorf("hosts = %v, want %v", got, want)
 	}
 }
+
+func TestListRequests_259_AuthOnlyWithDetail(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "me.hk.yaml"),
+		"method: GET\nurl: https://api.example.com/me\nHeaders:\n  Authorization: Bearer {{getValueOf \"access_token\" \"login\"}}\n")
+	writeFileAt(t, filepath.Join(api, "gh.hk.yaml"),
+		"kind: Auth\nmethod: POST\nurl: https://github.com/login/oauth/authorize\n")
+	writeReq(t, api, "open.hk.yaml")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	auths := func(detail bool) map[string]string {
+		t.Helper()
+		_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Detail: detail})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		for _, r := range allRequests(out) {
+			got[r.Name] = r.Auth
+		}
+		return got
+	}
+
+	want := map[string]string{"me": "bearer from login", "gh": "oauth2", "open": ""}
+	if got := auths(true); !maps.Equal(got, want) {
+		t.Errorf("detail auth = %v, want %v", got, want)
+	}
+	want = map[string]string{"me": "", "gh": "", "open": ""}
+	if got := auths(false); !maps.Equal(got, want) {
+		t.Errorf("default auth = %v, want none outside a detail listing", got)
+	}
+}

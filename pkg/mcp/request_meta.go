@@ -1,12 +1,15 @@
 package mcp
 
 import (
+	"maps"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/goccy/go-yaml"
 
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
 // readRequestDoc decodes a request file into a map with lowercased keys.
@@ -67,4 +70,103 @@ func actionMask(s string) []bool {
 		}
 	}
 	return mask
+}
+
+// requestAuth names how a request authenticates: "oauth2" for an Auth kind,
+// the Authorization scheme ("bearer", "basic"), or "header <name>" for another
+// credential header. When the credential comes from getValueOf, " from
+// <request>" names the request it is read from. Empty means no auth found.
+func requestAuth(kind string, doc map[string]any) string {
+	if kind == string(yamlparser.KindAuth) {
+		return "oauth2"
+	}
+	headers, _ := doc["headers"].(map[string]any)
+	credentials := map[string]any{}
+	for name, value := range headers {
+		if utils.IsSensitiveHeader(name) {
+			credentials[strings.ToLower(name)] = value
+		}
+	}
+	if len(credentials) == 0 {
+		return ""
+	}
+	name := slices.Min(slices.Collect(maps.Keys(credentials)))
+	value, _ := credentials[name].(string)
+	label := "header " + name
+	if name == "authorization" {
+		if scheme := authScheme(value); scheme != "" {
+			label = scheme
+		}
+	}
+	for _, args := range templateActions(value) {
+		if args[0] == utils.TemplateFuncGetValueOf && len(args) == 3 {
+			return label + " from " + args[2]
+		}
+	}
+	return label
+}
+
+// authScheme returns the lowercased scheme of an Authorization value, from its
+// first literal word or a leading basicAuth action. Empty when unknown.
+func authScheme(value string) string {
+	v := strings.TrimSpace(value)
+	if strings.HasPrefix(v, "{{") {
+		if actions := templateActions(v); len(actions) > 0 && actions[0][0] == utils.TemplateFuncBasicAuth {
+			return "basic"
+		}
+		return ""
+	}
+	if word, _, _ := strings.Cut(v, " "); word != "" {
+		return strings.ToLower(word)
+	}
+	return ""
+}
+
+// templateActions returns each function-call action in s as its canonical
+// function name followed by its quoted string arguments.
+func templateActions(s string) [][]string {
+	var out [][]string
+	for {
+		_, rest, ok := strings.Cut(s, "{{")
+		if !ok {
+			return out
+		}
+		body, after, ok := strings.Cut(rest, "}}")
+		if !ok {
+			return out
+		}
+		s = after
+		fields := splitActionArgs(strings.Trim(strings.TrimSpace(body), "-"))
+		if len(fields) == 0 {
+			continue
+		}
+		if name, ok := utils.CanonicalActionName(fields[0]); ok {
+			out = append(out, append([]string{name}, fields[1:]...))
+		}
+	}
+}
+
+// splitActionArgs splits an action body on spaces, keeping a quoted argument
+// whole and returning it without its quotes.
+func splitActionArgs(body string) []string {
+	var fields []string
+	for body = strings.TrimSpace(body); body != ""; body = strings.TrimSpace(body) {
+		quote := body[0]
+		if quote != '"' && quote != '\'' && quote != '`' {
+			word, rest, _ := strings.Cut(body, " ")
+			fields = append(fields, word)
+			body = rest
+			continue
+		}
+		end := 1
+		for end < len(body) && body[end] != quote {
+			if body[end] == '\\' && quote == '"' {
+				end++
+			}
+			end++
+		}
+		fields = append(fields, body[1:min(end, len(body))])
+		body = body[min(end+1, len(body)):]
+	}
+	return fields
 }
