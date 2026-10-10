@@ -70,6 +70,12 @@ func TestRequestAuth_259(t *testing.T) {
 			map[string]any{"x-auth-token": "a", "cookie": "b"}, "header cookie"},
 		{"mixed case header name", "API", map[string]any{"Authorization": "bearer t"}, "bearer"},
 		{"non-string value", "API", map[string]any{"authorization": 42}, "header authorization"},
+		{"getValueOf with one argument", "API",
+			map[string]any{"authorization": `Bearer {{getValueOf "access_token"}}`}, "bearer"},
+		{"getValueOf with trim markers", "API",
+			map[string]any{"authorization": `Bearer {{- getValueOf "access_token" "login" -}}`}, "bearer from login"},
+		{"getValueOf after another action", "API",
+			map[string]any{"authorization": `Bearer {{os "PREFIX"}}{{getValueOf "access_token" "login"}}`}, "bearer from login"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -93,6 +99,7 @@ func TestSplitActionArgs_259(t *testing.T) {
 		{"getValueOf  `a`   'b c'", []string{"getValueOf", "a", "b c"}},
 		{`getValueOf "a \"q\"" "b"`, []string{"getValueOf", `a \"q\"`, "b"}},
 		{`getValueOf "unterminated`, []string{"getValueOf", "unterminated"}},
+		{"getValueOf `a\\` `c`", []string{"getValueOf", `a\`, "c"}},
 		{"", nil},
 	}
 	for _, tc := range tests {

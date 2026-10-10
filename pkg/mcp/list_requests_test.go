@@ -648,6 +648,12 @@ func TestListRequests_259_EnvResolvesHosts(t *testing.T) {
 			t.Error("want an error when the only target project lacks the env")
 		}
 	})
+
+	t.Run("an env missing from the only target project is an error even with no match", func(t *testing.T) {
+		if _, err := list(listRequestsInput{Env: "staging", Project: "mobile", Filter: "nothing"}); err == nil {
+			t.Error("want an error when the only target project lacks the env, whatever the filter")
+		}
+	})
 }
 
 func TestListRequests_259_EnvResolvesHostsInVaultProject(t *testing.T) {
@@ -711,5 +717,71 @@ func TestListRequests_259_EnvWritesNothing(t *testing.T) {
 	}
 	if utils.FileExists(filepath.Join(api, "env", "global.env")) {
 		t.Error("list_requests created env/global.env; it is a read-only tool")
+	}
+}
+
+func TestListRequests_259_EnvLoadErrorIsReturned(t *testing.T) {
+	api := projectDir(t)
+	writeFileAt(t, filepath.Join(api, "env", "staging.env"), "\xff\xfeb\x00=\x00x\x00\n\x00")
+	writeReq(t, api, "users.hk.yaml")
+
+	s, err := NewServer(map[string]string{"api": api}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Env: "staging"})
+	if err == nil || strings.Contains(err.Error(), "not found in any project") {
+		t.Fatalf("err = %v, out = %v, want the env load error itself", err, out)
+	}
+}
+
+func TestListRequests_259_FilterIgnoresTheRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "rootonlytoken")
+	if err := os.MkdirAll(filepath.Join(root, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeReq(t, root, "users.hk.yaml")
+
+	s, err := NewServer(map[string]string{"api": root}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Filter: "rootonlytoken"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reqs := allRequests(out); len(reqs) != 0 {
+		t.Errorf("filter matched the project root: %v", reqs)
+	}
+}
+
+func TestListRequests_259_RootUnderSymlinkKeepsDepsRelative(t *testing.T) {
+	parent := t.TempDir()
+	projDir := filepath.Join(parent, "proj")
+	if err := os.MkdirAll(filepath.Join(projDir, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFileAt(t, filepath.Join(projDir, "gql", "users.gql"), "query { users { id } }")
+	writeFileAt(t, filepath.Join(projDir, "users.hk.yaml"),
+		"kind: GraphQL\nmethod: POST\nurl: http://x\nbody:\n  graphql:\n    query: '{{getFile \"gql/users.gql\"}}'\n")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(parent, link); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := NewServer(map[string]string{"api": filepath.Join(link, "proj")}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := allRequests(out)[0]
+	if r.Path != "users.hk.yaml" {
+		t.Errorf("path = %s, want users.hk.yaml", r.Path)
+	}
+	if want := filepath.Join("gql", "users.gql"); len(r.Deps) != 1 || r.Deps[0] != want {
+		t.Errorf("deps = %v, want [%s] relative to the root behind the symlink", r.Deps, want)
 	}
 }
