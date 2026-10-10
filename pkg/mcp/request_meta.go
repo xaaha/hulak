@@ -106,8 +106,16 @@ func requestAuth(kind string, doc map[string]any) string {
 	return label
 }
 
-// authScheme returns the lowercased scheme of an Authorization value, from its
-// first literal word or a leading basicAuth action. Empty when unknown.
+// authSchemes are the Authorization schemes reported by name. Any other first
+// word may be the credential itself, so it is never echoed.
+var authSchemes = []string{
+	"aws4-hmac-sha256", "basic", "bearer", "digest", "dpop", "hoba",
+	"mutual", "negotiate", "ntlm", "oauth", "token",
+}
+
+// authScheme returns the lowercased scheme of an Authorization value, from a
+// known first word followed by a credential, or a leading basicAuth action.
+// Empty when unknown.
 func authScheme(value string) string {
 	v := strings.TrimSpace(value)
 	if strings.HasPrefix(v, "{{") {
@@ -116,10 +124,12 @@ func authScheme(value string) string {
 		}
 		return ""
 	}
-	if word, _, _ := strings.Cut(v, " "); word != "" {
-		return strings.ToLower(word)
+	word, rest, _ := strings.Cut(v, " ")
+	scheme := strings.ToLower(word)
+	if strings.TrimSpace(rest) == "" || !slices.Contains(authSchemes, scheme) {
+		return ""
 	}
-	return ""
+	return scheme
 }
 
 // templateActions returns each function-call action in s as its canonical
