@@ -94,9 +94,7 @@ func (s *Server) handleListRequests(
 	for _, name := range projectNames(targets) {
 		var reqs []RequestSummary
 		envMissing := false
-		// Run inside the project dir: dependency resolution (utils.ReferencedFiles
-		// -> getFile) and secret loading are project-root-relative and key off
-		// the working directory, exactly as a real run does.
+		// Deps and secrets resolve against the working directory, as in a real run.
 		err := s.withProjectDir(targets[name], func() error {
 			opts := listOptions{filter: in.Filter, detail: in.Detail}
 			if in.Env != "" {

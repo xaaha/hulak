@@ -356,7 +356,6 @@ func ReadSecretsMap(envName string) (map[string]any, error) {
 	return readEnvFiles(envName)
 }
 
-// readEnvFiles merges global.env, when present, with {envName}.env.
 func readEnvFiles(envName string) (map[string]any, error) {
 	globalFile := utils.DefaultEnvVal + utils.DefaultEnvFileSuffix
 	globalPath, err := utils.CreatePath(filepath.Join(utils.EnvironmentFolder, globalFile))

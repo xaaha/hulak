@@ -123,7 +123,7 @@ The agent discovers all of this — every tool, every argument — from the MCP 
 | `detail`  | `false` | Also report each request's `auth` mode, the `env_vars` it resolves (`{{.name}}`), and its GraphQL `variables`. |
 | `env`     | —       | Resolve each `host` against this environment. Without it, hosts are shown as written, e.g. `{{.base_url}}`. |
 
-The listing groups requests by project. Each project carries its absolute `root` once, and every `path` and `deps` entry is relative to it. `auth` reads like `bearer from login`: a bearer token taken from the `login` request's response with `getValueOf`. Only a known scheme word is named. Any other `Authorization` value, which may be the credential itself, shows as `header authorization`. With `env`, a project that lacks the environment is marked `env_missing` and keeps its hosts as written. An environment that none of the targeted projects has is an error, even when `filter` leaves some of them out of the result.
+The listing groups requests by project. Each project carries its absolute `root` once, and every `path` and `deps` entry is relative to it. `auth` reads like `bearer from login`: a bearer token taken from the `login` request's response with `getValueOf`. Only a known scheme word is named. Any other `Authorization` value, which may be the credential itself, shows as `header authorization`. With `env`, a host whose variables do not resolve stays as written, and a project that lacks the environment is marked `env_missing` and keeps its hosts as written. An environment that none of the targeted projects has is an error, even when `filter` leaves some of them out of the result.
 
 ### `call_request` arguments
 

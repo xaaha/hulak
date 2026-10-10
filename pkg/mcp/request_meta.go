@@ -12,7 +12,6 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// readRequestDoc decodes a request file into a map with lowercased keys.
 func readRequestDoc(path string) (map[string]any, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
