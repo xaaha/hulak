@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -167,9 +169,16 @@ func readCorpusFile(t *testing.T, path string) ([]byte, bool) {
 
 func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	t.Helper()
-	repo, err := collectYAMLFiles(repoRoot(t))
+	dir := repoRoot(t)
+	walked, err := collectYAMLFiles(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	tracked := gitTrackedFiles(t, dir)
+	for _, p := range walked {
+		if tracked[p] {
+			repo = append(repo, p)
+		}
 	}
 	root := os.Getenv(corpusEnv)
 	if root == "" {
@@ -183,6 +192,21 @@ func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 		t.Fatalf("%s=%s holds no YAML files", corpusEnv, root)
 	}
 	return repo, extra
+}
+
+func gitTrackedFiles(t *testing.T, root string) map[string]bool {
+	t.Helper()
+	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
+	if err != nil {
+		t.Fatalf("listing tracked files: %v", err)
+	}
+	tracked := map[string]bool{}
+	for _, rel := range bytes.Split(out, []byte{0}) {
+		if len(rel) > 0 {
+			tracked[filepath.Join(root, string(rel))] = true
+		}
+	}
+	return tracked
 }
 
 func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {
