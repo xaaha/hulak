@@ -9,6 +9,8 @@ import (
 	"slices"
 	"testing"
 
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/xaaha/hulak/pkg/utils"
 )
 
@@ -463,5 +465,89 @@ func TestListRequests_259_VariablesOnlyWithDetail(t *testing.T) {
 			t.Errorf("default %s env_vars = %v, variables = %v, want none outside a detail listing",
 				name, r.EnvVars, r.Variables)
 		}
+	}
+}
+
+func TestListRequests_259_Filter(t *testing.T) {
+	api := projectDir(t)
+	mobile := projectDir(t)
+	writeReq(t, filepath.Join(api, "opn", "migration"), "get_enrollment.hk.yaml")
+	writeReq(t, filepath.Join(api, "tuition_reimbursement"), "get_claim.hk.yaml")
+	writeReq(t, filepath.Join(api, "auth"), "Login.hk.yaml")
+	writeReq(t, mobile, "login.hk.yaml")
+	writeReq(t, mobile, "signup.hk.yaml")
+
+	s, err := NewServer(map[string]string{"api": api, "mobile": mobile}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name   string
+		filter string
+		want   []string
+	}{
+		{"none", "", []string{"api/get_enrollment", "api/get_claim", "api/login", "mobile/login", "mobile/signup"}},
+		{"directory", "opn/", []string{"api/get_enrollment"}},
+		{"nested directory", "opn/migration/get", []string{"api/get_enrollment"}},
+		{"name in mixed case", "LOGIN", []string{"api/login", "mobile/login"}},
+		{"no match", "nothing", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, out, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Filter: tc.filter})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, p := range out.Projects {
+				if len(p.Requests) == 0 {
+					t.Errorf("project %s listed with no requests", p.Name)
+				}
+				for _, r := range p.Requests {
+					got = append(got, p.Name+"/"+r.Name)
+				}
+			}
+			slices.Sort(got)
+			want := slices.Sorted(slices.Values(tc.want))
+			if !slices.Equal(got, want) {
+				t.Errorf("filter %q listed %v, want %v", tc.filter, got, want)
+			}
+		})
+	}
+}
+
+func TestListRequests_259_EmptyResultOverMCP(t *testing.T) {
+	ctx := context.Background()
+	serverT, clientT := mcpsdk.NewInMemoryTransports()
+	api := projectDir(t)
+	writeReq(t, api, "login.hk.yaml")
+	s, err := NewServer(map[string]string{"api": api}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss, err := s.srv.Connect(ctx, serverT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ss.Close()
+	cs, err := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "c", Version: "0"}, nil).Connect(ctx, clientT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cs.Close()
+
+	res, err := cs.CallTool(ctx, &mcpsdk.CallToolParams{
+		Name:      "list_requests",
+		Arguments: map[string]any{"filter": "nothing"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("empty filter result is a tool error: %v", res.Content)
+	}
+	text := res.Content[0].(*mcpsdk.TextContent).Text
+	if text != `{"projects":[]}` {
+		t.Errorf("content = %s, want an empty projects list", text)
 	}
 }

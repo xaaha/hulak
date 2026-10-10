@@ -36,6 +36,7 @@ type ProjectRequests struct {
 
 type listRequestsInput struct {
 	Project string `json:"project,omitempty" jsonschema:"limit to this project; omit to list every project"`
+	Filter  string `json:"filter,omitempty"  jsonschema:"case-insensitive substring of the project-relative path, e.g. opn/ or login"`
 	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode, env variables, and GraphQL variables"`
 }
 
@@ -55,7 +56,9 @@ func (s *Server) registerListRequests() {
 			"`detail` to also get each request's auth mode (e.g. \"bearer from " +
 			"login\": a bearer token read from the login request's response via " +
 			"getValueOf), the env variables it resolves ({{.name}}), and its " +
-			"GraphQL variables. Omit `project` to list every configured project.",
+			"GraphQL variables. Narrow with `filter`, a case-insensitive substring " +
+			"of the relative path (a directory like opn/ or part of a name). Omit " +
+			"`project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
 }
@@ -78,7 +81,7 @@ func (s *Server) handleListRequests(
 		targets = map[string]string{in.Project: path}
 	}
 
-	var out listRequestsOutput
+	out := listRequestsOutput{Projects: []ProjectRequests{}}
 	for _, name := range projectNames(targets) {
 		var reqs []RequestSummary
 		// Run inside the project dir: dependency resolution (utils.ReferencedFiles
@@ -86,11 +89,14 @@ func (s *Server) handleListRequests(
 		// directory, exactly as a real run does.
 		err := s.withProjectDir(targets[name], func() error {
 			var err error
-			reqs, err = listProjectRequests(targets[name], in.Detail)
+			reqs, err = listProjectRequests(targets[name], in.Filter, in.Detail)
 			return err
 		})
 		if err != nil {
 			return nil, listRequestsOutput{}, err
+		}
+		if len(reqs) == 0 {
+			continue
 		}
 		out.Projects = append(out.Projects, ProjectRequests{
 			Name:     name,
@@ -101,8 +107,9 @@ func (s *Server) handleListRequests(
 	return nil, out, nil
 }
 
-// listProjectRequests returns a summary of every request file under root.
-func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
+// listProjectRequests returns a summary of every request file under root
+// whose project-relative path contains filter, ignoring case.
+func listProjectRequests(root, filter string, detail bool) ([]RequestSummary, error) {
 	files, err := utils.ListFiles(root)
 	if err != nil {
 		return nil, err
@@ -114,7 +121,8 @@ func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
 	}
 	var out []RequestSummary
 	for _, f := range files {
-		if !utils.IsRequestFile(filepath.Base(f)) {
+		rel := projectRelative(root, f)
+		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, filter) {
 			continue
 		}
 		// Deps are best-effort: a missing/unreadable referenced file should
@@ -128,7 +136,7 @@ func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
 		url, _ := doc["url"].(string)
 		summary := RequestSummary{
 			Name: utils.RequestStem(filepath.Base(f)),
-			Path: projectRelative(root, f),
+			Path: rel,
 			Kind: requestKind(f),
 			Host: rawHost(url),
 			Deps: deps,
@@ -140,6 +148,13 @@ func listProjectRequests(root string, detail bool) ([]RequestSummary, error) {
 		out = append(out, summary)
 	}
 	return out, nil
+}
+
+func pathMatches(rel, filter string) bool {
+	return strings.Contains(
+		strings.ToLower(filepath.ToSlash(rel)),
+		strings.ToLower(filepath.ToSlash(filter)),
+	)
 }
 
 // projectRelative returns path relative to root, or path unchanged when it
