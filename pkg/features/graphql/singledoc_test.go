@@ -62,3 +62,32 @@ func TestFindGraphQLFiles_269_KeepsSplitFileWithoutAskingForEnv(t *testing.T) {
 		t.Errorf("processing must report the split file: %+v", results)
 	}
 }
+
+func TestNeedsEnvResolution_269_SplitFileDoesNotHideOthers(t *testing.T) {
+	dir := t.TempDir()
+	split := writeSplit(t, dir)
+	templated := filepath.Join(dir, "templated.hk.yaml")
+	if err := os.WriteFile(templated, []byte("kind: GraphQL\nurl: '{{getValueOf \"url\" \"config\"}}'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mixed := map[string]string{"{{.base}}/gql": split, `{{getValueOf "url" "config"}}`: templated}
+	for range 64 {
+		if !NeedsEnvResolution(mixed) {
+			t.Fatal("a templated single-document file must still ask for an environment next to a split file")
+		}
+	}
+	if !NeedsEnvResolution(map[string]string{`{{getValueOf "url" "config"}}`: templated}) {
+		t.Error("a templated url in a single-document file must ask for an environment")
+	}
+}
+
+func TestValidateGraphQLFile_269_RejectsSplitFileWithPlainURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plain.hk.yaml")
+	if err := os.WriteFile(path, []byte("kind: GraphQL\nurl: https://e.com/gql\n---\nheaders:\n  X-A: b\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ValidateGraphQLFile(path)
+	if err == nil || err.Error() != testutil.SingleDocError(path, 3) {
+		t.Errorf("err = %v, want %q", err, testutil.SingleDocError(path, 3))
+	}
+}
