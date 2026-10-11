@@ -151,15 +151,22 @@ func containedPath(realRoot, path string) (string, bool, error) {
 // secretFiles lists the files under realRoot's env/ and .hulak/, to catch hard links to them.
 func secretFiles(realRoot string) ([]os.FileInfo, error) {
 	var files []os.FileInfo
-	for _, dir := range []string{utils.EnvironmentFolder, utils.HiddenProjectName} {
-		err := filepath.WalkDir(filepath.Join(realRoot, dir), func(_ string, d fs.DirEntry, err error) error {
-			if errors.Is(err, fs.ErrNotExist) {
-				return nil
-			}
+	for _, name := range []string{utils.EnvironmentFolder, utils.HiddenProjectName} {
+		dir, err := filepath.EvalSymlinks(filepath.Join(realRoot, name))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
 			}
-			info, err := d.Info()
+			info, err := os.Stat(path)
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}

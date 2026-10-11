@@ -257,3 +257,74 @@ func TestReadRequest_260_ProjectUnderSymlinkedParent(t *testing.T) {
 		t.Errorf("deps = %+v, want %+v", out.Deps, want)
 	}
 }
+
+func TestReadRequest_260_HardLinksBehindSymlinkedSecrets(t *testing.T) {
+	ctx := context.Background()
+	link := func(t *testing.T, target, name string) {
+		t.Helper()
+		if err := os.Link(target, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	symlink := func(t *testing.T, target, name string) {
+		t.Helper()
+		if err := os.Symlink(target, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func(t *testing.T, root, raw string) []DependencyFile {
+		t.Helper()
+		writeFileAt(t, filepath.Join(root, "probe.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+raw+"'\n")
+		s, err := NewServer(map[string]string{"api": root}, "v")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: "probe"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out.Deps
+	}
+
+	t.Run("env folder is a symlink to a shared folder", func(t *testing.T) {
+		root := evalSymlinks(t, t.TempDir())
+		shared := evalSymlinks(t, t.TempDir())
+		writeFileAt(t, filepath.Join(shared, "global.env"), "SHARED-SECRET")
+		symlink(t, shared, filepath.Join(root, "env"))
+		link(t, filepath.Join(shared, "global.env"), filepath.Join(root, "h.json"))
+		want := []DependencyFile{{Path: "h.json", Withheld: true}}
+		if got := read(t, root, `{{getFile "h.json"}}`); !slices.Equal(got, want) {
+			t.Errorf("deps = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("an env file is a symlink to an outside file", func(t *testing.T) {
+		root := evalSymlinks(t, projectDir(t))
+		outside := evalSymlinks(t, t.TempDir())
+		writeFileAt(t, filepath.Join(outside, "real.env"), "OUTSIDE-SECRET")
+		symlink(t, filepath.Join(outside, "real.env"), filepath.Join(root, "env", "global.env"))
+		link(t, filepath.Join(outside, "real.env"), filepath.Join(root, "h.json"))
+		want := []DependencyFile{{Path: "h.json", Withheld: true}}
+		if got := read(t, root, `{{getFile "h.json"}}`); !slices.Equal(got, want) {
+			t.Errorf("deps = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("vault and nested files, and a symlink to a hard link", func(t *testing.T) {
+		root := evalSymlinks(t, projectDir(t))
+		writeFileAt(t, filepath.Join(root, ".hulak", "store.age"), "VAULT")
+		writeFileAt(t, filepath.Join(root, "env", "nested", "x.env"), "NESTED")
+		link(t, filepath.Join(root, ".hulak", "store.age"), filepath.Join(root, "v.bin"))
+		link(t, filepath.Join(root, "env", "nested", "x.env"), filepath.Join(root, "n.txt"))
+		symlink(t, filepath.Join(root, "n.txt"), filepath.Join(root, "alias.txt"))
+		want := []DependencyFile{
+			{Path: "v.bin", Withheld: true},
+			{Path: "n.txt", Withheld: true},
+			{Path: "alias.txt", Withheld: true},
+		}
+		got := read(t, root, `{{getFile "v.bin"}}{{getFile "n.txt"}}{{getFile "alias.txt"}}`)
+		if !slices.Equal(got, want) {
+			t.Errorf("deps = %+v, want %+v", got, want)
+		}
+	})
+}
