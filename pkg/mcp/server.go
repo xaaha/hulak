@@ -24,10 +24,11 @@ import (
 // Every tool resolves a request within a project; when the caller omits the project,
 // the resolver searches all of them and reports ambiguity rather than guessing.
 type Server struct {
-	projects  map[string]string // name -> absolute project directory
-	srv       *mcpsdk.Server
-	reqSchema *jsonschema.Resolved // request-file schema; nil = skip schema validation
-	mu        sync.Mutex           // serializes withProjectDir
+	projects      map[string]string // name -> absolute project directory
+	srv           *mcpsdk.Server
+	reqSchema     *jsonschema.Resolved // request-file schema; nil = skip schema validation
+	reqSchemaJSON []byte
+	mu            sync.Mutex // serializes withProjectDir
 }
 
 // SetRequestSchema compiles schemaJSON (the hulak request JSON Schema) and uses
@@ -49,6 +50,7 @@ func (s *Server) SetRequestSchema(schemaJSON []byte) {
 		return
 	}
 	s.reqSchema = resolved
+	s.reqSchemaJSON = schemaJSON
 }
 
 // Match is a resolved request: the file and the project it was found in.
@@ -82,6 +84,7 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 	s := &Server{projects: resolved, srv: srv}
 	s.registerListRequests()
 	s.registerReadRequest()
+	s.registerRequestFormat()
 	s.registerListEnvs()
 	s.registerDryRun()
 	s.registerCallRequest()
