@@ -107,8 +107,25 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 	if err := os.Symlink(filepath.Join(outside, "outer.hk.yaml"), filepath.Join(api, "outer.hk.yaml")); err != nil {
 		t.Fatal(err)
 	}
+	writeFileAt(t, filepath.Join(api, "child", "env", "global.env"), "CHILD-SECRET")
+	evil := api + "-evil"
+	writeFileAt(t, filepath.Join(evil, "secret.txt"), "EVIL-SECRET")
+	t.Cleanup(func() { _ = os.RemoveAll(evil) })
+	for link, target := range map[string]string{
+		"inner.txt":    filepath.Join(api, "env", "global.env"),
+		"evil.txt":     filepath.Join(evil, "secret.txt"),
+		"peek.hk.yaml": filepath.Join(api, "env", "global.env"),
+	} {
+		if err := os.Symlink(target, filepath.Join(api, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFileAt(t, filepath.Join(api, "env", "inenv.hk.yaml"), "method: GET\nurl: http://inenv\n")
 	writeFileAt(t, filepath.Join(api, "leak.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
-		`{{getFile "env/global.env"}}{{getFile ".hulak/store.age"}}{{getFile "link.txt"}}{{getFile "q/chain.txt"}}`+"'\n")
+		`{{getFile "env/global.env"}}{{getFile ".hulak/store.age"}}{{getFile "link.txt"}}{{getFile "q/chain.txt"}}`+
+		`{{getFile "inner.txt"}}{{getFile "child/env/global.env"}}{{getFile "evil.txt"}}`+"'\n")
+	writeFileAt(t, filepath.Join(api, "cased.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
+		`{{getFile "ENV/global.env"}}{{getFile "Env/global.env"}}{{getFile ".HULAK/store.age"}}`+"'\n")
 
 	s, err := NewServer(map[string]string{"api": api}, "v")
 	if err != nil {
@@ -126,6 +143,9 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 			{Path: filepath.Join(".hulak", "store.age"), Withheld: true},
 			{Path: "link.txt", Missing: true},
 			{Path: filepath.Join("q", "chain.txt"), Content: `{{getFile "q/never_read.txt"}}`},
+			{Path: "inner.txt", Withheld: true},
+			{Path: filepath.Join("child", "env", "global.env"), Withheld: true},
+			{Path: "evil.txt", Missing: true},
 		}
 		if !slices.Equal(out.Deps, want) {
 			t.Errorf("deps = %+v\nwant %+v", out.Deps, want)
@@ -134,12 +154,36 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, leak := range []string{"ENV-SECRET", "VAULT-BYTES", "OUTSIDE-SECRET", "CHAINED-CONTENT"} {
+		for _, leak := range []string{"ENV-SECRET", "VAULT-BYTES", "OUTSIDE-SECRET", "CHAINED-CONTENT", "CHILD-SECRET", "EVIL-SECRET"} {
 			if strings.Contains(string(raw), leak) {
 				t.Errorf("read_request returned %s: %s", leak, raw)
 			}
 		}
 	})
+
+	t.Run("a differently cased secrets folder is held back", func(t *testing.T) {
+		_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: "cased"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out.Deps) != 3 {
+			t.Fatalf("deps = %+v, want three", out.Deps)
+		}
+		for _, dep := range out.Deps {
+			if dep.Content != "" || (!dep.Withheld && !dep.Missing) {
+				t.Errorf("dep %+v must be withheld or missing", dep)
+			}
+		}
+	})
+
+	for _, name := range []string{"peek", "inenv"} {
+		t.Run("request "+name+" in a secrets folder is refused", func(t *testing.T) {
+			_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: name})
+			if err == nil || out.Content != "" {
+				t.Errorf("err = %v, content = %q, want an error and no content", err, out.Content)
+			}
+		})
+	}
 
 	t.Run("a sibling query is read", func(t *testing.T) {
 		_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: "users"})
@@ -158,4 +202,28 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 			t.Errorf("err = %v, content = %q, want an error and no content", err, out.Content)
 		}
 	})
+}
+
+func TestReadRequest_260_ProjectUnderSymlinkedParent(t *testing.T) {
+	parent := t.TempDir()
+	writeFileAt(t, filepath.Join(parent, "proj", "env", "global.env"), "")
+	writeFileAt(t, filepath.Join(parent, "proj", "gql", "q.gql"), "query { a }")
+	writeFileAt(t, filepath.Join(parent, "proj", "q.hk.yaml"),
+		"kind: GraphQL\nmethod: POST\nurl: http://x\nbody:\n  graphql:\n    query: '{{getFile \"gql/q.gql\"}}'\n")
+	link := filepath.Join(t.TempDir(), "via")
+	if err := os.Symlink(parent, link); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewServer(map[string]string{"api": filepath.Join(link, "proj")}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleReadRequest(context.Background(), nil, readRequestInput{Name: "q"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []DependencyFile{{Path: filepath.Join("gql", "q.gql"), Content: "query { a }"}}
+	if !slices.Equal(out.Deps, want) {
+		t.Errorf("deps = %+v, want %+v", out.Deps, want)
+	}
 }

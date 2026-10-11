@@ -912,7 +912,9 @@ func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
 
 	writeFile(t, filepath.Join(root, "svc", "users.gql"),
 		"query { ...F } {{"+TemplateFuncGetFile+" \"frag/inner.gql\"}}")
-	writeFile(t, filepath.Join(root, "frag", "inner.gql"), "fragment F on User { id }")
+	writeFile(t, filepath.Join(root, "frag", "inner.gql"),
+		"fragment F on User { id } {{"+TemplateFuncGetFile+" \"frag/deepest.gql\"}}")
+	writeFile(t, filepath.Join(root, "frag", "deepest.gql"), "fragment G on User { name }")
 	req := filepath.Join(root, "svc", "users.hk.yaml")
 	writeFile(t, req, buildGetFileContent("*.gql"))
 
@@ -920,7 +922,11 @@ func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{filepath.Join(root, "svc", "users.gql"), filepath.Join(root, "frag", "inner.gql")}
+	want := []string{
+		filepath.Join(root, "svc", "users.gql"),
+		filepath.Join(root, "frag", "inner.gql"),
+		filepath.Join(root, "frag", "deepest.gql"),
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("ReferencedFiles = %v, want the sibling and its transitive dependency %v", got, want)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -64,8 +65,12 @@ func (s *Server) handleReadRequest(
 		if err != nil {
 			return err
 		}
-		if _, inside, err := containedPath(realRoot, m.Path); err != nil || !inside {
+		rel, inside, err := containedPath(realRoot, m.Path)
+		if err != nil || !inside {
 			return fmt.Errorf("%s is outside project %q", m.Path, m.Project)
+		}
+		if holdsSecrets(rel) {
+			return fmt.Errorf("%s is in a secrets folder of project %q", m.Path, m.Project)
 		}
 		content, err := os.ReadFile(m.Path)
 		if err != nil {
@@ -136,7 +141,10 @@ func containedPath(realRoot, path string) (string, bool, error) {
 	return rel, !filepath.IsAbs(rel), nil
 }
 
+// holdsSecrets ignores case because macOS and Windows open ENV/global.env as env/global.env.
 func holdsSecrets(rel string) bool {
-	top, _, _ := strings.Cut(filepath.ToSlash(rel), "/")
-	return top == utils.EnvironmentFolder || top == utils.HiddenProjectName
+	dirs := strings.Split(filepath.ToSlash(filepath.Dir(rel)), "/")
+	return slices.ContainsFunc(dirs, func(dir string) bool {
+		return strings.EqualFold(dir, utils.EnvironmentFolder) || strings.EqualFold(dir, utils.HiddenProjectName)
+	})
 }
