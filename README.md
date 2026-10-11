@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Hulak" src="./assets/logo.svg" width="280" />
+  <img alt="Hulak" src="./assets/hulak-logo.svg" width="220" />
 </p>
 
 <h3 align="center">
