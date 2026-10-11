@@ -19,7 +19,7 @@ func writeSplit(t *testing.T, dir string) string {
 	return path
 }
 
-func TestPeekFileInfo_SplitFileReportsSplitAndNoEnv(t *testing.T) {
+func TestPeekFileInfo_269_SplitFileReportsSplitAndNoEnv(t *testing.T) {
 	path := writeSplit(t, t.TempDir())
 	info, err := peekFileInfo(path)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestPeekFileInfo_SplitFileReportsSplitAndNoEnv(t *testing.T) {
 	}
 }
 
-func TestValidateGraphQLFile_RejectsSplitFile(t *testing.T) {
+func TestValidateGraphQLFile_269_RejectsSplitFile(t *testing.T) {
 	path := writeSplit(t, t.TempDir())
 	_, _, err := ValidateGraphQLFile(path)
 	if err == nil || err.Error() != testutil.SingleDocError(path, 3) {
@@ -44,7 +44,7 @@ func TestValidateGraphQLFile_RejectsSplitFile(t *testing.T) {
 	}
 }
 
-func TestFindGraphQLFiles_KeepsSplitFileWithoutAskingForEnv(t *testing.T) {
+func TestFindGraphQLFiles_269_KeepsSplitFileWithoutAskingForEnv(t *testing.T) {
 	dir := t.TempDir()
 	path := writeSplit(t, dir)
 	files, needsEnv, err := FindGraphQLFiles(dir)

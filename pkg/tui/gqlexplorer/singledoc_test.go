@@ -10,7 +10,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-func TestReadRawParentFields_RejectsSplitFile(t *testing.T) {
+func TestReadRawParentFields_269_RejectsSplitFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "parent.hk.yaml")
 	content := "kind: GraphQL\nurl: \"{{.base}}/gql\"\n---\nheaders:\n  Authorization: \"Bearer {{.token}}\"\n"
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {

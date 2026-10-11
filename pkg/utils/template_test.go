@@ -940,7 +940,7 @@ func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
 	}
 }
 
-func TestFileHasTemplateVars_SplitFileIsFalse(t *testing.T) {
+func TestFileHasTemplateVars_269_SplitFileIsFalse(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "split.hk.yaml")
 	content := "method: GET\nurl: \"{{.base}}/x\"\n---\nheaders:\n  X-A: \"{{.token}}\"\n"
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
