@@ -167,14 +167,16 @@ type rawParentFields struct {
 }
 
 func readRawParentFields(filePath string) (rawParentFields, error) {
-	file, err := os.Open(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return rawParentFields{}, err
 	}
-	defer func() { _ = file.Close() }()
+	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
+		return rawParentFields{}, err
+	}
 
 	var data map[string]any
-	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
+	if err := yaml.Unmarshal(content, &data); err != nil {
 		return rawParentFields{}, err
 	}
 
