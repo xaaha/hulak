@@ -220,3 +220,18 @@ func TestD14_278_RawErrorReachesNestedKeysAndSkipsDirectives(t *testing.T) {
 		})
 	}
 }
+
+func TestD14_278_NoRawLineThroughAnchorsOrMerges(t *testing.T) {
+	for name, content := range map[string]string{
+		"overridden merge": "method: GET\nurl: https://e.com\nheaders:\n  <<: {a: [1]}\n  a: ok\n  b: [2]\n",
+		"anchor used":      "x: &bad [1]\nmethod: GET\nurl: *bad\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := createTempYAMLFile(t, content)
+			_, _, err := FinalStructForAPI(path, map[string]any{})
+			if err == nil || !strings.HasPrefix(err.Error(), path+": ") || regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) {
+				t.Errorf("err = %v, want the file name and the message only", err)
+			}
+		})
+	}
+}

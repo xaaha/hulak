@@ -185,10 +185,32 @@ func rawDecodeError(filePath string, out any) error {
 		if _, ok := doc.Body.(*ast.DirectiveNode); ok {
 			continue
 		}
+		if usesAnchors(doc.Body) {
+			return nil
+		}
 		ast.Walk(lowerKeys{}, doc.Body)
 		return yaml.NodeToValue(doc.Body, out)
 	}
 	return nil
+}
+
+// usesAnchors reports anchors, aliases and merge keys: an error's position there is not where the value is used.
+func usesAnchors(node ast.Node) bool {
+	found := false
+	ast.Walk(visitFunc(func(n ast.Node) {
+		switch n.(type) {
+		case *ast.AnchorNode, *ast.AliasNode, *ast.MergeKeyNode:
+			found = true
+		}
+	}), node)
+	return found
+}
+
+type visitFunc func(ast.Node)
+
+func (f visitFunc) Visit(node ast.Node) ast.Visitor {
+	f(node)
+	return f
 }
 
 type lowerKeys struct{}
