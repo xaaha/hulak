@@ -129,8 +129,16 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 	writeFileAt(t, filepath.Join(api, "leak.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
 		`{{getFile "env/global.env"}}{{getFile ".hulak/store.age"}}{{getFile "link.txt"}}{{getFile "q/chain.txt"}}`+
 		`{{getFile "inner.txt"}}{{getFile "child/env/global.env"}}{{getFile "evil.txt"}}{{getFile "hard.json"}}`+"'\n")
+	writeFileAt(t, filepath.Join(api, "upper", "ENV", "global.env"), "UPPER-ENV-SECRET")
+	writeFileAt(t, filepath.Join(api, "upper", ".HULAK", "store.age"), "UPPER-VAULT-BYTES")
+	writeFileAt(t, filepath.Join(api, "env", "nested", "x.env"), "NESTED-SECRET")
 	writeFileAt(t, filepath.Join(api, "cased.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
-		`{{getFile "ENV/global.env"}}{{getFile "Env/global.env"}}{{getFile ".HULAK/store.age"}}`+"'\n")
+		`{{getFile "upper/ENV/global.env"}}{{getFile "upper/.HULAK/store.age"}}{{getFile "env/nested/x.env"}}`+"'\n")
+	writeFileAt(t, filepath.Join(api, "environments", "staging.json"), "STAGING")
+	writeFileAt(t, filepath.Join(api, "svc", "env"), "FILE-NAMED-ENV")
+	writeFileAt(t, filepath.Join(api, "dev.env.json"), "DEV")
+	writeFileAt(t, filepath.Join(api, "plain.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
+		`{{getFile "environments/staging.json"}}{{getFile "svc/env"}}{{getFile "dev.env.json"}}`+"'\n")
 
 	s, err := NewServer(map[string]string{"api": api}, "v")
 	if err != nil {
@@ -167,18 +175,33 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 		}
 	})
 
-	t.Run("a differently cased secrets folder is held back", func(t *testing.T) {
+	t.Run("cased and nested secrets folders are held back", func(t *testing.T) {
 		_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: "cased"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(out.Deps) != 3 {
-			t.Fatalf("deps = %+v, want three", out.Deps)
+		want := []DependencyFile{
+			{Path: filepath.Join("upper", "ENV", "global.env"), Withheld: true},
+			{Path: filepath.Join("upper", ".HULAK", "store.age"), Withheld: true},
+			{Path: filepath.Join("env", "nested", "x.env"), Withheld: true},
 		}
-		for _, dep := range out.Deps {
-			if dep.Content != "" || (!dep.Withheld && !dep.Missing) {
-				t.Errorf("dep %+v must be withheld or missing", dep)
-			}
+		if !slices.Equal(out.Deps, want) {
+			t.Errorf("deps = %+v\nwant %+v", out.Deps, want)
+		}
+	})
+
+	t.Run("names that only resemble a secrets folder are read", func(t *testing.T) {
+		_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: "plain"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []DependencyFile{
+			{Path: filepath.Join("environments", "staging.json"), Content: "STAGING"},
+			{Path: filepath.Join("svc", "env"), Content: "FILE-NAMED-ENV"},
+			{Path: "dev.env.json", Content: "DEV"},
+		}
+		if !slices.Equal(out.Deps, want) {
+			t.Errorf("deps = %+v\nwant %+v", out.Deps, want)
 		}
 	})
 
@@ -224,6 +247,7 @@ func TestReadRequest_260_ProjectUnderSymlinkedParent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("PWD", filepath.Join(link, "proj"))
 	_, out, err := s.handleReadRequest(context.Background(), nil, readRequestInput{Name: "q"})
 	if err != nil {
 		t.Fatal(err)
