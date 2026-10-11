@@ -7,7 +7,7 @@ Top-level keys:
 - `kind`: `API` (default), `GraphQL`, or `Auth` (OAuth 2.0 browser flow)
 - `method`: required. `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`, `CONNECT`
 - `url`: required. Query parameters can go in the url or in `urlparams`
-- `urlparams`, `headers`: string maps
+- `urlparams`, `headers`: string maps. `Content-Type` and `Accept` take one of the values the schema lists (see `request_format` with `schema: true`)
 - `body`: exactly one of `raw`, `formdata`, `urlencodedformdata`, `graphql`
 - `timeout`: Go duration, e.g. `30s`
 - `auth`: only for `kind: Auth`

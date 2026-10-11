@@ -36,12 +36,13 @@ type readRequestOutput struct {
 func (s *Server) registerReadRequest() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "read_request",
-		Description: "Read a request file as written, plus every file it pulls in " +
-			"with getFile (e.g. the .gql query of a GraphQL request). Use it to see " +
+		Description: "Read a request file as written, plus each file it reads " +
+			"directly with getFile (e.g. the .gql query of a GraphQL request). Use it to see " +
 			"what a request sends and which {{.variables}} it needs before dry_run " +
 			"or call_request, or to copy an existing request as the starting point " +
 			"for write_request. Env values are not resolved. A dependency that is " +
-			"missing or outside the project is listed with missing: true.",
+			"missing or outside the project is listed with missing: true, and one " +
+			"under env/ or .hulak/ with withheld: true and no content.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleReadRequest)
 }
