@@ -43,8 +43,9 @@ func (s *Server) registerReadRequest() {
 			"what a request sends and which {{.variables}} it needs before dry_run " +
 			"or call_request, or to copy an existing request as the starting point " +
 			"for write_request. Env values are not resolved. A dependency that is " +
-			"missing or outside the project is listed with missing: true, and one " +
-			"under env/ or .hulak/ with withheld: true and no content.",
+			"missing, outside the project, or not a regular file is listed with " +
+			"missing: true, and one under env/ or .hulak/, or a hard link to a file " +
+			"there, with withheld: true and no content.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleReadRequest)
 }
