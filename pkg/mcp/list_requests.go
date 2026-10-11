@@ -2,40 +2,70 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
+	"github.com/xaaha/hulak/pkg/vault"
 	"github.com/xaaha/hulak/pkg/yamlparser"
 )
 
-// RequestSummary describes one request file for the list_requests tool.
+// RequestSummary describes one request file; Auth, EnvVars, and Variables are filled only for a detail listing.
 type RequestSummary struct {
-	Name    string   `json:"name"`
-	Project string   `json:"project"`
-	Path    string   `json:"path"`
-	Kind    string   `json:"kind,omitempty"`
-	Deps    []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
+	Name      string   `json:"name"`
+	Path      string   `json:"path"`
+	Kind      string   `json:"kind,omitempty"`
+	Host      string   `json:"host,omitempty"`
+	Deps      []string `json:"deps,omitempty"` // referenced files, e.g. a GraphQL .gql
+	Auth      string   `json:"auth,omitempty"`
+	EnvVars   []string `json:"env_vars,omitempty"`
+	Variables []string `json:"variables,omitempty"`
+}
+
+// ProjectRequests is one project's request files, with paths relative to Root.
+type ProjectRequests struct {
+	Name       string           `json:"name"`
+	Root       string           `json:"root"`
+	EnvMissing bool             `json:"env_missing,omitempty"`
+	Requests   []RequestSummary `json:"requests"`
 }
 
 type listRequestsInput struct {
 	Project string `json:"project,omitempty" jsonschema:"limit to this project; omit to list every project"`
+	Filter  string `json:"filter,omitempty"  jsonschema:"case-insensitive substring of the project-relative path, e.g. opn/ or login"`
+	Detail  bool   `json:"detail,omitempty"  jsonschema:"also report each request's auth mode, env variables, and GraphQL variables"`
+	Env     string `json:"env,omitempty"     jsonschema:"resolve each host against this environment, e.g. prod; omit to show hosts as written"`
 }
 
 type listRequestsOutput struct {
-	Requests []RequestSummary `json:"requests"`
+	Projects []ProjectRequests `json:"projects"`
 }
 
 // registerListRequests adds the list_requests tool to the server.
 func (s *Server) registerListRequests() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "list_requests",
-		Description: "List hulak request files. Each entry has its name, project, " +
-			"file path, kind (API/GraphQL), and any dependency files it references " +
-			"(e.g. a GraphQL query .gql that lives next to the request). Omit " +
+		Description: "List hulak request files, grouped by project. Each project " +
+			"has its absolute root; each entry has its name, file path relative to " +
+			"that root, kind (API/GraphQL), target host as written (template " +
+			"variables unresolved), and any dependency files it references " +
+			"(e.g. a GraphQL query .gql that lives next to the request). Pass " +
+			"`detail` to also get each request's auth mode (e.g. \"bearer from " +
+			"login\": a bearer token read from the login request's response via " +
+			"getValueOf), the env variables it resolves ({{.name}}), and its " +
+			"GraphQL variables. Narrow with `filter`, a case-insensitive substring " +
+			"of the relative path (a directory like opn/ or part of a name). Pass " +
+			"`env` to resolve hosts against that environment; only the host is " +
+			"resolved, a host that cannot resolve stays as written, and a project " +
+			"without that env is marked env_missing. Omit " +
 			"`project` to list every configured project.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.handleListRequests)
@@ -59,48 +89,171 @@ func (s *Server) handleListRequests(
 		targets = map[string]string{in.Project: path}
 	}
 
-	var out listRequestsOutput
+	out := listRequestsOutput{Projects: []ProjectRequests{}}
+	missing := 0
 	for _, name := range projectNames(targets) {
 		var reqs []RequestSummary
-		// Run inside the project dir: dependency resolution (utils.ReferencedFiles
-		// -> getFile) is project-root-relative and keys off the working
-		// directory, exactly as a real run does.
+		envMissing := false
+		// Deps and secrets resolve against the working directory, as in a real run.
 		err := s.withProjectDir(targets[name], func() error {
+			opts := listOptions{filter: in.Filter, detail: in.Detail}
+			if in.Env != "" {
+				secrets, found, err := loadProjectEnv(in.Env)
+				if err != nil {
+					return err
+				}
+				opts.secrets, envMissing = secrets, !found
+			}
 			var err error
-			reqs, err = listProjectRequests(name, targets[name])
+			reqs, err = listProjectRequests(targets[name], opts)
 			return err
 		})
 		if err != nil {
 			return nil, listRequestsOutput{}, err
 		}
-		out.Requests = append(out.Requests, reqs...)
+		if envMissing {
+			missing++
+		}
+		if len(reqs) == 0 {
+			continue
+		}
+		out.Projects = append(out.Projects, ProjectRequests{
+			Name:       name,
+			Root:       targets[name],
+			EnvMissing: envMissing,
+			Requests:   reqs,
+		})
+	}
+	if in.Env != "" && missing == len(targets) {
+		return nil, listRequestsOutput{}, fmt.Errorf(
+			"env %q not found in any project (%s); list_envs shows the available names",
+			in.Env, strings.Join(projectNames(targets), ", "),
+		)
 	}
 	return nil, out, nil
 }
 
-// listProjectRequests returns a summary of every request file under root.
-func listProjectRequests(project, root string) ([]RequestSummary, error) {
+func loadProjectEnv(env string) (secrets map[string]any, found bool, err error) {
+	envs, err := envparser.ListEnvironments()
+	if err != nil {
+		return nil, false, err
+	}
+	i := slices.Index(envs, env)
+	if i < 0 {
+		// ListEnvironments lowercases plain env file names.
+		i = slices.IndexFunc(envs, func(e string) bool { return strings.EqualFold(e, env) })
+	}
+	if i < 0 {
+		return nil, false, nil
+	}
+	// Vault env names are exact map keys; a plain env file opens by the name given.
+	if vault.DetectStore() == vault.StoreAge {
+		env = envs[i]
+	}
+	secrets, err = envparser.ReadSecretsMap(env)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, false, nil
+	}
+	return secrets, err == nil, err
+}
+
+type listOptions struct {
+	filter  string
+	detail  bool
+	secrets map[string]any
+}
+
+func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error) {
 	files, err := utils.ListFiles(root)
 	if err != nil {
 		return nil, err
 	}
+	// Deps resolve under the cwd's project root, which can differ from root by symlinks.
+	depRoot, ok := utils.FindProjectRoot()
+	if !ok {
+		depRoot = root
+	}
 	var out []RequestSummary
 	for _, f := range files {
-		if !utils.IsRequestFile(filepath.Base(f)) {
+		rel := projectRelative(root, f)
+		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) {
 			continue
 		}
 		// Deps are best-effort: a missing/unreadable referenced file should
 		// not drop the request from the listing.
 		deps, _ := utils.ReferencedFiles(f)
-		out = append(out, RequestSummary{
-			Name:    utils.RequestStem(filepath.Base(f)),
-			Project: project,
-			Path:    f,
-			Kind:    requestKind(f),
-			Deps:    deps,
-		})
+		for i, d := range deps {
+			deps[i] = projectRelative(depRoot, d)
+		}
+		// Metadata is best-effort too: an unparseable file is still listed.
+		doc, _ := readRequestDoc(f)
+		url, _ := doc["url"].(string)
+		summary := RequestSummary{
+			Name: utils.RequestStem(filepath.Base(f)),
+			Path: rel,
+			Kind: requestKind(f),
+			Host: requestHost(url, f, opts.secrets),
+			Deps: deps,
+		}
+		if opts.detail {
+			summary.Auth = requestAuth(summary.Kind, doc)
+			summary.EnvVars, summary.Variables, _ = utils.RequestVariables(f)
+		}
+		out = append(out, summary)
 	}
 	return out, nil
+}
+
+// requestHost keeps the host as written when it cannot resolve to one free of userinfo.
+func requestHost(rawURL, file string, secrets map[string]any) string {
+	host := rawHost(rawURL)
+	if secrets == nil || !strings.Contains(host, "{{") {
+		return host
+	}
+	resolved, err := envparser.SubstituteVariables(host, secrets, file)
+	if text, ok := resolved.(string); err == nil && ok {
+		if h, ok := resolvedHost(text); ok {
+			return h
+		}
+	}
+	return host
+}
+
+func resolvedHost(text string) (string, bool) {
+	if !strings.Contains(text, "://") {
+		text = "//" + text
+	}
+	u, err := url.Parse(text)
+	if err != nil || u.Host == "" {
+		return "", false
+	}
+	// An unencoded '/', '?' or '#' in a password ends the parsed authority early.
+	if at := strings.LastIndex(text, "@"); at >= 0 {
+		authority := text[at+1:]
+		if end := strings.IndexAny(authority, `/?#`); end >= 0 {
+			authority = authority[:end]
+		}
+		if authority != u.Host {
+			return "", false
+		}
+	}
+	return u.Host, true
+}
+
+func pathMatches(rel, filter string) bool {
+	return strings.Contains(
+		strings.ToLower(filepath.ToSlash(rel)),
+		strings.ToLower(filepath.ToSlash(filter)),
+	)
+}
+
+// projectRelative leaves a path outside root unchanged.
+func projectRelative(root, path string) string {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return path
+	}
+	return rel
 }
 
 // requestKind returns the file's kind (API/GraphQL/Auth), best-effort: "" when

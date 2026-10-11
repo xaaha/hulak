@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -167,9 +169,14 @@ func readCorpusFile(t *testing.T, path string) ([]byte, bool) {
 
 func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 	t.Helper()
-	repo, err := collectYAMLFiles(repoRoot(t))
+	dir := repoRoot(t)
+	walked, err := collectYAMLFiles(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	repo = walked
+	if tracked, ok := gitTrackedFiles(dir); ok {
+		repo = slices.DeleteFunc(repo, func(p string) bool { return !tracked[p] })
 	}
 	root := os.Getenv(corpusEnv)
 	if root == "" {
@@ -183,6 +190,21 @@ func corpusYAMLFiles(t *testing.T) (repo, extra []string) {
 		t.Fatalf("%s=%s holds no YAML files", corpusEnv, root)
 	}
 	return repo, extra
+}
+
+// gitTrackedFiles reports false outside a git work tree, e.g. a release tarball.
+func gitTrackedFiles(root string) (map[string]bool, bool) {
+	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
+	if err != nil {
+		return nil, false
+	}
+	tracked := map[string]bool{}
+	for _, rel := range bytes.Split(out, []byte{0}) {
+		if len(rel) > 0 {
+			tracked[filepath.Join(root, string(rel))] = true
+		}
+	}
+	return tracked, true
 }
 
 func TestD23RepoYAMLFilesAreSingleDocument(t *testing.T) {

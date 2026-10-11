@@ -1,0 +1,165 @@
+package mcp
+
+import (
+	"slices"
+	"testing"
+)
+
+func TestRawHost_259(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"literal with path and query", "https://api.example.com/v1/users?x=1", "api.example.com"},
+		{"query without path", "https://api.example.com?x=1", "api.example.com"},
+		{"fragment", "https://api.example.com#top", "api.example.com"},
+		{"port", "http://localhost:8080/health", "localhost:8080"},
+		{"userinfo", "https://user:pw@api.example.com/a", "api.example.com"},
+		{"at sign in the password", "https://user:p@ss@api.example.com/a", "api.example.com"},
+		{"no scheme", "api.example.com/a", "api.example.com"},
+		{"template only", "{{.base_url}}", "{{.base_url}}"},
+		{"template prefix", "{{.base_url}}/v1/users", "{{.base_url}}"},
+		{"template inside host", "https://{{.sub}}.example.com/a", "{{.sub}}.example.com"},
+		{"slash inside an action", `{{getValueOf "url" "auth/login"}}/a`, `{{getValueOf "url" "auth/login"}}`},
+		{"at sign inside an action", `{{getValueOf "a@b" "x"}}/a`, `{{getValueOf "a@b" "x"}}`},
+		{"templated scheme", "{{.scheme}}://api.example.com/a", "api.example.com"},
+		{"scheme-like text inside an action", `{{getValueOf "a://b" "x"}}/a`, `{{getValueOf "a://b" "x"}}`},
+		{"surrounding space", "  https://api.example.com/a  ", "api.example.com"},
+		{"trailing space without a path", "https://api.example.com  ", "api.example.com"},
+		{"host from two actions", `https://{{.sub}}.{{getValueOf "domain" "env/x.json"}}/v1`, `{{.sub}}.{{getValueOf "domain" "env/x.json"}}`},
+		{"malformed literal password shows as written", "https://svc:pa/ss@api.example.com/x", "svc:pa"},
+		{"at sign in the query", "https://api.example.com/u?email=a@b.com", "api.example.com"},
+		{"scoped package path", "https://registry.npmjs.org/@babel/core", "registry.npmjs.org"},
+		{"at sign path segment", "http://localhost:3000/api/@me", "localhost:3000"},
+		{"at sign inside a path action", `https://api.example.com/{{getValueOf "e@x" "f"}}`, "api.example.com"},
+		{"unclosed action is literal", "https://USR:SE{{CRET@api.example.com/PTH?q=QRY", "api.example.com"},
+		{"backslash ends the host", `https://USR:SECRET@api.example.com\PTH`, "api.example.com"},
+		{"template host with an at sign in the query", "{{.base_url}}/u?email=a@b.com", "{{.base_url}}"},
+		{"template userinfo", "https://{{.user}}:{{.pw}}@{{.host}}/x", "{{.host}}"},
+		{"empty", "", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := rawHost(tc.url); got != tc.want {
+				t.Errorf("rawHost(%q) = %q, want %q", tc.url, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRequestAuth_259(t *testing.T) {
+	tests := []struct {
+		name    string
+		kind    string
+		headers map[string]any
+		want    string
+	}{
+		{"oauth2 kind", "Auth", nil, "oauth2"},
+		{"no headers", "API", nil, ""},
+		{"no credential header", "API", map[string]any{"content-type": "application/json"}, ""},
+		{"bearer literal", "API", map[string]any{"authorization": "Bearer abc123"}, "bearer"},
+		{"bearer from env", "API", map[string]any{"authorization": "Bearer {{.token}}"}, "bearer"},
+		{"bearer from getValueOf", "API",
+			map[string]any{"authorization": `Bearer {{getValueOf "access_token" "get_m2m_token"}}`}, "bearer from get_m2m_token"},
+		{"getValueOf in another spelling with a path", "GraphQL",
+			map[string]any{"authorization": "Bearer {{ get_value_of `access_token` `auth/login.hk.yaml` }}"}, "bearer from auth/login.hk.yaml"},
+		{"basic literal", "API", map[string]any{"authorization": "Basic dXNlcjpwdw=="}, "basic"},
+		{"other known scheme", "API", map[string]any{"authorization": "Token abc123"}, "token"},
+		{"digest scheme", "API", map[string]any{"authorization": `Digest username="u", nonce="n"`}, "digest"},
+		{"bare literal token", "API", map[string]any{"authorization": "sk_live_SECRETTOKEN123"}, "header authorization"},
+		{"literal token with a space", "API", map[string]any{"authorization": "sk_live_SECRET more"}, "header authorization"},
+		{"scheme with no credential", "API", map[string]any{"authorization": "Bearer "}, "header authorization"},
+		{"basicAuth action", "API", map[string]any{"authorization": "{{basicAuth .user .pass}}"}, "basic"},
+		{"whole value from env", "API", map[string]any{"authorization": "{{.auth_header}}"}, "header authorization"},
+		{"api key header", "GraphQL", map[string]any{"x-api-key": "{{.appsync_api_key}}"}, "header x-api-key"},
+		{"cookie from getValueOf", "API",
+			map[string]any{"cookie": `{{getValueOf "session" "login"}}`}, "header cookie from login"},
+		{"authorization wins over others", "API",
+			map[string]any{"x-api-key": "k", "authorization": "Bearer t"}, "bearer"},
+		{"first credential header by name", "API",
+			map[string]any{"x-auth-token": "a", "cookie": "b"}, "header cookie"},
+		{"mixed case header name", "API", map[string]any{"Authorization": "bearer t"}, "bearer"},
+		{"non-string value", "API", map[string]any{"authorization": 42}, "header authorization"},
+		{"getValueOf with one argument", "API",
+			map[string]any{"authorization": `Bearer {{getValueOf "access_token"}}`}, "bearer"},
+		{"getValueOf with trim markers", "API",
+			map[string]any{"authorization": `Bearer {{- getValueOf "access_token" "login" -}}`}, "bearer from login"},
+		{"getValueOf after another action", "API",
+			map[string]any{"authorization": `Bearer {{os "PREFIX"}}{{getValueOf "access_token" "login"}}`}, "bearer from login"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := map[string]any{}
+			if tc.headers != nil {
+				doc["headers"] = tc.headers
+			}
+			if got := requestAuth(tc.kind, doc); got != tc.want {
+				t.Errorf("requestAuth(%s, %v) = %q, want %q", tc.kind, tc.headers, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSplitActionArgs_259(t *testing.T) {
+	tests := []struct {
+		body string
+		want []string
+	}{
+		{`getValueOf "a" "b"`, []string{"getValueOf", "a", "b"}},
+		{"getValueOf  `a`   'b c'", []string{"getValueOf", "a", "b c"}},
+		{`getValueOf "a \"q\"" "b"`, []string{"getValueOf", `a \"q\"`, "b"}},
+		{`getValueOf "unterminated`, []string{"getValueOf", "unterminated"}},
+		{"getValueOf `a\\` `c`", []string{"getValueOf", `a\`, "c"}},
+		{"", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.body, func(t *testing.T) {
+			if got := splitActionArgs(tc.body); !slices.Equal(got, tc.want) {
+				t.Errorf("splitActionArgs(%q) = %q, want %q", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolvedHost_259(t *testing.T) {
+	tests := []struct {
+		name   string
+		text   string
+		want   string
+		wantOK bool
+	}{
+		{"plain", "https://api.example.com/v1?x=1", "api.example.com", true},
+		{"port", "http://localhost:8080/health", "localhost:8080", true},
+		{"userinfo", "https://svc:pw@api.example.com/v1", "api.example.com", true},
+		{"at sign in the password", "https://svc:p@ss@api.example.com", "api.example.com", true},
+		{"no scheme", "api.example.com/v1", "api.example.com", true},
+		{"slash in the password", "https://svc:12/secret@api.example.com", "", false},
+		{"invalid port from a slash in the password", "https://svc:ab/secret@api.example.com", "", false},
+		{"query mark in the password", "https://svc:pa?secret@api.example.com", "", false},
+		{"fragment mark in the password", "https://svc:pa#secret@api.example.com", "", false},
+		{"template text in the password", "https://admin:{{pw@api.example.com/v1?token=abc", "", false},
+		{"at sign in the path", "https://api.example.com/users/a@b.com", "", false},
+		{"at sign and slash in the password", "https://svc:p@ss/word@api.example.com", "", false},
+		{"at sign and query mark in the password", "https://svc:p@ss?x@api.example.com/v1", "", false},
+		{"at sign and fragment mark in the password", "https://svc:p@ss#x@api.example.com/v1", "", false},
+		{"at sign in the username", "https://ci@corp.com:4321/hunter2@api.example.com/v1", "", false},
+		{"at sign in the username with a numeric password", "https://me@corp.com:12/secret@api.example.com", "", false},
+		{"password fragment that prefixes the host", "https://svc:p@api/y@api.example.com", "", false},
+		{"password fragment inside the host", "https://svc:p@x/y@api.x.com", "", false},
+		{"password fragment with a port", "https://svc:p@h:12/x@h.com", "", false},
+		{"password fragment that ends the host", "https://svc:p@x/y@api.x", "", false},
+		{"password fragment that ends the host with a port", "https://svc:p@h:12/x@h", "", false},
+		{"userinfo then a query", "https://svc:pw@api.example.com?x=1", "api.example.com", true},
+		{"userinfo then a fragment", "https://svc:pw@api.example.com#f", "api.example.com", true},
+		{"empty", "", "", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := resolvedHost(tc.text)
+			if got != tc.want || ok != tc.wantOK {
+				t.Errorf("resolvedHost(%q) = %q, %v, want %q, %v", tc.text, got, ok, tc.want, tc.wantOK)
+			}
+		})
+	}
+}
