@@ -136,7 +136,7 @@ func (s *Server) validateRequestContent(content string) error {
 	}
 	if s.reqSchema != nil {
 		if err := s.reqSchema.Validate(doc); err != nil {
-			return fmt.Errorf("request does not match the hulak schema: %w", err)
+			return fmt.Errorf("request does not match the hulak schema (call request_format for the shape and examples): %w", err)
 		}
 	}
 	return nil

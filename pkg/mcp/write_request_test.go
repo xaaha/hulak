@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xaaha/hulak/pkg/utils/testutil"
@@ -162,5 +163,13 @@ func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
 	}
 	if want := testutil.SingleDocError("yaml_content", 2); err.Error() != want {
 		t.Errorf("error = %q, want %q", err, want)
+	}
+}
+
+func TestWriteRequest_260_RejectionNamesFormatTool(t *testing.T) {
+	s, _ := schemaServer(t, projectDir(t))
+	err := s.validateRequestContent("kind: SOAP\nmethod: GET\nurl: http://x\n")
+	if err == nil || !strings.Contains(err.Error(), "request_format") {
+		t.Errorf("err = %v, want it to point to request_format", err)
 	}
 }
