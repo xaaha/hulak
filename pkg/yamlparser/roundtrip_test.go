@@ -235,3 +235,25 @@ func TestD14_278_NoRawLineThroughAnchorsOrMerges(t *testing.T) {
 		})
 	}
 }
+
+func TestD14_278_CRLFCommentsKeepTheLineNumbers(t *testing.T) {
+	for name, tc := range map[string]struct{ content, at string }{
+		"decode error": {"kind: API # c\r\nmethod: GET # c\r\nurl: http://x\r\nheaders: [a]\r\n", ": [4:"},
+		"repeated key": {"kind: API # c\r\nmethod: GET # c\r\nurl: http://x\r\nurl: http://y\r\n", ": [4:1] "},
+		"quoted null":  {"kind: API\r\nmethod: GET\r\nurl: http://x\r\nheaders:\r\n  X-N: \"null\"\r\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := createTempYAMLFile(t, tc.content)
+			file, _, err := FinalStructForAPI(path, map[string]any{})
+			if tc.at == "" {
+				if err != nil || file.Headers["x-n"] != "null" {
+					t.Errorf("x-n = %q, err %v, want the text null", file.Headers["x-n"], err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.at) {
+				t.Errorf("err = %v, want position %q", err, tc.at)
+			}
+		})
+	}
+}

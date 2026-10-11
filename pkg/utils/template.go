@@ -111,7 +111,7 @@ func FileTemplateVarNames(filePath string) ([]string, error) {
 		return nil, err
 	}
 	var data map[string]any
-	if err := yaml.Unmarshal(content, &data); err != nil {
+	if err := yaml.Unmarshal(LFLineBreaks(content), &data); err != nil {
 		return nil, err
 	}
 	var names []string

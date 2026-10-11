@@ -174,7 +174,7 @@ func rawDecodeError(filePath string, out any) error {
 	if err != nil {
 		return nil
 	}
-	file, err := parser.ParseBytes(content, 0)
+	file, err := parser.ParseBytes(utils.LFLineBreaks(content), 0)
 	if err != nil {
 		return nil
 	}
