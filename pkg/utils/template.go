@@ -441,6 +441,9 @@ func ResolveProjectFile(filePath string) (string, error) {
 	if info.IsDir() {
 		return "", fmt.Errorf("%s is a directory, not a file", filePath)
 	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", filePath)
+	}
 	return absPath, nil
 }
 
