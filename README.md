@@ -5,14 +5,8 @@
 <h1 align="center">Hulak</h1>
 
 <h3 align="center">
-  The post office for your API calls.
+  Your messenger in the terminal.
 </h3>
-
-<p align="center">
-  Git-native API client with encrypted secrets.
-  <br />
-  <sub>REST &middot; GraphQL &middot; OAuth</sub>
-</p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
