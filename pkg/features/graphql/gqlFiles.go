@@ -47,21 +47,32 @@ type fileInfo struct {
 }
 
 var (
-	graphqlKindLine = regexp.MustCompile(`(?im)^kind:[ \t]*["']?graphql["']?[ \t]*(#.*)?$`)
-	urlLine         = regexp.MustCompile(`(?im)^url:[ \t]*(.+?)[ \t]*$`)
+	graphqlKindLine = regexp.MustCompile(`(?im)^kind:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
+	urlLine         = regexp.MustCompile(`(?im)^url:[ \t]*(.+?)[ \t]*\r?$`)
 )
 
-// peekUnparsable keeps a GraphQL request that fails to parse, so processing reports its error.
 func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo, error) {
 	url := urlLine.FindSubmatch(content)
 	if !graphqlKindLine.Match(content) || url == nil {
 		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", decodeErr)
 	}
-	return fileInfo{
-		kind:     "graphql",
-		url:      strings.Trim(string(url[1]), `"'`),
-		parseErr: utils.ValidateSingleYAMLDoc(filePath, content),
-	}, nil
+	parseErr := utils.ValidateSingleYAMLDoc(filePath, content)
+	if parseErr == nil {
+		parseErr = fmt.Errorf("parsing %s: %w", filePath, decodeErr)
+	}
+	return fileInfo{kind: "graphql", url: scalarText(string(url[1])), parseErr: parseErr}, nil
+}
+
+func scalarText(raw string) string {
+	if raw != "" && (raw[0] == '"' || raw[0] == '\'') {
+		if end := strings.IndexByte(raw[1:], raw[0]); end >= 0 {
+			return raw[1 : end+1]
+		}
+	}
+	if i := strings.Index(raw, " #"); i >= 0 {
+		raw = raw[:i]
+	}
+	return strings.TrimSpace(raw)
 }
 
 // peekFileInfo decodes a YAML file's first document and extracts kind, url, and
@@ -124,6 +135,9 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 			continue
 		}
 
+		if _, taken := graphqlFiles[info.url]; taken && info.parseErr != nil {
+			continue
+		}
 		graphqlFiles[info.url] = filePath
 		if info.needsEnv {
 			needsEnv = true

@@ -46,3 +46,61 @@ func TestFindGraphQLFiles_278_KeepsGraphQLFilesThatFailToParse(t *testing.T) {
 		}
 	}
 }
+
+func TestFindGraphQLFiles_278_TextFallbackEdges(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"dq.hk.yaml":      "kind: \"GraphQL\"\nurl: https://dq.example/gql\n// stray\n",
+		"sq.hk.yaml":      "kind: 'graphql'\nurl: https://sq.example/gql\n// stray\n",
+		"comment.hk.yaml": "kind: GraphQL # c\nurl: https://cm.example/gql # note\n// stray\n",
+		"crlf.hk.yaml":    "kind: GraphQL\r\nurl: https://crlf.example/gql\r\n// stray\r\n",
+		"indent.hk.yaml":  "kind: GraphQL\nbody:\n  url: https://nested.example/x\nurl: https://top.example/gql\n// stray\n",
+		"api.hk.yaml":     "kind: API\nurl: https://api.example/x\n// stray\n",
+		"nested.hk.yaml":  "kind: API\nurl: https://nk.example/x\nbody:\n    kind: graphql\n// stray\n",
+		"suffix.hk.yaml":  "kind: graphqlx\nurl: https://sx.example/x\n// stray\n",
+		"a_good.hk.yaml":  "kind: GraphQL\nurl: https://same.example/gql\n",
+		"b_bad.hk.yaml":   "kind: GraphQL\nurl: https://same.example/gql\nheaders: {a: b\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, _, err := FindGraphQLFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"https://dq.example/gql":   "dq.hk.yaml",
+		"https://sq.example/gql":   "sq.hk.yaml",
+		"https://cm.example/gql":   "comment.hk.yaml",
+		"https://crlf.example/gql": "crlf.hk.yaml",
+		"https://top.example/gql":  "indent.hk.yaml",
+		"https://same.example/gql": "a_good.hk.yaml",
+	}
+	for url, name := range want {
+		if found[url] != filepath.Join(dir, name) {
+			t.Errorf("found[%q] = %q, want %s", url, found[url], name)
+		}
+	}
+	if len(found) != len(want) {
+		t.Errorf("found %d files, want %d: %v", len(found), len(want), found)
+	}
+}
+
+func TestPeekFileInfo_278_DecodeErrorIsKeptWhenTheParseSucceeds(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "alias.hk.yaml")
+	if err := os.WriteFile(path, []byte("kind: GraphQL\nurl: https://a.example/gql\nheaders: *nope\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := peekFileInfo(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.parseErr == nil || !strings.HasPrefix(info.parseErr.Error(), "parsing "+path+": ") {
+		t.Errorf("parseErr = %v, want a decode error naming the file", info.parseErr)
+	}
+	if _, _, err := ValidateGraphQLFile(path); err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("ValidateGraphQLFile error = %v, want it to name the file", err)
+	}
+}
