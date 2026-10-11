@@ -117,6 +117,8 @@ A file is included only when all of these are true:
 - it has `kind: GraphQL` or `kind: graphql`
 - it has a non-empty `url`
 
+A file that fails to parse, for example because of a repeated key, tab indentation or a stray line, is still listed when its first document has top-level `kind: GraphQL` and `url:` lines. Its parse error is reported with the line, and the other endpoints still load.
+
 Directory mode ignores generated response files and `options.yaml` (the reference card scaffolded by `hulak example options`).
 
 This mode is the main discovery workflow. It is the fast way to answer:
