@@ -3,6 +3,7 @@ package yamlparser
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -146,6 +147,14 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	return &buf, nil
 }
 
+// decodeSubstituted leaves out the source snippet: it is the substituted request, secrets and getFile bodies included.
+func decodeSubstituted(buf *bytes.Buffer, out any) error {
+	if err := yaml.NewDecoder(buf).Decode(out); err != nil {
+		return errors.New(yaml.FormatError(err, false, false))
+	}
+	return nil
+}
+
 // FinalStructForAPI builds a final struct for the api call.
 // Returns APICallFile struct, true if file is valid, and error
 // It  checks the validity of all the fields in the yaml file meant for regular api call
@@ -156,8 +165,7 @@ func FinalStructForAPI(filePath string, secretsMap map[string]any) (APICallFile,
 	}
 
 	var file APICallFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&file); err != nil {
+	if err := decodeSubstituted(buf, &file); err != nil {
 		return APICallFile{}, false, err
 	}
 
@@ -180,8 +188,7 @@ func FinalStructForOAuth2(
 	}
 
 	var auth2Config AuthRequestFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&auth2Config); err != nil {
+	if err := decodeSubstituted(buf, &auth2Config); err != nil {
 		return AuthRequestFile{}, fmt.Errorf("error decoding data: %w", err)
 	}
 
@@ -202,8 +209,7 @@ func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (APICallF
 	}
 
 	var file APICallFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&file); err != nil {
+	if err := decodeSubstituted(buf, &file); err != nil {
 		return APICallFile{}, false, err
 	}
 

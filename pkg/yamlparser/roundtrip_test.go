@@ -1,6 +1,7 @@
 package yamlparser
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -41,5 +42,17 @@ func TestD9_278_EscapedSourceValueSurvivesTheRoundTrip(t *testing.T) {
 	vars, _ := file.Body.Graphql.Variables.(map[string]any)
 	if got := vars["path"]; got != "C:\temp" {
 		t.Errorf("variable path = %q, want %q", got, "C:\temp")
+	}
+}
+
+func TestD9_278_DecodeErrorLeavesOutTheSubstitutedRequest(t *testing.T) {
+	big := strings.Repeat("x", 200_000)
+	path := createTempYAMLFile(t, "method: GET\nurl: https://e.com\nheaders:\n  X-Big: \"{{.big}}\"\n  X-L: [a]\n")
+	_, _, err := FinalStructForAPI(path, map[string]any{"big": big})
+	if err == nil {
+		t.Fatal("want a decode error for the list header")
+	}
+	if len(err.Error()) > 300 || strings.Contains(err.Error(), "xxxx") {
+		t.Errorf("error carries the substituted request (%d bytes)", len(err.Error()))
 	}
 }
