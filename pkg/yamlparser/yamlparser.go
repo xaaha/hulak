@@ -162,7 +162,8 @@ func decodeSubstituted[T any](filePath string, buf *bytes.Buffer) (T, error) {
 	}
 	var raw T
 	var rawErr yaml.Error
-	if errors.As(rawDecodeError(filePath, &raw), &rawErr) && rawErr.GetMessage() == yamlErr.GetMessage() {
+	if errors.As(rawDecodeError(filePath, &raw), &rawErr) && rawErr.GetMessage() == yamlErr.GetMessage() &&
+		rawErr.GetToken() != nil && !strings.Contains(rawErr.GetToken().Value, "{{") {
 		return out, fmt.Errorf("%s: %s", filePath, rawErr.FormatError(false, true))
 	}
 	return out, fmt.Errorf("%s: %s", filePath, yamlErr.GetMessage())

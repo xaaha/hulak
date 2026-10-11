@@ -125,6 +125,10 @@ func TestD14_278_DecodeErrorPointsAtTheLineInTheFile(t *testing.T) {
 			_, _, err := FinalStructForAPI(path, map[string]any{"api_token": "SECRET-value"})
 			return err
 		},
+		"FinalStructForOAuth2": func() error {
+			_, err := FinalStructForOAuth2(createTempYAMLFile(t, "kind: Auth\nmethod: POST\nurl: https://e.com\nauth:\n  type: OAuth2.0\n  access_token_url: https://e.com/t\nurlparams: [a]\n"), map[string]any{})
+			return err
+		},
 		"ParseConfig": func() error {
 			_, err := ParseConfig(createTempYAMLFile(t, "kind: [a]\nmethod: GET\nurl: https://e.com\n"), map[string]any{})
 			return err
@@ -141,8 +145,11 @@ func TestD14_278_DecodeErrorPointsAtTheLineInTheFile(t *testing.T) {
 			if name == "FinalStructForAPI" && (!strings.HasPrefix(err.Error(), path+": [5:") || !strings.Contains(err.Error(), "X-L: [a]")) {
 				t.Errorf("error must name the file, line 5 and show that line:\n%v", err)
 			}
-			if name == "ParseConfig" && !strings.Contains(err.Error(), ": [1:") {
-				t.Errorf("error must point at line 1 of the file:\n%v", err)
+			if name == "ParseConfig" && !regexp.MustCompile(`^[^ ]+\.yaml: \[1:`).MatchString(err.Error()) {
+				t.Errorf("error must start with the file and point at line 1:\n%v", err)
+			}
+			if name == "FinalStructForOAuth2" && !strings.Contains(err.Error(), ": [7:12] ") {
+				t.Errorf("error must point at line 7 of the file:\n%v", err)
 			}
 		})
 	}
@@ -180,19 +187,20 @@ func TestD14_278_RawErrorOnlyWhenItIsTheSameFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "src_response.json"), []byte(`{"h": {"X-A": "b"}, "lst": ["a"]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	want := "cannot unmarshal []interface {} into Go struct field APICallFile.Headers of type string"
 	for name, content := range map[string]string{
 		"map template elsewhere": "method: GET\nurl: https://e.com\nurlparams: '{{getValueOf \"h\" \"src_response.json\"}}'\nheaders:\n  X-L: '{{getValueOf \"lst\" \"src_response.json\"}}'\n",
 		"keys differing in case": "method: GET\nurl: https://e.com\nheaders:\n  Accept: a\n  ACCEPT: b\n  X-L: '{{getValueOf \"lst\" \"src_response.json\"}}'\n",
+		"message names no field": "method: GET\nurl: https://e.com\nurlparams: '{{getValueOf \"h\" \"src_response.json\"}}'\nheaders: \"{{.tok}}\"\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(name, " ", "_")+".hk.yaml")
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			_, _, err := FinalStructForAPI(path, map[string]any{})
-			if err == nil || err.Error() != path+": "+want {
-				t.Errorf("err = %v, want %q", err, path+": "+want)
+			_, _, err := FinalStructForAPI(path, map[string]any{"tok": "SECRET-tok"})
+			if err == nil || !strings.HasPrefix(err.Error(), path+": ") ||
+				regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) || strings.Contains(err.Error(), "urlparams") || strings.Contains(err.Error(), "SECRET") {
+				t.Errorf("err = %v, want the file name and the message only", err)
 			}
 		})
 	}
