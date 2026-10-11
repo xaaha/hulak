@@ -87,3 +87,30 @@ func TestD9_278_GraphQLVariablesKeepTypesAndCase(t *testing.T) {
 		}
 	}
 }
+
+func TestD11_278_EveryDecodeAfterSubstitutionLeavesOutTheRequest(t *testing.T) {
+	secrets := map[string]any{"api_token": "ctl\x01SECRET-value", "body": "FILEBODY-content"}
+	for name, tc := range map[string]struct {
+		content string
+		decode  func(path string) error
+	}{
+		"ParseConfig": {
+			"kind: [a]\nmethod: GET\nurl: https://e.com\nheaders:\n  X-K: \"{{.api_token}}\"\n  X-B: \"{{.body}}\"\n",
+			func(path string) error { _, err := ParseConfig(path, secrets); return err },
+		},
+		"FinalStructForGraphQL": {
+			"kind: GraphQL\nmethod: POST\nurl: https://e.com\nheaders:\n  X-K: \"{{.api_token}}\"\n  X-B: \"{{.body}}\"\n  X-L: [a]\n",
+			func(path string) error { _, _, err := FinalStructForGraphQL(path, secrets); return err },
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := tc.decode(createTempYAMLFile(t, tc.content))
+			if err == nil {
+				t.Fatal("want a decode error")
+			}
+			if strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "FILEBODY") {
+				t.Errorf("error carries the substituted request:\n%v", err)
+			}
+		})
+	}
+}

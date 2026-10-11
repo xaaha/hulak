@@ -796,15 +796,18 @@ func enterHulakProject(t *testing.T) string {
 // caller downstream has built a redactor.
 func TestL13_ParseConfigErrorIsRedacted(t *testing.T) {
 	const secret = "super-secret-client-value-9876"
-	for name, content := range map[string]string{
-		"invalid timeout": "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
-			"timeout: \"{{.client_secret}}\"\n",
-		"undecodable config": "kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
-			"timeout:\n  nested: \"{{.client_secret}}\"\n",
+	for name, tc := range map[string]struct {
+		content     string
+		showsSecret bool
+	}{
+		"invalid timeout": {"kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
+			"timeout: \"{{.client_secret}}\"\n", true},
+		"undecodable config": {"kind: API\nmethod: GET\nurl: \"https://api.example.com\"\n" +
+			"timeout:\n  nested: \"{{.client_secret}}\"\n", false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "request.hk.yaml")
-			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			if err := os.WriteFile(path, []byte(tc.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			secrets := map[string]any{"client_secret": secret}
@@ -819,8 +822,8 @@ func TestL13_ParseConfigErrorIsRedacted(t *testing.T) {
 			if shown.err == nil {
 				t.Fatal("expected a config error with Show too")
 			}
-			if !strings.Contains(shown.err.Error(), secret) {
-				t.Errorf("Show must leave the config error alone: %v", shown.err)
+			if strings.Contains(shown.err.Error(), secret) != tc.showsSecret {
+				t.Errorf("with Show, error shows the secret = %v, want %v: %v", !tc.showsSecret, tc.showsSecret, shown.err)
 			}
 		})
 	}

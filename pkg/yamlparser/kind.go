@@ -180,8 +180,7 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 	}
 
 	var cfg ConfigType
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&cfg); err != nil {
+	if err := decodeSubstituted(buf, &cfg); err != nil {
 		return nil, fmt.Errorf("decoding %s: %w", filePath, err)
 	}
 
