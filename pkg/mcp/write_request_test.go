@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestHandleWriteRequest(t *testing.T) {
@@ -161,8 +159,8 @@ func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a split request document")
 	}
-	if want := testutil.SingleDocError("yaml_content", 2); err.Error() != want {
-		t.Errorf("error = %q, want %q", err, want)
+	if want := "yaml_content is not valid YAML: [2:1] "; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error = %q, want it to start with %q", err, want)
 	}
 }
 

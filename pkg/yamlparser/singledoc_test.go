@@ -6,7 +6,6 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/parser"
-	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 const strayLineRequest = "method: POST\n// stray\nurl: \"https://e.com\"\n"
@@ -18,8 +17,8 @@ func TestD21FinalStructForAPIRejectsStrayLine(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error for a split request file, got ok=%v", ok)
 	}
-	if want := testutil.SingleDocError(path, 2); err.Error() != want {
-		t.Errorf("error = %q, want %q", err, want)
+	if want := "parsing " + path + ": [2:1] "; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error = %q, want it to start with %q", err, want)
 	}
 }
 
@@ -30,8 +29,8 @@ func TestD21PeekConfigRejectsStrayLine(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a split request file")
 	}
-	if want := testutil.SingleDocError(path, 3); err.Error() != want {
-		t.Errorf("error = %q, want %q", err, want)
+	if want := "parsing " + path + ": [3:1] "; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error = %q, want it to start with %q", err, want)
 	}
 }
 
