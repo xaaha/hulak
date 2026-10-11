@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
 	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -147,16 +149,56 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	return &buf, nil
 }
 
-// decodeSubstituted keeps only the message: the snippet is the substituted request, secrets included, and its position is not the file.
-func decodeSubstituted(buf *bytes.Buffer, out any) error {
-	if err := yaml.NewDecoder(buf).Decode(out); err != nil {
-		var yamlErr yaml.Error
-		if errors.As(err, &yamlErr) {
-			return errors.New(yamlErr.GetMessage())
+// decodeSubstituted never shows the substituted request: its snippet holds resolved secrets and its position is not the file.
+func decodeSubstituted[T any](filePath string, buf *bytes.Buffer) (T, error) {
+	var out T
+	err := yaml.NewDecoder(buf).Decode(&out)
+	if err == nil {
+		return out, nil
+	}
+	var raw T
+	if rawErr := rawDecodeError(filePath, &raw); rawErr != nil {
+		return out, fmt.Errorf("%s: %s", filePath, yaml.FormatError(rawErr, false, true))
+	}
+	var yamlErr yaml.Error
+	if errors.As(err, &yamlErr) {
+		return out, fmt.Errorf("%s: %s", filePath, yamlErr.GetMessage())
+	}
+	return out, fmt.Errorf("%s: %w", filePath, err)
+}
+
+// rawDecodeError decodes the file as written, keys lowercased, and returns nil unless that decode fails.
+func rawDecodeError(filePath string, out any) error {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+	file, err := parser.ParseBytes(content, 0)
+	if err != nil {
+		return nil
+	}
+	for _, doc := range file.Docs {
+		if doc.Body == nil {
+			continue
 		}
-		return err
+		if _, ok := doc.Body.(*ast.DirectiveNode); ok {
+			continue
+		}
+		ast.Walk(lowerKeys{}, doc.Body)
+		return yaml.NodeToValue(doc.Body, out)
 	}
 	return nil
+}
+
+type lowerKeys struct{}
+
+func (lowerKeys) Visit(node ast.Node) ast.Visitor {
+	if mv, ok := node.(*ast.MappingValueNode); ok {
+		if key, ok := mv.Key.(*ast.StringNode); ok {
+			key.Value = strings.ToLower(key.Value)
+		}
+	}
+	return lowerKeys{}
 }
 
 // FinalStructForAPI builds a final struct for the api call.
@@ -168,8 +210,8 @@ func FinalStructForAPI(filePath string, secretsMap map[string]any) (APICallFile,
 		return APICallFile{}, false, err
 	}
 
-	var file APICallFile
-	if err := decodeSubstituted(buf, &file); err != nil {
+	file, err := decodeSubstituted[APICallFile](filePath, buf)
+	if err != nil {
 		return APICallFile{}, false, err
 	}
 
@@ -191,8 +233,8 @@ func FinalStructForOAuth2(
 		return AuthRequestFile{}, fmt.Errorf("error after reading yaml file: %w", err)
 	}
 
-	var auth2Config AuthRequestFile
-	if err := decodeSubstituted(buf, &auth2Config); err != nil {
+	auth2Config, err := decodeSubstituted[AuthRequestFile](filePath, buf)
+	if err != nil {
 		return AuthRequestFile{}, fmt.Errorf("error decoding data: %w", err)
 	}
 
@@ -212,8 +254,8 @@ func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (APICallF
 		return APICallFile{}, false, err
 	}
 
-	var file APICallFile
-	if err := decodeSubstituted(buf, &file); err != nil {
+	file, err := decodeSubstituted[APICallFile](filePath, buf)
+	if err != nil {
 		return APICallFile{}, false, err
 	}
 

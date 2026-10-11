@@ -179,9 +179,9 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 		return nil, err
 	}
 
-	var cfg ConfigType
-	if err := decodeSubstituted(buf, &cfg); err != nil {
-		return nil, fmt.Errorf("decoding %s: %w", filePath, err)
+	cfg, err := decodeSubstituted[ConfigType](filePath, buf)
+	if err != nil {
+		return nil, err
 	}
 
 	cfg.Kind = cfg.Kind.normalize()

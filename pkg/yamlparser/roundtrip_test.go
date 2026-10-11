@@ -2,6 +2,8 @@ package yamlparser
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -116,13 +118,54 @@ func TestD11_278_EveryDecodeAfterSubstitutionLeavesOutTheRequest(t *testing.T) {
 	}
 }
 
-func TestD11_278_DecodeErrorHasNoPositionInTheInternalCopy(t *testing.T) {
-	path := createTempYAMLFile(t, "method: GET\nurl: https://e.com\nheaders:\n  X-A: b\n  X-L: [a]\n")
+func TestD14_278_DecodeErrorPointsAtTheLineInTheFile(t *testing.T) {
+	path := createTempYAMLFile(t, "Method: GET\nURL: https://e.com\nHeaders:\n  X-K: \"{{.api_token}}\"\n  X-L: [a]\n")
+	for name, decode := range map[string]func() error{
+		"FinalStructForAPI": func() error {
+			_, _, err := FinalStructForAPI(path, map[string]any{"api_token": "SECRET-value"})
+			return err
+		},
+		"ParseConfig": func() error {
+			_, err := ParseConfig(createTempYAMLFile(t, "kind: [a]\nmethod: GET\nurl: https://e.com\n"), map[string]any{})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := decode()
+			if err == nil {
+				t.Fatal("want a decode error")
+			}
+			if strings.Contains(err.Error(), "SECRET") {
+				t.Errorf("error shows the secret:\n%v", err)
+			}
+			if name == "FinalStructForAPI" && (!strings.HasPrefix(err.Error(), path+": [5:") || !strings.Contains(err.Error(), "X-L: [a]")) {
+				t.Errorf("error must name the file, line 5 and show that line:\n%v", err)
+			}
+			if name == "ParseConfig" && !strings.Contains(err.Error(), ": [1:") {
+				t.Errorf("error must point at line 1 of the file:\n%v", err)
+			}
+		})
+	}
+}
+
+func TestD14_278_SubstitutedOnlyDecodeErrorNamesTheFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := os.Mkdir(filepath.Join(dir, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src_response.json"), []byte(`{"lst": ["SECRET-a"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "r.hk.yaml")
+	if err := os.WriteFile(path, []byte("method: GET\nurl: https://e.com\nheaders:\n  X-L: '{{getValueOf \"lst\" \"src_response.json\"}}'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	_, _, err := FinalStructForAPI(path, map[string]any{})
 	if err == nil {
 		t.Fatal("want a decode error")
 	}
-	if regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) {
-		t.Errorf("error points into hulak's internal copy, not the file: %v", err)
+	if !strings.HasPrefix(err.Error(), path+": ") || regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) || strings.Contains(err.Error(), "SECRET") {
+		t.Errorf("error must name the file, with no internal position or value: %v", err)
 	}
 }
