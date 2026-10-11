@@ -206,6 +206,10 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 			case map[string]any:
 				raw.headers = make(map[string]string, len(hdr))
 				for hk, hv := range hdr {
+					if hv == nil {
+						raw.headers[hk] = ""
+						continue
+					}
 					raw.headers[hk] = fmt.Sprintf("%v", hv)
 				}
 			default:
