@@ -1,12 +1,16 @@
 <p align="center">
-  <img alt="Hulak" src="./assets/hulak-logo.svg" width="220" />
+  <img alt="Hulak" src="./assets/hulak-logo.svg" width="180" />
 </p>
 
+<h1 align="center">Hulak</h1>
+
 <h3 align="center">
-  Git-native API client with encrypted secrets.
+  The post office for your API calls.
 </h3>
 
 <p align="center">
+  Git-native API client with encrypted secrets.
+  <br />
   <sub>REST &middot; GraphQL &middot; OAuth</sub>
 </p>
 
