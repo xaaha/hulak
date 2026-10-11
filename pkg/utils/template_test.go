@@ -899,3 +899,37 @@ func TestRequestVariables_D3_2_NonexistentFile(t *testing.T) {
 		t.Error("expected error for nonexistent request file, got nil")
 	}
 }
+
+func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, EnvironmentFolder), DirPer); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+
+	writeFile(t, filepath.Join(root, "svc", "users.gql"),
+		"query { ...F } {{"+TemplateFuncGetFile+" \"frag/inner.gql\"}}")
+	writeFile(t, filepath.Join(root, "frag", "inner.gql"), "fragment F on User { id }")
+	req := filepath.Join(root, "svc", "users.hk.yaml")
+	writeFile(t, req, buildGetFileContent("*.gql"))
+
+	got, err := ReferencedFiles(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(root, "svc", "users.gql"), filepath.Join(root, "frag", "inner.gql")}
+	if !slices.Equal(got, want) {
+		t.Errorf("ReferencedFiles = %v, want the sibling and its transitive dependency %v", got, want)
+	}
+
+	got, err = DirectReferencedFiles(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := want[:1]; !slices.Equal(got, want) {
+		t.Errorf("DirectReferencedFiles = %v, want only the sibling %v", got, want)
+	}
+}
