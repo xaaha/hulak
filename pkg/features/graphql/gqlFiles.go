@@ -131,8 +131,8 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 }
 
 // FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
-// in the given directory and its subdirectories. A file split into several YAML
-// documents is kept when its first document matches, so processing reports it.
+// in the given directory and its subdirectories. A file that is split or fails to
+// parse is kept when its first document matches, so processing reports it.
 // Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths,
 // along with a bool indicating whether any file contains env variable references.
 func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
@@ -142,6 +142,7 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 	}
 
 	graphqlFiles := make(map[string]string)
+	broken := make(map[string]bool)
 	needsEnv := false
 
 	for _, filePath := range allFiles {
@@ -162,10 +163,19 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 			continue
 		}
 
-		if _, taken := graphqlFiles[info.url]; taken && info.parseErr != nil {
-			continue
+		key := info.url
+		_, taken := graphqlFiles[key]
+		switch {
+		case taken && info.parseErr != nil:
+			key = filePath
+		case broken[key]:
+			graphqlFiles[graphqlFiles[key]] = graphqlFiles[key]
+			delete(broken, key)
 		}
-		graphqlFiles[info.url] = filePath
+		if info.parseErr != nil && key == info.url {
+			broken[key] = true
+		}
+		graphqlFiles[key] = filePath
 		if info.needsEnv {
 			needsEnv = true
 		}

@@ -72,13 +72,14 @@ func TestFindGraphQLFiles_278_TextFallbackEdges(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"https://dq.example/gql":   "dq.hk.yaml",
-		"https://sq.example/gql":   "sq.hk.yaml",
-		"https://cm.example/gql":   "comment.hk.yaml",
-		"https://crlf.example/gql": "crlf.hk.yaml",
-		"https://top.example/gql":  "indent.hk.yaml",
-		"https://same.example/gql": "a_good.hk.yaml",
-		"https://up.example/gql":   "upper.hk.yaml",
+		"https://dq.example/gql":            "dq.hk.yaml",
+		"https://sq.example/gql":            "sq.hk.yaml",
+		"https://cm.example/gql":            "comment.hk.yaml",
+		"https://crlf.example/gql":          "crlf.hk.yaml",
+		"https://top.example/gql":           "indent.hk.yaml",
+		"https://same.example/gql":          "a_good.hk.yaml",
+		"https://up.example/gql":            "upper.hk.yaml",
+		filepath.Join(dir, "b_bad.hk.yaml"): "b_bad.hk.yaml",
 	}
 	for url, name := range want {
 		if found[url] != filepath.Join(dir, name) {
@@ -133,13 +134,14 @@ func TestFindGraphQLFiles_278_FallbackReadsOnlyTheFirstDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"https://lead.example/gql":    "lead.hk.yaml",
-		"https://spaced.example/gql":  "spaced.hk.yaml",
-		"https://frag.example/gql#v2": "frag.hk.yaml",
-		"https://open.example/gql":    "unclosed.hk.yaml",
-		"https://same.example/gql":    "b_good.hk.yaml",
-		"https://cmt.example/gql":     "cmt.hk.yaml",
-		"https://dir.example/gql":     "dir.hk.yaml",
+		"https://lead.example/gql":          "lead.hk.yaml",
+		"https://spaced.example/gql":        "spaced.hk.yaml",
+		"https://frag.example/gql#v2":       "frag.hk.yaml",
+		"https://open.example/gql":          "unclosed.hk.yaml",
+		"https://same.example/gql":          "b_good.hk.yaml",
+		filepath.Join(dir, "a_bad.hk.yaml"): "a_bad.hk.yaml",
+		"https://cmt.example/gql":           "cmt.hk.yaml",
+		"https://dir.example/gql":           "dir.hk.yaml",
 	}
 	for url, name := range want {
 		if found[url] != filepath.Join(dir, name) {
@@ -148,5 +150,26 @@ func TestFindGraphQLFiles_278_FallbackReadsOnlyTheFirstDocument(t *testing.T) {
 	}
 	if len(found) != len(want) {
 		t.Errorf("found %d files, want %d: %v", len(found), len(want), found)
+	}
+}
+
+func TestFindGraphQLFiles_278_BrokenFilesNeverHideEachOther(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a.hk.yaml", "b.hk.yaml"} {
+		content := "kind: GraphQL\nurl: >-\n  https://" + name + "/gql\nx: 1\nx: 2\n"
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, _, err := FindGraphQLFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := map[string]bool{}
+	for _, path := range found {
+		listed[filepath.Base(path)] = true
+	}
+	if !listed["a.hk.yaml"] || !listed["b.hk.yaml"] {
+		t.Errorf("both broken files must be listed so each error is reported, got %v", found)
 	}
 }
