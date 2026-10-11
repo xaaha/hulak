@@ -102,7 +102,7 @@ func equalYAML(got, want any) bool {
 }
 
 func TestCreateHulakRequestFile_269_D8_RefusesParentWithoutURL(t *testing.T) {
-	for name, url := range map[string]string{"missing": "", "not a string": "url: 42\n"} {
+	for name, url := range map[string]string{"missing": "", "empty": "url: \"\"\n", "not a string": "url: 42\n"} {
 		t.Run(name, func(t *testing.T) {
 			m, dir := saveFromParent(t, "kind: GraphQL\n"+url+"headers:\n  Authorization: \"Bearer {{.token}}\"\n")
 			want := "Save failed: " + filepath.Join(dir, "parent.hk.yaml") + ": url must be a non-empty string"

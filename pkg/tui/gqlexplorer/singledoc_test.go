@@ -83,8 +83,9 @@ func TestCreateHulakRequestFile_269_RefusesParentWithoutADocument(t *testing.T) 
 	} {
 		t.Run(name, func(t *testing.T) {
 			m, dir := saveFromParent(t, parent)
-			if got := m.notification.CopyText(); !strings.HasPrefix(got, "Save failed: ") {
-				t.Errorf("notification = %q, want a refused save", got)
+			want := "Save failed: " + filepath.Join(dir, "parent.hk.yaml") + ": the first YAML document is empty"
+			if got := m.notification.CopyText(); got != want {
+				t.Errorf("notification = %q, want %q", got, want)
 			}
 			if _, err := os.Stat(filepath.Join(dir, "getUser.hk.yaml")); err == nil {
 				t.Error("a refused save wrote getUser.hk.yaml")
