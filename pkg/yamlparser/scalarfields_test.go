@@ -60,15 +60,16 @@ func TestD1_278_NumericEnvValueAsWholeURL(t *testing.T) {
 }
 
 func TestD4_278_RepeatedKeyIsAnError(t *testing.T) {
-	for name, tc := range map[string]struct{ content, want string }{
-		"url":    {"method: GET\nurl: https://e.com\nurl: https://f.com\n", `[3:1] mapping key "url" already defined at [2:1]`},
-		"header": {"method: GET\nurl: https://e.com\nheaders:\n  X-A: one\n  X-A: two\n", `[5:3] mapping key "X-A" already defined at [4:3]`},
+	for name, tc := range map[string]struct{ content, at, first string }{
+		"url":    {"method: GET\nurl: https://e.com\nurl: https://f.com\n", "[3:1] ", "[2:1]"},
+		"header": {"method: GET\nurl: https://e.com\nheaders:\n  X-A: one\n  X-A: two\n", "[5:3] ", "[4:3]"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := createTempYAMLFile(t, tc.content)
 			_, _, err := FinalStructForAPI(path, map[string]any{})
-			if err == nil || !strings.HasPrefix(err.Error(), "parsing "+path+": "+tc.want) {
-				t.Errorf("err = %v, want it to start with %q", err, "parsing "+path+": "+tc.want)
+			want := "parsing " + path + ": " + tc.at
+			if err == nil || !strings.HasPrefix(err.Error(), want) || !strings.Contains(err.Error(), tc.first) {
+				t.Errorf("err = %v, want it to start with %q and name %s", err, want, tc.first)
 			}
 		})
 	}

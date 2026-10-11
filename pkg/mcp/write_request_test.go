@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestHandleWriteRequest(t *testing.T) {
@@ -161,6 +163,14 @@ func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
 	}
 	if want := "yaml_content is not valid YAML: [2:1] "; !strings.HasPrefix(err.Error(), want) {
 		t.Errorf("error = %q, want it to start with %q", err, want)
+	}
+}
+
+func TestD6_278_ValidateRequestContentRejectsASecondDocument(t *testing.T) {
+	s, _ := schemaServer(t, projectDir(t))
+	err := s.validateRequestContent("method: POST\nurl: \"https://e.com\"\n---\nheaders: {}\n")
+	if want := testutil.SingleDocError("yaml_content", 3); err == nil || err.Error() != want {
+		t.Errorf("error = %v, want %q", err, want)
 	}
 }
 

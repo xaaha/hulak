@@ -16,8 +16,8 @@ func TestCreateHulakRequestFile_278_D3_EmptyHeaderValueStaysEmpty(t *testing.T) 
 	if err != nil {
 		t.Fatalf("no request saved: %v (notification %q)", err, m.notification.CopyText())
 	}
-	if strings.Contains(string(content), "<nil>") {
-		t.Fatalf("saved request holds <nil>:\n%s", content)
+	if !strings.Contains(string(content), "\n  \"X-Foo\": \"\"\n") {
+		t.Fatalf("saved request must write X-Foo as an empty value:\n%s", content)
 	}
 	t.Chdir(dir)
 	if err := os.Mkdir(filepath.Join(dir, "env"), 0o755); err != nil {

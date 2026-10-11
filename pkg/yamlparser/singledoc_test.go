@@ -6,6 +6,8 @@ import (
 
 	yaml "github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/parser"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 const strayLineRequest = "method: POST\n// stray\nurl: \"https://e.com\"\n"
@@ -19,6 +21,22 @@ func TestD21FinalStructForAPIRejectsStrayLine(t *testing.T) {
 	}
 	if want := "parsing " + path + ": [2:1] "; !strings.HasPrefix(err.Error(), want) {
 		t.Errorf("error = %q, want it to start with %q", err, want)
+	}
+}
+
+func TestD6_278_FinalStructForAPIRejectsASecondDocument(t *testing.T) {
+	path := createTempYAMLFile(t, "method: POST\nurl: https://e.com\n---\nurl: https://f.com\n")
+	_, ok, err := FinalStructForAPI(path, map[string]any{})
+	if want := testutil.SingleDocError(path, 3); err == nil || err.Error() != want {
+		t.Errorf("err = %v (ok=%v), want %q", err, ok, want)
+	}
+}
+
+func TestD6_278_PeekConfigRejectsASecondDocument(t *testing.T) {
+	path := createTempYAMLFile(t, "kind: API\nmethod: POST\n---\nurl: https://f.com\n")
+	_, err := PeekConfig(path)
+	if want := testutil.SingleDocError(path, 3); err == nil || err.Error() != want {
+		t.Errorf("err = %v, want %q", err, want)
 	}
 }
 

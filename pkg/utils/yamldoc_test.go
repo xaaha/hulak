@@ -34,6 +34,7 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 			0,
 		},
 		{"deliberate second document", "method: POST\n---\nurl: https://e.com\n", 2},
+		{"content after a document end marker", "method: POST\n...\nurl: https://e.com\n", 3},
 		{"second document is an explicit null", "method: POST\n---\nnull\n", 2},
 		{"split after a yaml directive", "%YAML 1.2\n---\nmethod: POST\n---\nurl: x\n", 4},
 	}
