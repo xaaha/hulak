@@ -139,6 +139,8 @@ func runBackup(outPath string, force bool) error {
 	return nil
 }
 
+var now = time.Now
+
 // resolveBackupDest determines the backup destination path.
 // For --out: applies the shared output-path rules. Directory inputs (trailing
 // slash, existing dir, or no .age extension) get a fresh timestamped filename
@@ -146,7 +148,7 @@ func runBackup(outPath string, force bool) error {
 // For default: generates a timestamped path under .hulak/backups/ with collision handling.
 func resolveBackupDest(outPath string, force bool) (string, error) {
 	if outPath != "" {
-		canonical := backupPrefix + time.Now().Format(backupTimestampFormat)
+		canonical := backupPrefix + now().Format(backupTimestampFormat)
 		dest, err := cliflags.ResolveOutputPath(outPath, canonical, ".age")
 		if err != nil {
 			return "", err
@@ -162,7 +164,7 @@ func resolveBackupDest(outPath string, force bool) (string, error) {
 		return "", err
 	}
 
-	ts := time.Now().Format(backupTimestampFormat)
+	ts := now().Format(backupTimestampFormat)
 	base := filepath.Join(backupsDir, backupPrefix+ts)
 
 	// Same-second collision: append .1, .2, etc. Cap at 999 to avoid unbounded spin.

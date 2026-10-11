@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/xaaha/hulak/pkg/utils"
 	"github.com/xaaha/hulak/pkg/vault"
@@ -104,6 +105,9 @@ func TestRunBackup_OutExistingForce(t *testing.T) {
 
 func TestRunBackup_SameSecondCollision(t *testing.T) {
 	setupVaultProject(t)
+	fixed := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	now = func() time.Time { return fixed }
+	t.Cleanup(func() { now = time.Now })
 
 	if err := runEnvSet([]string{"KEY", "val"}, "global", false, ""); err != nil {
 		t.Fatalf("seed store: %v", err)
@@ -122,15 +126,16 @@ func TestRunBackup_SameSecondCollision(t *testing.T) {
 		t.Fatalf("expected at least 2 backups, got %d", len(entries))
 	}
 
+	want := backupPrefix + fixed.Format(backupTimestampFormat) + ".1"
 	found := false
 	for _, e := range entries {
-		if strings.Contains(e.Name(), ".1") {
+		if e.Name() == want {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("expected collision suffix .1 on second backup")
+		t.Errorf("expected the second backup to be %s", want)
 	}
 }
 
