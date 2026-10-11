@@ -1,14 +1,12 @@
 <p align="center">
-  <img alt="Hulak" src="./assets/logo.svg" width="280" />
+  <img alt="Hulak" src="./assets/hulak-logo.svg" width="180" />
 </p>
+
+<h1 align="center">Hulak</h1>
 
 <h3 align="center">
-  Git-native API client with encrypted secrets.
+  Your messenger in the terminal.
 </h3>
-
-<p align="center">
-  <sub>REST &middot; GraphQL &middot; OAuth</sub>
-</p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
