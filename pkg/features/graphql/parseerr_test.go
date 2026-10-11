@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestFindGraphQLFiles_278_KeepsGraphQLFilesThatFailToParse(t *testing.T) {
@@ -171,5 +173,48 @@ func TestFindGraphQLFiles_278_BrokenFilesNeverHideEachOther(t *testing.T) {
 	}
 	if !listed["a.hk.yaml"] || !listed["b.hk.yaml"] {
 		t.Errorf("both broken files must be listed so each error is reported, got %v", found)
+	}
+}
+
+func TestFindGraphQLFiles_278_FallbackEdgesRound7(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"api.hk.yaml":     "kind: API\nmethod: GET\nmethod: POST\nnote: \"\nkind: graphql\nurl: https://fake.example/gql\"\n",
+		"crlfsep.hk.yaml": "x: 1\r\n---\r\nkind: GraphQL\r\nurl: https://crlfsep.example/gql\r\nheaders:\r\n\tX: y\r\n",
+		"a_bad.hk.yaml":   "kind: GraphQL\nurl: https://three.example/gql\nheaders: {a: b\n",
+		"b_good.hk.yaml":  "kind: GraphQL\nurl: https://three.example/gql\n",
+		"c_good.hk.yaml":  "kind: GraphQL\nurl: https://three.example/gql\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, _, err := FindGraphQLFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"https://three.example/gql":         filepath.Join(dir, "c_good.hk.yaml"),
+		filepath.Join(dir, "a_bad.hk.yaml"): filepath.Join(dir, "a_bad.hk.yaml"),
+	}
+	if len(found) != len(want) {
+		t.Fatalf("found %v, want %v", found, want)
+	}
+	for k, v := range want {
+		if found[k] != v {
+			t.Errorf("found[%q] = %q, want %q", k, found[k], v)
+		}
+	}
+}
+
+func TestValidateGraphQLFile_278_SplitFileWithBadAliasReportsTheSplit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "alias.hk.yaml")
+	if err := os.WriteFile(path, []byte("kind: GraphQL\nurl: https://al.example/gql\n---\nx: *nope\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ValidateGraphQLFile(path)
+	if want := testutil.SingleDocError(path, 3); err == nil || err.Error() != want {
+		t.Errorf("err = %v, want %q", err, want)
 	}
 }

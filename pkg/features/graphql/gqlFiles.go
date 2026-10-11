@@ -47,7 +47,8 @@ type fileInfo struct {
 }
 
 var (
-	graphqlKindLine = regexp.MustCompile(`(?im)^kind[ \t]*:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
+	kindLine        = regexp.MustCompile(`(?im)^kind[ \t]*:.*$`)
+	graphqlKindLine = regexp.MustCompile(`(?i)^kind[ \t]*:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
 	urlLine         = regexp.MustCompile(`(?im)^url[ \t]*:[ \t]*(.+?)[ \t]*\r?$`)
 	documentEnd     = regexp.MustCompile(`(?m)^(---|\.\.\.)([ \t].*)?\r?$`)
 )
@@ -55,7 +56,7 @@ var (
 func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo, error) {
 	first := firstDocument(content)
 	url := urlLine.FindSubmatch(first)
-	if !graphqlKindLine.Match(first) || url == nil {
+	if !graphqlKindLine.Match(kindLine.Find(first)) || url == nil {
 		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", decodeErr)
 	}
 	parseErr := utils.ValidateSingleYAMLDoc(filePath, content)
