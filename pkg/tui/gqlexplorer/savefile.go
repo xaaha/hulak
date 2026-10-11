@@ -120,12 +120,15 @@ func buildHkYaml(
 	fmt.Fprintf(&sb, "url: %q\n", url)
 
 	headers := raw.headers
-	if len(headers) == 0 {
+	if !raw.fromParent {
 		if info, ok := apiInfos[op.Endpoint]; ok && len(info.Headers) > 0 {
 			headers = info.Headers
 		}
 	}
-	if len(headers) > 0 {
+	switch {
+	case raw.headersTemplate != "":
+		fmt.Fprintf(&sb, "headers: %q\n", raw.headersTemplate)
+	case len(headers) > 0:
 		sb.WriteString("headers:\n")
 		for _, k := range sortedKeys(headers) {
 			v := headers[k]
@@ -135,7 +138,7 @@ func buildHkYaml(
 				fmt.Fprintf(&sb, "  %s: %s\n", k, v)
 			}
 		}
-	} else {
+	default:
 		sb.WriteString("headers:\n  Content-Type: application/json\n")
 	}
 
@@ -165,8 +168,10 @@ func buildHkYaml(
 }
 
 type rawParentFields struct {
-	url     string
-	headers map[string]string
+	fromParent      bool
+	url             string
+	headers         map[string]string
+	headersTemplate string
 }
 
 func readRawParentFields(filePath string) (rawParentFields, error) {
@@ -186,7 +191,7 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 		return rawParentFields{}, fmt.Errorf("%s: the first YAML document is empty", filePath)
 	}
 
-	var raw rawParentFields
+	raw := rawParentFields{fromParent: true}
 	for k, v := range data {
 		switch strings.ToLower(k) {
 		case "url":
@@ -194,11 +199,17 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 				raw.url = s
 			}
 		case "headers":
-			if hdr, ok := v.(map[string]any); ok {
+			switch hdr := v.(type) {
+			case nil:
+			case string:
+				raw.headersTemplate = hdr
+			case map[string]any:
 				raw.headers = make(map[string]string, len(hdr))
 				for hk, hv := range hdr {
 					raw.headers[hk] = fmt.Sprintf("%v", hv)
 				}
+			default:
+				return rawParentFields{}, fmt.Errorf("%s: headers must be a mapping or a template string", filePath)
 			}
 		}
 	}
