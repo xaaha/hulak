@@ -182,6 +182,9 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 	if err := yaml.Unmarshal(content, &data); err != nil {
 		return rawParentFields{}, err
 	}
+	if data == nil {
+		return rawParentFields{}, fmt.Errorf("%s: the first YAML document is empty", filePath)
+	}
 
 	var raw rawParentFields
 	for k, v := range data {
