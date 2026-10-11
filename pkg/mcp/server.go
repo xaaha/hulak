@@ -80,7 +80,7 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    utils.ProjectName,
 		Version: version,
-	}, nil)
+	}, &mcpsdk.ServerOptions{Instructions: instructions})
 	s := &Server{projects: resolved, srv: srv}
 	s.registerListRequests()
 	s.registerReadRequest()
@@ -91,6 +91,17 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 	s.registerWriteRequest()
 	return s, nil
 }
+
+const instructions = "hulak sends real HTTP requests to the APIs in these projects, " +
+	"using credentials the projects already hold. Use it when reading code or docs " +
+	"leaves you guessing how a running service actually behaves (a status code, an " +
+	"auth rule, a response shape), and before you write that something was not " +
+	"checked against a running service. Find a request with list_requests (filter by " +
+	"name or directory), see what it sends with read_request, check it resolves with " +
+	"dry_run in an environment from list_envs, then send it with call_request. To add " +
+	"a request, read request_format, then write_request. call_request makes a real " +
+	"call: prefer reads, and do not change data you were not asked to change. Secret " +
+	"values are never shown to you."
 
 // withProjectDir runs fn with the process working directory set to root,
 // restoring it afterward. Serialized by mu: hulak's secret loading and

@@ -174,3 +174,62 @@ func TestNewServer_HandshakeAdvertisesTools(t *testing.T) {
 		t.Errorf("expected list_requests to be advertised, got %v", names)
 	}
 }
+
+func TestNewServer_260_InstructionsAndHandoffs(t *testing.T) {
+	ctx := context.Background()
+	serverT, clientT := mcpsdk.NewInMemoryTransports()
+	s, err := NewServer(map[string]string{"api": projectDir(t)}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss, err := s.srv.Connect(ctx, serverT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ss.Close()
+	cs, err := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "c", Version: "0"}, nil).Connect(ctx, clientT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cs.Close()
+
+	instructions := cs.InitializeResult().Instructions
+	for _, tool := range []string{"list_requests", "read_request", "request_format", "dry_run", "call_request", "write_request"} {
+		if !strings.Contains(instructions, tool) {
+			t.Errorf("server instructions do not mention %s", tool)
+		}
+	}
+	if !strings.Contains(instructions, "running service") {
+		t.Error("server instructions do not name the moment to use hulak: checking a running service")
+	}
+
+	res, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptions := map[string]string{}
+	for _, tool := range res.Tools {
+		descriptions[tool.Name] = tool.Description
+	}
+	handoffs := map[string][]string{
+		"list_requests":  {"read_request"},
+		"read_request":   {"dry_run", "write_request"},
+		"request_format": {"write_request"},
+		"list_envs":      {"dry_run", "call_request"},
+		"dry_run":        {"call_request"},
+		"call_request":   {"save", "getValueOf"},
+		"write_request":  {"request_format", "dry_run"},
+	}
+	for tool, mentions := range handoffs {
+		description, ok := descriptions[tool]
+		if !ok {
+			t.Errorf("%s is not advertised", tool)
+			continue
+		}
+		for _, m := range mentions {
+			if !strings.Contains(description, m) {
+				t.Errorf("%s description does not mention %s", tool, m)
+			}
+		}
+	}
+}

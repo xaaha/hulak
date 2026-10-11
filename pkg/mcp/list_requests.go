@@ -53,7 +53,8 @@ type listRequestsOutput struct {
 func (s *Server) registerListRequests() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "list_requests",
-		Description: "List hulak request files, grouped by project. Each project " +
+		Description: "Find the request to call: list hulak request files, grouped by " +
+			"project, then open one with read_request. Each project " +
 			"has its absolute root; each entry has its name, file path relative to " +
 			"that root, kind (API/GraphQL), target host as written (template " +
 			"variables unresolved), and any dependency files it references " +

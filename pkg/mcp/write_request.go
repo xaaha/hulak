@@ -31,10 +31,12 @@ func (s *Server) registerWriteRequest() {
 	destructive := true
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "write_request",
-		Description: "Create or overwrite a hulak request file in a project. The " +
-			"content must be valid YAML. Refuses to overwrite an existing file " +
-			"unless overwrite is true. A .hk.yaml extension is added when the name " +
-			"has none.",
+		Description: "Create or overwrite a hulak request file in a project. Read " +
+			"request_format first for the shape, template actions, and examples. " +
+			"The content is validated against the request schema before it is " +
+			"written. Refuses to overwrite an existing file unless overwrite is " +
+			"true. A .hk.yaml extension is added when the name has none. Check the " +
+			"new request with dry_run before call_request.",
 		Annotations: &mcpsdk.ToolAnnotations{DestructiveHint: &destructive},
 	}, s.handleWriteRequest)
 }
