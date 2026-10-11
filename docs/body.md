@@ -123,15 +123,15 @@ Sample YAML Configuration
 url: "https://api.example.com/resource"
 method: POST
 urlparams:
-	param1: "value1"
-	param2: "value2"
+  param1: "value1"
+  param2: "value2"
 headers:
-	Content-Type: "application/json"
-	Authorization: "Bearer {{.token}}"
+  Content-Type: "application/json"
+  Authorization: "Bearer {{.token}}"
 body:
-	formdata:
-		field1: "value1"
-		field2: "value2"
+  formdata:
+    field1: "value1"
+    field2: "value2"
 ```
 
 ```yaml
