@@ -138,7 +138,7 @@ func readDependencies(path string, secrets []os.FileInfo) ([]DependencyFile, err
 	return deps, nil
 }
 
-// containedPath follows symlinks in path and reports its location relative to realRoot.
+// containedPath needs realRoot with its symlinks already resolved.
 func containedPath(realRoot, path string) (string, bool, error) {
 	target, err := filepath.EvalSymlinks(path)
 	if err != nil {

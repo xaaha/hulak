@@ -35,7 +35,7 @@ type Server struct {
 // to validate write_request content, and serves it from request_format.
 // Best-effort: an empty or unparseable schema is skipped with a warning rather
 // than failing startup — write_request then falls back to a basic YAML-mapping
-// check and request_format serves only the guide.
+// check and request_format refuses schema: true.
 func (s *Server) SetRequestSchema(schemaJSON []byte) {
 	if len(schemaJSON) == 0 {
 		return

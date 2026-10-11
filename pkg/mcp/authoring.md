@@ -17,7 +17,7 @@ Top-level keys:
 Values are Go templates. Quote any value that starts with `{{`.
 
 - `{{.name}}`: the env variable `name` from the chosen environment. Case sensitive. Use `list_envs` for environment names and `list_requests` with `detail` for the variables a request uses.
-- `{{getValueOf "key" "request_name"}}`: a value from the saved response of another request. The first argument is the JSON key (dot path, e.g. `data.token` or `items[0].id`). The second is the request name without extension, or a path from the project root to a `.json` file. The response must be saved first: over MCP, call that request with `call_request` and `save: true`. Only a JSON response can be read: a non-JSON response is saved as `.txt` and the value comes back empty.
+- `{{getValueOf "key" "request_name"}}`: a value from the saved response of another request. The first argument is the JSON key (dot path, e.g. `data.token` or `items[0].id`). The second is the request name without extension, or a path from the project root to a `.json` file. The response must be saved first: over MCP, call that request with `call_request` and `save: true`. Only a JSON response can be read: any other response is saved under another extension and the value comes back empty.
 - `{{getFile "path"}}`: the contents of a file, relative to the project root. `{{getFile "*.gql"}}` reads the sibling `.gql` with the same basename as the request. `write_request` writes only request files, so for a new request put the query inline.
 - `{{attachFile "path"}}`: upload a file as a `formdata` part or as the whole `raw` body.
 - `{{basicAuth .user .pass}}`: a complete `Basic <base64>` header value.
