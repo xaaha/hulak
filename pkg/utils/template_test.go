@@ -939,3 +939,24 @@ func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
 		t.Errorf("DirectReferencedFiles = %v, want only the sibling %v", got, want)
 	}
 }
+
+func TestFileHasTemplateVars_269_SplitFileIsFalse(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "split.hk.yaml")
+	content := "method: GET\nurl: \"{{.base}}/x\"\n---\nheaders:\n  X-A: \"{{.token}}\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if FileHasTemplateVars(path) {
+		t.Error("a split file must not ask for an environment")
+	}
+}
+
+func TestFileHasTemplateVars_269_LeadingMarkerIsOneDocument(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "single.hk.yaml")
+	if err := os.WriteFile(path, []byte("# login\n---\nmethod: GET\nurl: \"{{.base}}/x\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !FileHasTemplateVars(path) {
+		t.Error("a single document after a leading --- must still ask for an environment")
+	}
+}

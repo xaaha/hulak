@@ -21,9 +21,13 @@ type ProcessResult struct {
 
 // NeedsEnvResolution checks if any URL or file in the map contains template
 // variables that need environment resolution. It checks both URL strings and
-// the raw file contents for dot-access patterns like {{.key}}.
+// the raw file contents for dot-access patterns like {{.key}}. A multi-document
+// file is skipped: processing rejects it whatever the environment.
 func NeedsEnvResolution(urlToFileMap map[string]string) bool {
 	for url, filePath := range urlToFileMap {
+		if info, err := peekFileInfo(filePath); err == nil && info.splitErr != nil {
+			continue
+		}
 		if strings.Contains(url, "{{") {
 			return true
 		}
@@ -38,21 +42,20 @@ type fileInfo struct {
 	kind     string
 	url      string
 	needsEnv bool
+	splitErr error
 }
 
-// peekFileInfo decodes a YAML file once and extracts kind, url, and whether
-// any string value contains env variable references ({{.key}}).
+// peekFileInfo decodes a YAML file's first document and extracts kind, url, and
+// whether any string value contains env variable references ({{.key}}).
 // No template substitution is performed.
 func peekFileInfo(filePath string) (fileInfo, error) {
-	file, err := os.Open(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fileInfo{}, fmt.Errorf("cannot open file: %w", err)
 	}
-	defer func() { _ = file.Close() }()
 
 	var data map[string]any
-	dec := yaml.NewDecoder(file)
-	if err := dec.Decode(&data); err != nil {
+	if err := yaml.Unmarshal(content, &data); err != nil {
 		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", err)
 	}
 
@@ -65,12 +68,14 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if v, ok := data["url"].(string); ok {
 		info.url = strings.TrimSpace(v)
 	}
-	info.needsEnv = utils.MapHasEnvVars(data)
+	info.splitErr = utils.ValidateSingleYAMLDoc(filePath, content)
+	info.needsEnv = info.splitErr == nil && utils.MapHasEnvVars(data)
 	return info, nil
 }
 
 // FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
-// in the given directory and its subdirectories.
+// in the given directory and its subdirectories. A file split into several YAML
+// documents is kept when its first document matches, so processing reports it.
 // Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths,
 // along with a bool indicating whether any file contains env variable references.
 func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
@@ -131,6 +136,9 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	info, err := peekFileInfo(filePath)
 	if err != nil {
 		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
+	}
+	if info.splitErr != nil {
+		return "", false, info.splitErr
 	}
 
 	if info.url == "" {
