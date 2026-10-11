@@ -91,3 +91,14 @@ func TestValidateGraphQLFile_269_RejectsSplitFileWithPlainURL(t *testing.T) {
 		t.Errorf("err = %v, want %q", err, testutil.SingleDocError(path, 3))
 	}
 }
+
+func TestValidateGraphQLFile_269_RejectsSplitBeforeURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "early.hk.yaml")
+	if err := os.WriteFile(path, []byte("kind: GraphQL\n---\nurl: \"{{.base}}/gql\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ValidateGraphQLFile(path)
+	if err == nil || err.Error() != testutil.SingleDocError(path, 2) {
+		t.Errorf("err = %v, want %q", err, testutil.SingleDocError(path, 2))
+	}
+}

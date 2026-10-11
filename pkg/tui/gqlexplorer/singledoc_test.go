@@ -69,7 +69,8 @@ func TestCreateHulakRequestFile_269_KeepsTemplatesFromParent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(saved), "s3cret-token") || !strings.Contains(string(saved), "{{.token}}") {
+	if strings.Contains(string(saved), "s3cret-token") || !strings.Contains(string(saved), "{{.token}}") ||
+		!strings.Contains(string(saved), `url: "{{.base}}/gql"`) {
 		t.Errorf("saved request must keep the parent's templates:\n%s", saved)
 	}
 }
