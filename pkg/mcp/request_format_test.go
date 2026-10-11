@@ -64,12 +64,18 @@ func TestRequestFormat_260_GuideAndSchema(t *testing.T) {
 		t.Error("schema: true must return the guide and the configured schema unchanged")
 	}
 
-	bare, err := NewServer(map[string]string{"api": projectDir(t)}, "v")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := bare.handleRequestFormat(ctx, nil, requestFormatInput{Schema: true}); err == nil {
-		t.Error("schema: true without a configured schema must be an error")
+	for name, schemaJSON := range map[string][]byte{
+		"no schema":           nil,
+		"unresolvable schema": []byte(`{"$ref": "#/definitions/missing"}`),
+	} {
+		bare, err := NewServer(map[string]string{"api": projectDir(t)}, "v")
+		if err != nil {
+			t.Fatal(err)
+		}
+		bare.SetRequestSchema(schemaJSON)
+		if _, _, err := bare.handleRequestFormat(ctx, nil, requestFormatInput{Schema: true}); err == nil {
+			t.Errorf("%s: schema: true must be an error when write_request does not enforce a schema", name)
+		}
 	}
 }
 

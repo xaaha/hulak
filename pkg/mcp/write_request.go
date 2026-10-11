@@ -31,7 +31,8 @@ func (s *Server) registerWriteRequest() {
 	destructive := true
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "write_request",
-		Description: "Create or overwrite a hulak request file in a project. Read " +
+		Description: "Add a request when list_requests has none for the call you " +
+			"need: create or overwrite a hulak request file in a project. Read " +
 			"request_format first for the shape, template actions, and examples. " +
 			"The content is validated against the request schema before it is " +
 			"written. Refuses to overwrite an existing file unless overwrite is " +

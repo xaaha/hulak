@@ -31,10 +31,11 @@ type Server struct {
 	mu            sync.Mutex // serializes withProjectDir
 }
 
-// SetRequestSchema compiles schemaJSON (the hulak request JSON Schema) and uses
-// it to validate write_request content. Best-effort: an empty or unparseable
-// schema is skipped with a warning rather than failing startup — write_request
-// then falls back to a basic YAML-mapping check.
+// SetRequestSchema compiles schemaJSON (the hulak request JSON Schema), uses it
+// to validate write_request content, and serves it from request_format.
+// Best-effort: an empty or unparseable schema is skipped with a warning rather
+// than failing startup — write_request then falls back to a basic YAML-mapping
+// check and request_format serves only the guide.
 func (s *Server) SetRequestSchema(schemaJSON []byte) {
 	if len(schemaJSON) == 0 {
 		return
@@ -100,8 +101,9 @@ const instructions = "hulak sends real HTTP requests to the APIs in these projec
 	"name or directory), see what it sends with read_request, check it resolves with " +
 	"dry_run in an environment from list_envs, then send it with call_request. To add " +
 	"a request, read request_format, then write_request. call_request makes a real " +
-	"call: prefer reads, and do not change data you were not asked to change. Secret " +
-	"values are never shown to you."
+	"call: prefer reads, and do not change data you were not asked to change. Env " +
+	"secret values are masked in dry_run unless you pass show, and read_request " +
+	"never returns env or vault files; response bodies come back as the server sent them."
 
 // withProjectDir runs fn with the process working directory set to root,
 // restoring it afterward. Serialized by mu: hulak's secret loading and

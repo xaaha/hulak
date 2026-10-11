@@ -24,7 +24,7 @@ func (s *Server) registerRequestFormat() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "request_format",
 		Description: "How to write a hulak request file: the YAML shape, body types, " +
-			"template actions ({{.var}}, getValueOf, getFile, attachFile, basicAuth) " +
+			"template actions ({{.var}}, getValueOf, getFile, attachFile, basicAuth, os) " +
 			"with their argument order, and worked examples, including passing a " +
 			"token from one request to the next. Read it before write_request. " +
 			"Pass `schema` to also get the JSON Schema that write_request validates against.",

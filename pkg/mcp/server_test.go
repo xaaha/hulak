@@ -199,8 +199,13 @@ func TestNewServer_260_InstructionsAndHandoffs(t *testing.T) {
 			t.Errorf("server instructions do not mention %s", tool)
 		}
 	}
-	if !strings.Contains(instructions, "running service") {
-		t.Error("server instructions do not name the moment to use hulak: checking a running service")
+	for _, phrase := range []string{"running service", "do not change data", "masked"} {
+		if !strings.Contains(instructions, phrase) {
+			t.Errorf("server instructions do not say %q", phrase)
+		}
+	}
+	if strings.Index(instructions, "request_format") > strings.Index(instructions, "write_request") {
+		t.Error("server instructions must send the agent to request_format before write_request")
 	}
 
 	res, err := cs.ListTools(ctx, nil)
@@ -215,9 +220,8 @@ func TestNewServer_260_InstructionsAndHandoffs(t *testing.T) {
 		"list_requests":  {"read_request"},
 		"read_request":   {"dry_run", "write_request"},
 		"request_format": {"write_request"},
-		"list_envs":      {"dry_run", "call_request"},
 		"dry_run":        {"call_request"},
-		"call_request":   {"save", "getValueOf"},
+		"call_request":   {"running service", "save: true", "getValueOf"},
 		"write_request":  {"request_format", "dry_run"},
 	}
 	for tool, mentions := range handoffs {

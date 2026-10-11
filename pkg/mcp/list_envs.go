@@ -30,7 +30,8 @@ type listEnvsOutput struct {
 func (s *Server) registerListEnvs() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "list_envs",
-		Description: "List the environment names available in each project (e.g. " +
+		Description: "Pick the environment for dry_run or call_request: list the " +
+			"environment names available in each project (e.g. " +
 			"global, staging, prod). Use one of these as the `env` argument to " +
 			"dry_run or call_request. Returns names only — never secret values. " +
 			"Omit `project` to list every configured project.",
