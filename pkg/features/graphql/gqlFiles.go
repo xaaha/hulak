@@ -26,7 +26,7 @@ type ProcessResult struct {
 // file is skipped: processing rejects it whatever the environment.
 func NeedsEnvResolution(urlToFileMap map[string]string) bool {
 	for url, filePath := range urlToFileMap {
-		if info, err := peekFileInfo(filePath); err == nil && info.splitErr != nil {
+		if info, err := peekFileInfo(filePath); err == nil && info.parseErr != nil {
 			continue
 		}
 		if strings.Contains(url, "{{") {
@@ -43,7 +43,7 @@ type fileInfo struct {
 	kind     string
 	url      string
 	needsEnv bool
-	splitErr error
+	parseErr error
 }
 
 var (
@@ -60,7 +60,7 @@ func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo,
 	return fileInfo{
 		kind:     "graphql",
 		url:      strings.Trim(string(url[1]), `"'`),
-		splitErr: utils.ValidateSingleYAMLDoc(filePath, content),
+		parseErr: utils.ValidateSingleYAMLDoc(filePath, content),
 	}, nil
 }
 
@@ -87,8 +87,8 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if v, ok := data["url"].(string); ok {
 		info.url = strings.TrimSpace(v)
 	}
-	info.splitErr = utils.ValidateSingleYAMLDoc(filePath, content)
-	info.needsEnv = info.splitErr == nil && utils.MapHasEnvVars(data)
+	info.parseErr = utils.ValidateSingleYAMLDoc(filePath, content)
+	info.needsEnv = info.parseErr == nil && utils.MapHasEnvVars(data)
 	return info, nil
 }
 
@@ -156,8 +156,8 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	if err != nil {
 		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
 	}
-	if info.splitErr != nil {
-		return "", false, info.splitErr
+	if info.parseErr != nil {
+		return "", false, info.parseErr
 	}
 
 	if info.url == "" {
