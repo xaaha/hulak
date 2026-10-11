@@ -104,3 +104,40 @@ func TestPeekFileInfo_278_DecodeErrorIsKeptWhenTheParseSucceeds(t *testing.T) {
 		t.Errorf("ValidateGraphQLFile error = %v, want it to name the file", err)
 	}
 }
+
+func TestFindGraphQLFiles_278_FallbackReadsOnlyTheFirstDocument(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"later.hk.yaml":    "x: 1\n---\nkind: GraphQL\nurl: https://later.example/gql\nheaders:\n\tX: y\n",
+		"lead.hk.yaml":     "---\nkind: GraphQL\nurl: https://lead.example/gql\n// stray\n",
+		"spaced.hk.yaml":   "kind : GraphQL\nurl : https://spaced.example/gql\n// stray\n",
+		"frag.hk.yaml":     "kind: GraphQL\nurl: https://frag.example/gql#v2\n// stray\n",
+		"unclosed.hk.yaml": "kind: GraphQL\nurl: \"https://open.example/gql\n// stray\n",
+		"a_bad.hk.yaml":    "kind: GraphQL\nurl: https://same.example/gql\nheaders: {a: b\n",
+		"b_good.hk.yaml":   "kind: GraphQL\nurl: https://same.example/gql\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found, _, err := FindGraphQLFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"https://lead.example/gql":    "lead.hk.yaml",
+		"https://spaced.example/gql":  "spaced.hk.yaml",
+		"https://frag.example/gql#v2": "frag.hk.yaml",
+		"https://open.example/gql":    "unclosed.hk.yaml",
+		"https://same.example/gql":    "b_good.hk.yaml",
+	}
+	for url, name := range want {
+		if found[url] != filepath.Join(dir, name) {
+			t.Errorf("found[%q] = %q, want %s", url, found[url], name)
+		}
+	}
+	if len(found) != len(want) {
+		t.Errorf("found %d files, want %d: %v", len(found), len(want), found)
+	}
+}

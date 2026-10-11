@@ -47,13 +47,15 @@ type fileInfo struct {
 }
 
 var (
-	graphqlKindLine = regexp.MustCompile(`(?im)^kind:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
-	urlLine         = regexp.MustCompile(`(?im)^url:[ \t]*(.+?)[ \t]*\r?$`)
+	graphqlKindLine = regexp.MustCompile(`(?im)^kind[ \t]*:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
+	urlLine         = regexp.MustCompile(`(?im)^url[ \t]*:[ \t]*(.+?)[ \t]*\r?$`)
+	documentEnd     = regexp.MustCompile(`(?m)^(---|\.\.\.)([ \t].*)?\r?$`)
 )
 
 func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo, error) {
-	url := urlLine.FindSubmatch(content)
-	if !graphqlKindLine.Match(content) || url == nil {
+	first := firstDocument(content)
+	url := urlLine.FindSubmatch(first)
+	if !graphqlKindLine.Match(first) || url == nil {
 		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", decodeErr)
 	}
 	parseErr := utils.ValidateSingleYAMLDoc(filePath, content)
@@ -63,11 +65,33 @@ func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo,
 	return fileInfo{kind: "graphql", url: scalarText(string(url[1])), parseErr: parseErr}, nil
 }
 
+func firstDocument(content []byte) []byte {
+	start := 0
+	for _, loc := range documentEnd.FindAllIndex(content, -1) {
+		if strings.TrimSpace(stripComments(content[start:loc[0]])) != "" {
+			return content[:loc[0]]
+		}
+		start = loc[1]
+	}
+	return content
+}
+
+func stripComments(text []byte) string {
+	var b strings.Builder
+	for line := range strings.SplitSeq(string(text), "\n") {
+		if t := strings.TrimSpace(line); t != "" && !strings.HasPrefix(t, "#") && !strings.HasPrefix(t, "%") {
+			b.WriteString(t)
+		}
+	}
+	return b.String()
+}
+
 func scalarText(raw string) string {
 	if raw != "" && (raw[0] == '"' || raw[0] == '\'') {
 		if end := strings.IndexByte(raw[1:], raw[0]); end >= 0 {
 			return raw[1 : end+1]
 		}
+		return strings.TrimSpace(raw[1:])
 	}
 	if i := strings.Index(raw, " #"); i >= 0 {
 		raw = raw[:i]
