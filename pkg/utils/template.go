@@ -147,6 +147,7 @@ func collectTemplateVarNames(val any, names *[]string) {
 // references either: getFile dumps the referenced file's raw content into
 // context and hulak never re-templates it (single-pass substitution), so an env
 // var inside a referenced file can never resolve and must not force env loading.
+// A multi-document file reports false, so its run fails before any env prompt.
 func FileHasTemplateVars(filePath string) bool {
 	resolvedPath, err := resolveFilePath(filePath)
 	if err != nil {
@@ -155,6 +156,9 @@ func FileHasTemplateVars(filePath string) bool {
 
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
+		return false
+	}
+	if ValidateSingleYAMLDoc(resolvedPath, content) != nil {
 		return false
 	}
 

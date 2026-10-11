@@ -939,3 +939,14 @@ func TestReferencedFiles_260_SiblingAndDirect(t *testing.T) {
 		t.Errorf("DirectReferencedFiles = %v, want only the sibling %v", got, want)
 	}
 }
+
+func TestFileHasTemplateVars_SplitFileIsFalse(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "split.hk.yaml")
+	content := "method: GET\nurl: \"{{.base}}/x\"\n---\nheaders:\n  X-A: \"{{.token}}\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if FileHasTemplateVars(path) {
+		t.Error("a split file must not ask for an environment")
+	}
+}
