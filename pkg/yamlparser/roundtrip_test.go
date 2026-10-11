@@ -68,14 +68,14 @@ func TestD9_278_PeekRequestKindSurvivesTabValues(t *testing.T) {
 }
 
 func TestD9_278_GraphQLVariablesKeepTypesAndCase(t *testing.T) {
-	path := createTempYAMLFile(t, "kind: GraphQL\nmethod: POST\nurl: https://e.com/gql\nbody:\n  graphql:\n    query: \"query { a }\"\n    variables:\n      userId: 5\n      on: true\n      ratio: 1.5\n      none: null\n      list: []\n      obj: {}\n      fromEnv: \"{{.num}}\"\n")
+	path := createTempYAMLFile(t, "kind: GraphQL\nmethod: POST\nurl: https://e.com/gql\nbody:\n  graphql:\n    query: \"query { a }\"\n    variables:\n      userId: 5\n      on: true\n      ratio: 1.5\n      whole: 1.0\n      neg: -3\n      none: null\n      list: []\n      obj: {}\n      fromEnv: \"{{.num}}\"\n")
 	file, _, err := FinalStructForGraphQL(path, map[string]any{"num": 7})
 	if err != nil {
 		t.Fatal(err)
 	}
 	vars, _ := file.Body.Graphql.Variables.(map[string]any)
 	want := map[string]any{
-		"userId": uint64(5), "on": true, "ratio": 1.5, "none": nil,
+		"userId": uint64(5), "on": true, "ratio": 1.5, "whole": 1.0, "neg": int64(-3), "none": nil,
 		"list": []any{}, "obj": map[string]any{}, "fromEnv": uint64(7),
 	}
 	if len(vars) != len(want) {

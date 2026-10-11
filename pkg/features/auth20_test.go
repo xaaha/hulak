@@ -61,7 +61,7 @@ func auth2ProjectFile(t *testing.T, content string) string {
 }
 
 // The auth2 flow parses the file twice and builds the request from it, all
-// before the redactor used to exist. goccy embeds the substituted source line
+// before the redactor used to exist. goccy embedded the substituted source line
 // in a decode error, so the whole resolved value reached the user.
 func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 	const secret = "super-secret-client-value"
