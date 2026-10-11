@@ -165,7 +165,50 @@ func TestD14_278_SubstitutedOnlyDecodeErrorNamesTheFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("want a decode error")
 	}
-	if !strings.HasPrefix(err.Error(), path+": ") || regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) || strings.Contains(err.Error(), "SECRET") {
+	if !strings.HasPrefix(err.Error(), path+": ") || !strings.Contains(err.Error(), "APICallFile.Headers") ||
+		regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) || strings.Contains(err.Error(), "SECRET") {
 		t.Errorf("error must name the file, with no internal position or value: %v", err)
+	}
+}
+
+func TestD14_278_RawErrorOnlyWhenItIsTheSameFailure(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := os.Mkdir(filepath.Join(dir, "env"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src_response.json"), []byte(`{"h": {"X-A": "b"}, "lst": ["a"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	want := "cannot unmarshal []interface {} into Go struct field APICallFile.Headers of type string"
+	for name, content := range map[string]string{
+		"map template elsewhere": "method: GET\nurl: https://e.com\nurlparams: '{{getValueOf \"h\" \"src_response.json\"}}'\nheaders:\n  X-L: '{{getValueOf \"lst\" \"src_response.json\"}}'\n",
+		"keys differing in case": "method: GET\nurl: https://e.com\nheaders:\n  Accept: a\n  ACCEPT: b\n  X-L: '{{getValueOf \"lst\" \"src_response.json\"}}'\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(dir, strings.ReplaceAll(name, " ", "_")+".hk.yaml")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, _, err := FinalStructForAPI(path, map[string]any{})
+			if err == nil || err.Error() != path+": "+want {
+				t.Errorf("err = %v, want %q", err, path+": "+want)
+			}
+		})
+	}
+}
+
+func TestD14_278_RawErrorReachesNestedKeysAndSkipsDirectives(t *testing.T) {
+	for name, tc := range map[string]struct{ content, at, line string }{
+		"nested mixed case": {"Kind: GraphQL\nMethod: POST\nURL: https://e.com\nBody:\n  GraphQL:\n    Query: [a]\n", "[6:12]", "Query: [a]"},
+		"yaml directive":    {"%YAML 1.2\n---\nmethod: GET\nurl: https://e.com\nheaders:\n  X-L: [a]\n", "[6:8]", "X-L: [a]"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := createTempYAMLFile(t, tc.content)
+			_, _, err := FinalStructForGraphQL(path, map[string]any{})
+			if err == nil || !strings.HasPrefix(err.Error(), path+": "+tc.at+" cannot unmarshal") || !strings.Contains(err.Error(), tc.line) {
+				t.Errorf("err = %v, want %s %s and the line %q", err, path, tc.at, tc.line)
+			}
+		})
 	}
 }

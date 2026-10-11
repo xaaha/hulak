@@ -156,18 +156,18 @@ func decodeSubstituted[T any](filePath string, buf *bytes.Buffer) (T, error) {
 	if err == nil {
 		return out, nil
 	}
-	var raw T
-	if rawErr := rawDecodeError(filePath, &raw); rawErr != nil {
-		return out, fmt.Errorf("%s: %s", filePath, yaml.FormatError(rawErr, false, true))
-	}
 	var yamlErr yaml.Error
-	if errors.As(err, &yamlErr) {
-		return out, fmt.Errorf("%s: %s", filePath, yamlErr.GetMessage())
+	if !errors.As(err, &yamlErr) {
+		return out, fmt.Errorf("%s: %w", filePath, err)
 	}
-	return out, fmt.Errorf("%s: %w", filePath, err)
+	var raw T
+	var rawErr yaml.Error
+	if errors.As(rawDecodeError(filePath, &raw), &rawErr) && rawErr.GetMessage() == yamlErr.GetMessage() {
+		return out, fmt.Errorf("%s: %s", filePath, rawErr.FormatError(false, true))
+	}
+	return out, fmt.Errorf("%s: %s", filePath, yamlErr.GetMessage())
 }
 
-// rawDecodeError decodes the file as written, keys lowercased, and returns nil unless that decode fails.
 func rawDecodeError(filePath string, out any) error {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
