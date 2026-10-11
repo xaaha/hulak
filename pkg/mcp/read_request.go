@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -16,11 +17,12 @@ type readRequestInput struct {
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
 }
 
-// DependencyFile is a file a request pulls in with getFile; Missing means it was not read.
+// DependencyFile is a getFile target: Missing is absent or outside the project, Withheld holds secrets.
 type DependencyFile struct {
-	Path    string `json:"path"`
-	Content string `json:"content,omitempty"`
-	Missing bool   `json:"missing,omitempty"`
+	Path     string `json:"path"`
+	Content  string `json:"content,omitempty"`
+	Missing  bool   `json:"missing,omitempty"`
+	Withheld bool   `json:"withheld,omitempty"`
 }
 
 type readRequestOutput struct {
@@ -58,6 +60,13 @@ func (s *Server) handleReadRequest(
 	}
 	root := s.projects[m.Project]
 	err = s.withProjectDir(root, func() error {
+		realRoot, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			return err
+		}
+		if _, inside, err := containedPath(realRoot, m.Path); err != nil || !inside {
+			return fmt.Errorf("%s is outside project %q", m.Path, m.Project)
+		}
 		content, err := os.ReadFile(m.Path)
 		if err != nil {
 			return err
@@ -78,13 +87,17 @@ func (s *Server) handleReadRequest(
 
 // readDependencies must run inside the project dir: getFile paths resolve against its root.
 func readDependencies(path string) ([]DependencyFile, error) {
-	refs, err := utils.ReferencedFiles(path)
+	refs, err := utils.DirectReferencedFiles(path)
 	if err != nil {
 		return nil, err
 	}
 	depRoot, ok := utils.FindProjectRoot()
 	if !ok {
 		return nil, fmt.Errorf("no project root above %s", path)
+	}
+	realRoot, err := filepath.EvalSymlinks(depRoot)
+	if err != nil {
+		return nil, err
 	}
 	var deps []DependencyFile
 	for _, ref := range refs {
@@ -95,12 +108,35 @@ func readDependencies(path string) ([]DependencyFile, error) {
 			deps = append(deps, dep)
 			continue
 		}
-		content, err := os.ReadFile(resolved)
-		if err != nil {
-			return nil, err
+		rel, inside, err := containedPath(realRoot, resolved)
+		switch {
+		case err != nil || !inside:
+			dep.Missing = true
+		case holdsSecrets(rel):
+			dep.Withheld = true
+		default:
+			content, err := os.ReadFile(resolved)
+			if err != nil {
+				return nil, err
+			}
+			dep.Content = string(content)
 		}
-		dep.Content = string(content)
 		deps = append(deps, dep)
 	}
 	return deps, nil
+}
+
+// containedPath follows symlinks in path and reports its location relative to realRoot.
+func containedPath(realRoot, path string) (string, bool, error) {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", false, err
+	}
+	rel := projectRelative(realRoot, target)
+	return rel, !filepath.IsAbs(rel), nil
+}
+
+func holdsSecrets(rel string) bool {
+	top, _, _ := strings.Cut(filepath.ToSlash(rel), "/")
+	return top == utils.EnvironmentFolder || top == utils.HiddenProjectName
 }
