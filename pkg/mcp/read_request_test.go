@@ -121,9 +121,14 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 		}
 	}
 	writeFileAt(t, filepath.Join(api, "env", "inenv.hk.yaml"), "method: GET\nurl: http://inenv\n")
+	for _, name := range []string{"hard.json", "hardreq.hk.yaml"} {
+		if err := os.Link(filepath.Join(api, "env", "global.env"), filepath.Join(api, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	writeFileAt(t, filepath.Join(api, "leak.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
 		`{{getFile "env/global.env"}}{{getFile ".hulak/store.age"}}{{getFile "link.txt"}}{{getFile "q/chain.txt"}}`+
-		`{{getFile "inner.txt"}}{{getFile "child/env/global.env"}}{{getFile "evil.txt"}}`+"'\n")
+		`{{getFile "inner.txt"}}{{getFile "child/env/global.env"}}{{getFile "evil.txt"}}{{getFile "hard.json"}}`+"'\n")
 	writeFileAt(t, filepath.Join(api, "cased.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '"+
 		`{{getFile "ENV/global.env"}}{{getFile "Env/global.env"}}{{getFile ".HULAK/store.age"}}`+"'\n")
 
@@ -146,6 +151,7 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 			{Path: "inner.txt", Withheld: true},
 			{Path: filepath.Join("child", "env", "global.env"), Withheld: true},
 			{Path: "evil.txt", Missing: true},
+			{Path: "hard.json", Withheld: true},
 		}
 		if !slices.Equal(out.Deps, want) {
 			t.Errorf("deps = %+v\nwant %+v", out.Deps, want)
@@ -176,7 +182,7 @@ func TestReadRequest_260_KeepsSecretsAndOutsideFilesBack(t *testing.T) {
 		}
 	})
 
-	for _, name := range []string{"peek", "inenv"} {
+	for _, name := range []string{"peek", "inenv", "hardreq"} {
 		t.Run("request "+name+" in a secrets folder is refused", func(t *testing.T) {
 			_, out, err := s.handleReadRequest(ctx, nil, readRequestInput{Name: name})
 			if err == nil || out.Content != "" {

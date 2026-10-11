@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -70,7 +72,11 @@ func (s *Server) handleReadRequest(
 		if err != nil || !inside {
 			return fmt.Errorf("%s is outside project %q", m.Path, m.Project)
 		}
-		if holdsSecrets(rel) {
+		secrets, err := secretFiles(realRoot)
+		if err != nil {
+			return err
+		}
+		if holdsSecrets(rel) || isSecretFile(m.Path, secrets) {
 			return fmt.Errorf("%s is in a secrets folder of project %q", m.Path, m.Project)
 		}
 		content, err := os.ReadFile(m.Path)
@@ -82,7 +88,7 @@ func (s *Server) handleReadRequest(
 			Path:    projectRelative(root, m.Path),
 			Content: string(content),
 		}
-		out.Deps, err = readDependencies(m.Path)
+		out.Deps, err = readDependencies(m.Path, secrets)
 		return err
 	})
 	if err != nil {
@@ -92,7 +98,7 @@ func (s *Server) handleReadRequest(
 }
 
 // readDependencies must run inside the project dir: getFile paths resolve against its root.
-func readDependencies(path string) ([]DependencyFile, error) {
+func readDependencies(path string, secrets []os.FileInfo) ([]DependencyFile, error) {
 	refs, err := utils.DirectReferencedFiles(path)
 	if err != nil {
 		return nil, err
@@ -118,7 +124,7 @@ func readDependencies(path string) ([]DependencyFile, error) {
 		switch {
 		case err != nil || !inside:
 			dep.Missing = true
-		case holdsSecrets(rel):
+		case holdsSecrets(rel) || isSecretFile(resolved, secrets):
 			dep.Withheld = true
 		default:
 			content, err := os.ReadFile(resolved)
@@ -140,6 +146,39 @@ func containedPath(realRoot, path string) (string, bool, error) {
 	}
 	rel := projectRelative(realRoot, target)
 	return rel, !filepath.IsAbs(rel), nil
+}
+
+// secretFiles lists the files under realRoot's env/ and .hulak/, to catch hard links to them.
+func secretFiles(realRoot string) ([]os.FileInfo, error) {
+	var files []os.FileInfo
+	for _, dir := range []string{utils.EnvironmentFolder, utils.HiddenProjectName} {
+		err := filepath.WalkDir(filepath.Join(realRoot, dir), func(_ string, d fs.DirEntry, err error) error {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			if err != nil || d.IsDir() {
+				return err
+			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			files = append(files, info)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+func isSecretFile(path string, secrets []os.FileInfo) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(secrets, func(secret os.FileInfo) bool { return os.SameFile(info, secret) })
 }
 
 // holdsSecrets ignores case because macOS and Windows open ENV/global.env as env/global.env.
