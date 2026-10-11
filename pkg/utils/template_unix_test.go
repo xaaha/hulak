@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestResolveProjectFile_260_RefusesNonRegularFiles(t *testing.T) {
@@ -45,22 +46,12 @@ func TestReferencedFiles_260_DoesNotReadAFIFO(t *testing.T) {
 	writeFile(t, req, buildGetFileContent("pipe.gql")+buildGetFileContent("alias.gql"))
 	t.Chdir(root)
 
-	done := make(chan error, 1)
-	go func() {
+	err = testutil.WithinFIFOTimeout(t, func() error {
 		_, err := ReferencedFiles(req)
-		done <- err
-	}()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		if f, err := os.OpenFile(filepath.Join(root, "pipe.gql"), os.O_RDWR, 0); err == nil {
-			_ = f.Close()
-		}
-		<-done
-		t.Fatal("ReferencedFiles blocked reading a FIFO")
+		return err
+	}, filepath.Join(root, "pipe.gql"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	if _, err := ResolveProjectFile("alias.gql"); err == nil {
 		t.Error("ResolveProjectFile accepted a symlink to a FIFO")

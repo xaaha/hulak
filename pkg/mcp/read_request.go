@@ -20,7 +20,7 @@ type readRequestInput struct {
 	Project string `json:"project,omitempty" jsonschema:"project to search; omit to search all projects"`
 }
 
-// DependencyFile is a getFile target: Missing is absent or outside the project, Withheld holds secrets.
+// DependencyFile is a getFile target: Missing is absent, outside, or not a regular file; Withheld holds secrets.
 type DependencyFile struct {
 	Path     string `json:"path"`
 	Content  string `json:"content,omitempty"`

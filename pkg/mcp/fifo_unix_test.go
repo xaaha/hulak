@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
-	"time"
+
+	"github.com/xaaha/hulak/pkg/utils/testutil"
 )
 
 func TestFIFOs_260_DoNotBlockTheServer(t *testing.T) {
@@ -27,19 +28,10 @@ func TestFIFOs_260_DoNotBlockTheServer(t *testing.T) {
 	}
 	ctx := context.Background()
 
+	fifos := []string{filepath.Join(api, "pipe.txt"), filepath.Join(api, "fifo.hk.yaml")}
 	within := func(t *testing.T, call func() error) error {
 		t.Helper()
-		done := make(chan error, 1)
-		go func() { done <- call() }()
-		select {
-		case err := <-done:
-			return err
-		case <-time.After(5 * time.Second):
-			unblockFIFOs(t, filepath.Join(api, "pipe.txt"), filepath.Join(api, "fifo.hk.yaml"))
-			<-done
-			t.Fatal("the call blocked on a FIFO")
-			return nil
-		}
+		return testutil.WithinFIFOTimeout(t, call, fifos...)
 	}
 
 	t.Run("list_requests skips a FIFO request and does not read a FIFO dependency", func(t *testing.T) {
@@ -85,19 +77,6 @@ func TestFIFOs_260_DoNotBlockTheServer(t *testing.T) {
 	})
 }
 
-// unblockFIFOs opens each FIFO for writing so a blocked reader gets EOF and releases the server lock.
-func unblockFIFOs(t *testing.T, paths ...string) {
-	t.Helper()
-	for _, path := range paths {
-		f, err := os.OpenFile(path, os.O_RDWR, 0)
-		if err != nil {
-			t.Log(err)
-			continue
-		}
-		_ = f.Close()
-	}
-}
-
 func TestReadRequest_260_UnreadableSecretsFolderFailsClosed(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads a mode 000 folder")
@@ -122,4 +101,49 @@ func TestReadRequest_260_UnreadableSecretsFolderFailsClosed(t *testing.T) {
 	if err == nil {
 		t.Errorf("read_request returned %+v, want an error while env/ cannot be fully checked", out.Deps)
 	}
+}
+
+func TestReadRequest_260_UncheckableSecretsFailClosed(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads a mode 000 folder")
+	}
+	probe := func(t *testing.T, root string) error {
+		t.Helper()
+		writeFileAt(t, filepath.Join(root, "probe.hk.yaml"), "method: GET\nurl: http://x\n")
+		s, err := NewServer(map[string]string{"api": root}, "v")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = s.handleReadRequest(context.Background(), nil, readRequestInput{Name: "probe"})
+		return err
+	}
+
+	t.Run("an env link into an unreadable folder", func(t *testing.T) {
+		root := evalSymlinks(t, projectDir(t))
+		locked := filepath.Join(t.TempDir(), "locked")
+		writeFileAt(t, filepath.Join(locked, "real.env"), "SECRET")
+		if err := os.Symlink(filepath.Join(locked, "real.env"), filepath.Join(root, "env", "link.env")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(locked, 0); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+		if err := probe(t, root); err == nil {
+			t.Error("read_request succeeded although env/link.env could not be checked")
+		}
+	})
+
+	t.Run("an env folder that is a symlink loop", func(t *testing.T) {
+		root := evalSymlinks(t, t.TempDir())
+		if err := os.Mkdir(filepath.Join(root, ".hulak"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(root, "env"), filepath.Join(root, "env")); err != nil {
+			t.Fatal(err)
+		}
+		if err := probe(t, root); err == nil {
+			t.Error("read_request succeeded although env/ could not be resolved")
+		}
+	})
 }
