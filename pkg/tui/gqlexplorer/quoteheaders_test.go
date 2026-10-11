@@ -20,6 +20,10 @@ func TestCreateHulakRequestFile_278_D10_SavedHeadersRunLikeTheParent(t *testing.
 		"  X-Tab: \"a\\tb\"\n" +
 		"  X-Quote: 'say \"hi\"'\n" +
 		"  X-Lines: \"one\\ntwo\"\n" +
+		"  X-Null: \"null\"\n" +
+		"  X-Tilde: \"~\"\n" +
+		"  X-Dash: \"- a\"\n" +
+		"  X-Bang: \"!x\"\n" +
 		"  \"@key\": v\n"
 	_, dir := saveFromParent(t, parent)
 	t.Chdir(dir)
