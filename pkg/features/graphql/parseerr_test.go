@@ -60,6 +60,7 @@ func TestFindGraphQLFiles_278_TextFallbackEdges(t *testing.T) {
 		"suffix.hk.yaml":  "kind: graphqlx\nurl: https://sx.example/x\n// stray\n",
 		"a_good.hk.yaml":  "kind: GraphQL\nurl: https://same.example/gql\n",
 		"b_bad.hk.yaml":   "kind: GraphQL\nurl: https://same.example/gql\nheaders: {a: b\n",
+		"upper.hk.yaml":   "Kind: GraphQL\nURL: https://up.example/gql\n// stray\n",
 	}
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
@@ -77,6 +78,7 @@ func TestFindGraphQLFiles_278_TextFallbackEdges(t *testing.T) {
 		"https://crlf.example/gql": "crlf.hk.yaml",
 		"https://top.example/gql":  "indent.hk.yaml",
 		"https://same.example/gql": "a_good.hk.yaml",
+		"https://up.example/gql":   "upper.hk.yaml",
 	}
 	for url, name := range want {
 		if found[url] != filepath.Join(dir, name) {
