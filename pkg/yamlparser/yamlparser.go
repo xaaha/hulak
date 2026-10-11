@@ -147,10 +147,14 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	return &buf, nil
 }
 
-// decodeSubstituted leaves out the source snippet: it is the substituted request, secrets and getFile bodies included.
+// decodeSubstituted keeps only the message: the snippet is the substituted request, secrets included, and its position is not the file.
 func decodeSubstituted(buf *bytes.Buffer, out any) error {
 	if err := yaml.NewDecoder(buf).Decode(out); err != nil {
-		return errors.New(yaml.FormatError(err, false, false))
+		var yamlErr yaml.Error
+		if errors.As(err, &yamlErr) {
+			return errors.New(yamlErr.GetMessage())
+		}
+		return err
 	}
 	return nil
 }

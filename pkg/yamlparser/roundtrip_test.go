@@ -2,6 +2,7 @@ package yamlparser
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -112,5 +113,16 @@ func TestD11_278_EveryDecodeAfterSubstitutionLeavesOutTheRequest(t *testing.T) {
 				t.Errorf("error carries the substituted request:\n%v", err)
 			}
 		})
+	}
+}
+
+func TestD11_278_DecodeErrorHasNoPositionInTheInternalCopy(t *testing.T) {
+	path := createTempYAMLFile(t, "method: GET\nurl: https://e.com\nheaders:\n  X-A: b\n  X-L: [a]\n")
+	_, _, err := FinalStructForAPI(path, map[string]any{})
+	if err == nil {
+		t.Fatal("want a decode error")
+	}
+	if regexp.MustCompile(`\[\d+:\d+\]`).MatchString(err.Error()) {
+		t.Errorf("error points into hulak's internal copy, not the file: %v", err)
 	}
 }
