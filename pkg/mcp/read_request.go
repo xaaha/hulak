@@ -72,6 +72,9 @@ func (s *Server) handleReadRequest(
 		if err != nil || !inside {
 			return fmt.Errorf("%s is outside project %q", m.Path, m.Project)
 		}
+		if !isRegularFile(m.Path) {
+			return fmt.Errorf("%s is not a regular file", m.Path)
+		}
 		secrets, err := secretFiles(realRoot)
 		if err != nil {
 			return err
@@ -178,6 +181,11 @@ func secretFiles(realRoot string) ([]os.FileInfo, error) {
 		}
 	}
 	return files, nil
+}
+
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func isSecretFile(path string, secrets []os.FileInfo) bool {

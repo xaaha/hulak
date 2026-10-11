@@ -177,7 +177,7 @@ func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error
 	var out []RequestSummary
 	for _, f := range files {
 		rel := projectRelative(root, f)
-		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) {
+		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) || !isRegularFile(f) {
 			continue
 		}
 		// Deps are best-effort: a missing/unreadable referenced file should

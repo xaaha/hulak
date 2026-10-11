@@ -284,7 +284,8 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string, 
 		// not-yet-created file is still surfaced, anchored to the project root
 		// so the reported path is where a run would look for it.
 		resolved, err := ResolveProjectFile(arg)
-		if err != nil {
+		readable := err == nil
+		if !readable {
 			resolved = projectRootRel(arg)
 		}
 		if seen[resolved] {
@@ -292,7 +293,7 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string, 
 		}
 		seen[resolved] = true
 		*deps = append(*deps, resolved)
-		if transitive {
+		if transitive && readable {
 			collectFileRefs(resolved, seen, deps, transitive)
 		}
 	}
