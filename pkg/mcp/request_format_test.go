@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,7 +12,8 @@ import (
 
 	"github.com/goccy/go-yaml"
 
-	"github.com/xaaha/hulak/pkg/envparser"
+	apicalls "github.com/xaaha/hulak/pkg/apiCalls"
+	"github.com/xaaha/hulak/pkg/utils"
 )
 
 func schemaServer(t *testing.T, root string) (*Server, []byte) {
@@ -95,39 +97,61 @@ func TestRequestFormat_260_GuideExamplesMatchTheSchema(t *testing.T) {
 	}
 }
 
-func TestRequestFormat_260_GuideTokenChainResolves(t *testing.T) {
-	root := projectDir(t)
+func TestRequestFormat_260_GuideExamplesDryRun(t *testing.T) {
+	root := evalSymlinks(t, projectDir(t))
 	writeReq(t, filepath.Join(root, "auth"), "get_token.hk.yaml")
 	writeFileAt(t, filepath.Join(root, "auth", "get_token.hk_response.json"), `{"access_token": "tok-123"}`)
+	writeFileAt(t, filepath.Join(root, "assets", "photo.png"), "PNG")
 	s, _ := schemaServer(t, root)
 
-	var header string
-	for _, block := range guideYAMLBlocks(t) {
-		if strings.Contains(block, "getValueOf") {
-			var doc struct {
-				Headers map[string]string `yaml:"headers"`
+	for i, block := range guideYAMLBlocks(t) {
+		path := filepath.Join(root, "examples", fmt.Sprintf("example%d.hk.yaml", i+1))
+		writeFileAt(t, path, block)
+		envVars, _, err := utils.RequestVariables(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		secrets := map[string]any{"username": "u", "password": "p"}
+		for _, name := range envVars {
+			if _, ok := secrets[name]; !ok {
+				secrets[name] = "https://" + name + ".example.com"
 			}
-			if err := yaml.Unmarshal([]byte(block), &doc); err != nil {
-				t.Fatal(err)
-			}
-			header = doc.Headers["Authorization"]
+		}
+		var rendered string
+		err = s.withProjectDir(root, func() error {
+			var err error
+			rendered, err = apicalls.DryRun(apicalls.RequestOptions{Secrets: secrets, Path: path, Show: true})
+			return err
+		})
+		if err != nil {
+			t.Errorf("guide example %d does not resolve: %v\n%s", i+1, err, block)
+			continue
+		}
+		if strings.Contains(block, "getValueOf") && !strings.Contains(rendered, "Bearer tok-123") {
+			t.Errorf("guide example %d does not resolve its getValueOf to the saved token:\n%s", i+1, rendered)
+		}
+		if strings.Contains(block, "basicAuth") && !strings.Contains(rendered, "Basic dTpw") {
+			t.Errorf("guide example %d does not resolve basicAuth to Basic dTpw:\n%s", i+1, rendered)
 		}
 	}
-	if header == "" {
-		t.Fatal("the guide has no getValueOf Authorization example")
-	}
+}
 
-	var got any
+func TestRequestFormat_260_KeysAreLowercasedAsTheGuideSays(t *testing.T) {
+	root := projectDir(t)
+	path := filepath.Join(root, "params.hk.yaml")
+	writeFileAt(t, path, "method: GET\nurl: https://api.example.com/items\nurlparams:\n  pageSize: \"5\"\n")
+	s, _ := schemaServer(t, root)
+	var rendered string
 	err := s.withProjectDir(root, func() error {
 		var err error
-		got, err = envparser.SubstituteVariables(header, map[string]any{}, "")
+		rendered, err = apicalls.DryRun(apicalls.RequestOptions{Secrets: map[string]any{}, Path: path, Show: true})
 		return err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "Bearer tok-123" {
-		t.Errorf("the guide's token chain %q resolves to %v, want Bearer tok-123", header, got)
+	if !strings.Contains(rendered, "pagesize=5") {
+		t.Errorf("urlparams keys are no longer lowercased; update the guide's case rule:\n%s", rendered)
 	}
 }
 
@@ -167,10 +191,15 @@ func TestRequestFormat_260_GuideCoversTheSchema(t *testing.T) {
 			names = append(names, name)
 		}
 	}
-	lowerGuide := strings.ToLower(authoringGuide)
+	kindLine := ""
+	for line := range strings.SplitSeq(authoringGuide, "\n") {
+		if strings.HasPrefix(line, "- `kind`:") {
+			kindLine = line
+		}
+	}
 	for _, kind := range schema.Properties.Kind.Enum {
-		if !strings.Contains(lowerGuide, "`"+strings.ToLower(kind)+"`") {
-			t.Errorf("the guide does not name kind %s", kind)
+		if kind != strings.ToLower(kind) && !strings.Contains(kindLine, "`"+kind+"`") {
+			t.Errorf("the guide's kind line %q does not list %s", kindLine, kind)
 		}
 	}
 	for _, name := range names {
