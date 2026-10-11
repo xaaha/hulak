@@ -81,6 +81,7 @@ func PeekConfig(filePath string) (*ConfigType, error) {
 	if err != nil {
 		return nil, err
 	}
+	content = utils.LFLineBreaks(content)
 	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
 		return nil, err
 	}
@@ -116,6 +117,7 @@ func PeekRequestKind(filePath string) (Kind, error) {
 	if err != nil {
 		return "", err
 	}
+	content = utils.LFLineBreaks(content)
 	var raw map[string]any
 	if err := yaml.Unmarshal(content, &raw); err != nil {
 		return kind, nil

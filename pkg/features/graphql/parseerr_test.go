@@ -221,3 +221,25 @@ func TestValidateGraphQLFile_278_SplitFileWithBadAliasReportsTheSplit(t *testing
 		t.Errorf("err = %v, want %q", err, want)
 	}
 }
+
+func TestValidateGraphQLFile_278_CRLFCommentsKeepTheLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "g.hk.yaml")
+	if err := os.WriteFile(path, []byte("# a\r\n# b\r\nkind: GraphQL\r\nurl: https://e.com/g\r\nheaders:\r\n  X: *nope\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ValidateGraphQLFile(path); err == nil || !strings.Contains(err.Error(), "[6:") {
+		t.Errorf("err = %v, want line 6", err)
+	}
+}
+
+func TestFindGraphQLFiles_278_IndentedKindBeforeTheTopLevelOne(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "v.hk.yaml")
+	if err := os.WriteFile(path, []byte("variables:\n  kind: x\nkind: GraphQL\nurl: https://v.example/g\n// stray\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	found, _, err := FindGraphQLFiles(dir)
+	if err != nil || found["https://v.example/g"] != path {
+		t.Errorf("found = %v, err %v, want the file listed", found, err)
+	}
+}

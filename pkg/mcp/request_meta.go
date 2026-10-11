@@ -17,6 +17,7 @@ func readRequestDoc(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	content = utils.LFLineBreaks(content)
 	var doc map[string]any
 	if err := yaml.Unmarshal(content, &doc); err != nil {
 		return nil, err

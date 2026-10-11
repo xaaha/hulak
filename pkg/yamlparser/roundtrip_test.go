@@ -257,3 +257,21 @@ func TestD14_278_CRLFCommentsKeepTheLineNumbers(t *testing.T) {
 		})
 	}
 }
+
+func TestCRLF_278_EveryReadSeesTheSameLines(t *testing.T) {
+	wrapped := createTempYAMLFile(t, "kind: API\r\nmethod: POST\r\nurl: http://x\r\nheaders:\r\n  X-A: \"foo\r\n    bar\"\r\nbody:\r\n  raw: \"{\\\"q\\\": \\\"long\r\n    text\\\"}\"\r\n")
+	file, _, err := FinalStructForAPI(wrapped, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.Headers["x-a"] != "foo bar" || file.Body == nil || file.Body.Raw != `{"q": "long text"}` {
+		t.Errorf("wrapped quoted values = %q and %#v, want them folded with one space", file.Headers["x-a"], file.Body)
+	}
+	alias := createTempYAMLFile(t, "kind: API # c\r\nmethod: GET # c\r\nurl: http://x\r\nx: *nope\r\n")
+	if _, _, err := FinalStructForAPI(alias, map[string]any{}); err == nil || !strings.Contains(err.Error(), "[4:") {
+		t.Errorf("err = %v, want line 4", err)
+	}
+	if _, err := PeekConfig(alias); err == nil || !strings.Contains(err.Error(), "[4:") {
+		t.Errorf("PeekConfig err = %v, want line 4", err)
+	}
+}

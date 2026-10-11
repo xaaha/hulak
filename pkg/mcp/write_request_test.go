@@ -181,3 +181,11 @@ func TestWriteRequest_260_RejectionNamesFormatTool(t *testing.T) {
 		t.Errorf("err = %v, want it to point to request_format", err)
 	}
 }
+
+func TestCRLF_278_ValidateRequestContentKeepsTheLine(t *testing.T) {
+	s, _ := schemaServer(t, projectDir(t))
+	err := s.validateRequestContent("kind: API # c\r\nmethod: GET # c\r\nurl: \"https://e.com\"\r\nurl: \"https://f.com\"\r\n")
+	if err == nil || !strings.Contains(err.Error(), "[4:1]") {
+		t.Errorf("error = %v, want the repeated key on line 4", err)
+	}
+}

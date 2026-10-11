@@ -126,6 +126,7 @@ func destPath(root, name string) (string, error) {
 // known kind/method, graphql shape, etc.) so the agent can't write garbage or
 // a hallucinated shape.
 func (s *Server) validateRequestContent(content string) error {
+	content = string(utils.LFLineBreaks([]byte(content)))
 	var doc any
 	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
 		return fmt.Errorf("yaml_content is not valid YAML: %w", err)

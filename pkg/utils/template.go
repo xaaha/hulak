@@ -110,8 +110,9 @@ func FileTemplateVarNames(filePath string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	content = LFLineBreaks(content)
 	var data map[string]any
-	if err := yaml.Unmarshal(LFLineBreaks(content), &data); err != nil {
+	if err := yaml.Unmarshal(content, &data); err != nil {
 		return nil, err
 	}
 	var names []string
@@ -158,6 +159,7 @@ func FileHasTemplateVars(filePath string) bool {
 	if err != nil {
 		return false
 	}
+	content = LFLineBreaks(content)
 	if ValidateSingleYAMLDoc(resolvedPath, content) != nil {
 		return false
 	}
@@ -187,6 +189,7 @@ func RequestVariables(filePath string) (envVars, graphqlVariables []string, err 
 	if err != nil {
 		return nil, nil, err
 	}
+	content = LFLineBreaks(content)
 
 	var doc any
 	if err := yaml.UnmarshalWithOptions(content, &doc, yaml.UseOrderedMap()); err != nil {

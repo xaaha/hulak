@@ -113,6 +113,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	if err != nil {
 		return nil, fmt.Errorf("reading file %s: %w", filepath, err)
 	}
+	content = utils.LFLineBreaks(content)
 
 	if err := utils.ValidateSingleYAMLDoc(filepath, content); err != nil {
 		return nil, err

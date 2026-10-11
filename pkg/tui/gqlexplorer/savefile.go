@@ -174,6 +174,7 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 	if err != nil {
 		return rawParentFields{}, err
 	}
+	content = utils.LFLineBreaks(content)
 	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
 		return rawParentFields{}, err
 	}

@@ -111,6 +111,7 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if err != nil {
 		return fileInfo{}, fmt.Errorf("cannot open file: %w", err)
 	}
+	content = utils.LFLineBreaks(content)
 
 	var data map[string]any
 	if err := yaml.Unmarshal(content, &data); err != nil {
