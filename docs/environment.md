@@ -80,7 +80,7 @@ body:
 ```
 
 > [!Tip]
-> Since YAML does not support double curly braces ({{}}) without quotes, wrap values in backticks (`{{.key}}`), single quotes ('{{.key}}'), or double quotes ("{{.key}}"), to avoid issues.
+> Since YAML does not support double curly braces ({{}}) without quotes, wrap values in single quotes ('{{.key}}') or double quotes ("{{.key}}"), to avoid issues.
 
 ## Flags
 

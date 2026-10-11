@@ -131,12 +131,7 @@ func buildHkYaml(
 	case len(headers) > 0:
 		sb.WriteString("headers:\n")
 		for _, k := range sortedKeys(headers) {
-			v := headers[k]
-			if strings.HasPrefix(v, "{") {
-				fmt.Fprintf(&sb, "  %s: %q\n", k, v)
-			} else {
-				fmt.Fprintf(&sb, "  %s: %s\n", k, v)
-			}
+			fmt.Fprintf(&sb, "  %q: %q\n", k, headers[k])
 		}
 	default:
 		sb.WriteString("headers:\n  Content-Type: application/json\n")
@@ -179,6 +174,7 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 	if err != nil {
 		return rawParentFields{}, err
 	}
+	content = utils.LFLineBreaks(content)
 	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
 		return rawParentFields{}, err
 	}
@@ -206,6 +202,10 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 			case map[string]any:
 				raw.headers = make(map[string]string, len(hdr))
 				for hk, hv := range hdr {
+					if hv == nil {
+						raw.headers[hk] = ""
+						continue
+					}
 					raw.headers[hk] = fmt.Sprintf("%v", hv)
 				}
 			default:

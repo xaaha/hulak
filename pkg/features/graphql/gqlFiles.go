@@ -8,6 +8,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -25,7 +26,7 @@ type ProcessResult struct {
 // file is skipped: processing rejects it whatever the environment.
 func NeedsEnvResolution(urlToFileMap map[string]string) bool {
 	for url, filePath := range urlToFileMap {
-		if info, err := peekFileInfo(filePath); err == nil && info.splitErr != nil {
+		if info, err := peekFileInfo(filePath); err == nil && info.parseErr != nil {
 			continue
 		}
 		if strings.Contains(url, "{{") {
@@ -42,7 +43,64 @@ type fileInfo struct {
 	kind     string
 	url      string
 	needsEnv bool
-	splitErr error
+	parseErr error
+}
+
+var (
+	kindLine        = regexp.MustCompile(`(?im)^kind[ \t]*:.*$`)
+	graphqlKindLine = regexp.MustCompile(`(?i)^kind[ \t]*:[ \t]*["']?graphql["']?[ \t]*(#.*)?\r?$`)
+	urlLine         = regexp.MustCompile(`(?im)^url[ \t]*:[ \t]*(.+?)[ \t]*\r?$`)
+	documentEnd     = regexp.MustCompile(`(?m)^(---|\.\.\.)([ \t].*)?\r?$`)
+)
+
+func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo, error) {
+	first := firstDocument(content)
+	url := urlLine.FindSubmatch(first)
+	if !graphqlKindLine.Match(kindLine.Find(first)) || url == nil {
+		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", decodeErr)
+	}
+	parseErr := utils.ValidateSingleYAMLDoc(filePath, content)
+	if parseErr == nil {
+		parseErr = fmt.Errorf("parsing %s: %w", filePath, decodeErr)
+	}
+	return fileInfo{kind: "graphql", url: scalarText(string(url[1])), parseErr: parseErr}, nil
+}
+
+func firstDocument(content []byte) []byte {
+	start := 0
+	for _, loc := range documentEnd.FindAllIndex(content, -1) {
+		if strings.TrimSpace(stripComments(content[start:loc[0]])) != "" {
+			return content[:loc[0]]
+		}
+		start = loc[1]
+	}
+	return content
+}
+
+func stripComments(text []byte) string {
+	var b strings.Builder
+	for line := range strings.SplitSeq(string(text), "\n") {
+		if t := strings.TrimSpace(line); t != "" && !strings.HasPrefix(t, "#") && !strings.HasPrefix(t, "%") {
+			b.WriteString(t)
+		}
+	}
+	return b.String()
+}
+
+func scalarText(raw string) string {
+	if strings.HasPrefix(raw, "#") {
+		return ""
+	}
+	if raw != "" && (raw[0] == '"' || raw[0] == '\'') {
+		if end := strings.IndexByte(raw[1:], raw[0]); end >= 0 {
+			return raw[1 : end+1]
+		}
+		return strings.TrimSpace(raw[1:])
+	}
+	if i := strings.Index(raw, " #"); i >= 0 {
+		raw = raw[:i]
+	}
+	return strings.TrimSpace(raw)
 }
 
 // peekFileInfo decodes a YAML file's first document and extracts kind, url, and
@@ -53,10 +111,11 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if err != nil {
 		return fileInfo{}, fmt.Errorf("cannot open file: %w", err)
 	}
+	content = utils.LFLineBreaks(content)
 
 	var data map[string]any
 	if err := yaml.Unmarshal(content, &data); err != nil {
-		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", err)
+		return peekUnparsable(filePath, content, err)
 	}
 
 	data = utils.ConvertKeysToLowerCase(data)
@@ -68,14 +127,14 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 	if v, ok := data["url"].(string); ok {
 		info.url = strings.TrimSpace(v)
 	}
-	info.splitErr = utils.ValidateSingleYAMLDoc(filePath, content)
-	info.needsEnv = info.splitErr == nil && utils.MapHasEnvVars(data)
+	info.parseErr = utils.ValidateSingleYAMLDoc(filePath, content)
+	info.needsEnv = info.parseErr == nil && utils.MapHasEnvVars(data)
 	return info, nil
 }
 
 // FindGraphQLFiles finds all files with kind: GraphQL and a non-empty url field
-// in the given directory and its subdirectories. A file split into several YAML
-// documents is kept when its first document matches, so processing reports it.
+// in the given directory and its subdirectories. A file that is split or fails to
+// parse is kept when its first document matches, so processing reports it.
 // Returns a map where keys are URLs (can be templates like {{.baseUrl}}) and values are file paths,
 // along with a bool indicating whether any file contains env variable references.
 func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
@@ -85,6 +144,7 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 	}
 
 	graphqlFiles := make(map[string]string)
+	broken := make(map[string]bool)
 	needsEnv := false
 
 	for _, filePath := range allFiles {
@@ -105,7 +165,19 @@ func FindGraphQLFiles(dirPath string) (map[string]string, bool, error) {
 			continue
 		}
 
-		graphqlFiles[info.url] = filePath
+		key := info.url
+		_, taken := graphqlFiles[key]
+		switch {
+		case taken && info.parseErr != nil:
+			key = filePath
+		case broken[key]:
+			graphqlFiles[graphqlFiles[key]] = graphqlFiles[key]
+			delete(broken, key)
+		}
+		if info.parseErr != nil && key == info.url {
+			broken[key] = true
+		}
+		graphqlFiles[key] = filePath
 		if info.needsEnv {
 			needsEnv = true
 		}
@@ -137,8 +209,8 @@ func ValidateGraphQLFile(filePath string) (string, bool, error) {
 	if err != nil {
 		return "", false, fmt.Errorf("error reading file '%s': %w", filePath, err)
 	}
-	if info.splitErr != nil {
-		return "", false, info.splitErr
+	if info.parseErr != nil {
+		return "", false, info.parseErr
 	}
 
 	if info.url == "" {

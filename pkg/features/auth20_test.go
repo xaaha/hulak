@@ -61,7 +61,7 @@ func auth2ProjectFile(t *testing.T, content string) string {
 }
 
 // The auth2 flow parses the file twice and builds the request from it, all
-// before the redactor used to exist. goccy embeds the substituted source line
+// before the redactor used to exist. goccy embedded the substituted source line
 // in a decode error, so the whole resolved value reached the user.
 func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 	const secret = "super-secret-client-value"
@@ -92,13 +92,14 @@ func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 	// Only files that fail before the browser step belong on codeRequest: a
 	// file that parses would bind the callback port and open a browser.
 	for name, tc := range map[string]struct {
-		content string
-		call    func(t *testing.T, path string, show bool) error
+		content     string
+		call        func(t *testing.T, path string, show bool) error
+		showsSecret bool
 	}{
-		"code request decode error":   {undecodable, codeRequest},
-		"token exchange decode error": {undecodable, tokenExchange},
-		"code request bad method":     {badMethod, codeRequest},
-		"token exchange bad method":   {badMethod, tokenExchange},
+		"code request decode error":   {undecodable, codeRequest, false},
+		"token exchange decode error": {undecodable, tokenExchange, false},
+		"code request bad method":     {badMethod, codeRequest, true},
+		"token exchange bad method":   {badMethod, tokenExchange, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := auth2ProjectFile(t, tc.content)
@@ -110,8 +111,8 @@ func TestL14_Auth2PreflightErrorsAreRedacted(t *testing.T) {
 			testutil.AssertNoSecretForm(t, "auth2 pre-flight error", err.Error(), secret)
 
 			shown := tc.call(t, path, true)
-			if shown == nil || !strings.Contains(shown.Error(), secret) {
-				t.Errorf("--show must leave the auth2 error alone: %v", shown)
+			if shown == nil || strings.Contains(shown.Error(), secret) != tc.showsSecret {
+				t.Errorf("with --show, error shows the secret = %v, want %v: %v", !tc.showsSecret, tc.showsSecret, shown)
 			}
 		})
 	}

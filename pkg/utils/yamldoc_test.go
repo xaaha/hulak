@@ -33,10 +33,9 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 			"%TAG !e! tag:example.com,2000:app/\n---\nmethod: POST\nurl: https://e.com\n",
 			0,
 		},
-		{"stray line splits the mapping", "method: POST\n// stray\nurl: https://e.com\n", 2},
 		{"deliberate second document", "method: POST\n---\nurl: https://e.com\n", 2},
+		{"content after a document end marker", "method: POST\n...\nurl: https://e.com\n", 3},
 		{"second document is an explicit null", "method: POST\n---\nnull\n", 2},
-		{"split after a leading separator", "---\nmethod: POST\n// stray\n", 3},
 		{"split after a yaml directive", "%YAML 1.2\n---\nmethod: POST\n---\nurl: x\n", 4},
 	}
 
@@ -52,6 +51,20 @@ func TestD22OnlyNonEmptyDocumentsCount(t *testing.T) {
 			want := testutil.SingleDocError("req.hk.yaml", tt.wantLine)
 			if err == nil || err.Error() != want {
 				t.Errorf("error = %v, want %q", err, want)
+			}
+		})
+	}
+}
+
+func TestD6_278_StrayLineIsASyntaxErrorAtItsLine(t *testing.T) {
+	for name, tc := range map[string]struct{ content, at string }{
+		"between keys":              {"method: POST\n// stray\nurl: https://e.com\n", "[2:1] "},
+		"after a leading separator": {"---\nmethod: POST\n// stray\n", "[3:1] "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateSingleYAMLDoc("req.hk.yaml", []byte(tc.content))
+			if want := "parsing req.hk.yaml: " + tc.at; err == nil || !strings.HasPrefix(err.Error(), want) {
+				t.Errorf("error = %v, want it to start with %q", err, want)
 			}
 		})
 	}
@@ -74,11 +87,8 @@ func TestD22ValidateSingleYAMLDocReportsParseFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error, got nil")
 	}
-	if !strings.HasPrefix(err.Error(), "parsing req.hk.yaml: ") {
-		t.Errorf("error = %q, want it to start with the parsing prefix and the name", err)
-	}
-	if !strings.Contains(err.Error(), "unterminated flow mapping") {
-		t.Errorf("error = %q, want it to carry the parser's own message", err)
+	if !strings.HasPrefix(err.Error(), "parsing req.hk.yaml: [1:1] ") {
+		t.Errorf("error = %q, want it to start with the parsing prefix, the name and the position", err)
 	}
 }
 

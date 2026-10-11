@@ -40,7 +40,7 @@ hulak run test.hk.yaml --env staging   # uses staging Url
 
 ```yaml
 # example
-url: `{{getValueOf "key" "file_name" }}`
+url: '{{getValueOf "key" "file_name" }}'
 ```
 
 `getValueOf` looks for the value of the `key` inside the `file_name.json` file. Since responses of the api requests are saved in `file_name_response.json` file in the same directory, you don't need to provide `_response.json` suffix when using `getValueOf`. If multiple `file_name.json` is found, hulak recurces through the directory and uses the first file match. So, it is recommended that you use a unique name for each file.
@@ -51,7 +51,7 @@ url: `{{getValueOf "key" "file_name" }}`
 # where name is the key in the file user.json
 name: '{{getValueOf "name" "user.json"}}'
 # name is inside the user object in the user file
-name: '{{getValueOf "user.name" "user"}}' # same as user.json
+userName: '{{getValueOf "user.name" "user"}}' # same as user.json
 ```
 
 ### Nested Object handling
@@ -98,7 +98,7 @@ profession: '{{getValueOf "profession.{company.info}" "example.json"}}' # gets E
 # get's the Name value "pt" from example.json above
 employee: '{{getValueOf "myArr[1].Name" "example.json"}}' # gets "pt"
 # if the example.josn file is an array start with indexig [0]
-employee: '{{getValueOf "[0].company.Name" "example.json"}}' # gets "pt"
+firstEmployee: '{{getValueOf "[0].company.Name" "example.json"}}' # gets "pt"
 ```
 
 ### Using `path` or `file_name`

@@ -25,8 +25,8 @@ func TestPeekFileInfo_269_SplitFileReportsSplitAndNoEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.splitErr == nil || info.splitErr.Error() != testutil.SingleDocError(path, 3) {
-		t.Errorf("splitErr = %v, want %q", info.splitErr, testutil.SingleDocError(path, 3))
+	if info.parseErr == nil || info.parseErr.Error() != testutil.SingleDocError(path, 3) {
+		t.Errorf("parseErr = %v, want %q", info.parseErr, testutil.SingleDocError(path, 3))
 	}
 	if info.needsEnv {
 		t.Error("a split file must not ask for an environment")

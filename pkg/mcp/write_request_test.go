@@ -161,8 +161,16 @@ func TestD21ValidateRequestContentRejectsStrayLine(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a split request document")
 	}
-	if want := testutil.SingleDocError("yaml_content", 2); err.Error() != want {
-		t.Errorf("error = %q, want %q", err, want)
+	if want := "yaml_content is not valid YAML: [2:1] "; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error = %q, want it to start with %q", err, want)
+	}
+}
+
+func TestD6_278_ValidateRequestContentRejectsASecondDocument(t *testing.T) {
+	s, _ := schemaServer(t, projectDir(t))
+	err := s.validateRequestContent("method: POST\nurl: \"https://e.com\"\n---\nheaders: {}\n")
+	if want := testutil.SingleDocError("yaml_content", 3); err == nil || err.Error() != want {
+		t.Errorf("error = %v, want %q", err, want)
 	}
 }
 
@@ -171,5 +179,13 @@ func TestWriteRequest_260_RejectionNamesFormatTool(t *testing.T) {
 	err := s.validateRequestContent("kind: SOAP\nmethod: GET\nurl: http://x\n")
 	if err == nil || !strings.Contains(err.Error(), "request_format") {
 		t.Errorf("err = %v, want it to point to request_format", err)
+	}
+}
+
+func TestCRLF_278_ValidateRequestContentKeepsTheLine(t *testing.T) {
+	s, _ := schemaServer(t, projectDir(t))
+	err := s.validateRequestContent("kind: API # c\r\nmethod: GET # c\r\nurl: \"https://e.com\"\r\nurl: \"https://f.com\"\r\n")
+	if err == nil || !strings.Contains(err.Error(), "[4:1]") {
+		t.Errorf("error = %v, want the repeated key on line 4", err)
 	}
 }

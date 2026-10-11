@@ -81,6 +81,7 @@ func PeekConfig(filePath string) (*ConfigType, error) {
 	if err != nil {
 		return nil, err
 	}
+	content = utils.LFLineBreaks(content)
 	if err := utils.ValidateSingleYAMLDoc(filePath, content); err != nil {
 		return nil, err
 	}
@@ -116,11 +117,12 @@ func PeekRequestKind(filePath string) (Kind, error) {
 	if err != nil {
 		return "", err
 	}
+	content = utils.LFLineBreaks(content)
 	var raw map[string]any
 	if err := yaml.Unmarshal(content, &raw); err != nil {
 		return kind, nil
 	}
-	lowered, err := yaml.Marshal(utils.ConvertKeysToLowerCase(raw))
+	lowered, err := yaml.MarshalWithOptions(utils.ConvertKeysToLowerCase(raw), yaml.JSON())
 	if err != nil {
 		return kind, nil
 	}
@@ -179,10 +181,9 @@ func ParseConfig(filePath string, secretsMap map[string]any) (*ConfigType, error
 		return nil, err
 	}
 
-	var cfg ConfigType
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("decoding %s: %w", filePath, err)
+	cfg, err := decodeSubstituted[ConfigType](filePath, buf)
+	if err != nil {
+		return nil, err
 	}
 
 	cfg.Kind = cfg.Kind.normalize()

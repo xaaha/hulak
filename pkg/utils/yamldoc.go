@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/goccy/go-yaml/ast"
@@ -12,7 +13,7 @@ import (
 // identifies the content in the error, which also carries the 1-based line the
 // second document starts on.
 func ValidateSingleYAMLDoc(name string, content []byte) error {
-	file, err := parser.ParseBytes(content, 0)
+	file, err := parser.ParseBytes(LFLineBreaks(content), 0)
 	if err != nil {
 		return fmt.Errorf("parsing %s: %w", name, err)
 	}
@@ -30,6 +31,11 @@ func ValidateSingleYAMLDoc(name string, content []byte) error {
 		seen = true
 	}
 	return nil
+}
+
+// LFLineBreaks keeps go-yaml's line numbers right: it counts a comment ended by CRLF as two lines.
+func LFLineBreaks(content []byte) []byte {
+	return bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 }
 
 func emptyYAMLDoc(body ast.Node) bool {

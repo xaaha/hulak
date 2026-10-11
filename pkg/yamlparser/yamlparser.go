@@ -3,12 +3,15 @@ package yamlparser
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	yaml "github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
 	"github.com/xaaha/hulak/pkg/actions"
 	"github.com/xaaha/hulak/pkg/envparser"
 	"github.com/xaaha/hulak/pkg/utils"
@@ -110,6 +113,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	if err != nil {
 		return nil, fmt.Errorf("reading file %s: %w", filepath, err)
 	}
+	content = utils.LFLineBreaks(content)
 
 	if err := utils.ValidateSingleYAMLDoc(filepath, content); err != nil {
 		return nil, err
@@ -137,13 +141,88 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	}
 
 	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
+	enc := yaml.NewEncoder(&buf, yaml.JSON())
 	if err := enc.Encode(parsedMap); err != nil {
 		return nil, fmt.Errorf("encoding %s: %w", filepath, err)
 	}
 	enc.Close()
 
 	return &buf, nil
+}
+
+// decodeSubstituted never shows the substituted request: its snippet holds resolved secrets and its position is not the file.
+func decodeSubstituted[T any](filePath string, buf *bytes.Buffer) (T, error) {
+	var out T
+	err := yaml.NewDecoder(buf).Decode(&out)
+	if err == nil {
+		return out, nil
+	}
+	var yamlErr yaml.Error
+	if !errors.As(err, &yamlErr) {
+		return out, fmt.Errorf("%s: %w", filePath, err)
+	}
+	var raw T
+	var rawErr yaml.Error
+	if errors.As(rawDecodeError(filePath, &raw), &rawErr) && rawErr.GetMessage() == yamlErr.GetMessage() &&
+		rawErr.GetToken() != nil && !strings.Contains(rawErr.GetToken().Value, "{{") {
+		return out, fmt.Errorf("%s: %s", filePath, rawErr.FormatError(false, true))
+	}
+	return out, fmt.Errorf("%s: %s", filePath, yamlErr.GetMessage())
+}
+
+func rawDecodeError(filePath string, out any) error {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil
+	}
+	file, err := parser.ParseBytes(utils.LFLineBreaks(content), 0)
+	if err != nil {
+		return nil
+	}
+	for _, doc := range file.Docs {
+		if doc.Body == nil {
+			continue
+		}
+		if _, ok := doc.Body.(*ast.DirectiveNode); ok {
+			continue
+		}
+		if usesAnchors(doc.Body) {
+			return nil
+		}
+		ast.Walk(lowerKeys{}, doc.Body)
+		return yaml.NodeToValue(doc.Body, out)
+	}
+	return nil
+}
+
+// usesAnchors reports anchors, aliases and merge keys: an error's position there is not where the value is used.
+func usesAnchors(node ast.Node) bool {
+	found := false
+	ast.Walk(visitFunc(func(n ast.Node) {
+		switch n.(type) {
+		case *ast.AnchorNode, *ast.AliasNode, *ast.MergeKeyNode:
+			found = true
+		}
+	}), node)
+	return found
+}
+
+type visitFunc func(ast.Node)
+
+func (f visitFunc) Visit(node ast.Node) ast.Visitor {
+	f(node)
+	return f
+}
+
+type lowerKeys struct{}
+
+func (lowerKeys) Visit(node ast.Node) ast.Visitor {
+	if mv, ok := node.(*ast.MappingValueNode); ok {
+		if key, ok := mv.Key.(*ast.StringNode); ok {
+			key.Value = strings.ToLower(key.Value)
+		}
+	}
+	return lowerKeys{}
 }
 
 // FinalStructForAPI builds a final struct for the api call.
@@ -155,9 +234,8 @@ func FinalStructForAPI(filePath string, secretsMap map[string]any) (APICallFile,
 		return APICallFile{}, false, err
 	}
 
-	var file APICallFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&file); err != nil {
+	file, err := decodeSubstituted[APICallFile](filePath, buf)
+	if err != nil {
 		return APICallFile{}, false, err
 	}
 
@@ -179,9 +257,8 @@ func FinalStructForOAuth2(
 		return AuthRequestFile{}, fmt.Errorf("error after reading yaml file: %w", err)
 	}
 
-	var auth2Config AuthRequestFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&auth2Config); err != nil {
+	auth2Config, err := decodeSubstituted[AuthRequestFile](filePath, buf)
+	if err != nil {
 		return AuthRequestFile{}, fmt.Errorf("error decoding data: %w", err)
 	}
 
@@ -201,9 +278,8 @@ func FinalStructForGraphQL(filePath string, secretsMap map[string]any) (APICallF
 		return APICallFile{}, false, err
 	}
 
-	var file APICallFile
-	dec := yaml.NewDecoder(buf)
-	if err := dec.Decode(&file); err != nil {
+	file, err := decodeSubstituted[APICallFile](filePath, buf)
+	if err != nil {
 		return APICallFile{}, false, err
 	}
 
