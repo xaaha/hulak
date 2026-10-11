@@ -8,6 +8,7 @@ import (
 	"github.com/xaaha/hulak/pkg/yamlparser"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -45,6 +46,24 @@ type fileInfo struct {
 	splitErr error
 }
 
+var (
+	graphqlKindLine = regexp.MustCompile(`(?im)^kind:[ \t]*["']?graphql["']?[ \t]*(#.*)?$`)
+	urlLine         = regexp.MustCompile(`(?im)^url:[ \t]*(.+?)[ \t]*$`)
+)
+
+// peekUnparsable keeps a GraphQL request that fails to parse, so processing reports its error.
+func peekUnparsable(filePath string, content []byte, decodeErr error) (fileInfo, error) {
+	url := urlLine.FindSubmatch(content)
+	if !graphqlKindLine.Match(content) || url == nil {
+		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", decodeErr)
+	}
+	return fileInfo{
+		kind:     "graphql",
+		url:      strings.Trim(string(url[1]), `"'`),
+		splitErr: utils.ValidateSingleYAMLDoc(filePath, content),
+	}, nil
+}
+
 // peekFileInfo decodes a YAML file's first document and extracts kind, url, and
 // whether any string value contains env variable references ({{.key}}).
 // No template substitution is performed.
@@ -56,7 +75,7 @@ func peekFileInfo(filePath string) (fileInfo, error) {
 
 	var data map[string]any
 	if err := yaml.Unmarshal(content, &data); err != nil {
-		return fileInfo{}, fmt.Errorf("cannot decode YAML: %w", err)
+		return peekUnparsable(filePath, content, err)
 	}
 
 	data = utils.ConvertKeysToLowerCase(data)
