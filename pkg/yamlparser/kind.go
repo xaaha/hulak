@@ -120,7 +120,7 @@ func PeekRequestKind(filePath string) (Kind, error) {
 	if err := yaml.Unmarshal(content, &raw); err != nil {
 		return kind, nil
 	}
-	lowered, err := yaml.Marshal(utils.ConvertKeysToLowerCase(raw))
+	lowered, err := yaml.MarshalWithOptions(utils.ConvertKeysToLowerCase(raw), yaml.JSON())
 	if err != nil {
 		return kind, nil
 	}

@@ -56,3 +56,11 @@ func TestD9_278_DecodeErrorLeavesOutTheSubstitutedRequest(t *testing.T) {
 		t.Errorf("error carries the substituted request (%d bytes)", len(err.Error()))
 	}
 }
+
+func TestD9_278_PeekRequestKindSurvivesTabValues(t *testing.T) {
+	path := createTempYAMLFile(t, "method: POST\nurl: https://e.com/gql\nheaders:\n  X-T: \"k:\\tv\"\nbody:\n  graphql:\n    query: \"query { a }\"\n")
+	kind, err := PeekRequestKind(path)
+	if err != nil || kind != KindGraphQL {
+		t.Errorf("PeekRequestKind = %q, %v, want %q", kind, err, KindGraphQL)
+	}
+}
