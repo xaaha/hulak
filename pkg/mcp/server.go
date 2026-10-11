@@ -24,16 +24,14 @@ import (
 // Every tool resolves a request within a project; when the caller omits the project,
 // the resolver searches all of them and reports ambiguity rather than guessing.
 type Server struct {
-	projects  map[string]string // name -> absolute project directory
-	srv       *mcpsdk.Server
-	reqSchema *jsonschema.Resolved // request-file schema; nil = skip schema validation
-	mu        sync.Mutex           // serializes withProjectDir
+	projects      map[string]string // name -> absolute project directory
+	srv           *mcpsdk.Server
+	reqSchema     *jsonschema.Resolved // request-file schema; nil = skip schema validation
+	reqSchemaJSON []byte
+	mu            sync.Mutex // serializes withProjectDir
 }
 
-// SetRequestSchema compiles schemaJSON (the hulak request JSON Schema) and uses
-// it to validate write_request content. Best-effort: an empty or unparseable
-// schema is skipped with a warning rather than failing startup — write_request
-// then falls back to a basic YAML-mapping check.
+// SetRequestSchema compiles schemaJSON for write_request and request_format; a bad schema is skipped with a warning.
 func (s *Server) SetRequestSchema(schemaJSON []byte) {
 	if len(schemaJSON) == 0 {
 		return
@@ -49,6 +47,7 @@ func (s *Server) SetRequestSchema(schemaJSON []byte) {
 		return
 	}
 	s.reqSchema = resolved
+	s.reqSchemaJSON = schemaJSON
 }
 
 // Match is a resolved request: the file and the project it was found in.
@@ -78,15 +77,29 @@ func NewServer(projects map[string]string, version string) (*Server, error) {
 	srv := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    utils.ProjectName,
 		Version: version,
-	}, nil)
+	}, &mcpsdk.ServerOptions{Instructions: instructions})
 	s := &Server{projects: resolved, srv: srv}
 	s.registerListRequests()
+	s.registerReadRequest()
+	s.registerRequestFormat()
 	s.registerListEnvs()
 	s.registerDryRun()
 	s.registerCallRequest()
 	s.registerWriteRequest()
 	return s, nil
 }
+
+const instructions = "hulak sends real HTTP requests to the APIs in these projects, " +
+	"using credentials the projects already hold. Use it when reading code or docs " +
+	"leaves you guessing how a running service actually behaves (a status code, an " +
+	"auth rule, a response shape), and before you write that something was not " +
+	"checked against a running service. Find a request with list_requests (filter by " +
+	"name or directory), see what it sends with read_request, check it resolves with " +
+	"dry_run in an environment from list_envs, then send it with call_request. To add " +
+	"a request, read request_format, then write_request. call_request makes a real " +
+	"call: prefer reads, and do not change data you were not asked to change. Env " +
+	"secret values are masked in dry_run unless you pass show, and read_request " +
+	"never returns env or vault files; response bodies come back as the server sent them."
 
 // withProjectDir runs fn with the process working directory set to root,
 // restoring it afterward. Serialized by mu: hulak's secret loading and

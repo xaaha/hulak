@@ -107,12 +107,20 @@ Every tool takes an optional `project`. When omitted, the server searches all co
 | Tool             | Access      | What it does                                                                              |
 | ---------------- | ----------- | ----------------------------------------------------------------------------------------- |
 | `list_requests`  | read-only   | List request files per project: name, path, kind, target host, and referenced files (e.g. a GraphQL `.gql`). |
+| `read_request`   | read-only   | Return a request file as written, plus the contents of each file it reads directly with `getFile`. |
+| `request_format` | read-only   | Return the authoring guide: request shape, template actions and examples. `schema: true` adds the JSON Schema. |
 | `list_envs`      | read-only   | List environment **names** per project. Use one as the `env` argument below.              |
 | `dry_run`        | read-only   | Resolve a request against an env and return the exact request that would be sent, unsent. |
 | `call_request`   | destructive | Send the request and return status + body. Real network call.                             |
 | `write_request`  | write       | Create (or overwrite) a request file from YAML content.                                   |
 
-The agent discovers all of this — every tool, every argument — from the MCP handshake. No prompting from you about available options is needed.
+The agent discovers all of this — every tool, every argument — from the MCP handshake. No prompting from you about available options is needed. The handshake also carries server instructions telling the agent when to use hulak: to check how a running service behaves instead of guessing from source, in the order `list_requests`, `read_request`, `dry_run`, `call_request`, and `request_format` before `write_request`.
+
+### `read_request` and `request_format`
+
+`read_request` takes `name` and an optional `project`. It returns the file unresolved, so no env values appear. Only the files the request reads directly are returned. A dependency that is missing, outside the project, or not a regular file is listed with `missing: true`, and one under `env/` or `.hulak/`, or a hard link to a file there, with `withheld: true`, both without content.
+
+`request_format` returns a guide embedded in the binary (`pkg/mcp/authoring.md`). Pass `schema: true` to also get `assets/schema.json`. Tests keep the guide honest: every example must pass the schema, its token chain must resolve through the real template engine, and it must name every template action and every kind, method and body type in the schema.
 
 ### `list_requests` arguments
 
@@ -140,7 +148,7 @@ Unlike `hulak run`, an agent call does **not** save a response file by default �
 
 ## Safety
 
-- **Secret values never cross the agent boundary.** `list_envs` returns environment names only. No tool reads or returns a decrypted secret value or private key. The agent writes requests that reference `{{.token}}`; it never sees what `token` is.
+- **Env secret values stay with you unless you ask.** `list_envs` returns environment names only. No tool returns a decrypted secret value or private key without `show: true` (see below). The agent writes requests that reference `{{.token}}`; it never sees what `token` is. `read_request` returns only the files a request reads directly with `getFile`. It follows symlinks before checking that a file is inside the project, and it never returns the content of anything under an `env/` or `.hulak/` folder, at any depth and in any letter case, or of a hard link to a file in the project's own `env/` or `.hulak/`: those are listed with `withheld: true`, and a request file that is one is refused. A response body is returned as the server sent it, so a token endpoint's token is visible to the agent that called it.
 - **Rendered requests are masked by value.** `dry_run`, and `call_request` with `debug`, replace resolved secrets with `••••(28 chars, #a3f1)` wherever they land: query string, header, form field or JSON body. Matching runs over a percent-decoded copy of the rendered output rather than a list of spellings, so every URL escaping — path, query, fragment, host, userinfo — is covered at once, and the JSON backslash-escaped form is matched alongside it. A secret containing `/`, `+`, `=`, `@`, a quote or a space does not slip through anywhere in the URL or the body. A `Basic <base64>` credential built by `{{basicAuth ...}}` is masked wherever it lands, not only in an `Authorization` header. The length tells you whether the variable resolved; the fingerprint is salted per process, so the same secret looks the same within a run and means nothing outside it. Variables the request references that resolved empty are named in a `// unresolved:` footer (`dry_run`) or an `unresolved` array in the request echo (`call_request` with `debug`).
 - **One gap: values the request pulls in directly.** A request file that calls `{{os "VAR"}}`, `{{getValueOf ...}}` or `{{getFile ...}}` in place of a variable produces a value that never enters the environment, so value masking cannot know it. In a header it is still covered by header-name masking; in a URL, query string or body it is printed in clear. Put the value in an environment variable and reference it as `{{.name}}` to have it masked everywhere.
 - **Which values count as secrets depends on the store.** In a project using the encrypted vault, every resolved value is a secret and is masked. With plain `.env` files only key names that look like credentials are — `secret`, `token`, `password`, `key`, `credential`, `auth`, `jwt`, matched case-insensitively anywhere in the name. A value under a name matching none of those, such as `client_id`, is printed in clear. Move the project to the vault if that is not acceptable. In a vault project the base URL is a resolved value like any other, so a dry run masks the host too; that is correct but makes the output harder to read.

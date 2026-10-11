@@ -31,10 +31,13 @@ func (s *Server) registerWriteRequest() {
 	destructive := true
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "write_request",
-		Description: "Create or overwrite a hulak request file in a project. The " +
-			"content must be valid YAML. Refuses to overwrite an existing file " +
-			"unless overwrite is true. A .hk.yaml extension is added when the name " +
-			"has none.",
+		Description: "Add a request when list_requests has none for the call you " +
+			"need: create or overwrite a hulak request file in a project. Read " +
+			"request_format first for the shape, template actions, and examples. " +
+			"The content is validated against the request schema before it is " +
+			"written. Refuses to overwrite an existing file unless overwrite is " +
+			"true. A .hk.yaml extension is added when the name has none. Check the " +
+			"new request with dry_run before call_request.",
 		Annotations: &mcpsdk.ToolAnnotations{DestructiveHint: &destructive},
 	}, s.handleWriteRequest)
 }
@@ -136,7 +139,7 @@ func (s *Server) validateRequestContent(content string) error {
 	}
 	if s.reqSchema != nil {
 		if err := s.reqSchema.Validate(doc); err != nil {
-			return fmt.Errorf("request does not match the hulak schema: %w", err)
+			return fmt.Errorf("request does not match the hulak schema (call request_format for the shape and examples): %w", err)
 		}
 	}
 	return nil

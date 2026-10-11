@@ -37,10 +37,13 @@ func (s *Server) registerCallRequest() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "call_request",
 		Description: "Send a hulak request against an environment and return the " +
-			"response status and body. This performs a real network call. The " +
-			"response is not saved to disk unless save is true, in which case it " +
-			"is written next to the request as a {name}_response file whose " +
-			"extension follows the response content type (e.g. .json or .txt).",
+			"response status and body: the way to check how a running service " +
+			"really behaves when reading source leaves you guessing. This performs " +
+			"a real network call. The response is not saved to disk unless save is " +
+			"true, in which case it is written next to the request as a " +
+			"{name}_response file whose extension follows the response content " +
+			"type (e.g. .json or .txt). Pass save: true when a later request reads " +
+			"this response with getValueOf, e.g. a token request.",
 		Annotations: &mcpsdk.ToolAnnotations{DestructiveHint: &destructive},
 	}, s.handleCallRequest)
 }

@@ -249,30 +249,42 @@ func mapSliceValue(val any, key string) any {
 // Errors only when filePath itself can't be resolved or read. A referenced
 // file that doesn't exist yet is still listed but not recursed into.
 func ReferencedFiles(filePath string) ([]string, error) {
+	return referencedFiles(filePath, true)
+}
+
+// DirectReferencedFiles is ReferencedFiles without following references inside the referenced files.
+func DirectReferencedFiles(filePath string) ([]string, error) {
+	return referencedFiles(filePath, false)
+}
+
+func referencedFiles(filePath string, transitive bool) ([]string, error) {
 	resolvedPath, err := resolveFilePath(filePath)
 	if err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{resolvedPath: true}
 	var deps []string
-	collectFileRefs(resolvedPath, seen, &deps)
+	collectFileRefs(resolvedPath, seen, &deps, transitive)
 	return deps, nil
 }
 
-// collectFileRefs appends resolvedPath's referenced files to deps and recurses
-// into readable ones. seen guards against cycles and duplicates.
-func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) {
+// collectFileRefs appends resolvedPath's referenced files to deps, recursing into resolved ones when transitive.
+func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string, transitive bool) {
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return
 	}
 	for _, arg := range extractGetFileArgs(string(content)) {
+		if sibling, ok := SiblingPath(resolvedPath, arg); ok {
+			arg = sibling
+		}
 		// Resolve exactly like the runtime getFile (actions.GetFile): relative
 		// to the project root. Dedup and recursion key on the real file; a
 		// not-yet-created file is still surfaced, anchored to the project root
 		// so the reported path is where a run would look for it.
 		resolved, err := ResolveProjectFile(arg)
-		if err != nil {
+		readable := err == nil
+		if !readable {
 			resolved = projectRootRel(arg)
 		}
 		if seen[resolved] {
@@ -280,7 +292,9 @@ func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string) 
 		}
 		seen[resolved] = true
 		*deps = append(*deps, resolved)
-		collectFileRefs(resolved, seen, deps)
+		if transitive && readable {
+			collectFileRefs(resolved, seen, deps, transitive)
+		}
 	}
 }
 
@@ -426,6 +440,9 @@ func ResolveProjectFile(filePath string) (string, error) {
 	}
 	if info.IsDir() {
 		return "", fmt.Errorf("%s is a directory, not a file", filePath)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", filePath)
 	}
 	return absPath, nil
 }

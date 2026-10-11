@@ -53,7 +53,8 @@ type listRequestsOutput struct {
 func (s *Server) registerListRequests() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "list_requests",
-		Description: "List hulak request files, grouped by project. Each project " +
+		Description: "Find the request to call: list hulak request files, grouped by " +
+			"project, then open one with read_request. Each project " +
 			"has its absolute root; each entry has its name, file path relative to " +
 			"that root, kind (API/GraphQL), target host as written (template " +
 			"variables unresolved), and any dependency files it references " +
@@ -176,7 +177,7 @@ func listProjectRequests(root string, opts listOptions) ([]RequestSummary, error
 	var out []RequestSummary
 	for _, f := range files {
 		rel := projectRelative(root, f)
-		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) {
+		if !utils.IsRequestFile(filepath.Base(f)) || !pathMatches(rel, opts.filter) || !isRegularFile(f) {
 			continue
 		}
 		// Deps are best-effort: a missing/unreadable referenced file should

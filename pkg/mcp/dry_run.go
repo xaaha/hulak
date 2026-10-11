@@ -29,9 +29,9 @@ type dryRunOutput struct {
 func (s *Server) registerDryRun() {
 	mcpsdk.AddTool(s.srv, &mcpsdk.Tool{
 		Name: "dry_run",
-		Description: "Resolve a request against an environment and return the exact " +
-			"request that would be sent (method, URL, headers, body) without sending " +
-			"it. Use this to check a request's variables resolve in a given env. " +
+		Description: "Check a request before call_request: resolve it against an " +
+			"environment and return the exact request that would be sent (method, " +
+			"URL, headers, body) without sending it. " +
 			"Resolved secret values and sensitive headers are masked unless " +
 			"`show` is true; a masked value shows its length and a fingerprint " +
 			"so two requests using the same secret are comparable.",
