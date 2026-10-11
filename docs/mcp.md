@@ -118,7 +118,7 @@ The agent discovers all of this — every tool, every argument — from the MCP 
 
 ### `read_request` and `request_format`
 
-`read_request` takes `name` and an optional `project`. It returns the file unresolved, so no env values appear. Only the files the request reads directly are returned. A dependency that is missing or outside the project is listed with `missing: true`, and one under `env/` or `.hulak/` with `withheld: true`, both without content.
+`read_request` takes `name` and an optional `project`. It returns the file unresolved, so no env values appear. Only the files the request reads directly are returned. A dependency that is missing, outside the project, or not a regular file is listed with `missing: true`, and one under `env/` or `.hulak/`, or a hard link to a file there, with `withheld: true`, both without content.
 
 `request_format` returns a guide embedded in the binary (`pkg/mcp/authoring.md`). Pass `schema: true` to also get `assets/schema.json`. Tests keep the guide honest: every example must pass the schema, its token chain must resolve through the real template engine, and it must name every template action and every kind, method and body type in the schema.
 

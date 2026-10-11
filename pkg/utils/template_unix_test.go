@@ -56,6 +56,10 @@ func TestReferencedFiles_260_DoesNotReadAFIFO(t *testing.T) {
 			t.Fatal(err)
 		}
 	case <-time.After(5 * time.Second):
+		if f, err := os.OpenFile(filepath.Join(root, "pipe.gql"), os.O_RDWR, 0); err == nil {
+			_ = f.Close()
+		}
+		<-done
 		t.Fatal("ReferencedFiles blocked reading a FIFO")
 	}
 	if _, err := ResolveProjectFile("alias.gql"); err == nil {

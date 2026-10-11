@@ -328,3 +328,26 @@ func TestReadRequest_260_HardLinksBehindSymlinkedSecrets(t *testing.T) {
 		}
 	})
 }
+
+func TestReadRequest_260_SymlinksThatStayInsideWork(t *testing.T) {
+	root := evalSymlinks(t, projectDir(t))
+	writeFileAt(t, filepath.Join(root, "real", "users.hk.yaml"), "method: GET\nurl: http://users\n")
+	if err := os.Symlink(filepath.Join(root, "real", "users.hk.yaml"), filepath.Join(root, "alias.hk.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "gone.env"), filepath.Join(root, "env", "dangling.env")); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewServer(map[string]string{"api": root}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleReadRequest(context.Background(), nil, readRequestInput{Name: "alias"})
+	if err != nil || out.Content != "method: GET\nurl: http://users\n" {
+		t.Errorf("read alias: content = %q, err = %v, want the linked request", out.Content, err)
+	}
+	_, list, err := s.handleListRequests(context.Background(), nil, listRequestsInput{Filter: "alias"})
+	if err != nil || len(allRequests(list)) != 1 {
+		t.Errorf("list alias: %+v, err = %v, want it listed", list, err)
+	}
+}

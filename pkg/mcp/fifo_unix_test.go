@@ -4,6 +4,7 @@ package mcp
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -34,6 +35,8 @@ func TestFIFOs_260_DoNotBlockTheServer(t *testing.T) {
 		case err := <-done:
 			return err
 		case <-time.After(5 * time.Second):
+			unblockFIFOs(t, filepath.Join(api, "pipe.txt"), filepath.Join(api, "fifo.hk.yaml"))
+			<-done
 			t.Fatal("the call blocked on a FIFO")
 			return nil
 		}
@@ -80,4 +83,43 @@ func TestFIFOs_260_DoNotBlockTheServer(t *testing.T) {
 			t.Errorf("deps = %+v, want pipe.txt missing", out.Deps)
 		}
 	})
+}
+
+// unblockFIFOs opens each FIFO for writing so a blocked reader gets EOF and releases the server lock.
+func unblockFIFOs(t *testing.T, paths ...string) {
+	t.Helper()
+	for _, path := range paths {
+		f, err := os.OpenFile(path, os.O_RDWR, 0)
+		if err != nil {
+			t.Log(err)
+			continue
+		}
+		_ = f.Close()
+	}
+}
+
+func TestReadRequest_260_UnreadableSecretsFolderFailsClosed(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads a mode 000 folder")
+	}
+	root := evalSymlinks(t, projectDir(t))
+	locked := filepath.Join(root, "env", "locked")
+	writeFileAt(t, filepath.Join(locked, "x.env"), "LOCKED-SECRET")
+	if err := os.Link(filepath.Join(locked, "x.env"), filepath.Join(root, "h.json")); err != nil {
+		t.Fatal(err)
+	}
+	writeFileAt(t, filepath.Join(root, "probe.hk.yaml"), "method: POST\nurl: http://x\nbody:\n  raw: '{{getFile \"h.json\"}}'\n")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	s, err := NewServer(map[string]string{"api": root}, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := s.handleReadRequest(context.Background(), nil, readRequestInput{Name: "probe"})
+	if err == nil {
+		t.Errorf("read_request returned %+v, want an error while env/ cannot be fully checked", out.Deps)
+	}
 }
