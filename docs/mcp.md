@@ -107,12 +107,20 @@ Every tool takes an optional `project`. When omitted, the server searches all co
 | Tool             | Access      | What it does                                                                              |
 | ---------------- | ----------- | ----------------------------------------------------------------------------------------- |
 | `list_requests`  | read-only   | List request files per project: name, path, kind, target host, and referenced files (e.g. a GraphQL `.gql`). |
+| `read_request`   | read-only   | Return a request file as written, plus the contents of every file it pulls in with `getFile`. |
+| `request_format` | read-only   | Return the authoring guide: request shape, template actions and examples. `schema: true` adds the JSON Schema. |
 | `list_envs`      | read-only   | List environment **names** per project. Use one as the `env` argument below.              |
 | `dry_run`        | read-only   | Resolve a request against an env and return the exact request that would be sent, unsent. |
 | `call_request`   | destructive | Send the request and return status + body. Real network call.                             |
 | `write_request`  | write       | Create (or overwrite) a request file from YAML content.                                   |
 
-The agent discovers all of this — every tool, every argument — from the MCP handshake. No prompting from you about available options is needed.
+The agent discovers all of this — every tool, every argument — from the MCP handshake. No prompting from you about available options is needed. The handshake also carries server instructions telling the agent when to use hulak: to check how a running service behaves instead of guessing from source, in the order `list_requests`, `read_request`, `dry_run`, `call_request`, and `request_format` before `write_request`.
+
+### `read_request` and `request_format`
+
+`read_request` takes `name` and an optional `project`. It returns the file unresolved, so no env values appear. A dependency that is missing or outside the project is listed with `missing: true` and no content.
+
+`request_format` returns a guide embedded in the binary (`pkg/mcp/authoring.md`). Pass `schema: true` to also get `assets/schema.json`. Tests keep the guide honest: every example must pass the schema, its token chain must resolve through the real template engine, and it must name every template action and every kind, method and body type in the schema.
 
 ### `list_requests` arguments
 
