@@ -81,13 +81,16 @@ func (m *Model) createHulakRequestFile() tea.Cmd {
 	gqlPath := filepath.Join(dir, base+".gql")
 	yamlPath := filepath.Join(dir, base+".hk.yaml")
 
-	if err := os.WriteFile(gqlPath, []byte(query), utils.FilePer); err != nil {
-		return m.enqueueNotification(tui.NotificationError, "Save .gql failed: "+err.Error())
-	}
-
 	var raw rawParentFields
 	if parentPath, ok := m.schemaFilePaths[op.Endpoint]; ok && parentPath != "" {
-		raw, _ = readRawParentFields(parentPath) // best-effort; zero-value falls back to resolved
+		var err error
+		if raw, err = readRawParentFields(parentPath); err != nil {
+			return m.enqueueNotification(tui.NotificationError, "Save failed: "+err.Error())
+		}
+	}
+
+	if err := os.WriteFile(gqlPath, []byte(query), utils.FilePer); err != nil {
+		return m.enqueueNotification(tui.NotificationError, "Save .gql failed: "+err.Error())
 	}
 
 	yamlContent := buildHkYaml(op, m.detailForm, m.apiInfos, raw)
