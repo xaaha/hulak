@@ -31,11 +31,7 @@ type Server struct {
 	mu            sync.Mutex // serializes withProjectDir
 }
 
-// SetRequestSchema compiles schemaJSON (the hulak request JSON Schema), uses it
-// to validate write_request content, and serves it from request_format.
-// Best-effort: an empty or unparseable schema is skipped with a warning rather
-// than failing startup — write_request then falls back to a basic YAML-mapping
-// check and request_format refuses schema: true.
+// SetRequestSchema compiles schemaJSON for write_request and request_format; a bad schema is skipped with a warning.
 func (s *Server) SetRequestSchema(schemaJSON []byte) {
 	if len(schemaJSON) == 0 {
 		return

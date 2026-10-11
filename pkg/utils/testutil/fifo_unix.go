@@ -26,10 +26,8 @@ func WithinFIFOTimeout(t *testing.T, call func() error, fifos ...string) error {
 		select {
 		case <-done:
 			t.Fatal("the call blocked on a FIFO")
-			return nil
 		case <-giveUp:
 			t.Fatal("the call blocked on a FIFO and could not be unblocked")
-			return nil
 		case <-tick.C:
 			for _, fifo := range fifos {
 				if f, err := os.OpenFile(fifo, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {

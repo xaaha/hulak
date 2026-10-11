@@ -268,8 +268,7 @@ func referencedFiles(filePath string, transitive bool) ([]string, error) {
 	return deps, nil
 }
 
-// collectFileRefs appends resolvedPath's referenced files to deps and, when
-// transitive, recurses into readable ones. seen guards against cycles and duplicates.
+// collectFileRefs appends resolvedPath's referenced files to deps, recursing into resolved ones when transitive.
 func collectFileRefs(resolvedPath string, seen map[string]bool, deps *[]string, transitive bool) {
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
