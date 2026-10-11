@@ -131,12 +131,7 @@ func buildHkYaml(
 	case len(headers) > 0:
 		sb.WriteString("headers:\n")
 		for _, k := range sortedKeys(headers) {
-			v := headers[k]
-			if strings.HasPrefix(v, "{") {
-				fmt.Fprintf(&sb, "  %s: %q\n", k, v)
-			} else {
-				fmt.Fprintf(&sb, "  %s: %s\n", k, v)
-			}
+			fmt.Fprintf(&sb, "  %q: %q\n", k, headers[k])
 		}
 	default:
 		sb.WriteString("headers:\n  Content-Type: application/json\n")
