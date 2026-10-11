@@ -179,11 +179,14 @@ func TestFindGraphQLFiles_278_BrokenFilesNeverHideEachOther(t *testing.T) {
 func TestFindGraphQLFiles_278_FallbackEdgesRound7(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"api.hk.yaml":     "kind: API\nmethod: GET\nmethod: POST\nnote: \"\nkind: graphql\nurl: https://fake.example/gql\"\n",
-		"crlfsep.hk.yaml": "x: 1\r\n---\r\nkind: GraphQL\r\nurl: https://crlfsep.example/gql\r\nheaders:\r\n\tX: y\r\n",
-		"a_bad.hk.yaml":   "kind: GraphQL\nurl: https://three.example/gql\nheaders: {a: b\n",
-		"b_good.hk.yaml":  "kind: GraphQL\nurl: https://three.example/gql\n",
-		"c_good.hk.yaml":  "kind: GraphQL\nurl: https://three.example/gql\n",
+		"api.hk.yaml":       "kind: API\nmethod: GET\nmethod: POST\nnote: \"\nkind: graphql\nurl: https://fake.example/gql\"\n",
+		"crlfsep.hk.yaml":   "x: 1\r\n---\r\nkind: GraphQL\r\nurl: https://crlfsep.example/gql\r\nheaders:\r\n\tX: y\r\n",
+		"a_bad.hk.yaml":     "kind: GraphQL\nurl: https://three.example/gql\nheaders: {a: b\n",
+		"b_good.hk.yaml":    "kind: GraphQL\nurl: https://three.example/gql\n",
+		"c_good.hk.yaml":    "kind: GraphQL\nurl: https://three.example/gql\n",
+		"indent.hk.yaml":    "body:\n  kind: graphql\nkind: API\nurl: https://x.example/a\n// stray\n",
+		"urlafter.hk.yaml":  "kind: GraphQL\n---\nurl: https://y.example/b\n// stray\n",
+		"kindafter.hk.yaml": "url: https://z.example/c\n---\nkind: GraphQL\n// stray\n",
 	}
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
