@@ -100,3 +100,29 @@ func equalYAML(got, want any) bool {
 	w, err2 := yaml.Marshal(want)
 	return err1 == nil && err2 == nil && bytes.Equal(g, w)
 }
+
+func TestCreateHulakRequestFile_269_D8_RefusesParentWithoutURL(t *testing.T) {
+	for name, url := range map[string]string{"missing": "", "not a string": "url: 42\n"} {
+		t.Run(name, func(t *testing.T) {
+			m, dir := saveFromParent(t, "kind: GraphQL\n"+url+"headers:\n  Authorization: \"Bearer {{.token}}\"\n")
+			want := "Save failed: " + filepath.Join(dir, "parent.hk.yaml") + ": url must be a non-empty string"
+			if got := m.notification.CopyText(); got != want {
+				t.Errorf("notification = %q, want %q", got, want)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "getUser.hk.yaml")); err == nil {
+				t.Error("a refused save wrote getUser.hk.yaml")
+			}
+		})
+	}
+}
+
+func TestCreateHulakRequestFile_269_MixedCaseParentKeys(t *testing.T) {
+	_, dir := saveFromParent(t, "Kind: GraphQL\nURL: \"{{.base}}/gql\"\nHeaders:\n  Authorization: \"Bearer {{.token}}\"\n")
+	saved, err := os.ReadFile(filepath.Join(dir, "getUser.hk.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(saved), `url: "{{.base}}/gql"`) || !strings.Contains(string(saved), "{{.token}}") {
+		t.Errorf("saved request must keep the parent's url and headers:\n%s", saved)
+	}
+}

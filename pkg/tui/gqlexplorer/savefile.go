@@ -213,6 +213,9 @@ func readRawParentFields(filePath string) (rawParentFields, error) {
 			}
 		}
 	}
+	if raw.url == "" {
+		return rawParentFields{}, fmt.Errorf("%s: url must be a non-empty string", filePath)
+	}
 	return raw, nil
 }
 
