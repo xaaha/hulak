@@ -42,7 +42,7 @@ type fileInfo struct {
 	kind     string
 	url      string
 	needsEnv bool
-	splitErr error // set for a multi-document file; the other fields then describe only the first
+	splitErr error
 }
 
 // peekFileInfo decodes a YAML file's first document and extracts kind, url, and
