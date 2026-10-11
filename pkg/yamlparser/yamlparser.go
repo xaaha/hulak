@@ -137,7 +137,7 @@ func checkYamlFile(filepath string, secretsMap map[string]any) (*bytes.Buffer, e
 	}
 
 	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
+	enc := yaml.NewEncoder(&buf, yaml.JSON())
 	if err := enc.Encode(parsedMap); err != nil {
 		return nil, fmt.Errorf("encoding %s: %w", filepath, err)
 	}
