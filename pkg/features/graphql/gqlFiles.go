@@ -87,6 +87,9 @@ func stripComments(text []byte) string {
 }
 
 func scalarText(raw string) string {
+	if strings.HasPrefix(raw, "#") {
+		return ""
+	}
 	if raw != "" && (raw[0] == '"' || raw[0] == '\'') {
 		if end := strings.IndexByte(raw[1:], raw[0]); end >= 0 {
 			return raw[1 : end+1]
